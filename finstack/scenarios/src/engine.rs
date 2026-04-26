@@ -239,6 +239,23 @@ fn dedup_matches_keep_deepest(matches: Vec<HierarchyResolvedMatch>) -> Vec<Hiera
     out
 }
 
+fn expand_matches(
+    matches: Vec<HierarchyResolvedMatch>,
+    mut make: impl FnMut(CurveId) -> (HierarchyExpansionKey, OperationSpec),
+) -> Vec<HierarchyExpansion> {
+    matches
+        .into_iter()
+        .map(|m| {
+            let (key, operation) = make(m.curve_id.clone());
+            HierarchyExpansion {
+                matched_depth: m.matched_depth,
+                key,
+                operation,
+            }
+        })
+        .collect()
+}
+
 /// Expand hierarchy-targeted operations into direct-targeted operations.
 ///
 /// - `Cumulative`: All matching hierarchy operations expand independently.
@@ -280,22 +297,20 @@ fn expand_hierarchy_operations(
                 discount_curve_id,
             } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
-                let exps: Vec<HierarchyExpansion> = matches
-                    .into_iter()
-                    .map(|matched| HierarchyExpansion {
-                        matched_depth: matched.matched_depth,
-                        key: HierarchyExpansionKey::Curve {
+                let exps = expand_matches(matches, |curve_id| {
+                    (
+                        HierarchyExpansionKey::Curve {
                             curve_kind: *curve_kind,
-                            curve_id: matched.curve_id.clone(),
+                            curve_id: curve_id.clone(),
                         },
-                        operation: OperationSpec::CurveParallelBp {
+                        OperationSpec::CurveParallelBp {
                             curve_kind: *curve_kind,
-                            curve_id: matched.curve_id.as_str().to_string(),
+                            curve_id: curve_id.as_str().to_string(),
                             discount_curve_id: discount_curve_id.clone(),
                             bp: *bp,
                         },
-                    })
-                    .collect();
+                    )
+                });
                 slots.push(Slot::Expanded(exps));
             }
             OperationSpec::HierarchyVolSurfaceParallelPct {
@@ -304,55 +319,49 @@ fn expand_hierarchy_operations(
                 pct,
             } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
-                let exps: Vec<HierarchyExpansion> = matches
-                    .into_iter()
-                    .map(|matched| HierarchyExpansion {
-                        matched_depth: matched.matched_depth,
-                        key: HierarchyExpansionKey::VolSurface {
+                let exps = expand_matches(matches, |curve_id| {
+                    (
+                        HierarchyExpansionKey::VolSurface {
                             surface_kind: *surface_kind,
-                            surface_id: matched.curve_id.clone(),
+                            surface_id: curve_id.clone(),
                         },
-                        operation: OperationSpec::VolSurfaceParallelPct {
+                        OperationSpec::VolSurfaceParallelPct {
                             surface_kind: *surface_kind,
-                            surface_id: matched.curve_id.as_str().to_string(),
+                            surface_id: curve_id.as_str().to_string(),
                             pct: *pct,
                         },
-                    })
-                    .collect();
+                    )
+                });
                 slots.push(Slot::Expanded(exps));
             }
             OperationSpec::HierarchyEquityPricePct { target, pct } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
-                let exps: Vec<HierarchyExpansion> = matches
-                    .into_iter()
-                    .map(|matched| HierarchyExpansion {
-                        matched_depth: matched.matched_depth,
-                        key: HierarchyExpansionKey::EquityPrice {
-                            price_id: matched.curve_id.clone(),
+                let exps = expand_matches(matches, |curve_id| {
+                    (
+                        HierarchyExpansionKey::EquityPrice {
+                            price_id: curve_id.clone(),
                         },
-                        operation: OperationSpec::EquityPricePct {
-                            ids: vec![matched.curve_id.as_str().to_string()],
+                        OperationSpec::EquityPricePct {
+                            ids: vec![curve_id.as_str().to_string()],
                             pct: *pct,
                         },
-                    })
-                    .collect();
+                    )
+                });
                 slots.push(Slot::Expanded(exps));
             }
             OperationSpec::HierarchyBaseCorrParallelPts { target, points } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
-                let exps: Vec<HierarchyExpansion> = matches
-                    .into_iter()
-                    .map(|matched| HierarchyExpansion {
-                        matched_depth: matched.matched_depth,
-                        key: HierarchyExpansionKey::BaseCorrelation {
-                            surface_id: matched.curve_id.clone(),
+                let exps = expand_matches(matches, |curve_id| {
+                    (
+                        HierarchyExpansionKey::BaseCorrelation {
+                            surface_id: curve_id.clone(),
                         },
-                        operation: OperationSpec::BaseCorrParallelPts {
-                            surface_id: matched.curve_id.as_str().to_string(),
+                        OperationSpec::BaseCorrParallelPts {
+                            surface_id: curve_id.as_str().to_string(),
                             points: *points,
                         },
-                    })
-                    .collect();
+                    )
+                });
                 slots.push(Slot::Expanded(exps));
             }
             other => slots.push(Slot::Direct(other.clone())),
@@ -657,15 +666,13 @@ impl ScenarioEngine {
         // here is the single enforcement boundary.
         spec.validate()?;
 
-        let mut applied = 0;
-        let mut warnings = Vec::new();
-
         let user_operations = spec.operations.len();
-
-        // Phase -1: Expand hierarchy-targeted operations to direct operations
         let expanded_ops =
             expand_hierarchy_operations(&spec.operations, ctx.market, spec.resolution_mode);
         let expanded_operations = expanded_ops.len();
+
+        let mut applied = 0;
+        let mut warnings = Vec::new();
 
         // Phase 0: Time Roll Forward
         let time_roll_count = expanded_ops
@@ -702,252 +709,23 @@ impl ScenarioEngine {
             }
         }
 
-        // Initialize adapters
-        // Optimization: Use stack-allocated array of references instead of Vec<Box<dyn>>
-        // to avoid heap allocation on every call.
-        let vol_adapter = crate::adapters::vol::VolAdapter;
-        let curve_adapter = crate::adapters::curves::CurveAdapter;
-        let base_corr_adapter = crate::adapters::basecorr::BaseCorrAdapter;
-        let fx_adapter = crate::adapters::fx::FxAdapter;
-        let equity_adapter = crate::adapters::equity::EquityAdapter;
-        let instrument_adapter = crate::adapters::instruments::InstrumentAdapter;
-        let statement_adapter = crate::adapters::statements::StatementAdapter;
-        let asset_corr_adapter = crate::adapters::asset_corr::AssetCorrAdapter;
-
-        let adapters: [&dyn crate::adapters::traits::ScenarioAdapter; 8] = [
-            &vol_adapter,
-            &curve_adapter,
-            &base_corr_adapter,
-            &fx_adapter,
-            &equity_adapter,
-            &instrument_adapter,
-            &statement_adapter,
-            &asset_corr_adapter,
-        ];
-
         let has_rate_bindings = ctx.rate_bindings.is_some();
-        let mut deferred_stmts = Vec::new();
 
         // Phase 1: Market data operations & Instrument operations
-        for op in &expanded_ops {
-            if let OperationSpec::TimeRollForward { .. } = op {
-                continue; // handled in Phase 0
-            }
-
-            let mut adapter_effects = None;
-            for adapter in &adapters {
-                if let Some(effects) = adapter.try_generate_effects(op, ctx)? {
-                    adapter_effects = Some(effects);
-                    break;
-                }
-            }
-
-            if let Some(effects) = adapter_effects {
-                for effect in effects {
-                    match effect {
-                        crate::adapters::traits::ScenarioEffect::MarketBump(b) => {
-                            // Apply immediately
-                            *ctx.market = ctx.market.bump([b])?;
-                            applied += 1;
-                        }
-                        crate::adapters::traits::ScenarioEffect::Warning(w) => warnings.push(w),
-                        crate::adapters::traits::ScenarioEffect::UpdateCurve(storage) => {
-                            *ctx.market = std::mem::take(ctx.market).insert(storage);
-                            applied += 1;
-                        }
-                        crate::adapters::traits::ScenarioEffect::InstrumentPriceShock {
-                            types,
-                            attrs,
-                            pct,
-                        } => {
-                            let (c, w) = apply_instrument_shock(
-                                types.as_deref(),
-                                attrs.as_ref(),
-                                pct,
-                                "price",
-                                &mut ctx.instruments,
-                                crate::adapters::instruments::apply_instrument_type_price_shock,
-                                crate::adapters::instruments::apply_instrument_attr_price_shock,
-                            );
-                            applied += c;
-                            warnings.extend(w);
-                        }
-                        crate::adapters::traits::ScenarioEffect::InstrumentSpreadShock {
-                            types,
-                            attrs,
-                            bp,
-                        } => {
-                            let (c, w) = apply_instrument_shock(
-                                types.as_deref(),
-                                attrs.as_ref(),
-                                bp,
-                                "spread",
-                                &mut ctx.instruments,
-                                crate::adapters::instruments::apply_instrument_type_spread_shock,
-                                crate::adapters::instruments::apply_instrument_attr_spread_shock,
-                            );
-                            applied += c;
-                            warnings.extend(w);
-                        }
-                        crate::adapters::traits::ScenarioEffect::AssetCorrelationShock {
-                            delta_pts,
-                        }
-                        | crate::adapters::traits::ScenarioEffect::PrepayDefaultCorrelationShock {
-                            delta_pts,
-                        } => {
-                            let (count, ws) = apply_correlation_effect(&effect, delta_pts, ctx);
-                            applied += count;
-                            warnings.extend(ws);
-                        }
-                        crate::adapters::traits::ScenarioEffect::StmtForecastPercent { .. }
-                        | crate::adapters::traits::ScenarioEffect::StmtForecastAssign { .. }
-                        | crate::adapters::traits::ScenarioEffect::RateBinding { .. } => {
-                            // Defer statement operations
-                            deferred_stmts.push(effect);
-                        }
-                    }
-                }
-            } else {
-                // Warning: Operation not handled by any adapter
-                warnings.push(format!("Operation not supported: {:?}", op));
-            }
-        }
+        let (market_applied, market_warnings, deferred_stmts) =
+            apply_market_phase(&expanded_ops, ctx)?;
+        applied += market_applied;
+        warnings.extend(market_warnings);
 
         // Phase 2: Rate bindings update (from context configuration)
-        //
-        // A mismatch between the map key and `binding.node_id` used to be
-        // silently patched by the engine (rewriting `binding.node_id` to
-        // match the key and emitting a warning). That behaviour was
-        // footgun-y: the binding spec the caller passed was not the one
-        // applied, and any other field on the binding (curve_id, tenor,
-        // compounding) was still trusted as-is. We now fail hard so the
-        // caller fixes the mismatch upstream.
-        if let Some(bindings) = &ctx.rate_bindings {
-            for (node_id, binding) in bindings {
-                if binding.node_id != *node_id {
-                    return Err(crate::error::Error::Validation(format!(
-                        "Rate binding node_id mismatch: map key '{}' does not equal \
-                         binding.node_id '{}'. The map key is authoritative for routing; \
-                         rebuild the binding with node_id set to the map key.",
-                        node_id, binding.node_id
-                    )));
-                }
+        let binding_warnings = apply_rate_bindings_phase(ctx)?;
+        warnings.extend(binding_warnings);
 
-                match crate::adapters::statements::update_rate_from_binding(
-                    binding,
-                    ctx.model,
-                    ctx.market,
-                    ctx.calendar,
-                ) {
-                    Ok(true) => {}
-                    Ok(false) => warnings.push(format!(
-                        "Rate binding {}->{}: node has no forecast values to assign",
-                        node_id, binding.curve_id
-                    )),
-                    Err(e) => warnings.push(format!(
-                        "Rate binding {}->{}: {}",
-                        node_id, binding.curve_id, e
-                    )),
-                }
-            }
-        }
-
-        // Phase 3: Statement Operations (Deferred)
-        let mut applied_stmt_ops = 0usize;
-        for effect in deferred_stmts {
-            match effect {
-                crate::adapters::traits::ScenarioEffect::RateBinding { binding } => {
-                    // Apply dynamic rate binding
-                    if let Some(rb) = &mut ctx.rate_bindings {
-                        rb.insert(binding.node_id.clone(), binding.clone());
-                    }
-                    // Update immediately
-                    match crate::adapters::statements::update_rate_from_binding(
-                        &binding,
-                        ctx.model,
-                        ctx.market,
-                        ctx.calendar,
-                    ) {
-                        Ok(true) => {
-                            applied += 1;
-                            applied_stmt_ops += 1;
-                        }
-                        Ok(false) => {
-                            applied += 1;
-                            applied_stmt_ops += 1;
-                            warnings.push(format!(
-                                "Dynamic rate binding {}->{}: node has no forecast values to assign",
-                                binding.node_id, binding.curve_id
-                            ));
-                        }
-                        Err(e) => warnings.push(format!(
-                            "Dynamic rate binding {}->{}: {}",
-                            binding.node_id, binding.curve_id, e
-                        )),
-                    }
-                }
-                crate::adapters::traits::ScenarioEffect::StmtForecastPercent { node_id, pct } => {
-                    match crate::adapters::statements::apply_forecast_percent(
-                        ctx.model,
-                        node_id.as_str(),
-                        pct,
-                    ) {
-                        Ok(true) => {
-                            applied += 1;
-                            applied_stmt_ops += 1;
-                        }
-                        Ok(false) => {
-                            warnings.push(format!(
-                                "Statement node '{}' has no forecast values to modify",
-                                node_id,
-                            ));
-                        }
-                        Err(e) => warnings.push(format!(
-                            "Statement forecast percent for node {}: {}",
-                            node_id.as_str(),
-                            e
-                        )),
-                    }
-                }
-                crate::adapters::traits::ScenarioEffect::StmtForecastAssign { node_id, value } => {
-                    match crate::adapters::statements::apply_forecast_assign(
-                        ctx.model,
-                        node_id.as_str(),
-                        value,
-                        None,
-                    ) {
-                        Ok(true) => {
-                            applied += 1;
-                            applied_stmt_ops += 1;
-                        }
-                        Ok(false) => {
-                            warnings.push(format!(
-                                "Statement node '{}' has no forecast values to modify",
-                                node_id,
-                            ));
-                        }
-                        Err(e) => warnings.push(format!(
-                            "Statement forecast assign for node {}: {}",
-                            node_id.as_str(),
-                            e
-                        )),
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        // Phase 4: Re-evaluate statements only if statement work was performed
-        if applied_stmt_ops > 0 || has_rate_bindings {
-            match crate::adapters::statements::reevaluate_model(ctx.model) {
-                Ok(eval_warnings) => warnings.extend(
-                    eval_warnings
-                        .into_iter()
-                        .map(|w| format!("Model evaluation: {}", w)),
-                ),
-                Err(e) => warnings.push(format!("Model re-evaluation: {}", e)),
-            }
-        }
+        // Phase 3+4: Statement operations & model re-evaluation
+        let (stmt_applied, stmt_warnings) =
+            apply_statement_phase(deferred_stmts, ctx, has_rate_bindings);
+        applied += stmt_applied;
+        warnings.extend(stmt_warnings);
 
         Ok(ApplicationReport {
             operations_applied: applied,
@@ -957,6 +735,261 @@ impl ScenarioEngine {
             rounding_context: rounding_stamp(),
         })
     }
+}
+
+fn apply_market_phase(
+    expanded_ops: &[OperationSpec],
+    ctx: &mut ExecutionContext,
+) -> Result<(
+    usize,
+    Vec<String>,
+    Vec<crate::adapters::traits::ScenarioEffect>,
+)> {
+    let vol_adapter = crate::adapters::vol::VolAdapter;
+    let curve_adapter = crate::adapters::curves::CurveAdapter;
+    let base_corr_adapter = crate::adapters::basecorr::BaseCorrAdapter;
+    let fx_adapter = crate::adapters::fx::FxAdapter;
+    let equity_adapter = crate::adapters::equity::EquityAdapter;
+    let instrument_adapter = crate::adapters::instruments::InstrumentAdapter;
+    let statement_adapter = crate::adapters::statements::StatementAdapter;
+    let asset_corr_adapter = crate::adapters::asset_corr::AssetCorrAdapter;
+
+    let adapters: [&dyn crate::adapters::traits::ScenarioAdapter; 8] = [
+        &vol_adapter,
+        &curve_adapter,
+        &base_corr_adapter,
+        &fx_adapter,
+        &equity_adapter,
+        &instrument_adapter,
+        &statement_adapter,
+        &asset_corr_adapter,
+    ];
+
+    let mut applied = 0;
+    let mut warnings = Vec::new();
+    let mut deferred_stmts = Vec::new();
+
+    for op in expanded_ops {
+        if let OperationSpec::TimeRollForward { .. } = op {
+            continue;
+        }
+
+        let mut adapter_effects = None;
+        for adapter in &adapters {
+            if let Some(effects) = adapter.try_generate_effects(op, ctx)? {
+                adapter_effects = Some(effects);
+                break;
+            }
+        }
+
+        let Some(effects) = adapter_effects else {
+            warnings.push(format!("Operation not supported: {:?}", op));
+            continue;
+        };
+
+        for effect in effects {
+            match effect {
+                crate::adapters::traits::ScenarioEffect::MarketBump(b) => {
+                    *ctx.market = ctx.market.bump([b])?;
+                    applied += 1;
+                }
+                crate::adapters::traits::ScenarioEffect::Warning(w) => warnings.push(w),
+                crate::adapters::traits::ScenarioEffect::UpdateCurve(storage) => {
+                    *ctx.market = std::mem::take(ctx.market).insert(storage);
+                    applied += 1;
+                }
+                crate::adapters::traits::ScenarioEffect::InstrumentPriceShock {
+                    types,
+                    attrs,
+                    pct,
+                } => {
+                    let (c, w) = apply_instrument_shock(
+                        types.as_deref(),
+                        attrs.as_ref(),
+                        pct,
+                        "price",
+                        &mut ctx.instruments,
+                        crate::adapters::instruments::apply_instrument_type_price_shock,
+                        crate::adapters::instruments::apply_instrument_attr_price_shock,
+                    );
+                    applied += c;
+                    warnings.extend(w);
+                }
+                crate::adapters::traits::ScenarioEffect::InstrumentSpreadShock {
+                    types,
+                    attrs,
+                    bp,
+                } => {
+                    let (c, w) = apply_instrument_shock(
+                        types.as_deref(),
+                        attrs.as_ref(),
+                        bp,
+                        "spread",
+                        &mut ctx.instruments,
+                        crate::adapters::instruments::apply_instrument_type_spread_shock,
+                        crate::adapters::instruments::apply_instrument_attr_spread_shock,
+                    );
+                    applied += c;
+                    warnings.extend(w);
+                }
+                crate::adapters::traits::ScenarioEffect::AssetCorrelationShock { delta_pts }
+                | crate::adapters::traits::ScenarioEffect::PrepayDefaultCorrelationShock {
+                    delta_pts,
+                } => {
+                    let (count, ws) = apply_correlation_effect(&effect, delta_pts, ctx);
+                    applied += count;
+                    warnings.extend(ws);
+                }
+                crate::adapters::traits::ScenarioEffect::StmtForecastPercent { .. }
+                | crate::adapters::traits::ScenarioEffect::StmtForecastAssign { .. }
+                | crate::adapters::traits::ScenarioEffect::RateBinding { .. } => {
+                    deferred_stmts.push(effect);
+                }
+            }
+        }
+    }
+
+    Ok((applied, warnings, deferred_stmts))
+}
+
+/// Apply static rate bindings from the execution context after market shocks.
+///
+/// A mismatch between the map key and `binding.node_id` used to be silently
+/// patched by the engine. We now fail hard so the caller fixes the mismatch
+/// upstream.
+fn apply_rate_bindings_phase(ctx: &mut ExecutionContext) -> Result<Vec<String>> {
+    let mut warnings = Vec::new();
+    let Some(bindings) = &ctx.rate_bindings else {
+        return Ok(warnings);
+    };
+    for (node_id, binding) in bindings {
+        if binding.node_id != *node_id {
+            return Err(crate::error::Error::Validation(format!(
+                "Rate binding node_id mismatch: map key '{}' does not equal \
+                 binding.node_id '{}'. The map key is authoritative for routing; \
+                 rebuild the binding with node_id set to the map key.",
+                node_id, binding.node_id
+            )));
+        }
+
+        match crate::adapters::statements::update_rate_from_binding(
+            binding,
+            ctx.model,
+            ctx.market,
+            ctx.calendar,
+        ) {
+            Ok(true) => {}
+            Ok(false) => warnings.push(format!(
+                "Rate binding {}->{}: node has no forecast values to assign",
+                node_id, binding.curve_id
+            )),
+            Err(e) => warnings.push(format!(
+                "Rate binding {}->{}: {}",
+                node_id, binding.curve_id, e
+            )),
+        }
+    }
+    Ok(warnings)
+}
+
+fn apply_statement_phase(
+    deferred_stmts: Vec<crate::adapters::traits::ScenarioEffect>,
+    ctx: &mut ExecutionContext,
+    has_rate_bindings: bool,
+) -> (usize, Vec<String>) {
+    let mut applied = 0;
+    let mut warnings = Vec::new();
+    let mut stmt_ops = 0usize;
+
+    for effect in deferred_stmts {
+        match effect {
+            crate::adapters::traits::ScenarioEffect::RateBinding { binding } => {
+                if let Some(rb) = &mut ctx.rate_bindings {
+                    rb.insert(binding.node_id.clone(), binding.clone());
+                }
+                match crate::adapters::statements::update_rate_from_binding(
+                    &binding,
+                    ctx.model,
+                    ctx.market,
+                    ctx.calendar,
+                ) {
+                    Ok(true) => {
+                        applied += 1;
+                        stmt_ops += 1;
+                    }
+                    Ok(false) => {
+                        applied += 1;
+                        stmt_ops += 1;
+                        warnings.push(format!(
+                            "Dynamic rate binding {}->{}: node has no forecast values to assign",
+                            binding.node_id, binding.curve_id
+                        ));
+                    }
+                    Err(e) => warnings.push(format!(
+                        "Dynamic rate binding {}->{}: {}",
+                        binding.node_id, binding.curve_id, e
+                    )),
+                }
+            }
+            crate::adapters::traits::ScenarioEffect::StmtForecastPercent { node_id, pct } => {
+                match crate::adapters::statements::apply_forecast_percent(
+                    ctx.model,
+                    node_id.as_str(),
+                    pct,
+                ) {
+                    Ok(true) => {
+                        applied += 1;
+                        stmt_ops += 1;
+                    }
+                    Ok(false) => warnings.push(format!(
+                        "Statement node '{}' has no forecast values to modify",
+                        node_id,
+                    )),
+                    Err(e) => warnings.push(format!(
+                        "Statement forecast percent for node {}: {}",
+                        node_id.as_str(),
+                        e
+                    )),
+                }
+            }
+            crate::adapters::traits::ScenarioEffect::StmtForecastAssign { node_id, value } => {
+                match crate::adapters::statements::apply_forecast_assign(
+                    ctx.model,
+                    node_id.as_str(),
+                    value,
+                    None,
+                ) {
+                    Ok(true) => {
+                        applied += 1;
+                        stmt_ops += 1;
+                    }
+                    Ok(false) => warnings.push(format!(
+                        "Statement node '{}' has no forecast values to modify",
+                        node_id,
+                    )),
+                    Err(e) => warnings.push(format!(
+                        "Statement forecast assign for node {}: {}",
+                        node_id.as_str(),
+                        e
+                    )),
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if stmt_ops > 0 || has_rate_bindings {
+        match crate::adapters::statements::reevaluate_model(ctx.model) {
+            Ok(eval_warnings) => warnings.extend(
+                eval_warnings
+                    .into_iter()
+                    .map(|w| format!("Model evaluation: {}", w)),
+            ),
+            Err(e) => warnings.push(format!("Model re-evaluation: {}", e)),
+        }
+    }
+
+    (applied, warnings)
 }
 
 /// Function that applies an instrument shock filtered by instrument type.

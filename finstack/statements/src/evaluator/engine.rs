@@ -28,6 +28,8 @@ pub struct PreparedEvaluation {
     eval_order: Vec<NodeId>,
     /// Map from node id to its column index in the evaluation order.
     node_to_column: std::sync::Arc<IndexMap<NodeId, usize>>,
+    /// Dependency graph retained for downstream consumers such as capital structure affected-node computation.
+    dag: DependencyGraph,
 }
 
 /// Evaluator for financial models.
@@ -147,26 +149,7 @@ impl Evaluator {
         #[cfg(not(target_arch = "wasm32"))]
         let start = Instant::now();
 
-        self.compiled_cache = std::sync::Arc::new(IndexMap::new());
-        self.forecast_cache.clear();
-
-        // Build dependency graph and check for cycles
-        let dag = DependencyGraph::from_model(model)?;
-        dag.detect_cycles()?;
-
-        // Compute evaluation order
-        let eval_order = evaluate_order(&dag)?;
-
-        // Compile all formulas upfront
-        self.compile_formulas(model)?;
-
-        let node_to_column: std::sync::Arc<IndexMap<NodeId, usize>> = std::sync::Arc::new(
-            eval_order
-                .iter()
-                .enumerate()
-                .map(|(i, node_id)| (node_id.clone(), i))
-                .collect(),
-        );
+        let prepared = self.init_eval_plan(model)?;
 
         let cs_seed_nodes: HashSet<NodeId> = model
             .nodes
@@ -188,7 +171,7 @@ impl Evaluator {
             })
             .collect();
 
-        let cs_affected_nodes = dependent_closure(&dag, &cs_seed_nodes);
+        let cs_affected_nodes = dependent_closure(&prepared.dag, &cs_seed_nodes);
 
         // Initialize capital structure state for dynamic evaluation
         let mut cs_state = if let (Some(_market_ctx), Some(_as_of)) = (market_ctx, as_of) {
@@ -252,8 +235,8 @@ impl Evaluator {
                         period,
                         is_actual_for_eval,
                         explicit_values_visible,
-                        &eval_order,
-                        &node_to_column,
+                        &prepared.eval_order,
+                        &prepared.node_to_column,
                         &historical,
                         &historical_cs,
                         market_ctx,
@@ -273,8 +256,8 @@ impl Evaluator {
                         &period.id,
                         is_actual_for_eval,
                         explicit_values_visible,
-                        &eval_order,
-                        &node_to_column,
+                        &prepared.eval_order,
+                        &prepared.node_to_column,
                         &historical,
                         &historical_cs,
                     )?
@@ -294,32 +277,7 @@ impl Evaluator {
             // Add to historical context for next period (move, not clone)
             std::sync::Arc::make_mut(&mut historical).insert(period.id, period_results);
             if has_cs {
-                // Store only the current period's CS snapshot (not the full accumulator)
-                // to avoid O(P²×I) memory growth. Historical lookups iterate by period key.
-                let mut period_snapshot =
-                    crate::capital_structure::CapitalStructureCashflows::new();
-                for (inst_id, period_map) in &cs_cashflows_accum.by_instrument {
-                    if let Some(breakdown) = period_map.get(&period.id) {
-                        period_snapshot
-                            .by_instrument
-                            .entry(inst_id.clone())
-                            .or_default()
-                            .insert(period.id, breakdown.clone());
-                    }
-                }
-                if let Some(breakdown) = cs_cashflows_accum.totals.get(&period.id) {
-                    period_snapshot.totals.insert(period.id, breakdown.clone());
-                }
-                for (currency, period_map) in &cs_cashflows_accum.totals_by_currency {
-                    if let Some(breakdown) = period_map.get(&period.id) {
-                        period_snapshot
-                            .totals_by_currency
-                            .entry(*currency)
-                            .or_default()
-                            .insert(period.id, breakdown.clone());
-                    }
-                }
-                period_snapshot.reporting_currency = cs_cashflows_accum.reporting_currency;
+                let period_snapshot = build_cs_period_snapshot(&cs_cashflows_accum, period.id);
                 std::sync::Arc::make_mut(&mut historical_cs).insert(period.id, period_snapshot);
             }
 
@@ -334,26 +292,22 @@ impl Evaluator {
             results.cs_cashflows = Some(cs_cashflows_accum);
         }
 
-        // Infer and populate node value types from model
-        results.populate_value_types(model)?;
-
-        // Set metadata
-        results.meta = ResultsMeta {
-            #[cfg(not(target_arch = "wasm32"))]
-            eval_time_ms: Some(start.elapsed().as_millis() as u64),
-            #[cfg(target_arch = "wasm32")]
-            eval_time_ms: None,
-            num_nodes: model.nodes.len(),
-            num_periods: model.periods.len(),
-            numeric_mode: crate::evaluator::NumericMode::Float64,
-            rounding_context: None,
-            parallel: false,
-            warnings: all_warnings,
-        };
-
-        if let Some(suite) = &self.check_suite {
-            results.check_report = Some(suite.run(model, &results)?);
-        }
+        self.finalize_results(
+            &mut results,
+            model,
+            ResultsMeta {
+                #[cfg(not(target_arch = "wasm32"))]
+                eval_time_ms: Some(start.elapsed().as_millis() as u64),
+                #[cfg(target_arch = "wasm32")]
+                eval_time_ms: None,
+                num_nodes: model.nodes.len(),
+                num_periods: model.periods.len(),
+                numeric_mode: crate::evaluator::NumericMode::Float64,
+                rounding_context: None,
+                parallel: false,
+                warnings: all_warnings,
+            },
+        )?;
 
         Ok(results)
     }
@@ -382,26 +336,7 @@ impl Evaluator {
     /// goal seek, or any workflow that re-evaluates the same model with different
     /// input values.
     pub fn prepare(&mut self, model: &FinancialModelSpec) -> Result<PreparedEvaluation> {
-        self.compiled_cache = std::sync::Arc::new(IndexMap::new());
-        self.forecast_cache.clear();
-
-        let dag = DependencyGraph::from_model(model)?;
-        dag.detect_cycles()?;
-        let eval_order = evaluate_order(&dag)?;
-        self.compile_formulas(model)?;
-
-        let node_to_column: std::sync::Arc<IndexMap<NodeId, usize>> = std::sync::Arc::new(
-            eval_order
-                .iter()
-                .enumerate()
-                .map(|(i, node_id)| (node_id.clone(), i))
-                .collect(),
-        );
-
-        Ok(PreparedEvaluation {
-            eval_order,
-            node_to_column,
-        })
+        self.init_eval_plan(model)
     }
 
     /// Evaluate a model reusing previously compiled formulas and evaluation order.
@@ -447,20 +382,19 @@ impl Evaluator {
             std::sync::Arc::make_mut(&mut historical).insert(period.id, period_results);
         }
 
-        results.populate_value_types(model)?;
-        results.meta = ResultsMeta {
-            eval_time_ms: None,
-            num_nodes: model.nodes.len(),
-            num_periods: model.periods.len(),
-            numeric_mode: crate::evaluator::NumericMode::Float64,
-            rounding_context: None,
-            parallel: false,
-            warnings: all_warnings,
-        };
-
-        if let Some(suite) = &self.check_suite {
-            results.check_report = Some(suite.run(model, &results)?);
-        }
+        self.finalize_results(
+            &mut results,
+            model,
+            ResultsMeta {
+                eval_time_ms: None,
+                num_nodes: model.nodes.len(),
+                num_periods: model.periods.len(),
+                numeric_mode: crate::evaluator::NumericMode::Float64,
+                rounding_context: None,
+                parallel: false,
+                warnings: all_warnings,
+            },
+        )?;
 
         Ok(results)
     }
@@ -500,22 +434,7 @@ impl Evaluator {
             ));
         }
 
-        // Build dependency graph and evaluation order once.
-        let dag = DependencyGraph::from_model(model)?;
-        dag.detect_cycles()?;
-        let eval_order = evaluate_order(&dag)?;
-
-        self.compiled_cache = std::sync::Arc::new(IndexMap::new());
-        self.forecast_cache.clear();
-        self.compile_formulas(model)?;
-
-        let node_to_column: std::sync::Arc<IndexMap<NodeId, usize>> = std::sync::Arc::new(
-            eval_order
-                .iter()
-                .enumerate()
-                .map(|(i, node_id)| (node_id.clone(), i))
-                .collect(),
-        );
+        let prepared = self.init_eval_plan(model)?;
 
         // Run paths — parallel when the `parallel` feature is enabled.
         let run_single_path = |path_idx: usize| -> Result<PathResult> {
@@ -536,8 +455,8 @@ impl Evaluator {
                     model,
                     &period.id,
                     period.is_actual,
-                    &eval_order,
-                    &node_to_column,
+                    &prepared.eval_order,
+                    &prepared.node_to_column,
                     &historical,
                     seed_offset,
                     &mut mc_z_cache,
@@ -577,24 +496,52 @@ impl Evaluator {
         accumulator.finish()
     }
 
+    /// Reset caches, build the dependency graph, compile formulas, and derive
+    /// the topological evaluation order. Shared by [`evaluate_inner`](Self::evaluate_inner),
+    /// [`prepare`](Self::prepare), and [`evaluate_monte_carlo`](Self::evaluate_monte_carlo).
+    fn init_eval_plan(&mut self, model: &FinancialModelSpec) -> Result<PreparedEvaluation> {
+        self.compiled_cache = std::sync::Arc::new(IndexMap::new());
+        self.forecast_cache.clear();
+        let dag = DependencyGraph::from_model(model)?;
+        dag.detect_cycles()?;
+        let eval_order = evaluate_order(&dag)?;
+        self.compile_formulas(model)?;
+        let node_to_column = std::sync::Arc::new(
+            eval_order
+                .iter()
+                .enumerate()
+                .map(|(i, node_id)| (node_id.clone(), i))
+                .collect(),
+        );
+        Ok(PreparedEvaluation {
+            eval_order,
+            node_to_column,
+            dag,
+        })
+    }
+
+    /// Populate value types, set metadata, and run the optional check suite.
+    fn finalize_results(
+        &self,
+        results: &mut StatementResult,
+        model: &FinancialModelSpec,
+        meta: ResultsMeta,
+    ) -> Result<()> {
+        results.populate_value_types(model)?;
+        results.meta = meta;
+        if let Some(suite) = &self.check_suite {
+            results.check_report = Some(suite.run(model, results)?);
+        }
+        Ok(())
+    }
+
     /// Compile all formulas in the model.
     fn compile_formulas(&mut self, model: &FinancialModelSpec) -> Result<()> {
         let cache = std::sync::Arc::make_mut(&mut self.compiled_cache);
         for (node_id, node_spec) in &model.nodes {
-            if let Some(formula_text) = &node_spec.formula_text {
-                if !cache.contains_key(node_id) {
-                    let expr = dsl::parse_and_compile(formula_text)?;
-                    cache.insert(node_id.clone(), expr);
-                }
-            }
-
-            if let Some(where_text) = &node_spec.where_text {
-                let where_key = NodeId::new(format!("__where__{}", node_id));
-                if !cache.contains_key(&where_key) {
-                    let expr = dsl::parse_and_compile(where_text)?;
-                    cache.insert(where_key, expr);
-                }
-            }
+            compile_text_into_cache(cache, node_id.clone(), &node_spec.formula_text)?;
+            let where_key = NodeId::new(format!("__where__{}", node_id));
+            compile_text_into_cache(cache, where_key, &node_spec.where_text)?;
         }
         Ok(())
     }
@@ -763,6 +710,54 @@ impl Default for Evaluator {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Build a per-period snapshot of `accum` containing only the entries for `period_id`.
+///
+/// Called after each period in `evaluate_inner` to populate `historical_cs` without
+/// carrying O(P²×I) data — only the current period's slice is stored per historical entry.
+fn build_cs_period_snapshot(
+    accum: &crate::capital_structure::CapitalStructureCashflows,
+    period_id: PeriodId,
+) -> crate::capital_structure::CapitalStructureCashflows {
+    let mut snapshot = crate::capital_structure::CapitalStructureCashflows::new();
+    for (inst_id, period_map) in &accum.by_instrument {
+        if let Some(breakdown) = period_map.get(&period_id) {
+            snapshot
+                .by_instrument
+                .entry(inst_id.clone())
+                .or_default()
+                .insert(period_id, breakdown.clone());
+        }
+    }
+    if let Some(breakdown) = accum.totals.get(&period_id) {
+        snapshot.totals.insert(period_id, breakdown.clone());
+    }
+    for (currency, period_map) in &accum.totals_by_currency {
+        if let Some(breakdown) = period_map.get(&period_id) {
+            snapshot
+                .totals_by_currency
+                .entry(*currency)
+                .or_default()
+                .insert(period_id, breakdown.clone());
+        }
+    }
+    snapshot.reporting_currency = accum.reporting_currency;
+    snapshot
+}
+
+fn compile_text_into_cache(
+    cache: &mut IndexMap<NodeId, Expr>,
+    key: NodeId,
+    text: &Option<String>,
+) -> Result<()> {
+    if let Some(t) = text {
+        if !cache.contains_key(&key) {
+            let expr = dsl::parse_and_compile(t)?;
+            cache.insert(key, expr);
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

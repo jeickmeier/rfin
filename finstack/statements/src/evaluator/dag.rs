@@ -303,30 +303,23 @@ fn suggest_similar_identifiers(typo: &str, valid: &IndexSet<NodeId>) -> String {
 
 /// Calculate Levenshtein distance between two strings.
 fn levenshtein_distance(s1: &str, s2: &str) -> usize {
-    let len1 = s1.chars().count();
-    let len2 = s2.chars().count();
-    let mut matrix = vec![vec![0; len2 + 1]; len1 + 1];
-
-    for (i, row) in matrix.iter_mut().enumerate().take(len1 + 1) {
-        row[0] = i;
-    }
-    for (j, cell) in matrix[0].iter_mut().enumerate().take(len2 + 1) {
-        *cell = j;
-    }
-
     let s1_chars: Vec<char> = s1.chars().collect();
     let s2_chars: Vec<char> = s2.chars().collect();
+    let m = s2_chars.len();
+
+    let mut prev: Vec<usize> = (0..=m).collect();
+    let mut curr: Vec<usize> = vec![0; m + 1];
 
     for (i, c1) in s1_chars.iter().enumerate() {
+        curr[0] = i + 1;
         for (j, c2) in s2_chars.iter().enumerate() {
             let cost = if c1 == c2 { 0 } else { 1 };
-            matrix[i + 1][j + 1] = (matrix[i][j + 1] + 1) // deletion
-                .min(matrix[i + 1][j] + 1) // insertion
-                .min(matrix[i][j] + cost); // substitution
+            curr[j + 1] = (prev[j + 1] + 1).min(curr[j] + 1).min(prev[j] + cost);
         }
+        std::mem::swap(&mut prev, &mut curr);
     }
 
-    matrix[len1][len2]
+    prev[m]
 }
 
 #[cfg(test)]
@@ -456,6 +449,27 @@ mod tests {
             .position(|n| n == "b")
             .expect("node b should exist");
         assert!(a_pos < b_pos);
+    }
+
+    #[test]
+    fn test_levenshtein_distance() {
+        assert_eq!(levenshtein_distance("", ""), 0);
+        assert_eq!(levenshtein_distance("abc", "abc"), 0);
+        assert_eq!(levenshtein_distance("abc", ""), 3);
+        assert_eq!(levenshtein_distance("", "abc"), 3);
+        assert_eq!(levenshtein_distance("kitten", "sitting"), 3);
+        assert_eq!(levenshtein_distance("revenue", "revnue"), 1);
+    }
+
+    #[test]
+    fn test_levenshtein_stress() {
+        let long_a: String = "a".repeat(200);
+        let long_b: String = "b".repeat(200);
+        let dist = levenshtein_distance(&long_a, &long_b);
+        assert_eq!(dist, 200);
+
+        let same: String = "x".repeat(200);
+        assert_eq!(levenshtein_distance(&same, &same), 0);
     }
 
     #[test]

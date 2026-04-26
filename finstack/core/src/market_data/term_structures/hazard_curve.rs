@@ -1077,22 +1077,22 @@ impl core::fmt::Display for Seniority {
     }
 }
 
+impl crate::parse::NormalizedEnum for Seniority {
+    const VARIANTS: &'static [(&'static str, Self)] = &[
+        ("senior_secured", Self::SeniorSecured),
+        ("senior", Self::Senior),
+        ("subordinated", Self::Subordinated),
+        ("sub", Self::Subordinated),
+        ("junior", Self::Junior),
+    ];
+}
+
 impl core::str::FromStr for Seniority {
     type Err = crate::error::Error;
 
     fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
-        /// Normalize a label: trim, lowercase, replace `-`/`/`/` ` with `_`.
-        fn normalize_label(s: &str) -> String {
-            s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_")
-        }
-
-        match normalize_label(s).as_str() {
-            "senior_secured" => Ok(Seniority::SeniorSecured),
-            "senior" => Ok(Seniority::Senior),
-            "subordinated" | "sub" => Ok(Seniority::Subordinated),
-            "junior" => Ok(Seniority::Junior),
-            _ => Err(crate::error::InputError::Invalid.into()),
-        }
+        crate::parse::parse_normalized_enum(s)
+            .map_err(|_| crate::error::InputError::Invalid.into())
     }
 }
 

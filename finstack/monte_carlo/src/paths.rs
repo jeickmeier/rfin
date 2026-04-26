@@ -289,19 +289,23 @@ impl SimulatedPath {
         self.points.last()
     }
 
+    fn extract_cf<T, F>(&self, f: F) -> Vec<T>
+    where
+        F: Fn(&(f64, f64, CashflowType)) -> T,
+    {
+        self.points
+            .iter()
+            .flat_map(|p| p.cashflows.iter())
+            .map(f)
+            .collect()
+    }
+
     /// Extract all cashflows from the path.
     ///
     /// Returns all `(time, amount)` pairs in path order using the same sign
     /// convention as [`PathPoint::cashflows`].
     pub fn extract_cashflows(&self) -> Vec<(f64, f64)> {
-        let cap: usize = self.points.iter().map(|p| p.cashflows.len()).sum();
-        let mut all_cashflows = Vec::with_capacity(cap);
-        for point in &self.points {
-            for (time, amount, _) in &point.cashflows {
-                all_cashflows.push((*time, *amount));
-            }
-        }
-        all_cashflows
+        self.extract_cf(|&(t, a, _)| (t, a))
     }
 
     /// Extract cashflow amounts in path order.
@@ -309,36 +313,26 @@ impl SimulatedPath {
     /// This is primarily used for IRR-style calculations that only need the
     /// amount series and not the timestamps.
     pub fn extract_cashflow_amounts(&self) -> Vec<f64> {
-        let cap: usize = self.points.iter().map(|p| p.cashflows.len()).sum();
-        let mut amounts = Vec::with_capacity(cap);
-        for point in &self.points {
-            for (_, amount, _) in &point.cashflows {
-                amounts.push(*amount);
-            }
-        }
-        amounts
+        self.extract_cf(|&(_, a, _)| a)
     }
 
     /// Extract typed cashflows from the path.
     ///
     /// Returns all (time, amount, type) tuples across all timesteps.
     pub fn extract_typed_cashflows(&self) -> Vec<(f64, f64, CashflowType)> {
-        let mut all_cashflows = Vec::new();
-        for point in &self.points {
-            all_cashflows.extend_from_slice(&point.cashflows);
-        }
-        all_cashflows
+        self.extract_cf(|cf| *cf)
     }
 
     /// Extract cashflows by type.
     ///
     /// Returns all (time, amount) pairs for cashflows of the specified type.
     pub fn extract_cashflows_by_type(&self, cf_type: CashflowType) -> Vec<(f64, f64)> {
-        let mut all_cashflows = Vec::new();
-        for point in &self.points {
-            all_cashflows.extend(point.get_cashflows_by_type(cf_type));
-        }
-        all_cashflows
+        self.points
+            .iter()
+            .flat_map(|p| p.cashflows.iter())
+            .filter(|(_, _, t)| *t == cf_type)
+            .map(|&(t, a, _)| (t, a))
+            .collect()
     }
 }
 

@@ -13,6 +13,19 @@ fn lower_bound(dates: &[Date], target: Date) -> usize {
     dates.partition_point(|&d| d < target)
 }
 
+/// Shared range builder: `[period_start - offset_days, ref_date]` inclusive.
+fn select_range(
+    dates: &[Date],
+    period_start: Date,
+    ref_date: Date,
+    offset_days: i64,
+) -> Range<usize> {
+    let adj_start = period_start - Duration::days(offset_days);
+    let lo = lower_bound(dates, adj_start);
+    let hi = lower_bound(dates, ref_date + Duration::days(1));
+    lo..hi
+}
+
 /// Month-to-date index range: from the first calendar day of `ref_date`'s
 /// month through `ref_date` (inclusive).
 ///
@@ -47,10 +60,7 @@ fn lower_bound(dates: &[Date], target: Date) -> usize {
 pub fn mtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usize> {
     let month_start = ref_date.end_of_month();
     let month_start = month_start.replace_day(1).unwrap_or(month_start);
-    let adj_start = month_start - Duration::days(offset_days);
-    let lo = lower_bound(dates, adj_start);
-    let hi = lower_bound(dates, ref_date + Duration::days(1));
-    lo..hi
+    select_range(dates, month_start, ref_date, offset_days)
 }
 
 /// Quarter-to-date index range: from the first calendar day of `ref_date`'s
@@ -94,10 +104,7 @@ pub fn qtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
         1,
     )
     .unwrap_or(ref_date);
-    let adj_start = qtr_start - Duration::days(offset_days);
-    let lo = lower_bound(dates, adj_start);
-    let hi = lower_bound(dates, ref_date + Duration::days(1));
-    lo..hi
+    select_range(dates, qtr_start, ref_date, offset_days)
 }
 
 /// Year-to-date index range: from January 1 of `ref_date`'s calendar year
@@ -130,10 +137,7 @@ pub fn qtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
 pub fn ytd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usize> {
     let (year, _month, _day) = ref_date.to_calendar_date();
     let year_start = crate::dates::create_date(year, Month::January, 1).unwrap_or(ref_date);
-    let adj_start = year_start - Duration::days(offset_days);
-    let lo = lower_bound(dates, adj_start);
-    let hi = lower_bound(dates, ref_date + Duration::days(1));
-    lo..hi
+    select_range(dates, year_start, ref_date, offset_days)
 }
 
 /// Fiscal-year-to-date index range: from the start of the fiscal year
@@ -190,10 +194,7 @@ pub fn fytd_select(
     let fy_start =
         crate::dates::create_date(calendar_year, fy_start_month, fiscal_config.start_day)
             .unwrap_or(ref_date);
-    let adj_start = fy_start - Duration::days(offset_days);
-    let lo = lower_bound(dates, adj_start);
-    let hi = lower_bound(dates, ref_date + Duration::days(1));
-    lo..hi
+    select_range(dates, fy_start, ref_date, offset_days)
 }
 
 #[cfg(test)]

@@ -341,7 +341,7 @@ where
         let as_of = context.as_of;
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.metric_overrides.as_ref(),
+            context.get_metric_overrides(),
         )?;
 
         // Get equity dependencies
@@ -437,7 +437,7 @@ where
         let as_of = context.as_of;
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.metric_overrides.as_ref(),
+            context.get_metric_overrides(),
         )?;
 
         // Get equity dependencies
@@ -535,7 +535,7 @@ where
         let as_of = context.as_of;
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.metric_overrides.as_ref(),
+            context.get_metric_overrides(),
         )?;
 
         // Get equity dependencies
@@ -621,7 +621,7 @@ where
         let as_of = context.as_of;
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.metric_overrides.as_ref(),
+            context.get_metric_overrides(),
         )?;
 
         // Get equity dependencies
@@ -716,7 +716,7 @@ where
         let as_of = context.as_of;
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.metric_overrides.as_ref(),
+            context.get_metric_overrides(),
         )?;
 
         // If expired, vanna is zero (avoid bumping / repricing beyond expiry).

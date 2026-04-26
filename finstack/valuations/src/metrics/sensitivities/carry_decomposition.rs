@@ -25,8 +25,7 @@ impl Default for CarryDecompositionCalculator {
 impl MetricCalculator for CarryDecompositionCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let period_str = context
-            .metric_overrides
-            .as_ref()
+            .get_metric_overrides()
             .and_then(|po| po.theta_period.as_deref())
             .unwrap_or("1D");
 

@@ -98,11 +98,10 @@ pub fn compare_garch_models(
     dist: InnovationDist,
     config: Option<&FitConfig>,
 ) -> crate::Result<Vec<GarchFit>> {
-    let models: Vec<Box<dyn GarchModel>> =
-        vec![Box::new(Garch11), Box::new(Egarch11), Box::new(GjrGarch11)];
+    let models: [&dyn GarchModel; 3] = [&Garch11, &Egarch11, &GjrGarch11];
 
     let mut results: Vec<GarchFit> = Vec::new();
-    for model in &models {
+    for model in models {
         match model.fit(returns, dist, config) {
             Ok(fit) => results.push(fit),
             Err(_) => continue,

@@ -124,16 +124,22 @@ impl fmt::Display for UnmatchedPolicy {
     }
 }
 
+impl crate::parse::NormalizedEnum for UnmatchedPolicy {
+    const VARIANTS: &'static [(&'static str, Self)] = &[
+        ("strict", Self::Strict),
+        ("error", Self::Strict),
+        ("residual", Self::Residual),
+        ("warn", Self::Warn),
+        ("ignore", Self::Warn),
+    ];
+}
+
 impl FromStr for UnmatchedPolicy {
     type Err = crate::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match crate::parse::normalize_label(s).as_str() {
-            "strict" | "error" => Ok(Self::Strict),
-            "residual" => Ok(Self::Residual),
-            "warn" | "ignore" => Ok(Self::Warn),
-            _ => Err(crate::error::InputError::Invalid.into()),
-        }
+        crate::parse::parse_normalized_enum(s)
+            .map_err(|_| crate::error::InputError::Invalid.into())
     }
 }
 

@@ -360,8 +360,7 @@ impl Default for GenericThetaDecomposed {
 impl crate::metrics::MetricCalculator for GenericThetaDecomposed {
     fn calculate(&self, context: &mut crate::metrics::MetricContext) -> Result<f64> {
         let period_str = context
-            .metric_overrides
-            .as_ref()
+            .get_metric_overrides()
             .and_then(|po| po.theta_period.as_deref())
             .unwrap_or("1D");
 
@@ -465,8 +464,7 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
     fn calculate(&self, context: &mut crate::metrics::MetricContext) -> Result<f64> {
         // Get theta period from pricing overrides, default to "1D"
         let period_str = context
-            .metric_overrides
-            .as_ref()
+            .get_metric_overrides()
             .and_then(|po| po.theta_period.as_deref())
             .unwrap_or("1D");
 

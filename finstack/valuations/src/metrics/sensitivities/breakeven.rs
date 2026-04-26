@@ -81,8 +81,7 @@ pub(crate) struct BreakevenCalculator;
 impl MetricCalculator for BreakevenCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let config = context
-            .metric_overrides
-            .as_ref()
+            .get_metric_overrides()
             .and_then(|o| o.breakeven_config)
             .ok_or_else(|| finstack_core::InputError::NotFound {
                 id: "breakeven_config: set BreakevenConfig on MetricPricingOverrides".into(),
@@ -187,8 +186,7 @@ fn iterative_breakeven(
 ) -> Result<f64> {
     // Determine the horizon date (same convention as carry decomposition).
     let period_str = context
-        .metric_overrides
-        .as_ref()
+        .get_metric_overrides()
         .and_then(|o| o.theta_period.as_deref())
         .unwrap_or("1D");
     let expiry_date = context.instrument.expiry();

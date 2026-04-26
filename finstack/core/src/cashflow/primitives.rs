@@ -253,38 +253,42 @@ impl std::fmt::Display for CFKind {
     }
 }
 
+impl crate::parse::NormalizedEnum for CFKind {
+    const VARIANTS: &'static [(&'static str, Self)] = &[
+        ("fixed", Self::Fixed),
+        ("float_reset", Self::FloatReset),
+        ("inflation_coupon", Self::InflationCoupon),
+        ("fee", Self::Fee),
+        ("commitment_fee", Self::CommitmentFee),
+        ("usage_fee", Self::UsageFee),
+        ("facility_fee", Self::FacilityFee),
+        ("notional", Self::Notional),
+        ("pik", Self::PIK),
+        ("amortization", Self::Amortization),
+        ("amort", Self::Amortization),
+        ("prepayment", Self::PrePayment),
+        ("pre_payment", Self::PrePayment),
+        ("revolving_draw", Self::RevolvingDraw),
+        ("revolving_repayment", Self::RevolvingRepayment),
+        ("defaulted_notional", Self::DefaultedNotional),
+        ("recovery", Self::Recovery),
+        ("accrued_on_default", Self::AccruedOnDefault),
+        ("stub", Self::Stub),
+        ("initial_margin_post", Self::InitialMarginPost),
+        ("initial_margin_return", Self::InitialMarginReturn),
+        ("variation_margin_receive", Self::VariationMarginReceive),
+        ("variation_margin_pay", Self::VariationMarginPay),
+        ("margin_interest", Self::MarginInterest),
+        ("collateral_substitution_in", Self::CollateralSubstitutionIn),
+        ("collateral_substitution_out", Self::CollateralSubstitutionOut),
+    ];
+}
+
 impl std::str::FromStr for CFKind {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let n = crate::parse::normalize_label(s);
-        match n.as_str() {
-            "fixed" => Ok(CFKind::Fixed),
-            "float_reset" => Ok(CFKind::FloatReset),
-            "inflation_coupon" => Ok(CFKind::InflationCoupon),
-            "fee" => Ok(CFKind::Fee),
-            "commitment_fee" => Ok(CFKind::CommitmentFee),
-            "usage_fee" => Ok(CFKind::UsageFee),
-            "facility_fee" => Ok(CFKind::FacilityFee),
-            "notional" => Ok(CFKind::Notional),
-            "pik" => Ok(CFKind::PIK),
-            "amortization" | "amort" => Ok(CFKind::Amortization),
-            "prepayment" | "pre_payment" => Ok(CFKind::PrePayment),
-            "revolving_draw" => Ok(CFKind::RevolvingDraw),
-            "revolving_repayment" => Ok(CFKind::RevolvingRepayment),
-            "defaulted_notional" => Ok(CFKind::DefaultedNotional),
-            "recovery" => Ok(CFKind::Recovery),
-            "accrued_on_default" => Ok(CFKind::AccruedOnDefault),
-            "stub" => Ok(CFKind::Stub),
-            "initial_margin_post" => Ok(CFKind::InitialMarginPost),
-            "initial_margin_return" => Ok(CFKind::InitialMarginReturn),
-            "variation_margin_receive" => Ok(CFKind::VariationMarginReceive),
-            "variation_margin_pay" => Ok(CFKind::VariationMarginPay),
-            "margin_interest" => Ok(CFKind::MarginInterest),
-            "collateral_substitution_in" => Ok(CFKind::CollateralSubstitutionIn),
-            "collateral_substitution_out" => Ok(CFKind::CollateralSubstitutionOut),
-            other => Err(format!("unknown CFKind: {other}")),
-        }
+        crate::parse::parse_normalized_enum(s)
     }
 }
 

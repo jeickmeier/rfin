@@ -55,13 +55,12 @@ impl MetricCalculator for CdsTrancheCs01Calculator {
 
         let bump_bp = sens_config::from_context_or_default(
             context.config(),
-            context.metric_overrides.as_ref(),
+            context.get_metric_overrides(),
         )?
         .credit_spread_bump_bp;
 
         let inst_arc = Arc::clone(&context.instrument);
-        let model = context.pricing_model;
-        let registry = context.pricer_registry.clone();
+        let (model, registry) = context.clone_pricer_dispatch();
         let as_of = context.as_of;
 
         let reval = move |temp_ctx: &finstack_core::market_data::context::MarketContext| {
@@ -101,14 +100,13 @@ impl MetricCalculator for CdsTrancheBucketedCs01Calculator {
 
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.metric_overrides.as_ref(),
+            context.get_metric_overrides(),
         )?;
         let buckets = defaults.cs01_buckets_years;
         let bump_bp = defaults.credit_spread_bump_bp;
 
         let inst_arc = Arc::clone(&context.instrument);
-        let model = context.pricing_model;
-        let registry = context.pricer_registry.clone();
+        let (model, registry) = context.clone_pricer_dispatch();
         let as_of = context.as_of;
 
         let reval = move |temp_ctx: &finstack_core::market_data::context::MarketContext| {
@@ -145,7 +143,7 @@ impl MetricCalculator for CdsTrancheCs01HazardCalculator {
 
         let bump_bp = sens_config::from_context_or_default(
             context.config(),
-            context.metric_overrides.as_ref(),
+            context.get_metric_overrides(),
         )?
         .credit_spread_bump_bp;
 
@@ -183,7 +181,7 @@ impl MetricCalculator for CdsTrancheBucketedCs01HazardCalculator {
 
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.metric_overrides.as_ref(),
+            context.get_metric_overrides(),
         )?;
         let buckets = defaults.cs01_buckets_years;
         let bump_bp = defaults.credit_spread_bump_bp;

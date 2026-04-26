@@ -191,104 +191,34 @@ impl PeriodKind {
         }
     }
 
-    fn step_forward(self, mut year: i32, mut index: u16) -> (i32, u16) {
+    fn max_index_for_year(self, year: i32) -> u16 {
         match self {
-            PeriodKind::Daily => {
-                let max = days_in_year(year);
-                if index >= max {
-                    year += 1;
-                    index = 1;
-                } else {
-                    index += 1;
-                }
-            }
-            PeriodKind::Quarterly => {
-                if index == 4 {
-                    year += 1;
-                    index = 1;
-                } else {
-                    index += 1;
-                }
-            }
-            PeriodKind::Monthly => {
-                if index == 12 {
-                    year += 1;
-                    index = 1;
-                } else {
-                    index += 1;
-                }
-            }
-            PeriodKind::Weekly => {
-                let max = iso_weeks_in_year(year) as u16;
-                if index >= max {
-                    year += 1;
-                    index = 1;
-                } else {
-                    index += 1;
-                }
-            }
-            PeriodKind::SemiAnnual => {
-                if index == 2 {
-                    year += 1;
-                    index = 1;
-                } else {
-                    index += 1;
-                }
-            }
-            PeriodKind::Annual => {
-                year += 1;
-                index = 1;
-            }
+            PeriodKind::Daily => days_in_year(year),
+            PeriodKind::Quarterly => 4,
+            PeriodKind::Monthly => 12,
+            PeriodKind::Weekly => iso_weeks_in_year(year) as u16,
+            PeriodKind::SemiAnnual => 2,
+            PeriodKind::Annual => 1,
+        }
+    }
+
+    fn step_forward(self, mut year: i32, mut index: u16) -> (i32, u16) {
+        let max = self.max_index_for_year(year);
+        if index >= max {
+            year += 1;
+            index = 1;
+        } else {
+            index += 1;
         }
         (year, index)
     }
 
     fn step_backward(self, mut year: i32, mut index: u16) -> (i32, u16) {
-        match self {
-            PeriodKind::Daily => {
-                if index == 1 {
-                    year -= 1;
-                    index = days_in_year(year);
-                } else {
-                    index -= 1;
-                }
-            }
-            PeriodKind::Quarterly => {
-                if index == 1 {
-                    year -= 1;
-                    index = 4;
-                } else {
-                    index -= 1;
-                }
-            }
-            PeriodKind::Monthly => {
-                if index == 1 {
-                    year -= 1;
-                    index = 12;
-                } else {
-                    index -= 1;
-                }
-            }
-            PeriodKind::Weekly => {
-                if index == 1 {
-                    year -= 1;
-                    index = iso_weeks_in_year(year) as u16;
-                } else {
-                    index -= 1;
-                }
-            }
-            PeriodKind::SemiAnnual => {
-                if index == 1 {
-                    year -= 1;
-                    index = 2;
-                } else {
-                    index -= 1;
-                }
-            }
-            PeriodKind::Annual => {
-                year -= 1;
-                index = 1;
-            }
+        if index == 1 {
+            year -= 1;
+            index = self.max_index_for_year(year);
+        } else {
+            index -= 1;
         }
         (year, index)
     }
