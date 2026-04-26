@@ -12,6 +12,7 @@
 //! - `serialization_roundtrip`: JSON serialization tests
 
 mod bond_attribution;
+mod credit_factor_linear;
 mod factors_snapshot;
 mod fx_attribution;
 mod invariants;

@@ -70,6 +70,8 @@ fn test_attribution_envelope_json_roundtrip() {
         method: AttributionMethod::Parallel,
         config: None,
         model_params_t0: None,
+        credit_factor_model: None,
+        credit_factor_detail_options: Default::default(),
     };
 
     let envelope = AttributionEnvelope::new(spec);
@@ -149,6 +151,8 @@ fn test_attribution_envelope_waterfall_roundtrip() {
         ]),
         config: None,
         model_params_t0: None,
+        credit_factor_model: None,
+        credit_factor_detail_options: Default::default(),
     };
 
     let envelope = AttributionEnvelope::new(spec);
@@ -258,6 +262,8 @@ fn test_attribution_envelope_to_from_json_helpers() {
         method: AttributionMethod::MetricsBased,
         config: None,
         model_params_t0: None,
+        credit_factor_model: None,
+        credit_factor_detail_options: Default::default(),
     };
 
     let envelope = AttributionEnvelope::new(spec);

@@ -8,9 +8,10 @@ use finstack_core::config::RoundingContext;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::{fx::FxPolicyMeta, Money};
-use finstack_core::types::CurveId;
+use finstack_core::types::{CurveId, IssuerId};
 use finstack_core::{Error, Result};
 use indexmap::IndexMap;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -218,8 +219,63 @@ pub struct PnlAttribution {
     /// Detailed market scalars attribution.
     pub scalars_detail: Option<ScalarsAttribution>,
 
+    /// Optional credit-factor-hierarchy decomposition of `credit_curves_pnl`.
+    ///
+    /// Populated only when an `AttributionSpec.credit_factor_model` was supplied
+    /// to the attribution call. When present, this is purely additive detail —
+    /// `credit_curves_pnl` itself is unchanged. Old JSON without this field
+    /// deserializes with `None` (additive serde extension).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credit_factor_detail: Option<CreditFactorAttribution>,
+
     /// Attribution metadata.
     pub meta: AttributionMeta,
+}
+
+/// Hierarchy-level decomposition of credit P&L, opt-in via
+/// `AttributionSpec.credit_factor_model`.
+///
+/// The reconciliation invariant
+///
+/// ```text
+/// generic_pnl + Σ_levels(level.total) + adder_pnl_total ≡ credit_curves_pnl
+/// ```
+///
+/// holds at absolute tolerance `1e-8` for both metrics-based and Taylor methods.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct CreditFactorAttribution {
+    /// Stable hash of the underlying [`finstack_core::factor_model::credit_hierarchy::CreditFactorModel`]
+    /// for traceability; defined as
+    /// `format!("{}/{}", model.as_of, sha256(serde_json::to_string(model)))` (16-char prefix).
+    pub model_id: String,
+    /// P&L attributed to the generic (PC) credit factor:
+    /// `-Σ_i CS01_i × β_i^PC × ΔF_PC`.
+    pub generic_pnl: Money,
+    /// One entry per [`finstack_core::factor_model::credit_hierarchy::HierarchyDimension`]
+    /// in the spec order recorded by the model's hierarchy.
+    pub levels: Vec<LevelPnl>,
+    /// Total adder P&L: `-Σ_i CS01_i × Δadder_i`.
+    pub adder_pnl_total: Money,
+    /// Optional per-issuer adder breakdown (gated by
+    /// `CreditFactorDetailOptions.include_per_issuer_adder`, default off).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<BTreeMap<String, Money>>")]
+    pub adder_pnl_by_issuer: Option<BTreeMap<IssuerId, Money>>,
+}
+
+/// P&L contribution from a single hierarchy level.
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct LevelPnl {
+    /// Human-readable level name (e.g. `"rating"`, `"region"`, `"sector"`,
+    /// or a custom dimension key).
+    pub level_name: String,
+    /// Aggregate P&L for this level across all buckets.
+    pub total: Money,
+    /// Optional per-bucket breakdown keyed by dotted bucket path
+    /// (e.g. `"IG.EU.FIN"`). Empty when
+    /// `CreditFactorDetailOptions.include_per_bucket_breakdown == false`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub by_bucket: BTreeMap<String, Money>,
 }
 
 /// Detailed attribution for interest rate curves.
@@ -483,6 +539,7 @@ impl PnlAttribution {
             cross_factor_detail: None,
             model_params_detail: None,
             scalars_detail: None,
+            credit_factor_detail: None,
             meta: AttributionMeta {
                 method,
                 t0,
@@ -592,6 +649,21 @@ impl PnlAttribution {
             scale_money_map(&mut d.inflation, factor);
             scale_money_map(&mut d.equity_prices, factor);
             scale_money_map(&mut d.commodity_prices, factor);
+        }
+        if let Some(d) = &mut self.credit_factor_detail {
+            d.generic_pnl *= factor;
+            d.adder_pnl_total *= factor;
+            for level in &mut d.levels {
+                level.total *= factor;
+                for v in level.by_bucket.values_mut() {
+                    *v *= factor;
+                }
+            }
+            if let Some(by_issuer) = &mut d.adder_pnl_by_issuer {
+                for v in by_issuer.values_mut() {
+                    *v *= factor;
+                }
+            }
         }
     }
 

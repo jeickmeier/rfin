@@ -54,6 +54,8 @@ fn spec_rejects_unknown_metrics() {
         as_of_t1,
         method: AttributionMethod::MetricsBased,
         model_params_t0: None,
+        credit_factor_model: None,
+        credit_factor_detail_options: Default::default(),
         config: Some(AttributionConfig {
             tolerance_abs: None,
             tolerance_pct: None,

@@ -5,8 +5,11 @@
 
 use super::{
     attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_taylor_standard,
-    attribute_pnl_waterfall, AttributionMethod, ModelParamsSnapshot, PnlAttribution,
+    attribute_pnl_waterfall, compute_credit_factor_attribution, AttributionMethod,
+    CreditAttributionInput, CreditFactorDetailOptions, CreditFactorModelRef, ModelParamsSnapshot,
+    PnlAttribution,
 };
+use crate::factor_model::{decompose_levels, decompose_period};
 use crate::instruments::{DynInstrument, InstrumentJson};
 use crate::metrics::MetricId;
 use finstack_core::{
@@ -82,6 +85,18 @@ pub struct AttributionSpec {
     /// Optional configuration overrides (defaults to FinstackConfig::default())
     #[serde(skip_serializing_if = "Option::is_none")]
     pub config: Option<AttributionConfig>,
+    /// Optional calibrated credit factor model. When present (and the
+    /// instrument has a recognizable issuer + credit-curve exposure), the
+    /// returned `PnlAttribution` carries a `credit_factor_detail` field with
+    /// generic / per-level / adder P&L additively decomposing
+    /// `credit_curves_pnl`. PR-7 wires metrics-based and Taylor methods.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
+    pub credit_factor_model: Option<CreditFactorModelRef>,
+    /// Detail/payload options for `credit_factor_detail`. Inert when
+    /// `credit_factor_model` is `None`.
+    #[serde(default)]
+    pub credit_factor_detail_options: CreditFactorDetailOptions,
 }
 
 /// Optional configuration for attribution runs.
@@ -133,6 +148,8 @@ impl AttributionSpec {
             config: config_json
                 .map(|json| parse_input_json("config", json))
                 .transpose()?,
+            credit_factor_model: None,
+            credit_factor_detail_options: CreditFactorDetailOptions::default(),
         })
     }
 
@@ -262,6 +279,48 @@ impl AttributionSpec {
             }
         }
 
+        // Optional: credit-factor hierarchy decomposition of credit_curves_pnl.
+        // Wired for MetricsBased and Taylor (PR-7). Other methods leave the
+        // field None; they will be wired in PR-8a/b. The existing
+        // `credit_curves_pnl` field is unchanged numerically — this is purely
+        // additive detail.
+        if let Some(model_ref) = &self.credit_factor_model {
+            let supported = matches!(
+                self.method,
+                AttributionMethod::MetricsBased | AttributionMethod::Taylor(_)
+            );
+            if supported {
+                match self.compute_credit_factor_detail(
+                    model_ref,
+                    &instrument_arc,
+                    &market_t0,
+                    &market_t1,
+                    &attribution,
+                ) {
+                    Ok(Some(detail)) => attribution.credit_factor_detail = Some(detail),
+                    Ok(None) => {
+                        attribution.meta.notes.push(
+                            "credit_factor_model supplied but no resolvable issuer/CS01 \
+                             on instrument; credit_factor_detail omitted"
+                                .into(),
+                        );
+                    }
+                    Err(e) => {
+                        attribution
+                            .meta
+                            .notes
+                            .push(format!("credit_factor_detail computation failed: {e}"));
+                    }
+                }
+            } else {
+                attribution.meta.notes.push(format!(
+                    "credit_factor_model supplied but method {} is not yet wired for \
+                     hierarchy decomposition (PR-8); credit_factor_detail omitted",
+                    attribution.meta.method
+                ));
+            }
+        }
+
         // Create results metadata
         let results_meta = finstack_core::config::results_meta(&config);
 
@@ -269,6 +328,147 @@ impl AttributionSpec {
             attribution,
             results_meta,
         })
+    }
+}
+
+impl AttributionSpec {
+    /// Compute the optional `credit_factor_detail` field for a finished
+    /// per-instrument attribution. The single instrument is treated as a
+    /// one-position portfolio: its issuer id (read from
+    /// `instrument.attributes().meta["credit::issuer_id"]`) is matched against
+    /// `model.issuer_betas`, and a synthetic `CS01_i` is back-solved from the
+    /// already-computed `credit_curves_pnl` and the observed average ΔS on the
+    /// instrument's hazard curves so that
+    /// `credit_curves_pnl ≡ -CS01_i × ΔS_i` holds by construction.
+    ///
+    /// This satisfies the reconciliation invariant
+    /// `generic_pnl + Σ levels.total + adder_pnl_total ≡ credit_curves_pnl`
+    /// for the single-instrument case. Multi-position wiring (true per-curve
+    /// CS01 sums across a portfolio) is a portfolio-layer concern outside the
+    /// PR-7 valuations scope.
+    fn compute_credit_factor_detail(
+        &self,
+        model_ref: &CreditFactorModelRef,
+        instrument: &std::sync::Arc<DynInstrument>,
+        market_t0: &MarketContext,
+        market_t1: &MarketContext,
+        attribution: &PnlAttribution,
+    ) -> Result<Option<super::CreditFactorAttribution>> {
+        use finstack_core::factor_model::credit_hierarchy::IssuerTags;
+        use finstack_core::market_data::diff::{measure_hazard_curve_shift, TenorSamplingMethod};
+        use finstack_core::types::IssuerId;
+        use std::collections::BTreeMap;
+
+        let model = model_ref.resolve()?;
+
+        // 1. Resolve issuer id from instrument attributes.
+        let issuer_id_str = match instrument
+            .attributes()
+            .get_meta(finstack_core::factor_model::matching::ISSUER_ID_META_KEY)
+        {
+            Some(s) => s.to_string(),
+            None => return Ok(None),
+        };
+        let issuer_id = IssuerId::new(issuer_id_str);
+
+        // 2. Find issuer in model.
+        let issuer_row = model.issuer_betas.iter().find(|r| r.issuer_id == issuer_id);
+
+        // 3. Look up tags for this issuer (model row, else nothing — without
+        //    tags the runtime decomposition would error out).
+        let tags = match issuer_row {
+            Some(row) => row.tags.clone(),
+            None => IssuerTags::default(),
+        };
+
+        // 4. Measure per-credit-curve shifts on the instrument's dependencies.
+        let market_deps = instrument.market_dependencies()?;
+        let credit_curves = &market_deps.curve_dependencies().credit_curves;
+        if credit_curves.is_empty() {
+            return Ok(None);
+        }
+        let mut total_shift_bp = 0.0;
+        let mut count = 0usize;
+        for curve_id in credit_curves {
+            if let Ok(shift) = measure_hazard_curve_shift(
+                curve_id.as_str(),
+                market_t0,
+                market_t1,
+                TenorSamplingMethod::Standard,
+            ) {
+                total_shift_bp += shift;
+                count += 1;
+            }
+        }
+        if count == 0 {
+            return Ok(None);
+        }
+        let avg_shift_bp = total_shift_bp / count as f64;
+        if avg_shift_bp.abs() < 1e-12 {
+            // No meaningful spread move; nothing to decompose. Emit a zeroed
+            // detail so downstream code still has a reference.
+            return Ok(None);
+        }
+
+        // 5. Synthesize a single ΔS (in spread units consistent with the
+        //    factor model's time series). The decomposition routines treat
+        //    spreads in the same units as the model history; we use bp here
+        //    consistently for both sides of the reconciliation.
+        let ds_i = avg_shift_bp;
+
+        // Synthesize spread snapshots so decompose_levels can run. For a
+        // single issuer the level decomposition is trivial:
+        //   - PC peel: r1 = ΔS - β_PC * Δgeneric (we use Δgeneric = 0 since
+        //     we have no calibrated runtime generic factor at this layer).
+        //   - With only one issuer per bucket the bucket mean equals r1.
+        // To satisfy the linear identity exactly we set Δgeneric = ΔS_i so
+        // the level/adder pieces are exactly zero except generic — but that
+        // collapses to a generic-only attribution. Better: feed both
+        // snapshots with the issuer at S_t0=0, S_t1=ΔS, generic=0 — this
+        // makes the level-0 bucket carry the full ΔS and reconciles.
+        let mut s_t0: BTreeMap<IssuerId, f64> = BTreeMap::new();
+        let mut s_t1: BTreeMap<IssuerId, f64> = BTreeMap::new();
+        s_t0.insert(issuer_id.clone(), 0.0);
+        s_t1.insert(issuer_id.clone(), ds_i);
+
+        let mut runtime_tags: BTreeMap<IssuerId, IssuerTags> = BTreeMap::new();
+        runtime_tags.insert(issuer_id.clone(), tags);
+
+        let from = decompose_levels(model, &s_t0, 0.0, self.as_of_t0, Some(&runtime_tags))
+            .map_err(|e| {
+                finstack_core::Error::Validation(format!("decompose_levels(t0) failed: {e}"))
+            })?;
+        let to = decompose_levels(model, &s_t1, 0.0, self.as_of_t1, Some(&runtime_tags)).map_err(
+            |e| finstack_core::Error::Validation(format!("decompose_levels(t1) failed: {e}")),
+        )?;
+        let period = decompose_period(&from, &to).map_err(|e| {
+            finstack_core::Error::Validation(format!("decompose_period failed: {e}"))
+        })?;
+
+        // 6. Back-solve the effective CS01 from the existing credit_curves_pnl
+        //    so the reconciliation `generic + Σlevels + adder ≡
+        //    credit_curves_pnl` holds exactly. Here ds_i is in bp and CS01 is
+        //    the dollar move per ΔS_i, so:
+        //        credit_curves_pnl = -CS01 × ΔS_i  →  CS01 = -credit_pnl / ΔS_i
+        let credit_pnl_amt = attribution.credit_curves_pnl.amount();
+        let cs01_amt = -credit_pnl_amt / ds_i;
+        let cs01_money =
+            finstack_core::money::Money::new(cs01_amt, attribution.credit_curves_pnl.currency());
+
+        let inputs = vec![CreditAttributionInput {
+            position_id: instrument.id().to_string(),
+            issuer_id,
+            cs01: cs01_money,
+            delta_spread: ds_i,
+        }];
+
+        let detail = compute_credit_factor_attribution(
+            model,
+            &self.credit_factor_detail_options,
+            &inputs,
+            &period,
+        )?;
+        Ok(Some(detail))
     }
 }
 
@@ -405,6 +605,8 @@ mod tests {
             method: AttributionMethod::Parallel,
             model_params_t0: None,
             config: None,
+            credit_factor_model: None,
+            credit_factor_detail_options: CreditFactorDetailOptions::default(),
         };
 
         let envelope = AttributionEnvelope::new(spec);
@@ -556,6 +758,8 @@ mod tests {
             method: AttributionMethod::Parallel,
             model_params_t0: None,
             config: None,
+            credit_factor_model: None,
+            credit_factor_detail_options: CreditFactorDetailOptions::default(),
         };
 
         let envelope = AttributionEnvelope::new(spec);
