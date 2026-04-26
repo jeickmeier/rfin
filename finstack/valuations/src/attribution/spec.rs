@@ -290,20 +290,24 @@ impl AttributionSpec {
                 AttributionMethod::MetricsBased | AttributionMethod::Taylor(_)
             );
             if supported {
+                let mut detail_notes: Vec<String> = Vec::new();
                 match self.compute_credit_factor_detail(
                     model_ref,
                     &instrument_arc,
                     &market_t0,
                     &market_t1,
                     &attribution,
+                    &mut detail_notes,
                 ) {
                     Ok(Some(detail)) => attribution.credit_factor_detail = Some(detail),
                     Ok(None) => {
-                        attribution.meta.notes.push(
-                            "credit_factor_model supplied but no resolvable issuer/CS01 \
-                             on instrument; credit_factor_detail omitted"
-                                .into(),
-                        );
+                        if detail_notes.is_empty() {
+                            attribution.meta.notes.push(
+                                "credit_factor_model supplied but no resolvable issuer/CS01 \
+                                 on instrument; credit_factor_detail omitted"
+                                    .into(),
+                            );
+                        }
                     }
                     Err(e) => {
                         attribution
@@ -312,6 +316,7 @@ impl AttributionSpec {
                             .push(format!("credit_factor_detail computation failed: {e}"));
                     }
                 }
+                attribution.meta.notes.extend(detail_notes);
             } else {
                 attribution.meta.notes.push(format!(
                     "credit_factor_model supplied but method {} is not yet wired for \
@@ -353,6 +358,7 @@ impl AttributionSpec {
         market_t0: &MarketContext,
         market_t1: &MarketContext,
         attribution: &PnlAttribution,
+        notes: &mut Vec<String>,
     ) -> Result<Option<super::CreditFactorAttribution>> {
         use finstack_core::factor_model::credit_hierarchy::IssuerTags;
         use finstack_core::market_data::diff::{measure_hazard_curve_shift, TenorSamplingMethod};
@@ -374,12 +380,21 @@ impl AttributionSpec {
         // 2. Find issuer in model.
         let issuer_row = model.issuer_betas.iter().find(|r| r.issuer_id == issuer_id);
 
-        // 3. Look up tags for this issuer (model row, else nothing — without
-        //    tags the runtime decomposition would error out).
-        let tags = match issuer_row {
-            Some(row) => row.tags.clone(),
-            None => IssuerTags::default(),
+        // 3. Look up tags for this issuer; if the issuer is not in the model
+        //    return Ok(None) with a diagnostic note rather than silently routing
+        //    the entire credit move into adder_pnl_total.
+        let issuer_row = match issuer_row {
+            Some(row) => row,
+            None => {
+                notes.push(format!(
+                    "credit_factor_detail unavailable: issuer {} not present in \
+                     CreditFactorModel.issuer_betas",
+                    issuer_id
+                ));
+                return Ok(None);
+            }
         };
+        let tags = issuer_row.tags.clone();
 
         // 4. Measure per-credit-curve shifts on the instrument's dependencies.
         let market_deps = instrument.market_dependencies()?;

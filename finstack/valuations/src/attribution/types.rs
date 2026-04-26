@@ -242,11 +242,17 @@ pub struct PnlAttribution {
 /// ```
 ///
 /// holds at absolute tolerance `1e-8` for both metrics-based and Taylor methods.
+///
+/// **Single-instrument scope**: when produced via the valuations-layer
+/// per-instrument attribution wire (`metrics_based`, `taylor`), each call
+/// processes a single instrument. Therefore `LevelPnl.by_bucket` will contain
+/// at most one entry per call (the issuer's bucket at that level).
+/// Portfolio-level multi-bucket aggregation is provided at the portfolio layer
+/// (PR-8 onward).
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CreditFactorAttribution {
-    /// Stable hash of the underlying [`finstack_core::factor_model::credit_hierarchy::CreditFactorModel`]
-    /// for traceability; defined as
-    /// `format!("{}/{}", model.as_of, sha256(serde_json::to_string(model)))` (16-char prefix).
+    /// Deterministic traceability ID for the calibrated model. Format:
+    /// `format!("{}/{:016x}", model.as_of, fnv1a64(serde_json::to_string(model)))`.
     pub model_id: String,
     /// P&L attributed to the generic (PC) credit factor:
     /// `-Σ_i CS01_i × β_i^PC × ΔF_PC`.
