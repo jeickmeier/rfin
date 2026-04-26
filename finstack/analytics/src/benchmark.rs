@@ -1272,12 +1272,7 @@ mod tests {
         let bd = vec![jan(1), jan(3)];
         let br = vec![0.01, 0.03];
         let td = vec![jan(1), jan(2), jan(3)];
-        let result = align_benchmark(
-            &br,
-            &bd,
-            &td,
-            BenchmarkAlignmentPolicy::ErrorOnMissingDates,
-        );
+        let result = align_benchmark(&br, &bd, &td, BenchmarkAlignmentPolicy::ErrorOnMissingDates);
         assert!(result.is_err());
     }
 

@@ -15,19 +15,14 @@
 /// assert_eq!(normalize_label("  Bond Basis  "), "bond_basis");
 /// ```
 pub fn normalize_label(input: &str) -> String {
-    let trimmed = input.trim();
-    let mut result = String::with_capacity(trimmed.len());
-    for ch in trimmed.chars() {
-        match ch {
-            '-' | '/' | ' ' => result.push('_'),
-            c => {
-                for lower in c.to_lowercase() {
-                    result.push(lower);
-                }
-            }
-        }
-    }
-    result
+    input
+        .trim()
+        .chars()
+        .flat_map(|ch| match ch {
+            '-' | '/' | ' ' => '_'.to_lowercase(),
+            c => c.to_lowercase(),
+        })
+        .collect()
 }
 
 #[cfg(test)]

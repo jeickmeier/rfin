@@ -75,6 +75,7 @@ use crate::{
     dates::{Date, DayCount, DayCountContext},
     error::InputError,
     market_data::traits::{Forward, TermStructure},
+    math::integration::simpson_rule,
     math::interp::types::Interp,
     types::CurveId,
 };
@@ -301,9 +302,6 @@ impl ForwardCurve {
             return self.rate(t1);
         }
 
-        // Adaptive sub-intervals (must be even). More intervals for longer
-        // periods to maintain accuracy for long-dated forward averages while
-        // keeping performance for short periods used in repeated projection steps.
         let n: usize = if dt > 20.0 {
             32
         } else if dt > 5.0 {
@@ -311,17 +309,7 @@ impl ForwardCurve {
         } else {
             8
         };
-        let h = dt / (n as f64);
-
-        // Simpson weights: 1,4,2,4,...,2,4,1
-        let mut sum = self.rate(t1) + self.rate(t2);
-        for i in 1..n {
-            let t = t1 + (i as f64) * h;
-            let w = if i % 2 == 0 { 2.0 } else { 4.0 };
-            sum += w * self.rate(t);
-        }
-        let integral = (h / 3.0) * sum;
-        integral / dt
+        simpson_rule(|t| self.rate(t), t1, t2, n).map_or(f64::NAN, |integral| integral / dt)
     }
 
     /// Implied **projection discount factor** from `0` to `t` (years).
