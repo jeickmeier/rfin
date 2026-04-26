@@ -360,10 +360,17 @@ impl CreditCalibrator {
         );
 
         // -- 6. Adder series → idiosyncratic vol. ---------------------------
-        let adder_vols = adder_vols(
+        // First compute from-history vols for IssuerBeta issuers only.
+        let from_history_vols = issuer_beta_adder_vols(
             &peel_outcome.adder_series,
             &modes,
             self.config.annualization_factor,
+        );
+        // Build per-level peer proxy index: level_k → bucket_path → [vols].
+        let peer_proxy_index = build_peer_proxy_index(
+            &from_history_vols,
+            &inventory.bucket_paths,
+            self.config.hierarchy.levels.len(),
         );
 
         // -- 7. Anchor levels at as_of. -------------------------------------
@@ -405,13 +412,15 @@ impl CreditCalibrator {
                 .cloned()
                 .unwrap_or_else(|| unit_betas(self.config.hierarchy.levels.len()));
             let adder_at_anchor = anchor.adder.get(issuer_id).copied().unwrap_or(0.0);
-            let (adder_vol, adder_vol_source) = match mode {
-                IssuerBetaMode::IssuerBeta => match adder_vols.get(issuer_id) {
-                    Some(v) => (*v, AdderVolSource::FromHistory),
-                    None => (0.0, AdderVolSource::Default),
-                },
-                IssuerBetaMode::BucketOnly => (0.0, AdderVolSource::Default),
-            };
+            let (adder_vol, adder_vol_source) = assign_adder_vol(
+                issuer_id,
+                mode,
+                &from_history_vols,
+                &peer_proxy_index,
+                &inventory.bucket_paths,
+                &inputs.idiosyncratic_overrides,
+                self.config.hierarchy.levels.len(),
+            );
             let fit_quality = peel_outcome.fit_quality.get(issuer_id).cloned();
             issuer_betas.push(IssuerBetaRow {
                 issuer_id: issuer_id.clone(),
@@ -1014,12 +1023,14 @@ fn compute_fit_quality(y: &[Option<f64>], x: &[f64], beta: f64) -> Option<FitQua
     })
 }
 
-/// Step 6: per-issuer adder annualized **vol** (std dev, not variance) from
-/// the residual series after the last level.
+/// Step 6 (part A): per-issuer adder annualized **vol** (std dev) for
+/// `IssuerBeta` issuers only, computed from the residual series after the last level.
 ///
 /// Returns the annualized standard deviation `sqrt(var * annualization_factor)`
 /// for each `IssuerBeta` issuer that has at least 2 valid residual observations.
-fn adder_vols(
+/// `BucketOnly` issuers are excluded — they receive their vol via the cascade in
+/// [`assign_adder_vol`].
+fn issuer_beta_adder_vols(
     adder_series: &BTreeMap<IssuerId, Vec<Option<f64>>>,
     modes: &BTreeMap<IssuerId, IssuerBetaMode>,
     annualization_factor: f64,
@@ -1041,6 +1052,169 @@ fn adder_vols(
         out.insert(issuer.clone(), ann_var.max(0.0).sqrt());
     }
     out
+}
+
+/// Step 6 (part B): build the peer proxy index for the bucket-peer cascade.
+///
+/// Returns a `Vec` (indexed by hierarchy level `k`) of `BTreeMap` from
+/// `bucket_path_at_level_k` to the list of `FromHistory` adder vols of all
+/// `IssuerBeta` peers in that bucket.
+///
+/// Only issuers present in `from_history_vols` (i.e., successful `FromHistory`
+/// fits) contribute to the index. `BucketOnly` issuers and `IssuerBeta` issuers
+/// with insufficient history are implicitly excluded because they have no entry
+/// in `from_history_vols`.
+///
+/// The returned structure is deterministic: `BTreeMap` key order and `Vec`
+/// element order both follow `BTreeMap` iteration (lexicographic).
+fn build_peer_proxy_index(
+    from_history_vols: &BTreeMap<IssuerId, f64>,
+    bucket_paths: &BTreeMap<IssuerId, Vec<String>>,
+    num_levels: usize,
+) -> Vec<BTreeMap<String, Vec<f64>>> {
+    // One BTreeMap<bucket_path, vols> per hierarchy level.
+    let mut index: Vec<BTreeMap<String, Vec<f64>>> = vec![BTreeMap::new(); num_levels];
+
+    // Iterate in BTreeMap order (sorted by issuer_id) for determinism.
+    for (issuer, vol) in from_history_vols {
+        if let Some(paths) = bucket_paths.get(issuer) {
+            for (k, path) in paths.iter().enumerate() {
+                if k < num_levels {
+                    index[k].entry(path.clone()).or_default().push(*vol);
+                }
+            }
+        }
+    }
+
+    // Sort each bucket's vol list for fully deterministic mean computation.
+    for level_map in &mut index {
+        for vols in level_map.values_mut() {
+            vols.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        }
+    }
+
+    index
+}
+
+/// Step 6 (part C): assign an `(adder_vol, AdderVolSource)` pair to a single
+/// issuer using the full caller → history → peer-proxy → global → zero cascade.
+///
+/// # Cascade order
+///
+/// 1. **Caller override** (present in `idiosyncratic_overrides`): use it with
+///    `AdderVolSource::CallerSupplied`. Wins for both `IssuerBeta` and `BucketOnly`.
+/// 2. **`IssuerBeta` with successful `FromHistory` fit**: use the history-derived
+///    vol with `AdderVolSource::FromHistory`.
+/// 3. **Bucket-peer proxy** (deepest level first, then walking up): find the
+///    deepest level `k` such that the issuer has a path at level `k` and there
+///    is at least one `IssuerBeta` peer with a `FromHistory` vol in that bucket.
+///    Use the mean of those peers' vols with
+///    `AdderVolSource::BucketPeerProxy { peer_bucket }`.
+/// 4. **Global default**: if no peers exist anywhere up the hierarchy, use the
+///    mean of *all* `IssuerBeta` `FromHistory` vols across the entire model.
+///    `AdderVolSource::Default`.
+/// 5. **No data at all**: `(0.0, AdderVolSource::Default)` — applies when
+///    `from_history_vols` is completely empty (all-BucketOnly model).
+#[allow(clippy::too_many_arguments)]
+fn assign_adder_vol(
+    issuer_id: &IssuerId,
+    mode: IssuerBetaMode,
+    from_history_vols: &BTreeMap<IssuerId, f64>,
+    peer_proxy_index: &[BTreeMap<String, Vec<f64>>],
+    bucket_paths: &BTreeMap<IssuerId, Vec<String>>,
+    idiosyncratic_overrides: &BTreeMap<IssuerId, f64>,
+    num_levels: usize,
+) -> (f64, AdderVolSource) {
+    // 1. Caller override wins for any mode.
+    if let Some(&override_vol) = idiosyncratic_overrides.get(issuer_id) {
+        return (override_vol, AdderVolSource::CallerSupplied);
+    }
+
+    // 2. IssuerBeta with successful FromHistory fit.
+    if matches!(mode, IssuerBetaMode::IssuerBeta) {
+        if let Some(&vol) = from_history_vols.get(issuer_id) {
+            return (vol, AdderVolSource::FromHistory);
+        }
+    }
+
+    // 3 & 4. Bucket-peer proxy cascade (for BucketOnly issuers, or IssuerBeta
+    //        with no successful fit). Walk from deepest level to broadest.
+    if let Some(paths) = bucket_paths.get(issuer_id) {
+        // Try deepest level first, then walk up.
+        for k in (0..num_levels).rev() {
+            if k < paths.len() && k < peer_proxy_index.len() {
+                let bucket = &paths[k];
+                if let Some(peer_vols) = peer_proxy_index[k].get(bucket) {
+                    if !peer_vols.is_empty() {
+                        // Exclude the issuer itself from the peer mean (only
+                        // relevant for IssuerBeta issuers with no fit, but
+                        // correct to apply always).
+                        let mean = mean_excluding(peer_vols, from_history_vols.get(issuer_id));
+                        return (
+                            mean,
+                            AdderVolSource::BucketPeerProxy {
+                                peer_bucket: bucket.clone(),
+                            },
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. Global mean of all IssuerBeta FromHistory vols.
+    if !from_history_vols.is_empty() {
+        let global_vols: Vec<f64> = from_history_vols.values().copied().collect();
+        let global_mean = global_vols.iter().sum::<f64>() / (global_vols.len() as f64);
+        return (global_mean, AdderVolSource::Default);
+    }
+
+    // 5. No IssuerBeta data anywhere: hardcoded 0.0.
+    (0.0, AdderVolSource::Default)
+}
+
+/// Compute the mean of a sorted vol slice, optionally excluding one value.
+///
+/// The exclusion is used to avoid counting the issuer itself when it appears in
+/// the peer bucket (only possible for `IssuerBeta` issuers with no successful
+/// fit, but applied uniformly for correctness).
+///
+/// If `exclude` is `Some(v)` the first occurrence of `v` in `vols` is skipped.
+/// If excluding leaves an empty slice the original mean (including `v`) is
+/// returned so that a single-member bucket still produces a non-zero proxy.
+fn mean_excluding(vols: &[f64], exclude: Option<&f64>) -> f64 {
+    if vols.is_empty() {
+        return 0.0;
+    }
+    match exclude {
+        None => vols.iter().sum::<f64>() / (vols.len() as f64),
+        Some(ex) => {
+            // Find and remove the first occurrence equal by bit pattern to *ex.
+            // We use to_bits() to express exact bit-level identity, which is the
+            // correct check here: the value was stored from the same computation
+            // and we want to skip precisely that one copy.
+            let ex_bits = ex.to_bits();
+            let mut excluded = false;
+            let filtered: Vec<f64> = vols
+                .iter()
+                .filter(|&&v| {
+                    if !excluded && v.to_bits() == ex_bits {
+                        excluded = true;
+                        false
+                    } else {
+                        true
+                    }
+                })
+                .copied()
+                .collect();
+            if filtered.is_empty() {
+                // Only one peer (the issuer itself) — fall back to including it.
+                vols.iter().sum::<f64>() / (vols.len() as f64)
+            } else {
+                filtered.iter().sum::<f64>() / (filtered.len() as f64)
+            }
+        }
+    }
 }
 
 /// Anchor-step output: anchor levels + per-issuer adder values at as_of.

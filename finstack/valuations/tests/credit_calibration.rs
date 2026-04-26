@@ -6,8 +6,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use finstack_core::dates::{create_date, Date};
 use finstack_core::factor_model::credit_hierarchy::{
-    CreditFactorModel, CreditHierarchySpec, FactorVolModel, GenericFactorSpec, HierarchyDimension,
-    IssuerBetaMode, IssuerBetaOverride, IssuerBetaPolicy, IssuerTags,
+    AdderVolSource, CreditFactorModel, CreditHierarchySpec, FactorVolModel, GenericFactorSpec,
+    HierarchyDimension, IssuerBetaMode, IssuerBetaOverride, IssuerBetaPolicy, IssuerTags,
 };
 use finstack_core::types::IssuerId;
 use finstack_valuations::factor_model::{
@@ -637,4 +637,552 @@ fn rejects_ridge_covariance() {
     };
     let inputs = fixture_panel().into_inputs();
     assert!(CreditCalibrator::new(cfg).calibrate(inputs).is_err());
+}
+
+// ---------------------------------------------------------------------------
+// PR-5a Test 1: caller override wins over IssuerBeta history
+// ---------------------------------------------------------------------------
+
+/// An idiosyncratic override supplied for an `IssuerBeta` issuer must win over
+/// the vol computed from that issuer's residual history, and the source must
+/// record `CallerSupplied`.
+#[test]
+fn idiosyncratic_override_wins_over_history() {
+    // Use Dynamic policy with low min_history so ISSUER-A gets IssuerBeta mode.
+    let policy = IssuerBetaPolicy::Dynamic {
+        min_history: 12,
+        overrides: BTreeMap::new(),
+    };
+    let cfg = CreditCalibrationConfig {
+        min_bucket_size_per_level: BucketSizeThresholds {
+            per_level: vec![1, 1],
+        },
+        ..config_with(
+            policy,
+            vec![HierarchyDimension::Rating, HierarchyDimension::Region],
+        )
+    };
+
+    let fixture = fixture_panel();
+    let override_vol = 0.9999_f64;
+    let mut overrides = BTreeMap::new();
+    overrides.insert(IssuerId::new("ISSUER-A"), override_vol);
+
+    let inputs = CreditCalibrationInputs {
+        idiosyncratic_overrides: overrides,
+        ..fixture.into_inputs()
+    };
+
+    let model = CreditCalibrator::new(cfg)
+        .calibrate(inputs)
+        .expect("calibration succeeds");
+
+    let row_a = model
+        .issuer_betas
+        .iter()
+        .find(|r| r.issuer_id.as_str() == "ISSUER-A")
+        .expect("ISSUER-A row present");
+
+    assert!(
+        matches!(row_a.mode, IssuerBetaMode::IssuerBeta),
+        "ISSUER-A must be IssuerBeta"
+    );
+    assert!(
+        (row_a.adder_vol_annualized - override_vol).abs() < 1e-12,
+        "adder_vol_annualized must equal override; got {}",
+        row_a.adder_vol_annualized
+    );
+    assert!(
+        matches!(row_a.adder_vol_source, AdderVolSource::CallerSupplied),
+        "adder_vol_source must be CallerSupplied; got {:?}",
+        row_a.adder_vol_source
+    );
+}
+
+// ---------------------------------------------------------------------------
+// PR-5a Test 2: caller override wins over BucketOnly peer proxy
+// ---------------------------------------------------------------------------
+
+/// An idiosyncratic override supplied for a `BucketOnly` issuer must win over
+/// the peer-proxy fallback, and the source must record `CallerSupplied`.
+#[test]
+fn idiosyncratic_override_wins_over_bucket_only_peer_proxy() {
+    // GloballyOff → all issuers are BucketOnly.
+    let cfg = CreditCalibrationConfig {
+        min_bucket_size_per_level: BucketSizeThresholds {
+            per_level: vec![1, 1],
+        },
+        ..config_with(
+            IssuerBetaPolicy::GloballyOff,
+            vec![HierarchyDimension::Rating, HierarchyDimension::Region],
+        )
+    };
+
+    let fixture = fixture_panel();
+    let override_vol = 0.7777_f64;
+    let mut overrides = BTreeMap::new();
+    overrides.insert(IssuerId::new("ISSUER-D"), override_vol);
+
+    let inputs = CreditCalibrationInputs {
+        idiosyncratic_overrides: overrides,
+        ..fixture.into_inputs()
+    };
+
+    let model = CreditCalibrator::new(cfg)
+        .calibrate(inputs)
+        .expect("calibration succeeds");
+
+    let row_d = model
+        .issuer_betas
+        .iter()
+        .find(|r| r.issuer_id.as_str() == "ISSUER-D")
+        .expect("ISSUER-D row present");
+
+    assert!(
+        matches!(row_d.mode, IssuerBetaMode::BucketOnly),
+        "ISSUER-D must be BucketOnly"
+    );
+    assert!(
+        (row_d.adder_vol_annualized - override_vol).abs() < 1e-12,
+        "adder_vol_annualized must equal override; got {}",
+        row_d.adder_vol_annualized
+    );
+    assert!(
+        matches!(row_d.adder_vol_source, AdderVolSource::CallerSupplied),
+        "adder_vol_source must be CallerSupplied; got {:?}",
+        row_d.adder_vol_source
+    );
+}
+
+// ---------------------------------------------------------------------------
+// PR-5a Test 3: BucketOnly uses peer proxy at deepest level
+// ---------------------------------------------------------------------------
+
+/// Fixture: 1 BucketOnly issuer X with tags `{rating: IG, region: EU}` plus
+/// 2 IssuerBeta peers also tagged `{rating: IG, region: EU}`.
+/// X's adder vol must equal the mean of those 2 peers' vols, and the
+/// `peer_bucket` must be `"IG.EU"` (the deepest level = level-1 path).
+#[test]
+fn bucket_only_uses_peer_proxy_at_deepest_level() {
+    let n = 24usize;
+    let as_of = d(2024, Month::March, 31);
+    let dates = monthly_dates(n, as_of);
+
+    let generic_values: Vec<f64> = (0..n).map(|i| 0.5 * (i as f64).sin()).collect();
+
+    let mut spreads: BTreeMap<IssuerId, Vec<Option<f64>>> = BTreeMap::new();
+    let mut issuer_tags_map: BTreeMap<IssuerId, IssuerTags> = BTreeMap::new();
+    let mut asof_spreads: BTreeMap<IssuerId, f64> = BTreeMap::new();
+
+    // 2 IssuerBeta peers in IG.EU bucket.
+    for (idx, id) in ["PEER-1", "PEER-2"].iter().enumerate() {
+        let issuer_id = IssuerId::new(*id);
+        let series: Vec<Option<f64>> = (0..n)
+            .map(|i| {
+                Some(
+                    100.0
+                        + (idx as f64) * 20.0
+                        + 0.8 * generic_values[i]
+                        + 0.1 * ((idx as f64) + (i as f64) * 0.3).sin(),
+                )
+            })
+            .collect();
+        asof_spreads.insert(issuer_id.clone(), series[n - 1].unwrap());
+        spreads.insert(issuer_id.clone(), series);
+        issuer_tags_map.insert(issuer_id, tags_for("IG", "EU"));
+    }
+
+    // BucketOnly issuer X in the same IG.EU bucket.
+    let x_id = IssuerId::new("ISSUER-X");
+    let x_series: Vec<Option<f64>> = (0..n)
+        .map(|i| Some(150.0 + 0.9 * generic_values[i] + 0.05 * ((i as f64) * 0.7).cos()))
+        .collect();
+    asof_spreads.insert(x_id.clone(), x_series[n - 1].unwrap());
+    spreads.insert(x_id.clone(), x_series);
+    issuer_tags_map.insert(x_id.clone(), tags_for("IG", "EU"));
+
+    // Policy: peers are IssuerBeta, X is BucketOnly via ForceIssuerBeta +
+    // ForceBucketOnly overrides.
+    let mut overrides = BTreeMap::new();
+    overrides.insert(IssuerId::new("PEER-1"), IssuerBetaOverride::ForceIssuerBeta);
+    overrides.insert(IssuerId::new("PEER-2"), IssuerBetaOverride::ForceIssuerBeta);
+    overrides.insert(x_id.clone(), IssuerBetaOverride::ForceBucketOnly);
+
+    let policy = IssuerBetaPolicy::Dynamic {
+        min_history: 12,
+        overrides,
+    };
+    let cfg = CreditCalibrationConfig {
+        min_bucket_size_per_level: BucketSizeThresholds {
+            per_level: vec![1, 1],
+        },
+        ..config_with(
+            policy,
+            vec![HierarchyDimension::Rating, HierarchyDimension::Region],
+        )
+    };
+
+    let inputs = CreditCalibrationInputs {
+        history_panel: HistoryPanel { dates, spreads },
+        issuer_tags: IssuerTagPanel {
+            tags: issuer_tags_map,
+        },
+        generic_factor: GenericFactorSeries {
+            spec: GenericFactorSpec {
+                name: "CDX".to_owned(),
+                series_id: "cdx".to_owned(),
+            },
+            values: generic_values,
+        },
+        as_of,
+        asof_spreads,
+        idiosyncratic_overrides: BTreeMap::new(),
+    };
+
+    let model = CreditCalibrator::new(cfg)
+        .calibrate(inputs)
+        .expect("calibration succeeds");
+
+    // Get peer vols from the model.
+    let peer1_vol = model
+        .issuer_betas
+        .iter()
+        .find(|r| r.issuer_id.as_str() == "PEER-1")
+        .map(|r| r.adder_vol_annualized)
+        .expect("PEER-1 row");
+    let peer2_vol = model
+        .issuer_betas
+        .iter()
+        .find(|r| r.issuer_id.as_str() == "PEER-2")
+        .map(|r| r.adder_vol_annualized)
+        .expect("PEER-2 row");
+
+    let expected_mean = (peer1_vol + peer2_vol) / 2.0;
+
+    let row_x = model
+        .issuer_betas
+        .iter()
+        .find(|r| r.issuer_id.as_str() == "ISSUER-X")
+        .expect("ISSUER-X row present");
+
+    assert!(
+        matches!(row_x.mode, IssuerBetaMode::BucketOnly),
+        "ISSUER-X must be BucketOnly"
+    );
+    assert!(
+        (row_x.adder_vol_annualized - expected_mean).abs() < 1e-9,
+        "adder_vol must equal mean of IG.EU peers ({expected_mean}); got {}",
+        row_x.adder_vol_annualized
+    );
+    // peer_bucket must be "IG.EU" (the deepest level path where peers exist).
+    assert!(
+        matches!(
+            &row_x.adder_vol_source,
+            AdderVolSource::BucketPeerProxy { peer_bucket }
+            if peer_bucket == "IG.EU"
+        ),
+        "adder_vol_source must be BucketPeerProxy {{ peer_bucket: \"IG.EU\" }}; got {:?}",
+        row_x.adder_vol_source
+    );
+}
+
+// ---------------------------------------------------------------------------
+// PR-5a Test 4: peer proxy falls back to parent bucket level
+// ---------------------------------------------------------------------------
+
+/// Fixture: BucketOnly issuer X tagged `{rating: IG, region: APAC}` but there
+/// are no IG.APAC IssuerBeta peers. There ARE IG.EU IssuerBeta peers.
+/// X must proxy from IG level (level-0, the coarsest), not IG.APAC.
+/// `peer_bucket = "IG"`.
+#[test]
+fn bucket_peer_proxy_falls_back_to_parent() {
+    let n = 24usize;
+    let as_of = d(2024, Month::March, 31);
+    let dates = monthly_dates(n, as_of);
+
+    let generic_values: Vec<f64> = (0..n).map(|i| 0.5 * (i as f64).sin()).collect();
+
+    let mut spreads: BTreeMap<IssuerId, Vec<Option<f64>>> = BTreeMap::new();
+    let mut issuer_tags_map: BTreeMap<IssuerId, IssuerTags> = BTreeMap::new();
+    let mut asof_spreads: BTreeMap<IssuerId, f64> = BTreeMap::new();
+
+    // 2 IssuerBeta peers in IG.EU bucket (different region from X).
+    for (idx, id) in ["PEER-EU-1", "PEER-EU-2"].iter().enumerate() {
+        let issuer_id = IssuerId::new(*id);
+        let series: Vec<Option<f64>> = (0..n)
+            .map(|i| {
+                Some(
+                    100.0
+                        + (idx as f64) * 20.0
+                        + 0.8 * generic_values[i]
+                        + 0.1 * ((idx as f64) + (i as f64) * 0.3).sin(),
+                )
+            })
+            .collect();
+        asof_spreads.insert(issuer_id.clone(), series[n - 1].unwrap());
+        spreads.insert(issuer_id.clone(), series);
+        issuer_tags_map.insert(issuer_id, tags_for("IG", "EU"));
+    }
+
+    // BucketOnly issuer X in IG.APAC — no IG.APAC IssuerBeta peers.
+    let x_id = IssuerId::new("ISSUER-X");
+    let x_series: Vec<Option<f64>> = (0..n)
+        .map(|i| Some(150.0 + 0.9 * generic_values[i] + 0.05 * ((i as f64) * 0.7).cos()))
+        .collect();
+    asof_spreads.insert(x_id.clone(), x_series[n - 1].unwrap());
+    spreads.insert(x_id.clone(), x_series);
+    issuer_tags_map.insert(x_id.clone(), tags_for("IG", "APAC"));
+
+    let mut overrides = BTreeMap::new();
+    overrides.insert(
+        IssuerId::new("PEER-EU-1"),
+        IssuerBetaOverride::ForceIssuerBeta,
+    );
+    overrides.insert(
+        IssuerId::new("PEER-EU-2"),
+        IssuerBetaOverride::ForceIssuerBeta,
+    );
+    overrides.insert(x_id.clone(), IssuerBetaOverride::ForceBucketOnly);
+
+    let policy = IssuerBetaPolicy::Dynamic {
+        min_history: 12,
+        overrides,
+    };
+    let cfg = CreditCalibrationConfig {
+        min_bucket_size_per_level: BucketSizeThresholds {
+            per_level: vec![1, 1],
+        },
+        ..config_with(
+            policy,
+            vec![HierarchyDimension::Rating, HierarchyDimension::Region],
+        )
+    };
+
+    let inputs = CreditCalibrationInputs {
+        history_panel: HistoryPanel { dates, spreads },
+        issuer_tags: IssuerTagPanel {
+            tags: issuer_tags_map,
+        },
+        generic_factor: GenericFactorSeries {
+            spec: GenericFactorSpec {
+                name: "CDX".to_owned(),
+                series_id: "cdx".to_owned(),
+            },
+            values: generic_values,
+        },
+        as_of,
+        asof_spreads,
+        idiosyncratic_overrides: BTreeMap::new(),
+    };
+
+    let model = CreditCalibrator::new(cfg)
+        .calibrate(inputs)
+        .expect("calibration succeeds");
+
+    let peer1_vol = model
+        .issuer_betas
+        .iter()
+        .find(|r| r.issuer_id.as_str() == "PEER-EU-1")
+        .map(|r| r.adder_vol_annualized)
+        .expect("PEER-EU-1 row");
+    let peer2_vol = model
+        .issuer_betas
+        .iter()
+        .find(|r| r.issuer_id.as_str() == "PEER-EU-2")
+        .map(|r| r.adder_vol_annualized)
+        .expect("PEER-EU-2 row");
+
+    let expected_mean = (peer1_vol + peer2_vol) / 2.0;
+
+    let row_x = model
+        .issuer_betas
+        .iter()
+        .find(|r| r.issuer_id.as_str() == "ISSUER-X")
+        .expect("ISSUER-X row present");
+
+    assert!(
+        (row_x.adder_vol_annualized - expected_mean).abs() < 1e-9,
+        "adder_vol must equal mean of IG-level peers ({expected_mean}); got {}",
+        row_x.adder_vol_annualized
+    );
+    // Level-1 bucket IG.APAC has no peers → fell back to level-0 bucket "IG".
+    assert!(
+        matches!(
+            &row_x.adder_vol_source,
+            AdderVolSource::BucketPeerProxy { peer_bucket }
+            if peer_bucket == "IG"
+        ),
+        "adder_vol_source must be BucketPeerProxy {{ peer_bucket: \"IG\" }}; got {:?}",
+        row_x.adder_vol_source
+    );
+}
+
+// ---------------------------------------------------------------------------
+// PR-5a Test 5: peer proxy cascade falls back to global mean
+// ---------------------------------------------------------------------------
+
+/// Fixture: BucketOnly issuer X tagged `{rating: HY, region: APAC}` but there
+/// are NO HY.APAC or HY IssuerBeta peers anywhere. There are IG IssuerBeta
+/// peers in a completely different rating bucket. X's vol must equal the global
+/// mean of all IssuerBeta vols. Source = `Default`.
+#[test]
+fn peer_proxy_cascade_falls_back_to_global() {
+    let n = 24usize;
+    let as_of = d(2024, Month::March, 31);
+    let dates = monthly_dates(n, as_of);
+
+    let generic_values: Vec<f64> = (0..n).map(|i| 0.5 * (i as f64).sin()).collect();
+
+    let mut spreads: BTreeMap<IssuerId, Vec<Option<f64>>> = BTreeMap::new();
+    let mut issuer_tags_map: BTreeMap<IssuerId, IssuerTags> = BTreeMap::new();
+    let mut asof_spreads: BTreeMap<IssuerId, f64> = BTreeMap::new();
+
+    // 2 IssuerBeta peers in IG.EU bucket (different rating bucket from X).
+    for (idx, id) in ["IG-PEER-1", "IG-PEER-2"].iter().enumerate() {
+        let issuer_id = IssuerId::new(*id);
+        let series: Vec<Option<f64>> = (0..n)
+            .map(|i| {
+                Some(
+                    100.0
+                        + (idx as f64) * 20.0
+                        + 0.8 * generic_values[i]
+                        + 0.1 * ((idx as f64) + (i as f64) * 0.3).sin(),
+                )
+            })
+            .collect();
+        asof_spreads.insert(issuer_id.clone(), series[n - 1].unwrap());
+        spreads.insert(issuer_id.clone(), series);
+        issuer_tags_map.insert(issuer_id, tags_for("IG", "EU"));
+    }
+
+    // BucketOnly issuer X in HY.APAC — no HY IssuerBeta peers at any level.
+    let x_id = IssuerId::new("ISSUER-X");
+    let x_series: Vec<Option<f64>> = (0..n)
+        .map(|i| Some(250.0 + 1.2 * generic_values[i] + 0.08 * ((i as f64) * 0.4).cos()))
+        .collect();
+    asof_spreads.insert(x_id.clone(), x_series[n - 1].unwrap());
+    spreads.insert(x_id.clone(), x_series);
+    issuer_tags_map.insert(x_id.clone(), tags_for("HY", "APAC"));
+
+    let mut overrides = BTreeMap::new();
+    overrides.insert(
+        IssuerId::new("IG-PEER-1"),
+        IssuerBetaOverride::ForceIssuerBeta,
+    );
+    overrides.insert(
+        IssuerId::new("IG-PEER-2"),
+        IssuerBetaOverride::ForceIssuerBeta,
+    );
+    overrides.insert(x_id.clone(), IssuerBetaOverride::ForceBucketOnly);
+
+    let policy = IssuerBetaPolicy::Dynamic {
+        min_history: 12,
+        overrides,
+    };
+    let cfg = CreditCalibrationConfig {
+        min_bucket_size_per_level: BucketSizeThresholds {
+            per_level: vec![1, 1],
+        },
+        ..config_with(
+            policy,
+            vec![HierarchyDimension::Rating, HierarchyDimension::Region],
+        )
+    };
+
+    let inputs = CreditCalibrationInputs {
+        history_panel: HistoryPanel { dates, spreads },
+        issuer_tags: IssuerTagPanel {
+            tags: issuer_tags_map,
+        },
+        generic_factor: GenericFactorSeries {
+            spec: GenericFactorSpec {
+                name: "CDX".to_owned(),
+                series_id: "cdx".to_owned(),
+            },
+            values: generic_values,
+        },
+        as_of,
+        asof_spreads,
+        idiosyncratic_overrides: BTreeMap::new(),
+    };
+
+    let model = CreditCalibrator::new(cfg)
+        .calibrate(inputs)
+        .expect("calibration succeeds");
+
+    // Compute the global mean of IssuerBeta from-history vols.
+    let ig_peer_vols: Vec<f64> = ["IG-PEER-1", "IG-PEER-2"]
+        .iter()
+        .map(|id| {
+            model
+                .issuer_betas
+                .iter()
+                .find(|r| r.issuer_id.as_str() == *id)
+                .map(|r| r.adder_vol_annualized)
+                .unwrap_or(0.0)
+        })
+        .collect();
+    let global_mean = ig_peer_vols.iter().sum::<f64>() / (ig_peer_vols.len() as f64);
+
+    let row_x = model
+        .issuer_betas
+        .iter()
+        .find(|r| r.issuer_id.as_str() == "ISSUER-X")
+        .expect("ISSUER-X row present");
+
+    assert!(
+        (row_x.adder_vol_annualized - global_mean).abs() < 1e-9,
+        "adder_vol must equal global mean ({global_mean}); got {}",
+        row_x.adder_vol_annualized
+    );
+    assert!(
+        matches!(row_x.adder_vol_source, AdderVolSource::Default),
+        "adder_vol_source must be Default (global fallback); got {:?}",
+        row_x.adder_vol_source
+    );
+}
+
+// ---------------------------------------------------------------------------
+// PR-5a Test 6: all-BucketOnly model uses 0.0 vol with Default source
+// ---------------------------------------------------------------------------
+
+/// When every issuer is `BucketOnly` (GloballyOff policy), there are no
+/// `IssuerBeta` peers anywhere. Every issuer must get `adder_vol = 0.0` and
+/// `AdderVolSource::Default`.
+#[test]
+fn peer_proxy_with_no_issuer_beta_anywhere_uses_zero() {
+    // GloballyOff → all issuers BucketOnly, no FromHistory vols anywhere.
+    let cfg = CreditCalibrationConfig {
+        min_bucket_size_per_level: BucketSizeThresholds {
+            per_level: vec![1, 1],
+        },
+        ..config_with(
+            IssuerBetaPolicy::GloballyOff,
+            vec![HierarchyDimension::Rating, HierarchyDimension::Region],
+        )
+    };
+
+    let inputs = fixture_panel().into_inputs();
+    let model = CreditCalibrator::new(cfg)
+        .calibrate(inputs)
+        .expect("calibration succeeds");
+
+    for row in &model.issuer_betas {
+        assert!(
+            matches!(row.mode, IssuerBetaMode::BucketOnly),
+            "mode must be BucketOnly"
+        );
+        assert!(
+            row.adder_vol_annualized.abs() < 1e-12,
+            "adder_vol must be 0.0 when no IssuerBeta peers exist; got {} for {:?}",
+            row.adder_vol_annualized,
+            row.issuer_id.as_str()
+        );
+        assert!(
+            matches!(row.adder_vol_source, AdderVolSource::Default),
+            "adder_vol_source must be Default; got {:?} for {:?}",
+            row.adder_vol_source,
+            row.issuer_id.as_str()
+        );
+    }
 }
