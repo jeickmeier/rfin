@@ -583,9 +583,9 @@ pub struct CalibrationDiagnostics {
     ///
     /// Keys are `"issuer_beta"` and `"bucket_only"`.
     pub mode_counts: BTreeMap<String, usize>,
-    /// Per-level count of issuers per bucket.
-    ///
-    /// `bucket_sizes_per_level[i]` maps bucket path → issuer count for level `i`.
+    /// One entry per hierarchy level: `BTreeMap<bucket_path, IssuerBeta_count>`.
+    /// Counts only issuers calibrated in `IssuerBeta` mode, since `BucketOnly`
+    /// issuers do not affect fold-up thresholds.
     pub bucket_sizes_per_level: Vec<BTreeMap<String, usize>>,
     /// Log of all fold-up events triggered by insufficient bucket coverage.
     pub fold_ups: Vec<FoldUpRecord>,

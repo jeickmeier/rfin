@@ -378,7 +378,7 @@ impl CreditCalibrator {
         )?;
 
         // -- 8. Per-factor variance forecast (Sample). ----------------------
-        let factor_vols = factor_vols(
+        let factor_variances = factor_variances(
             &peel_outcome.factor_returns,
             self.config.annualization_factor,
         );
@@ -435,7 +435,7 @@ impl CreditCalibrator {
         // -- 10. Assemble FactorModelConfig. --------------------------------
         let config = assemble_factor_model_config(
             &factor_id_order,
-            &factor_vols,
+            &factor_variances,
             &self.config.hierarchy,
             &issuer_betas,
         )?;
@@ -465,7 +465,7 @@ impl CreditCalibrator {
             &peel_outcome.factor_returns,
         ));
 
-        let vol_state = build_vol_state(&factor_vols, &issuer_betas);
+        let vol_state = build_vol_state(&factor_variances, &issuer_betas);
 
         let model = CreditFactorModel {
             schema_version: CreditFactorModel::SCHEMA_VERSION.to_owned(),
@@ -728,9 +728,13 @@ struct PeelOutcome {
     adder_series: BTreeMap<IssuerId, Vec<Option<f64>>>,
     /// Fit quality stats for IssuerBeta issuers.
     fit_quality: BTreeMap<IssuerId, FitQuality>,
-    /// Per-factor return series, keyed by FactorId.
-    /// Includes the generic factor and every surviving bucket factor.
-    factor_returns: BTreeMap<FactorId, Vec<f64>>,
+    /// Per-factor return series (sparse), keyed by FactorId.
+    /// Includes the generic factor (always `Some`) and every surviving bucket
+    /// factor. Bucket factors carry `None` at dates where all bucket members
+    /// were absent ("empty-bucket" sentinel). Use [`factor_variances`] to
+    /// compute variance over only the observed entries, and flatten to
+    /// `0.0`-substituted `Vec<f64>` when writing to [`FactorHistories`].
+    factor_returns: BTreeMap<FactorId, Vec<Option<f64>>>,
 }
 
 fn run_peel(
@@ -746,11 +750,12 @@ fn run_peel(
     let mut betas: BTreeMap<IssuerId, IssuerBetas> = BTreeMap::new();
     let mut residuals: BTreeMap<IssuerId, Vec<Option<f64>>> = BTreeMap::new();
     let mut fit_quality: BTreeMap<IssuerId, FitQuality> = BTreeMap::new();
-    let mut factor_returns: BTreeMap<FactorId, Vec<f64>> = BTreeMap::new();
+    let mut factor_returns: BTreeMap<FactorId, Vec<Option<f64>>> = BTreeMap::new();
 
+    // Generic factor is always fully observed; wrap in Some for type uniformity.
     factor_returns.insert(
         FactorId::new(CREDIT_GENERIC_FACTOR_ID),
-        panel.generic.clone(),
+        panel.generic.iter().map(|v| Some(*v)).collect(),
     );
 
     // Step 4 — PC peel.
@@ -815,7 +820,10 @@ fn run_peel(
         }
 
         // Compute bucket factor returns f_<level_k>(g, t) = mean over members.
-        let mut bucket_factor_series: BTreeMap<String, Vec<f64>> = BTreeMap::new();
+        // Empty buckets at date t (all members missing) emit `None` so that
+        // downstream OLS and variance estimation can skip those dates rather
+        // than biasing results with an imputed zero.
+        let mut bucket_factor_series: BTreeMap<String, Vec<Option<f64>>> = BTreeMap::new();
         for (bucket, members) in &bucket_members {
             let mut series = Vec::with_capacity(n);
             for t in 0..n {
@@ -827,7 +835,11 @@ fn run_peel(
                         count += 1;
                     }
                 }
-                series.push(if count > 0 { sum / (count as f64) } else { 0.0 });
+                series.push(if count > 0 {
+                    Some(sum / (count as f64))
+                } else {
+                    None
+                });
             }
             bucket_factor_series.insert(bucket.clone(), series);
         }
@@ -845,20 +857,23 @@ fn run_peel(
                     IssuerBetaMode::BucketOnly => 1.0,
                     IssuerBetaMode::IssuerBeta => {
                         // Fit OLS on the issuer's *current* residual vs the bucket factor.
-                        // Wrap factor_series to Option<f64> for consistent OLS API.
-                        let factor_opt: Vec<Option<f64>> =
-                            factor_series.iter().map(|v| Some(*v)).collect();
-                        let raw = ols_slope_owned(&r_series, &factor_opt).unwrap_or(1.0);
+                        // `factor_series` is already `Vec<Option<f64>>`; dates where the
+                        // factor is `None` (empty bucket) are skipped by `ols_slope_owned`.
+                        let raw = ols_slope_owned(&r_series, factor_series).unwrap_or(1.0);
                         apply_shrinkage(&config.beta_shrinkage, raw)
                     }
                 };
                 if let Some(b) = betas.get_mut(*issuer) {
                     b.levels[k] = beta_k;
                 }
+                // Propagate `None` when the factor is unavailable at date t.
                 let new_res: Vec<Option<f64>> = r_series
                     .iter()
                     .enumerate()
-                    .map(|(t, v)| v.map(|x| x - beta_k * factor_series[t]))
+                    .map(|(t, v)| match (v, factor_series[t]) {
+                        (Some(x), Some(f)) => Some(x - beta_k * f),
+                        _ => None,
+                    })
                     .collect();
                 residuals.insert((*issuer).clone(), new_res);
             }
@@ -868,6 +883,10 @@ fn run_peel(
         // residual is unchanged (no subtraction). We've simply skipped them.
 
         // Record bucket factor return series in the canonical FactorId form.
+        // The sparse `Vec<Option<f64>>` is stored directly in `factor_returns`;
+        // flattening to `Vec<f64>` for `FactorHistories` happens in
+        // `build_factor_histories` (substituting `0.0` for `None`).
+        // `factor_variances` computes variance over only the `Some` entries.
         for (bucket, series) in bucket_factor_series {
             // Reconstruct an IssuerTags for path → use a synthetic helper:
             // We need bucket_factor_id. The existing helper requires IssuerTags;
@@ -995,7 +1014,11 @@ fn compute_fit_quality(y: &[Option<f64>], x: &[f64], beta: f64) -> Option<FitQua
     })
 }
 
-/// Step 6: per-issuer adder vol from the residual series after the last level.
+/// Step 6: per-issuer adder annualized **vol** (std dev, not variance) from
+/// the residual series after the last level.
+///
+/// Returns the annualized standard deviation `sqrt(var * annualization_factor)`
+/// for each `IssuerBeta` issuer that has at least 2 valid residual observations.
 fn adder_vols(
     adder_series: &BTreeMap<IssuerId, Vec<Option<f64>>>,
     modes: &BTreeMap<IssuerId, IssuerBetaMode>,
@@ -1132,21 +1155,31 @@ fn anchor_levels(
     })
 }
 
-/// Step 8: per-factor sample variance × annualization_factor.
-fn factor_vols(
-    factor_returns: &BTreeMap<FactorId, Vec<f64>>,
+/// Step 8: per-factor annualized variance.
+///
+/// Returns annualized factor variances (already squared) suitable for placing
+/// on the diagonal of `Σ`. Values are **not** std devs; callers must not
+/// take a square root before inserting into the covariance matrix.
+///
+/// Each series may contain `None` entries for dates where all bucket members
+/// were absent (empty-bucket). Such entries are skipped so that the variance
+/// is computed only over observed dates, keeping the estimate unbiased when
+/// the panel is sparse.
+fn factor_variances(
+    factor_returns: &BTreeMap<FactorId, Vec<Option<f64>>>,
     annualization_factor: f64,
 ) -> BTreeMap<FactorId, f64> {
     let mut out = BTreeMap::new();
     for (fid, series) in factor_returns {
-        let n = series.len();
+        let valid: Vec<f64> = series.iter().filter_map(|v| *v).collect();
+        let n = valid.len();
         if n < 2 {
             out.insert(fid.clone(), 0.0);
             continue;
         }
         let nf = n as f64;
-        let mean = series.iter().sum::<f64>() / nf;
-        let var = series.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / nf;
+        let mean = valid.iter().sum::<f64>() / nf;
+        let var = valid.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / nf;
         out.insert(fid.clone(), (var * annualization_factor).max(0.0));
     }
     out
@@ -1155,7 +1188,7 @@ fn factor_vols(
 /// Canonical factor ID order: PC first, then bucket factors sorted lexicographically.
 fn build_factor_id_order(
     _hierarchy: &CreditHierarchySpec,
-    factor_returns: &BTreeMap<FactorId, Vec<f64>>,
+    factor_returns: &BTreeMap<FactorId, Vec<Option<f64>>>,
 ) -> Vec<FactorId> {
     let pc = FactorId::new(CREDIT_GENERIC_FACTOR_ID);
     let mut buckets: Vec<FactorId> = factor_returns
@@ -1172,7 +1205,7 @@ fn build_factor_id_order(
 
 fn assemble_factor_model_config(
     factor_id_order: &[FactorId],
-    factor_vols: &BTreeMap<FactorId, f64>,
+    factor_variances: &BTreeMap<FactorId, f64>,
     hierarchy: &CreditHierarchySpec,
     issuer_betas: &[IssuerBetaRow],
 ) -> Result<FactorModelConfig> {
@@ -1194,10 +1227,12 @@ fn assemble_factor_model_config(
     }
 
     // Diagonal covariance: data is a flat n*n vector with σ² on the diagonal.
+    // `factor_variances` values are already annualized variances (not std devs);
+    // they are placed directly on the diagonal of Σ.
     let n = factor_id_order.len();
     let mut data = vec![0.0_f64; n * n];
     for (i, fid) in factor_id_order.iter().enumerate() {
-        let var = factor_vols.get(fid).copied().unwrap_or(0.0);
+        let var = factor_variances.get(fid).copied().unwrap_or(0.0);
         // Floor at 0.0 to keep PSD even when sample variance is exactly zero.
         data[i * n + i] = var.max(0.0);
     }
@@ -1224,25 +1259,36 @@ fn assemble_factor_model_config(
 fn build_factor_histories(
     dates: &[Date],
     space: &PanelSpace,
-    factor_returns: &BTreeMap<FactorId, Vec<f64>>,
+    factor_returns: &BTreeMap<FactorId, Vec<Option<f64>>>,
 ) -> FactorHistories {
     // Returns: histories align to dates[1..]. Levels: histories align to dates.
     let aligned_dates = match space {
         PanelSpace::Returns => dates.iter().skip(1).copied().collect::<Vec<_>>(),
         PanelSpace::Levels => dates.to_vec(),
     };
+    // `FactorHistories.values` is `Vec<f64>` (locked at PR-1). Flatten sparse
+    // series here: `None` (empty-bucket date) → `0.0`. Downstream consumers
+    // should treat 0.0 entries in level-factor histories as "no observation"
+    // when the panel is known to be sparse.
+    let values: BTreeMap<FactorId, Vec<f64>> = factor_returns
+        .iter()
+        .map(|(fid, series)| {
+            let dense = series.iter().map(|v| v.unwrap_or(0.0)).collect();
+            (fid.clone(), dense)
+        })
+        .collect();
     FactorHistories {
         dates: aligned_dates,
-        values: factor_returns.clone(),
+        values,
     }
 }
 
 fn build_vol_state(
-    factor_vols: &BTreeMap<FactorId, f64>,
+    factor_variances: &BTreeMap<FactorId, f64>,
     issuer_betas: &[IssuerBetaRow],
 ) -> VolState {
     let mut factors = BTreeMap::new();
-    for (fid, var) in factor_vols {
+    for (fid, var) in factor_variances {
         factors.insert(fid.clone(), FactorVolModel::Sample { variance: *var });
     }
     let mut idiosyncratic = BTreeMap::new();

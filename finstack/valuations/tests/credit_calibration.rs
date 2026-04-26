@@ -2,12 +2,12 @@
 //!
 //! Implements the seven required PR-4 tests from the design.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use finstack_core::dates::{create_date, Date};
 use finstack_core::factor_model::credit_hierarchy::{
-    CreditHierarchySpec, GenericFactorSpec, HierarchyDimension, IssuerBetaMode, IssuerBetaOverride,
-    IssuerBetaPolicy, IssuerTags,
+    CreditFactorModel, CreditHierarchySpec, FactorVolModel, GenericFactorSpec, HierarchyDimension,
+    IssuerBetaMode, IssuerBetaOverride, IssuerBetaPolicy, IssuerTags,
 };
 use finstack_core::types::IssuerId;
 use finstack_valuations::factor_model::{
@@ -395,6 +395,25 @@ fn single_level_hierarchy_builds_expected_factor_ids() {
         "credit::level0::Rating::IG".to_owned(),
     ];
     assert_eq!(factor_ids, expected);
+
+    // M-4: verify tag_taxonomy contains the expected dimension and observed values.
+    let taxonomy = &model.diagnostics.tag_taxonomy;
+    assert!(
+        taxonomy.contains_key("rating"),
+        "tag_taxonomy must contain dimension key 'rating'"
+    );
+    let rating_values = &taxonomy["rating"];
+    assert_eq!(
+        *rating_values,
+        BTreeSet::from(["IG".to_owned(), "HY".to_owned()]),
+        "rating dimension must observe exactly IG and HY"
+    );
+    // Single-level hierarchy: only 'rating' should appear as a key.
+    assert_eq!(
+        taxonomy.len(),
+        1,
+        "single-level Rating hierarchy must produce exactly one taxonomy key"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -437,6 +456,157 @@ fn all_bucket_only_calibration_succeeds() {
             "credit::generic"
         )));
     assert!(!model.vol_state.factors.is_empty());
+
+    // M-4: verify tag_taxonomy for a two-level Rating × Region hierarchy.
+    let taxonomy = &model.diagnostics.tag_taxonomy;
+    assert!(
+        taxonomy.contains_key("rating"),
+        "tag_taxonomy must contain dimension key 'rating'"
+    );
+    assert!(
+        taxonomy.contains_key("region"),
+        "tag_taxonomy must contain dimension key 'region'"
+    );
+    assert_eq!(
+        taxonomy["rating"],
+        BTreeSet::from(["IG".to_owned(), "HY".to_owned()]),
+        "rating dimension must observe exactly IG and HY"
+    );
+    assert_eq!(
+        taxonomy["region"],
+        BTreeSet::from(["EU".to_owned(), "NA".to_owned(), "APAC".to_owned()]),
+        "region dimension must observe exactly EU, NA, and APAC"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// I-2: sparse bucket emits None for empty dates (factor variance excludes gap)
+// ---------------------------------------------------------------------------
+
+/// Fixture with 2 issuers, each the sole member of its Rating bucket.
+/// On date index 5 (0-based), ISSUER-IG has no observation (spread = None).
+/// That date should produce a `None` factor observation for the IG bucket,
+/// which must be excluded from the annualized variance calculation.
+#[test]
+fn sparse_bucket_emits_none_for_empty_dates() {
+    let n = 12usize; // 12-month panel
+    let as_of = d(2024, Month::December, 31);
+    let dates = monthly_dates(n, as_of);
+
+    let generic_values: Vec<f64> = (0..n).map(|i| 0.5 * (i as f64).sin()).collect();
+
+    // Two issuers: IG (sole member of its bucket) and HY (sole member of its bucket).
+    // IG is missing on date index 5.
+    let mut spreads: BTreeMap<IssuerId, Vec<Option<f64>>> = BTreeMap::new();
+    let mut issuer_tags_map: BTreeMap<IssuerId, IssuerTags> = BTreeMap::new();
+    let mut asof_spreads: BTreeMap<IssuerId, f64> = BTreeMap::new();
+
+    let ig_id = IssuerId::new("ISSUER-IG");
+    let hy_id = IssuerId::new("ISSUER-HY");
+
+    // IG series: present on all dates except index 5.
+    let ig_series: Vec<Option<f64>> = (0..n)
+        .map(|i| {
+            if i == 5 {
+                None
+            } else {
+                Some(100.0 + 0.8 * generic_values[i] + 0.05 * (i as f64).cos())
+            }
+        })
+        .collect();
+    asof_spreads.insert(ig_id.clone(), ig_series[n - 1].unwrap());
+    spreads.insert(ig_id.clone(), ig_series);
+    let mut ig_tags_map = BTreeMap::new();
+    ig_tags_map.insert("rating".to_owned(), "IG".to_owned());
+    issuer_tags_map.insert(ig_id.clone(), IssuerTags(ig_tags_map));
+
+    // HY series: fully observed.
+    let hy_series: Vec<Option<f64>> = (0..n)
+        .map(|i| Some(200.0 + 1.2 * generic_values[i] + 0.03 * (i as f64).sin()))
+        .collect();
+    asof_spreads.insert(hy_id.clone(), hy_series[n - 1].unwrap());
+    spreads.insert(hy_id.clone(), hy_series);
+    let mut hy_tags_map = BTreeMap::new();
+    hy_tags_map.insert("rating".to_owned(), "HY".to_owned());
+    issuer_tags_map.insert(hy_id.clone(), IssuerTags(hy_tags_map));
+
+    let inputs = CreditCalibrationInputs {
+        history_panel: HistoryPanel { dates, spreads },
+        issuer_tags: IssuerTagPanel {
+            tags: issuer_tags_map,
+        },
+        generic_factor: GenericFactorSeries {
+            spec: GenericFactorSpec {
+                name: "CDX".to_owned(),
+                series_id: "cdx".to_owned(),
+            },
+            values: generic_values,
+        },
+        as_of,
+        asof_spreads,
+        idiosyncratic_overrides: BTreeMap::new(),
+    };
+
+    // Use GloballyOff so betas=1 and the IG factor series = issuer's residual mean.
+    let cfg = CreditCalibrationConfig {
+        min_bucket_size_per_level: BucketSizeThresholds { per_level: vec![1] },
+        ..config_with(
+            IssuerBetaPolicy::GloballyOff,
+            vec![HierarchyDimension::Rating],
+        )
+    };
+
+    let model = CreditCalibrator::new(cfg)
+        .calibrate(inputs)
+        .expect("sparse-panel calibration succeeds");
+    model.validate().expect("model validates");
+
+    // The IG factor history is in returns space (dates[1..]). A missing spread
+    // at index 5 makes both return[4] (spread[5]-spread[4]) and return[5]
+    // (spread[6]-spread[5]) uncomputable. The empty-bucket entries are stored
+    // as 0.0 (the dense-compatible sentinel) so that FactorHistories can
+    // round-trip through JSON without serde type errors.
+    let fh = model
+        .factor_histories
+        .as_ref()
+        .expect("factor_histories present");
+    let ig_factor_id = finstack_core::factor_model::FactorId::new("credit::level0::Rating::IG");
+    let ig_history = fh
+        .values
+        .get(&ig_factor_id)
+        .expect("IG factor history present");
+
+    // No NaN values must appear in the stored history (ensuring JSON round-trip).
+    assert!(
+        ig_history.iter().all(|v| v.is_finite()),
+        "IG factor history must contain no NaN or Inf (JSON round-trip requirement)"
+    );
+
+    // Exactly 2 zero-sentinel entries must appear (the two return periods that
+    // straddle the missing spread at index 5).
+    let zero_count = ig_history.iter().filter(|&&v| v == 0.0).count();
+    assert_eq!(
+        zero_count, 2,
+        "IG factor history must contain exactly 2 zero sentinels (empty-bucket dates)"
+    );
+
+    // The factor variance is computed before flattening, over only the observed
+    // (Some) values. It must be strictly positive (the IG series is non-constant).
+    let vol_entry = model
+        .vol_state
+        .factors
+        .get(&ig_factor_id)
+        .expect("IG factor vol present");
+    let FactorVolModel::Sample { variance } = vol_entry;
+    assert!(
+        *variance > 0.0,
+        "IG factor variance must be positive (computed over non-zero-sentinel dates)"
+    );
+
+    // Round-trip serialization must succeed without error.
+    let json = serde_json::to_string(&model).expect("serialize succeeds");
+    let model2: CreditFactorModel = serde_json::from_str(&json).expect("deserialize succeeds");
+    assert_eq!(model.as_of, model2.as_of, "round-trip preserves as_of");
 }
 
 // ---------------------------------------------------------------------------
