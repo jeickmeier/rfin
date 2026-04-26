@@ -43,6 +43,8 @@
 
 mod config;
 mod covariance;
+/// Credit factor hierarchy artifact types (serde-first data model).
+pub mod credit_hierarchy;
 mod definition;
 mod dependency;
 mod error;
