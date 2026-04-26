@@ -44,9 +44,11 @@ pub enum BenchmarkAlignmentPolicy {
 
 /// Align a benchmark return series to the target date grid using an explicit policy.
 ///
-/// For each date in `target_dates`, binary-searches `bench_dates` for an exact
-/// match and returns the corresponding benchmark return. The `policy` argument
-/// controls behavior for target dates absent from the benchmark grid.
+/// For each date in `target_dates`, scans `bench_dates` for an exact match
+/// using a two-pointer merge (O(N+M)) and returns the corresponding benchmark
+/// return. Both `bench_dates` and `target_dates` must be sorted ascending.
+/// The `policy` argument controls behavior for target dates absent from the
+/// benchmark grid.
 ///
 /// The function operates in return space, not price space: a zero-fill means
 /// "no return observed on that target date", not "price unchanged after
@@ -58,7 +60,7 @@ pub enum BenchmarkAlignmentPolicy {
 /// * `bench_returns` - Benchmark simple-return series in decimal form. The
 ///   usable sample is truncated to `min(bench_returns.len(), bench_dates.len())`.
 /// * `bench_dates` - Sorted benchmark dates corresponding to `bench_returns`.
-///   Dates must be strictly ascending for binary search to behave correctly.
+///   Dates must be strictly ascending for the two-pointer merge to behave correctly.
 /// * `target_dates` - Sorted target date grid to align onto.
 /// * `policy` - Behavior when a target date is absent from the benchmark grid:
 ///   [`BenchmarkAlignmentPolicy::ZeroReturnOnMissingDates`] fills missing
@@ -108,16 +110,22 @@ pub fn align_benchmark(
     policy: BenchmarkAlignmentPolicy,
 ) -> crate::Result<Vec<f64>> {
     let n_bench = bench_returns.len().min(bench_dates.len());
+    let bench_dates = &bench_dates[..n_bench];
     let mut aligned = Vec::with_capacity(target_dates.len());
-    for &target_date in target_dates {
-        match bench_dates[..n_bench].binary_search(&target_date) {
-            Ok(index) => aligned.push(bench_returns[index]),
-            Err(_) => match policy {
+    let mut bi = 0usize;
+    for &target in target_dates {
+        while bi < n_bench && bench_dates[bi] < target {
+            bi += 1;
+        }
+        if bi < n_bench && bench_dates[bi] == target {
+            aligned.push(bench_returns[bi]);
+        } else {
+            match policy {
                 BenchmarkAlignmentPolicy::ZeroReturnOnMissingDates => aligned.push(0.0),
                 BenchmarkAlignmentPolicy::ErrorOnMissingDates => {
                     return Err(crate::error::InputError::Invalid.into());
                 }
-            },
+            }
         }
     }
     Ok(aligned)
@@ -1242,6 +1250,35 @@ mod tests {
         )
         .expect("zero-return policy is infallible");
         assert_eq!(aligned, vec![0.01, 0.03, 0.0]);
+    }
+
+    #[test]
+    fn align_benchmark_interleaved_missing_dates() {
+        let bd = vec![jan(1), jan(3), jan(5), jan(7)];
+        let br = vec![0.10, 0.30, 0.50, 0.70];
+        let td = vec![jan(1), jan(2), jan(3), jan(4), jan(5), jan(6), jan(7)];
+        let aligned = align_benchmark(
+            &br,
+            &bd,
+            &td,
+            BenchmarkAlignmentPolicy::ZeroReturnOnMissingDates,
+        )
+        .expect("zero-return policy is infallible");
+        assert_eq!(aligned, vec![0.10, 0.0, 0.30, 0.0, 0.50, 0.0, 0.70]);
+    }
+
+    #[test]
+    fn align_benchmark_error_on_missing() {
+        let bd = vec![jan(1), jan(3)];
+        let br = vec![0.01, 0.03];
+        let td = vec![jan(1), jan(2), jan(3)];
+        let result = align_benchmark(
+            &br,
+            &bd,
+            &td,
+            BenchmarkAlignmentPolicy::ErrorOnMissingDates,
+        );
+        assert!(result.is_err());
     }
 
     #[test]

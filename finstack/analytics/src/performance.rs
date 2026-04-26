@@ -171,8 +171,8 @@ impl Performance {
         let mut all_drawdowns: Vec<Vec<f64>> = Vec::with_capacity(n_tickers);
 
         for price_col in &prices {
-            let mut returns = simple_returns(price_col);
-            let mut returns = returns.split_off(1);
+            let full = simple_returns(price_col);
+            let mut returns = full[1..].to_vec();
             clean_returns(&mut returns);
             if returns.iter().any(|value| !value.is_finite()) {
                 return Err(crate::error::InputError::Invalid.into());
