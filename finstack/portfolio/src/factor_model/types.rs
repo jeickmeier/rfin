@@ -1,5 +1,6 @@
 use crate::types::PositionId;
 use finstack_core::factor_model::{FactorId, RiskMeasure};
+use finstack_core::types::IssuerId;
 use serde::{Deserialize, Serialize};
 
 /// Portfolio-level decomposition of total risk across common factors and residuals.
@@ -31,6 +32,49 @@ pub struct RiskDecomposition {
     pub residual_risk: f64,
     /// Per-position, per-factor contributions that roll up into the portfolio view.
     pub position_factor_contributions: Vec<PositionFactorContribution>,
+    /// Optional per-position residual (idiosyncratic) variance contributions.
+    ///
+    /// Populated only by credit-aware position decomposers that have access to
+    /// per-issuer idiosyncratic vol estimates. Empty by default for backward
+    /// compatibility with pre-PR-6 callers and serialized artifacts.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub position_residual_contributions: Vec<PositionResidualContribution>,
+}
+
+/// Source of a per-position residual variance contribution.
+///
+/// Distinguishes residuals derived from a credit factor model (where the
+/// idiosyncratic adder is calibrated per issuer) from generic / unattributed
+/// residual sources used by other decomposers.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ResidualContributionSource {
+    /// Residual variance sourced from a `CreditFactorModel`'s idiosyncratic
+    /// vol forecast for the named issuer.
+    FromCreditModel {
+        /// Issuer whose idiosyncratic vol drives this residual contribution.
+        issuer_id: IssuerId,
+    },
+    /// Residual variance from any other source (e.g. unattributed simulation
+    /// noise or a legacy decomposer that does not track the issuer).
+    Other,
+}
+
+/// Annualized residual variance contributed by a single position.
+///
+/// `residual_variance` is reported in variance units (not vol) so that
+/// per-position residuals add linearly into a portfolio-level total. Callers
+/// that want per-position residual *vol* should take the square root of this
+/// field after summing the relevant subset.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PositionResidualContribution {
+    /// Portfolio position identifier.
+    pub position_id: PositionId,
+    /// Annualized variance contributed by this position's idiosyncratic risk.
+    /// Always non-negative.
+    pub residual_variance: f64,
+    /// Where the residual variance came from.
+    pub source: ResidualContributionSource,
 }
 
 /// Contribution of a single factor to portfolio risk.
@@ -89,6 +133,7 @@ mod tests {
             ],
             residual_risk: 0.0,
             position_factor_contributions: vec![],
+            position_residual_contributions: vec![],
         };
 
         let sum: f64 = decomp
@@ -120,6 +165,7 @@ mod tests {
             ],
             residual_risk: 0.0,
             position_factor_contributions: vec![],
+            position_residual_contributions: vec![],
         };
 
         let sum_rel: f64 = decomp
@@ -128,5 +174,53 @@ mod tests {
             .map(|c| c.relative_risk)
             .sum();
         assert!((sum_rel - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn risk_decomposition_deserializes_without_residual_contributions() {
+        // Pre-PR-6 serialized JSON: no `position_residual_contributions` field.
+        // Backward-compat invariant: this must deserialize cleanly with the
+        // new field defaulting to an empty vector.
+        let legacy_json = r#"{
+            "total_risk": 100.0,
+            "measure": "variance",
+            "factor_contributions": [
+                {
+                    "factor_id": "Rates",
+                    "absolute_risk": 60.0,
+                    "relative_risk": 0.6,
+                    "marginal_risk": 0.3
+                }
+            ],
+            "residual_risk": 0.0,
+            "position_factor_contributions": []
+        }"#;
+
+        let decomp: RiskDecomposition =
+            serde_json::from_str(legacy_json).expect("legacy JSON must deserialize");
+
+        assert!((decomp.total_risk - 100.0).abs() < 1e-12);
+        assert_eq!(decomp.measure, RiskMeasure::Variance);
+        assert_eq!(decomp.factor_contributions.len(), 1);
+        assert!(decomp.position_residual_contributions.is_empty());
+    }
+
+    #[test]
+    fn risk_decomposition_omits_empty_residual_contributions_in_serialized_form() {
+        // The new field is `skip_serializing_if = "Vec::is_empty"`, so callers
+        // that never populate it produce wire output identical to pre-PR-6.
+        let decomp = RiskDecomposition {
+            total_risk: 0.0,
+            measure: RiskMeasure::Variance,
+            factor_contributions: vec![],
+            residual_risk: 0.0,
+            position_factor_contributions: vec![],
+            position_residual_contributions: vec![],
+        };
+        let json = serde_json::to_string(&decomp).expect("serialize");
+        assert!(
+            !json.contains("position_residual_contributions"),
+            "empty residual contributions must be omitted from wire form, got {json}"
+        );
     }
 }

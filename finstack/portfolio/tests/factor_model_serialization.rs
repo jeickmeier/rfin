@@ -43,6 +43,7 @@ fn sample_decomposition() -> RiskDecomposition {
             factor_id: FactorId::new("Rates"),
             risk_contribution: 60.0,
         }],
+        position_residual_contributions: vec![],
     }
 }
 

@@ -206,6 +206,7 @@ impl RiskDecomposer for ParametricDecomposer {
                 factor_contributions: Vec::new(),
                 residual_risk: 0.0,
                 position_factor_contributions: Vec::new(),
+                position_residual_contributions: Vec::new(),
             });
         }
 
@@ -272,6 +273,7 @@ impl RiskDecomposer for ParametricDecomposer {
             factor_contributions,
             residual_risk: 0.0,
             position_factor_contributions,
+            position_residual_contributions: Vec::new(),
         })
     }
 }

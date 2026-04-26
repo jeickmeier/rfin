@@ -464,6 +464,7 @@ impl SimulationDecomposer {
             ),
             residual_risk: 0.0,
             position_factor_contributions: Vec::new(),
+            position_residual_contributions: Vec::new(),
         }
     }
 
@@ -540,6 +541,7 @@ impl SimulationDecomposer {
             ),
             residual_risk: 0.0,
             position_factor_contributions: Vec::new(),
+            position_residual_contributions: Vec::new(),
         }
     }
 }
@@ -560,6 +562,7 @@ impl RiskDecomposer for SimulationDecomposer {
                 factor_contributions: Vec::new(),
                 residual_risk: 0.0,
                 position_factor_contributions: Vec::new(),
+                position_residual_contributions: Vec::new(),
             });
         }
 
