@@ -30,7 +30,7 @@
 //!
 //! **Experimental** — calibration parameters or signatures still under
 //! review:
-//! - `lvarBangia` — endogenous-cost coefficient is a placeholder, see
+//! - `lvarBangia` — endogenous-cost coefficient is a calibration default; see
 //!   `LiquidityConfig::endogenous_spread_coef` in the Rust crate.
 //! - `almgrenChrissImpact` — `delta` is fixed at 0.5; the underlying
 //!   `optimal_trajectory` accepts only `delta = 1` (linear impact).

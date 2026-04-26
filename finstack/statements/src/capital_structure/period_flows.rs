@@ -32,7 +32,6 @@ use finstack_core::money::Money;
 /// *next* period and do not incorrectly affect the prior period's end-of-period balance/accrual.
 pub(crate) fn period_snapshot_date(period: &Period) -> Date {
     if period.end <= period.start {
-        // Defensive: periods should always have positive length, but clamp to start if malformed.
         return period.start;
     }
     period.end - time::Duration::days(1)

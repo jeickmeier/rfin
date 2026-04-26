@@ -31,7 +31,7 @@ non-breaking) between releases:
 **Experimental** — calibration constants and convenience defaults still
 under review; signatures or default coefficients may change:
 
-* ``lvar_bangia`` — endogenous-cost coefficient currently a placeholder
+* ``lvar_bangia`` — endogenous-cost coefficient is a calibration default
   (see ``LiquidityConfig::endogenous_spread_coef`` in the Rust crate).
 * ``almgren_chriss_impact`` — fixes ``delta`` at 0.5; the underlying
   ``optimal_trajectory`` accepts only ``delta = 1`` (linear impact).

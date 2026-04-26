@@ -283,8 +283,8 @@ pub struct LiquidityConfig {
     /// This is a calibration parameter, not a published constant: Bangia et al.
     /// (1999) do not specify a size-dependent term, and the square-root form is
     /// imported from market-impact literature (Almgren-Chriss, Kyle). Calibrate
-    /// to your venue / instrument universe; the historical default of `0.1`
-    /// is a placeholder that should not be treated as authoritative.
+    /// to your venue / instrument universe; the default of `0.1` is a
+    /// conservative calibration starting point.
     ///
     /// Set to `0.0` to disable the endogenous term entirely (only the Bangia
     /// exogenous + spread-vol terms remain in `lvar_bangia`). Default: 0.1.

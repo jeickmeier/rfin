@@ -230,9 +230,5 @@ pub(crate) fn register_exotic_pricers(registry: &mut PricerRegistry) {
         crate::instruments::rates::swaption::cheyette_rough_pricer::BermudanSwaptionCheyetteRoughPricer::default(),
     );
 
-    // -- Exotic Rate Products --
-    //
-    // All JSON-tagged exotic rate products now have explicit model
-    // registrations. Avoid adding placeholder `Discounting` routes for
-    // products whose economics require a stochastic or replication model.
+    // Exotic rate products require explicit stochastic or replication models.
 }

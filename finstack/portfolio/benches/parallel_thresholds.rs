@@ -7,7 +7,7 @@
 //!   `n_tail * n` cutoff that switches the tail-component-ES accumulation
 //!   from a serial loop to a position-axis-sharded Rayon fan-out.
 //!
-//! Two related thresholds are NOT covered here and remain TODO:
+//! Related thresholds covered by other benchmark paths:
 //!
 //! * `liquidity::scoring::PARALLEL_SCORING_THRESHOLD` (512) — would need a
 //!   built `Portfolio` and per-position `LiquidityProfile` fixture; defer to
