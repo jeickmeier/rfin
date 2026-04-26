@@ -313,9 +313,10 @@ pub use credit_factor::{
 };
 pub use types::{
     AttributionFactor, AttributionMeta, AttributionMethod, CarryDetail, CorrelationsAttribution,
-    CreditCurvesAttribution, CreditFactorAttribution, CrossFactorDetail, FxAttribution,
-    InflationCurvesAttribution, LevelPnl, ModelParamsAttribution, PnlAttribution,
-    RatesCurvesAttribution, ScalarsAttribution, VolAttribution,
+    CreditCarryByLevel, CreditCarryDecomposition, CreditCurvesAttribution, CreditFactorAttribution,
+    CrossFactorDetail, FxAttribution, InflationCurvesAttribution, LevelCarry, LevelPnl,
+    ModelParamsAttribution, PnlAttribution, RatesCurvesAttribution, ScalarsAttribution, SourceLine,
+    VolAttribution,
 };
 
 // Re-export attribution functions

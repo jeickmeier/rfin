@@ -405,9 +405,9 @@ pub fn attribute_pnl_metrics_based(
 
         attribution.carry_detail = Some(CarryDetail {
             total: attribution.carry,
-            coupon_income: get_scaled(MetricId::CouponIncome),
+            coupon_income: get_scaled(MetricId::CouponIncome).map(SourceLine::scalar),
             pull_to_par: get_scaled(MetricId::PullToPar),
-            roll_down: get_scaled(MetricId::RollDown),
+            roll_down: get_scaled(MetricId::RollDown).map(SourceLine::scalar),
             funding_cost: get_scaled(MetricId::FundingCost),
             theta: legacy_theta,
         });
@@ -1089,9 +1089,12 @@ mod tests {
             .carry_detail
             .expect("carry_detail should be populated");
         assert_eq!(attribution.carry.amount(), -4.5);
-        assert_eq!(detail.coupon_income.expect("coupon income").amount(), 13.7);
+        assert_eq!(
+            detail.coupon_income.expect("coupon income").total.amount(),
+            13.7
+        );
         assert_eq!(detail.pull_to_par.expect("pull to par").amount(), -8.2);
-        assert_eq!(detail.roll_down.expect("roll down").amount(), -10.0);
+        assert_eq!(detail.roll_down.expect("roll down").total.amount(), -10.0);
         assert_eq!(detail.funding_cost.expect("funding cost").amount(), 0.0);
         assert_eq!(detail.theta.expect("theta").amount(), -5.0);
     }

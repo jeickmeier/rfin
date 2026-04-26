@@ -4,7 +4,7 @@
 //! and common `PnlAttribution` assembly. Currency conversion itself lives on
 //! [`MarketContext::convert_money`] — call sites here use it directly.
 
-use super::types::{AttributionMethod, CarryDetail, PnlAttribution};
+use super::types::{AttributionMethod, CarryDetail, PnlAttribution, SourceLine};
 use crate::instruments::common_impl::traits::Instrument;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
@@ -164,7 +164,7 @@ pub(crate) fn apply_total_return_carry(
     }
     attribution.carry_detail = Some(CarryDetail {
         total: attribution.carry,
-        coupon_income: Some(coupon_income),
+        coupon_income: Some(SourceLine::scalar(coupon_income)),
         pull_to_par: None,
         roll_down: None,
         funding_cost: None,

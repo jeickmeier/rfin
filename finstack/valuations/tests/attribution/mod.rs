@@ -12,6 +12,7 @@
 //! - `serialization_roundtrip`: JSON serialization tests
 
 mod bond_attribution;
+mod carry_credit_factor;
 mod credit_factor_linear;
 mod credit_factor_waterfall_parallel;
 mod factors_snapshot;
