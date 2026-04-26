@@ -5,7 +5,6 @@
 
 use crate::error::{Error, Result};
 use crate::portfolio::Portfolio;
-use crate::position::PositionUnit;
 use crate::types::PositionId;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
@@ -306,6 +305,16 @@ fn attribute_single_position(
     config: &FinstackConfig,
     method: &AttributionMethod,
 ) -> Result<PositionAttributionData> {
+    let value_at_t0 = || {
+        position
+            .instrument
+            .value(market_t0, as_of_t0)
+            .map_err(|e| Error::ValuationError {
+                position_id: position.position_id.clone(),
+                message: format!("Attribution T0 valuation failed: {}", e),
+            })
+    };
+
     let (mut pos_attr, val_t0_native_unit) = match method {
         AttributionMethod::Parallel => {
             let attr = attribute_pnl_parallel(
@@ -322,15 +331,7 @@ fn attribute_single_position(
                 message: format!("Attribution failed: {}", e),
             })?;
 
-            let val_t0 = position
-                .instrument
-                .value(market_t0, as_of_t0)
-                .map_err(|e| Error::ValuationError {
-                    position_id: position.position_id.clone(),
-                    message: format!("Attribution T0 valuation failed: {}", e),
-                })?;
-
-            (attr, val_t0)
+            (attr, value_at_t0()?)
         }
 
         AttributionMethod::Waterfall(ref order) => {
@@ -350,15 +351,7 @@ fn attribute_single_position(
                 message: format!("Attribution failed: {}", e),
             })?;
 
-            let val_t0 = position
-                .instrument
-                .value(market_t0, as_of_t0)
-                .map_err(|e| Error::ValuationError {
-                    position_id: position.position_id.clone(),
-                    message: format!("Attribution T0 valuation failed: {}", e),
-                })?;
-
-            (attr, val_t0)
+            (attr, value_at_t0()?)
         }
 
         AttributionMethod::MetricsBased => {
@@ -421,23 +414,11 @@ fn attribute_single_position(
                 message: format!("Taylor attribution failed: {}", e),
             })?;
 
-            let val_t0 = position
-                .instrument
-                .value(market_t0, as_of_t0)
-                .map_err(|e| Error::ValuationError {
-                    position_id: position.position_id.clone(),
-                    message: format!("Attribution T0 valuation failed: {}", e),
-                })?;
-
-            (attr, val_t0)
+            (attr, value_at_t0()?)
         }
     };
 
-    let scale_factor = match position.unit {
-        PositionUnit::Percentage => position.quantity / 100.0,
-        _ => position.quantity,
-    };
-    pos_attr.scale(scale_factor);
+    pos_attr.scale(position.scale_factor());
     let val_t0_native = position.scale_value(val_t0_native_unit);
     let inst_ccy = pos_attr.total_pnl.currency();
 
