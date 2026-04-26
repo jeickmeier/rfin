@@ -239,6 +239,23 @@ fn dedup_matches_keep_deepest(matches: Vec<HierarchyResolvedMatch>) -> Vec<Hiera
     out
 }
 
+fn expand_matches(
+    matches: Vec<HierarchyResolvedMatch>,
+    mut make: impl FnMut(CurveId) -> (HierarchyExpansionKey, OperationSpec),
+) -> Vec<HierarchyExpansion> {
+    matches
+        .into_iter()
+        .map(|m| {
+            let (key, operation) = make(m.curve_id.clone());
+            HierarchyExpansion {
+                matched_depth: m.matched_depth,
+                key,
+                operation,
+            }
+        })
+        .collect()
+}
+
 /// Expand hierarchy-targeted operations into direct-targeted operations.
 ///
 /// - `Cumulative`: All matching hierarchy operations expand independently.
@@ -280,22 +297,20 @@ fn expand_hierarchy_operations(
                 discount_curve_id,
             } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
-                let exps: Vec<HierarchyExpansion> = matches
-                    .into_iter()
-                    .map(|matched| HierarchyExpansion {
-                        matched_depth: matched.matched_depth,
-                        key: HierarchyExpansionKey::Curve {
+                let exps = expand_matches(matches, |curve_id| {
+                    (
+                        HierarchyExpansionKey::Curve {
                             curve_kind: *curve_kind,
-                            curve_id: matched.curve_id.clone(),
+                            curve_id: curve_id.clone(),
                         },
-                        operation: OperationSpec::CurveParallelBp {
+                        OperationSpec::CurveParallelBp {
                             curve_kind: *curve_kind,
-                            curve_id: matched.curve_id.as_str().to_string(),
+                            curve_id: curve_id.as_str().to_string(),
                             discount_curve_id: discount_curve_id.clone(),
                             bp: *bp,
                         },
-                    })
-                    .collect();
+                    )
+                });
                 slots.push(Slot::Expanded(exps));
             }
             OperationSpec::HierarchyVolSurfaceParallelPct {
@@ -304,55 +319,49 @@ fn expand_hierarchy_operations(
                 pct,
             } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
-                let exps: Vec<HierarchyExpansion> = matches
-                    .into_iter()
-                    .map(|matched| HierarchyExpansion {
-                        matched_depth: matched.matched_depth,
-                        key: HierarchyExpansionKey::VolSurface {
+                let exps = expand_matches(matches, |curve_id| {
+                    (
+                        HierarchyExpansionKey::VolSurface {
                             surface_kind: *surface_kind,
-                            surface_id: matched.curve_id.clone(),
+                            surface_id: curve_id.clone(),
                         },
-                        operation: OperationSpec::VolSurfaceParallelPct {
+                        OperationSpec::VolSurfaceParallelPct {
                             surface_kind: *surface_kind,
-                            surface_id: matched.curve_id.as_str().to_string(),
+                            surface_id: curve_id.as_str().to_string(),
                             pct: *pct,
                         },
-                    })
-                    .collect();
+                    )
+                });
                 slots.push(Slot::Expanded(exps));
             }
             OperationSpec::HierarchyEquityPricePct { target, pct } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
-                let exps: Vec<HierarchyExpansion> = matches
-                    .into_iter()
-                    .map(|matched| HierarchyExpansion {
-                        matched_depth: matched.matched_depth,
-                        key: HierarchyExpansionKey::EquityPrice {
-                            price_id: matched.curve_id.clone(),
+                let exps = expand_matches(matches, |curve_id| {
+                    (
+                        HierarchyExpansionKey::EquityPrice {
+                            price_id: curve_id.clone(),
                         },
-                        operation: OperationSpec::EquityPricePct {
-                            ids: vec![matched.curve_id.as_str().to_string()],
+                        OperationSpec::EquityPricePct {
+                            ids: vec![curve_id.as_str().to_string()],
                             pct: *pct,
                         },
-                    })
-                    .collect();
+                    )
+                });
                 slots.push(Slot::Expanded(exps));
             }
             OperationSpec::HierarchyBaseCorrParallelPts { target, points } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
-                let exps: Vec<HierarchyExpansion> = matches
-                    .into_iter()
-                    .map(|matched| HierarchyExpansion {
-                        matched_depth: matched.matched_depth,
-                        key: HierarchyExpansionKey::BaseCorrelation {
-                            surface_id: matched.curve_id.clone(),
+                let exps = expand_matches(matches, |curve_id| {
+                    (
+                        HierarchyExpansionKey::BaseCorrelation {
+                            surface_id: curve_id.clone(),
                         },
-                        operation: OperationSpec::BaseCorrParallelPts {
-                            surface_id: matched.curve_id.as_str().to_string(),
+                        OperationSpec::BaseCorrParallelPts {
+                            surface_id: curve_id.as_str().to_string(),
                             points: *points,
                         },
-                    })
-                    .collect();
+                    )
+                });
                 slots.push(Slot::Expanded(exps));
             }
             other => slots.push(Slot::Direct(other.clone())),
