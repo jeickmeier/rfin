@@ -148,6 +148,7 @@ calibration  = { python = "finstack.valuations.calibration",  status = "missing"
 correlation  = { python = "finstack.valuations.correlation",  status = "exists", note = "Former standalone finstack-correlation crate; nested under valuations" }
 credit       = { python = "finstack.valuations.credit",       status = "exists", note = "Structural credit models and PIK toggle helpers" }
 credit_derivatives = { python = "finstack.valuations.credit_derivatives", status = "exists", note = "Typed wrappers for CDS, CDS index, tranche, and option JSON pricing" }
+credit_factor_model = { python = "finstack.valuations", status = "exists", note = "CreditFactorModel, CreditCalibrator, LevelsAtDate, PeriodDecomposition, FactorCovarianceForecast, decompose_levels, decompose_period exposed flat on finstack.valuations" }
 # All other valuations submodules are deferred pending detailed lib.rs audit (Wave 3)
 
 # ---------------------------------------------------------------------------
