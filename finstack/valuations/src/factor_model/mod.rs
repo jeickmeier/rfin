@@ -1,9 +1,14 @@
 //! Factor-model integration helpers for the valuations crate.
 
+pub mod credit_decomposition;
 mod decompose;
 mod positions;
 pub mod sensitivity;
 
+pub use credit_decomposition::{
+    decompose_levels, decompose_period, DecompositionError, LevelValuesAtDate, LevelValuesDelta,
+    LevelsAtDate, PeriodDecomposition,
+};
 pub use decompose::decompose;
 pub use positions::{parse_positions_json, pricing_positions, ParsedPosition};
 pub use sensitivity::{
