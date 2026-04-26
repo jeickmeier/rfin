@@ -1,6 +1,9 @@
 //! Python bindings for `finstack_core::credit::pd` (calibration subset).
 
-use finstack_core::credit::pd::{central_tendency, pit_to_ttc, ttc_to_pit, PdCycleParams};
+use finstack_core::credit::pd::{
+    central_tendency as core_central_tendency, pit_to_ttc as core_pit_to_ttc,
+    ttc_to_pit as core_ttc_to_pit, PdCycleParams,
+};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 
@@ -22,12 +25,12 @@ use crate::errors::display_to_py;
 ///     cycle_index: Systematic risk factor z. 0 = average, < 0 = downturn, > 0 = benign.
 #[pyfunction]
 #[pyo3(text_signature = "(pit_pd, asset_correlation, cycle_index)")]
-fn pit_to_ttc_py(pit_pd: f64, asset_correlation: f64, cycle_index: f64) -> PyResult<f64> {
+fn pit_to_ttc(pit_pd: f64, asset_correlation: f64, cycle_index: f64) -> PyResult<f64> {
     let params = PdCycleParams {
         asset_correlation,
         cycle_index,
     };
-    pit_to_ttc(pit_pd, &params).map_err(display_to_py)
+    core_pit_to_ttc(pit_pd, &params).map_err(display_to_py)
 }
 
 /// Convert a Through-the-Cycle PD to a Point-in-Time PD.
@@ -42,12 +45,12 @@ fn pit_to_ttc_py(pit_pd: f64, asset_correlation: f64, cycle_index: f64) -> PyRes
 ///     cycle_index: Systematic risk factor z. 0 = average, < 0 = downturn, > 0 = benign.
 #[pyfunction]
 #[pyo3(text_signature = "(ttc_pd, asset_correlation, cycle_index)")]
-fn ttc_to_pit_py(ttc_pd: f64, asset_correlation: f64, cycle_index: f64) -> PyResult<f64> {
+fn ttc_to_pit(ttc_pd: f64, asset_correlation: f64, cycle_index: f64) -> PyResult<f64> {
     let params = PdCycleParams {
         asset_correlation,
         cycle_index,
     };
-    ttc_to_pit(ttc_pd, &params).map_err(display_to_py)
+    core_ttc_to_pit(ttc_pd, &params).map_err(display_to_py)
 }
 
 /// Calibrate a central tendency (long-run average PD) from annual default rates
@@ -59,8 +62,8 @@ fn ttc_to_pit_py(ttc_pd: f64, asset_correlation: f64, cycle_index: f64) -> PyRes
 /// Returns the geometric mean in [0, 1].
 #[pyfunction]
 #[pyo3(text_signature = "(annual_default_rates)")]
-fn central_tendency_py(annual_default_rates: Vec<f64>) -> PyResult<f64> {
-    central_tendency(&annual_default_rates).map_err(display_to_py)
+fn central_tendency(annual_default_rates: Vec<f64>) -> PyResult<f64> {
+    core_central_tendency(&annual_default_rates).map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------
@@ -75,14 +78,9 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "Probability of default: PiT/TtC conversion (Merton-Vasicek) and central-tendency calibration.",
     )?;
 
-    m.add_function(wrap_pyfunction!(pit_to_ttc_py, &m)?)?;
-    m.add_function(wrap_pyfunction!(ttc_to_pit_py, &m)?)?;
-    m.add_function(wrap_pyfunction!(central_tendency_py, &m)?)?;
-
-    // Expose under the unsuffixed public names.
-    m.setattr("pit_to_ttc", m.getattr("pit_to_ttc_py")?)?;
-    m.setattr("ttc_to_pit", m.getattr("ttc_to_pit_py")?)?;
-    m.setattr("central_tendency", m.getattr("central_tendency_py")?)?;
+    m.add_function(wrap_pyfunction!(pit_to_ttc, &m)?)?;
+    m.add_function(wrap_pyfunction!(ttc_to_pit, &m)?)?;
+    m.add_function(wrap_pyfunction!(central_tendency, &m)?)?;
 
     let all = PyList::new(py, ["pit_to_ttc", "ttc_to_pit", "central_tendency"])?;
     m.setattr("__all__", all)?;

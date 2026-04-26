@@ -73,25 +73,27 @@ def test_example_modules_export_symbols_used_by_scripts(
     package_root = RUNNER_PATH.parents[1]
     monkeypatch.syspath_prepend(str(package_root))
 
-    from finstack import analytics, portfolio, valuations
+    from finstack import analytics, portfolio, statements_analytics, valuations
 
     analytics_exports = {
         "arch_lm",
         "christoffersen_test",
         "classify_breaches",
-        "compute_multiple",
         "fit_egarch11",
         "fit_garch11",
         "fit_gjr_garch11",
         "forecast_garch_fit",
         "kupiec_test",
         "ljung_box",
+        "run_backtest",
+        "traffic_light",
+    }
+    statements_analytics_exports = {
+        "compute_multiple",
         "peer_stats",
         "percentile_rank",
         "regression_fair_value",
-        "run_backtest",
         "score_relative_value",
-        "traffic_light",
         "z_score",
     }
     valuation_exports = {
@@ -110,5 +112,6 @@ def test_example_modules_export_symbols_used_by_scripts(
     }
 
     assert analytics_exports.issubset(set(analytics.__all__))
+    assert statements_analytics_exports.issubset(set(statements_analytics.__all__))
     assert valuation_exports.issubset(set(valuations.__all__))
     assert portfolio_exports.issubset(set(portfolio.__all__))

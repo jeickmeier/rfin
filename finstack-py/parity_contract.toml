@@ -64,7 +64,6 @@ status = "exists"
 aggregation  = { python = "finstack.analytics", status = "flattened", note = "PeriodStats / period_stats / group_by_period exposed flat on finstack.analytics; period_stats_from_grouped (grouped-returns variant) is available from the Rust crate only" }
 backtesting  = { python = "finstack.analytics", status = "flattened", note = "VaR backtesting functions exposed flat on finstack.analytics" }
 benchmark    = { python = "finstack.analytics", status = "flattened", note = "Benchmark-relative metrics exposed flat on finstack.analytics" }
-comps        = { python = "finstack.analytics", status = "flattened", note = "Comparable-company analysis exposed flat on finstack.analytics" }
 drawdown     = { python = "finstack.analytics", status = "flattened", note = "Drawdown analytics exposed flat on finstack.analytics" }
 lookback     = { python = "finstack.analytics", status = "flattened", note = "Lookback window helpers exposed flat on finstack.analytics" }
 performance  = { python = "finstack.analytics", status = "flattened", note = "Performance class and helpers exposed flat on finstack.analytics" }
@@ -187,6 +186,7 @@ status = "exists"
 
 [crates.statements_analytics.modules]
 analysis                    = { python = "finstack.statements_analytics.analysis",         status = "missing", note = "Bindings are currently exported from finstack.statements_analytics root" }
+comps                       = { python = "finstack.statements_analytics",                  status = "flattened", note = "Comparable-company analysis exposed flat on finstack.statements_analytics" }
 extensions                  = { python = "finstack.statements_analytics.extensions",       status = "missing", note = "Bindings are currently exported from finstack.statements_analytics root" }
 templates                   = { python = "finstack.statements_analytics.templates",        status = "missing", note = "Bindings are currently exported from finstack.statements_analytics root" }
 

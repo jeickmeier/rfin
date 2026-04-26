@@ -8,75 +8,11 @@
 //! - Downturn LGD adjustments (Frye-Jacobs, regulatory floor).
 //! - Exposure-at-default for term loans and revolvers.
 
-use finstack_core::credit::lgd::{
-    BetaRecovery, CollateralPiece, CollateralType, CreditConversionFactor, DownturnLgd,
-    EadCalculator, SeniorityCalibration, SeniorityClass, WorkoutCosts, WorkoutLgd,
-};
-use finstack_core::math::random::Pcg64Rng;
-use finstack_core::math::RandomNumberGenerator;
+use finstack_core::credit::lgd;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule};
 
 use crate::errors::display_to_py;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/// Parse a seniority string into a `SeniorityClass`.
-///
-/// Accepts (case-insensitive, underscore/space/hyphen tolerant):
-/// "senior_secured", "senior_unsecured", "subordinated", "junior_subordinated".
-fn parse_seniority(s: &str) -> PyResult<SeniorityClass> {
-    let norm = s.trim().to_ascii_lowercase().replace(['-', ' '], "_");
-    match norm.as_str() {
-        "senior_secured" | "seniorsecured" => Ok(SeniorityClass::SeniorSecured),
-        "senior_unsecured" | "seniorunsecured" => Ok(SeniorityClass::SeniorUnsecured),
-        "subordinated" | "sub" => Ok(SeniorityClass::Subordinated),
-        "junior_subordinated" | "juniorsubordinated" | "junior" => {
-            Ok(SeniorityClass::JuniorSubordinated)
-        }
-        _ => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "unknown seniority class: '{s}' (expected senior_secured, senior_unsecured, subordinated, junior_subordinated)"
-        ))),
-    }
-}
-
-/// Parse a collateral-type string into a `CollateralType`.
-fn parse_collateral_type(s: &str) -> PyResult<CollateralType> {
-    let norm = s.trim().to_ascii_lowercase().replace(['-', ' '], "_");
-    match norm.as_str() {
-        "cash" => Ok(CollateralType::Cash),
-        "securities" => Ok(CollateralType::Securities),
-        "receivables" => Ok(CollateralType::Receivables),
-        "inventory" => Ok(CollateralType::Inventory),
-        "equipment" => Ok(CollateralType::Equipment),
-        "real_estate" | "realestate" => Ok(CollateralType::RealEstate),
-        "intellectual_property" | "intellectualproperty" | "ip" => {
-            Ok(CollateralType::IntellectualProperty)
-        }
-        "other" => Ok(CollateralType::Other),
-        _ => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "unknown collateral type: '{s}' (expected cash, securities, receivables, inventory, equipment, real_estate, intellectual_property, other)"
-        ))),
-    }
-}
-
-/// Load a rating-agency calibration by name ("moodys" or "sp" / "s&p").
-fn load_calibration(agency: &str) -> PyResult<SeniorityCalibration> {
-    let norm = agency.trim().to_ascii_lowercase().replace(['&', '.'], "");
-    match norm.as_str() {
-        "moodys" | "moody" | "moody_s" => {
-            SeniorityCalibration::moodys_historical().map_err(display_to_py)
-        }
-        "sp" | "s_p" | "standard_and_poors" | "standardandpoors" => {
-            SeniorityCalibration::sp_historical().map_err(display_to_py)
-        }
-        _ => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "unknown rating agency: '{agency}' (expected 'moodys' or 'sp')"
-        ))),
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Seniority recovery stats
@@ -100,11 +36,7 @@ fn seniority_recovery_stats<'py>(
     seniority: &str,
     rating_agency: &str,
 ) -> PyResult<Bound<'py, PyDict>> {
-    let class = parse_seniority(seniority)?;
-    let cal = load_calibration(rating_agency)?;
-    let br = cal
-        .get(class)
-        .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("seniority not in calibration"))?;
+    let br = lgd::seniority_recovery_stats(seniority, rating_agency).map_err(display_to_py)?;
 
     let d = PyDict::new(py);
     d.set_item("mean", br.mean())?;
@@ -129,11 +61,7 @@ fn seniority_recovery_stats<'py>(
 #[pyfunction]
 #[pyo3(text_signature = "(mean, std, n_samples, seed)")]
 fn beta_recovery_sample(mean: f64, std: f64, n_samples: usize, seed: u64) -> PyResult<Vec<f64>> {
-    let br = BetaRecovery::new(mean, std).map_err(display_to_py)?;
-    let mut rng = Pcg64Rng::new(seed);
-    let mut out = vec![0.0_f64; n_samples];
-    br.sample_n(&mut rng as &mut dyn RandomNumberGenerator, &mut out);
-    Ok(out)
+    lgd::beta_recovery_sample(mean, std, n_samples, seed).map_err(display_to_py)
 }
 
 /// Return the value at quantile ``q`` for a Beta recovery distribution
@@ -146,8 +74,7 @@ fn beta_recovery_sample(mean: f64, std: f64, n_samples: usize, seed: u64) -> PyR
 #[pyfunction]
 #[pyo3(text_signature = "(mean, std, q)")]
 fn beta_recovery_quantile(mean: f64, std: f64, q: f64) -> PyResult<f64> {
-    let br = BetaRecovery::new(mean, std).map_err(display_to_py)?;
-    Ok(br.quantile(q))
+    lgd::beta_recovery_quantile(mean, std, q).map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------
@@ -182,30 +109,15 @@ fn workout_lgd(
     time_to_resolution_years: f64,
     discount_rate: f64,
 ) -> PyResult<(f64, f64)> {
-    let mut pieces: Vec<CollateralPiece> = Vec::with_capacity(collateral.len());
-    for (type_name, value, haircut) in collateral {
-        let ct = parse_collateral_type(&type_name)?;
-        let piece = CollateralPiece::new(ct, value, haircut).map_err(display_to_py)?;
-        pieces.push(piece);
-    }
-
-    let costs = WorkoutCosts::new(direct_cost_pct, indirect_cost_pct).map_err(display_to_py)?;
-
-    let model = WorkoutLgd::builder()
-        .collateral_pieces(pieces)
-        .workout_years(time_to_resolution_years)
-        .discount_rate(discount_rate)
-        .costs(costs)
-        .build()
-        .map_err(display_to_py)?;
-
-    let lgd = model.lgd(ead).map_err(display_to_py)?;
-    // Reconstruct the post-discount, post-cost net recovery for reporting.
-    let gross = model.gross_collateral_value().min(ead);
-    let df = model.workout_discount_factor();
-    let total_costs = (direct_cost_pct + indirect_cost_pct) * ead;
-    let net_recovery = (gross * df - total_costs).max(0.0);
-    Ok((net_recovery, lgd))
+    lgd::workout_lgd(
+        ead,
+        collateral,
+        direct_cost_pct,
+        indirect_cost_pct,
+        time_to_resolution_years,
+        discount_rate,
+    )
+    .map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------
@@ -231,9 +143,8 @@ fn downturn_lgd_frye_jacobs(
     asset_correlation: f64,
     stress_quantile: f64,
 ) -> PyResult<f64> {
-    let dt =
-        DownturnLgd::frye_jacobs(asset_correlation, 1.0, stress_quantile).map_err(display_to_py)?;
-    dt.adjust(base_lgd).map_err(display_to_py)
+    lgd::downturn_lgd_frye_jacobs(base_lgd, asset_correlation, stress_quantile)
+        .map_err(display_to_py)
 }
 
 /// Apply a regulatory floor downturn adjustment to a base LGD.
@@ -251,8 +162,7 @@ fn downturn_lgd_frye_jacobs(
 #[pyfunction]
 #[pyo3(text_signature = "(base_lgd, add_on, floor)")]
 fn downturn_lgd_regulatory_floor(base_lgd: f64, add_on: f64, floor: f64) -> PyResult<f64> {
-    let dt = DownturnLgd::regulatory_floor(add_on, floor).map_err(display_to_py)?;
-    dt.adjust(base_lgd).map_err(display_to_py)
+    lgd::downturn_lgd_regulatory_floor(base_lgd, add_on, floor).map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------
@@ -265,8 +175,7 @@ fn downturn_lgd_regulatory_floor(base_lgd: f64, add_on: f64, floor: f64) -> PyRe
 #[pyfunction]
 #[pyo3(text_signature = "(principal)")]
 fn ead_term_loan(principal: f64) -> PyResult<f64> {
-    let calc = EadCalculator::term_loan(principal).map_err(display_to_py)?;
-    Ok(calc.ead())
+    lgd::ead_term_loan(principal).map_err(display_to_py)
 }
 
 /// Exposure at default for a revolving facility.
@@ -282,9 +191,7 @@ fn ead_term_loan(principal: f64) -> PyResult<f64> {
 #[pyfunction]
 #[pyo3(text_signature = "(drawn, undrawn, ccf)")]
 fn ead_revolver(drawn: f64, undrawn: f64, ccf: f64) -> PyResult<f64> {
-    let ccf_obj = CreditConversionFactor::new(ccf).map_err(display_to_py)?;
-    let calc = EadCalculator::new(drawn, undrawn, ccf_obj).map_err(display_to_py)?;
-    Ok(calc.ead())
+    lgd::ead_revolver(drawn, undrawn, ccf).map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------

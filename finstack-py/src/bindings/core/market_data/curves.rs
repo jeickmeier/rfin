@@ -958,6 +958,17 @@ impl PyVolatilityIndexCurve {
 // Module registration
 // ---------------------------------------------------------------------------
 
+pub(super) const EXPORTS: &[&str] = &[
+    "DiscountCurve",
+    "ForwardCurve",
+    "HazardCurve",
+    "InflationCurve",
+    "PriceCurve",
+    "VolSurface",
+    "VolCube",
+    "VolatilityIndexCurve",
+];
+
 /// Register the `finstack.core.market_data.curves` submodule.
 pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "curves")?;
@@ -975,19 +986,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyVolCube>()?;
     m.add_class::<PyVolatilityIndexCurve>()?;
 
-    let all = PyList::new(
-        py,
-        [
-            "DiscountCurve",
-            "ForwardCurve",
-            "HazardCurve",
-            "InflationCurve",
-            "PriceCurve",
-            "VolSurface",
-            "VolCube",
-            "VolatilityIndexCurve",
-        ],
-    )?;
+    let all = PyList::new(py, EXPORTS)?;
     m.setattr("__all__", all)?;
 
     parent.add_submodule(&m)?;

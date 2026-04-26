@@ -22,7 +22,7 @@ For any Rust type or function `Foo` in `finstack/<crate>/src/...`:
 - **WASM binding** lives under `finstack-wasm/src/api/<crate_ns>/` where `<crate_ns>` is e.g. `core_ns`, `analytics`, `margin`, etc.
 - **Python type stubs** are at `finstack-py/finstack/*.pyi` — derived from the binding code and the parity contract.
 - **JS facade** is at `finstack-wasm/index.js` — hand-written, not auto-generated from pkg/.
-- **Parity contract** is at `parity_contract.toml` at repo root.
+- **Parity contract** is at `finstack-py/parity_contract.toml`.
 - **Parity tests** are in `finstack-py/tests/parity/`.
 
 Before doing any binding-touching work, list these paths for the scope you're auditing. Put the list in the audit report.
@@ -99,7 +99,7 @@ When you find these, the refactor is:
 
 ## Parity contract and parity tests
 
-`parity_contract.toml` is the source of truth for what must be equal across Rust / Python / WASM. Treat it like an API contract file.
+`finstack-py/parity_contract.toml` is the source of truth for what must be equal across Rust / Python / WASM. Treat it like an API contract file.
 
 During a refactor:
 

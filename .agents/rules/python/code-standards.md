@@ -140,7 +140,7 @@ Convert core errors via `errors.rs`:
 
 ## Tests and Stubs
 
-- Parity tests under `finstack-py/tests/parity/` validate namespace topology against `parity_contract.toml`.
+- Structural parity tests under `finstack-py/tests/parity/` validate namespace topology against `finstack-py/parity_contract.toml`; behavioral parity cases live alongside runtime tests such as `finstack-py/tests/test_core_parity.py`.
 - Build locally: `uv run maturin develop --release`.
 - `.pyi` stubs in `finstack-py/finstack/` are derived from the contract and binding code.
 

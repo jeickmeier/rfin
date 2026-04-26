@@ -103,6 +103,60 @@ impl Default for ArbitrageCheckConfig {
     }
 }
 
+/// Expand a forward-price vector to one value per expiry.
+///
+/// A single supplied value is broadcast across all expiries. Otherwise the
+/// length must match `expiry_count`.
+///
+/// # Errors
+/// Returns a validation error when the supplied vector has neither length one
+/// nor `expiry_count`.
+pub fn expand_forward_prices(
+    expiry_count: usize,
+    forward_prices: Vec<f64>,
+) -> crate::Result<Vec<f64>> {
+    match forward_prices.len() {
+        len if len == expiry_count => Ok(forward_prices),
+        1 => Ok(vec![forward_prices[0]; expiry_count]),
+        len => Err(crate::Error::Validation(format!(
+            "forward_prices has {len} entries but expiries has {expiry_count}; expected 1 or {expiry_count}"
+        ))),
+    }
+}
+
+fn local_vol_density_violations(
+    surface: &VolSurface,
+    forward_prices: &[f64],
+    tolerance: f64,
+) -> Vec<ArbitrageViolation> {
+    let all_equal = forward_prices
+        .windows(2)
+        .all(|w| (w[0] - w[1]).abs() < 1e-14);
+
+    if all_equal {
+        return LocalVolDensityCheck {
+            forward: forward_prices[0],
+            tolerance,
+        }
+        .check(surface);
+    }
+
+    let mut violations = Vec::new();
+    for (i, &expiry) in surface.expiries().iter().enumerate() {
+        let checker = LocalVolDensityCheck {
+            forward: forward_prices[i],
+            tolerance,
+        };
+        violations.extend(
+            checker
+                .check(surface)
+                .into_iter()
+                .filter(|v| (v.location.expiry - expiry).abs() < 1e-12),
+        );
+    }
+    violations
+}
+
 /// Run the full arbitrage detection suite on a volatility surface.
 ///
 /// This is the primary entry point for standalone arbitrage checking.
@@ -188,6 +242,152 @@ pub fn check_surface(
     })
 }
 
+/// Run a butterfly arbitrage check on volatility rows.
+///
+/// # Errors
+/// Returns an error if the volatility grid or forward vector is invalid.
+pub fn check_butterfly_grid(
+    strikes: &[f64],
+    expiries: &[f64],
+    vols: &[Vec<f64>],
+    forward_prices: Vec<f64>,
+    tolerance: f64,
+) -> crate::Result<Vec<ArbitrageViolation>> {
+    let surface = VolSurface::from_rows("surface-grid", expiries, strikes, vols)?;
+    let forwards = expand_forward_prices(expiries.len(), forward_prices)?;
+    Ok(ButterflyCheck {
+        forwards,
+        tolerance,
+    }
+    .check(&surface))
+}
+
+/// Run a calendar-spread arbitrage check on volatility rows.
+///
+/// # Errors
+/// Returns an error if the volatility grid or forward vector is invalid.
+pub fn check_calendar_spread_grid(
+    strikes: &[f64],
+    expiries: &[f64],
+    vols: &[Vec<f64>],
+    forward_prices: Vec<f64>,
+    tolerance: f64,
+) -> crate::Result<Vec<ArbitrageViolation>> {
+    let surface = VolSurface::from_rows("surface-grid", expiries, strikes, vols)?;
+    let forwards = expand_forward_prices(expiries.len(), forward_prices)?;
+    Ok(CalendarSpreadCheck {
+        forwards,
+        tolerance,
+    }
+    .check(&surface))
+}
+
+/// Run local-vol density checks on volatility rows.
+///
+/// `forward_prices` must contain one value per expiry because the local-vol
+/// check is evaluated expiry by expiry when forwards differ.
+///
+/// # Errors
+/// Returns an error if the volatility grid is invalid or the forward vector
+/// length does not match the expiry count.
+pub fn check_local_vol_density_grid(
+    strikes: &[f64],
+    expiries: &[f64],
+    vols: &[Vec<f64>],
+    forward_prices: Vec<f64>,
+) -> crate::Result<Vec<ArbitrageViolation>> {
+    if forward_prices.len() != expiries.len() {
+        return Err(crate::Error::Validation(format!(
+            "forward_prices has {} entries but expiries has {}",
+            forward_prices.len(),
+            expiries.len()
+        )));
+    }
+    let surface = VolSurface::from_rows("surface-grid", expiries, strikes, vols)?;
+    Ok(local_vol_density_violations(
+        &surface,
+        &forward_prices,
+        1e-10,
+    ))
+}
+
+/// Run all standard volatility-surface arbitrage checks on volatility rows.
+///
+/// `forward_prices`, when provided, may contain either one value to broadcast
+/// or one value per expiry.
+///
+/// # Errors
+/// Returns an error if the volatility grid or forward-vector shape is invalid.
+pub fn check_surface_grid(
+    strikes: &[f64],
+    expiries: &[f64],
+    vols: &[Vec<f64>],
+    forward: Option<f64>,
+    forward_prices: Option<Vec<f64>>,
+    tolerance: f64,
+) -> crate::Result<ArbitrageReport> {
+    let surface = VolSurface::from_rows("surface-grid", expiries, strikes, vols)?;
+    let normalized_forward_prices = forward_prices
+        .map(|values| expand_forward_prices(expiries.len(), values))
+        .transpose()?;
+    let local_forward = forward.or_else(|| {
+        normalized_forward_prices.as_ref().and_then(|values| {
+            values
+                .first()
+                .copied()
+                .filter(|first| values.iter().all(|v| (v - first).abs() < 1e-14))
+        })
+    });
+    let per_expiry_local_vol_forwards = if local_forward.is_none() {
+        normalized_forward_prices.clone()
+    } else {
+        None
+    };
+    let config = ArbitrageCheckConfig {
+        check_butterfly: true,
+        check_calendar_spread: true,
+        check_local_vol_density: local_forward.is_some(),
+        forward: local_forward,
+        forward_prices: normalized_forward_prices,
+        tolerance,
+        min_severity: ArbitrageSeverity::Negligible,
+    };
+    let mut report = check_surface(&surface, &config)?;
+
+    if let Some(forwards) = per_expiry_local_vol_forwards {
+        report
+            .violations
+            .extend(local_vol_density_violations(&surface, &forwards, tolerance));
+        refresh_report_summary(&mut report);
+    }
+
+    Ok(report)
+}
+
+fn refresh_report_summary(report: &mut ArbitrageReport) {
+    report
+        .violations
+        .sort_by(|a, b| b.severity.cmp(&a.severity));
+
+    report.counts_by_type.clear();
+    report.counts_by_severity.clear();
+    for violation in &report.violations {
+        *report
+            .counts_by_type
+            .entry(violation.violation_type)
+            .or_insert(0) += 1;
+        *report
+            .counts_by_severity
+            .entry(violation.severity)
+            .or_insert(0) += 1;
+    }
+
+    report.passed = !report
+        .violations
+        .iter()
+        .any(|v| v.severity > ArbitrageSeverity::Negligible);
+}
+
 // =============================================================================
 // Tests
 // =============================================================================
@@ -262,6 +462,99 @@ mod tests {
     }
 
     // ---- Tests ----
+
+    #[test]
+    fn expand_forward_prices_broadcasts_single_value() {
+        assert_eq!(
+            expand_forward_prices(3, vec![100.0]).expect("broadcast forwards"),
+            vec![100.0, 100.0, 100.0]
+        );
+        assert!(expand_forward_prices(3, vec![100.0, 101.0]).is_err());
+    }
+
+    #[test]
+    fn check_surface_grid_runs_standard_suite() {
+        let strikes = vec![80.0, 90.0, 100.0, 110.0, 120.0];
+        let expiries = vec![0.25, 0.5, 1.0, 2.0];
+        let vols = vec![
+            vec![0.20, 0.20, 0.20, 0.20, 0.20],
+            vec![0.20, 0.20, 0.20, 0.20, 0.20],
+            vec![0.20, 0.20, 0.20, 0.20, 0.20],
+            vec![0.20, 0.20, 0.20, 0.20, 0.20],
+        ];
+
+        let report = check_surface_grid(
+            &strikes,
+            &expiries,
+            &vols,
+            None,
+            Some(vec![100.0, 101.0, 102.0, 103.0]),
+            1e-6,
+        )
+        .expect("grid arbitrage check");
+
+        assert!(report.passed);
+        assert_eq!(report.surface_id, "surface-grid");
+    }
+
+    #[test]
+    fn check_surface_keeps_local_vol_forward_contract() {
+        let surface = calendar_spread_violation_surface();
+        let forwards = vec![100.0, 101.0, 102.0];
+        let direct_local_vol_violations = local_vol_density_violations(&surface, &forwards, 1e-10);
+        assert!(!direct_local_vol_violations.is_empty());
+
+        let config = ArbitrageCheckConfig {
+            check_butterfly: false,
+            check_calendar_spread: false,
+            check_local_vol_density: true,
+            forward: None,
+            forward_prices: Some(forwards),
+            ..Default::default()
+        };
+        let report = check_surface(&surface, &config).expect("arbitrage check should succeed");
+
+        assert!(report.violations.is_empty());
+        assert!(report.counts_by_type.is_empty());
+        assert!(report.counts_by_severity.is_empty());
+        assert!(report.passed);
+    }
+
+    #[test]
+    fn check_surface_grid_preserves_per_expiry_local_vol_behavior() {
+        let strikes = vec![80.0, 90.0, 100.0, 110.0, 120.0];
+        let expiries = vec![0.5, 1.0, 2.0];
+        let vols = vec![
+            vec![0.30, 0.25, 0.20, 0.25, 0.30],
+            vec![0.30, 0.25, 0.25, 0.25, 0.30],
+            vec![0.20, 0.15, 0.15, 0.15, 0.20],
+        ];
+
+        let report = check_surface_grid(
+            &strikes,
+            &expiries,
+            &vols,
+            None,
+            Some(vec![100.0, 101.0, 102.0]),
+            1e-10,
+        )
+        .expect("grid arbitrage check");
+
+        let local_vol_count = report
+            .violations
+            .iter()
+            .filter(|v| v.violation_type == ArbitrageType::LocalVolDensity)
+            .count();
+        assert!(local_vol_count > 0);
+        assert_eq!(
+            report
+                .counts_by_type
+                .get(&ArbitrageType::LocalVolDensity)
+                .copied()
+                .unwrap_or(0),
+            local_vol_count
+        );
+    }
 
     #[test]
     fn flat_surface_passes_all_checks() {

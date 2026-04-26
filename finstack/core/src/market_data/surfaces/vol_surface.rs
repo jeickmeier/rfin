@@ -993,6 +993,45 @@ impl VolSurface {
         )
     }
 
+    /// Construct directly from axes and row-major volatility rows.
+    ///
+    /// `vol_rows[expiry_idx][strike_idx]` is flattened and validated through
+    /// [`Self::from_grid_opts`]. This is the canonical entry point for callers
+    /// whose input is naturally represented as expiry rows.
+    ///
+    /// # Errors
+    /// - Row count does not match `expiries.len()`
+    /// - Any row length does not match `strikes.len()`
+    /// - Any invariant enforced by [`Self::from_grid_opts`] fails
+    pub fn from_rows(
+        id: impl AsRef<str>,
+        expiries: &[f64],
+        strikes: &[f64],
+        vol_rows: &[Vec<f64>],
+    ) -> crate::Result<Self> {
+        if vol_rows.len() != expiries.len() {
+            return Err(Error::Validation(format!(
+                "vol_rows has {} rows but expiries has {} entries",
+                vol_rows.len(),
+                expiries.len()
+            )));
+        }
+
+        let mut flat = Vec::with_capacity(expiries.len() * strikes.len());
+        for (i, row) in vol_rows.iter().enumerate() {
+            if row.len() != strikes.len() {
+                return Err(Error::Validation(format!(
+                    "vol_rows[{i}] has {} entries but strikes has {}",
+                    row.len(),
+                    strikes.len()
+                )));
+            }
+            flat.extend_from_slice(row);
+        }
+
+        Self::from_grid(id, expiries, strikes, &flat)
+    }
+
     /// Construct directly from axes and a row-major flat values array with an
     /// explicit secondary-axis contract.
     ///

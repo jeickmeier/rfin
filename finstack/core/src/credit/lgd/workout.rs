@@ -66,6 +66,29 @@ pub enum CollateralType {
     Other,
 }
 
+impl std::str::FromStr for CollateralType {
+    type Err = crate::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        let norm = s.trim().to_ascii_lowercase().replace(['-', ' '], "_");
+        match norm.as_str() {
+            "cash" => Ok(Self::Cash),
+            "securities" => Ok(Self::Securities),
+            "receivables" => Ok(Self::Receivables),
+            "inventory" => Ok(Self::Inventory),
+            "equipment" => Ok(Self::Equipment),
+            "real_estate" | "realestate" => Ok(Self::RealEstate),
+            "intellectual_property" | "intellectualproperty" | "ip" => {
+                Ok(Self::IntellectualProperty)
+            }
+            "other" => Ok(Self::Other),
+            _ => Err(crate::Error::Validation(format!(
+                "unknown collateral type: '{s}' (expected cash, securities, receivables, inventory, equipment, real_estate, intellectual_property, other)"
+            ))),
+        }
+    }
+}
+
 /// A single piece of collateral in the recovery waterfall.
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CollateralPiece {
@@ -198,6 +221,17 @@ impl WorkoutLgd {
     ///
     /// Returns an error if `ead` is non-finite or `ead <= 0`.
     pub fn lgd(&self, ead: f64) -> Result<f64> {
+        let net_recovery = self.net_recovery(ead)?;
+
+        Ok((1.0 - net_recovery / ead).clamp(0.0, 1.0))
+    }
+
+    /// Net recovery amount after collateral cap, discounting, and workout costs.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `ead` is non-finite or `ead <= 0`.
+    pub fn net_recovery(&self, ead: f64) -> Result<f64> {
         validate_finite(ead)?;
         if ead <= 0.0 {
             return Err(InputError::NonPositiveValue.into());
@@ -214,7 +248,7 @@ impl WorkoutLgd {
         let total_costs = self.costs.total_rate() * ead;
         let net_recovery = (gross_recovery * df - total_costs).max(0.0);
 
-        Ok((1.0 - net_recovery / ead).clamp(0.0, 1.0))
+        Ok(net_recovery)
     }
 
     /// Recovery rate = 1 - LGD.

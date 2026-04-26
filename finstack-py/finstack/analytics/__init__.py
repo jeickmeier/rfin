@@ -5,7 +5,7 @@ Bindings for the ``finstack-analytics`` Rust crate.
 
 from __future__ import annotations
 
-from finstack.finstack import analytics as _analytics, statements_analytics as _statements_analytics
+from finstack.finstack import analytics as _analytics
 
 # Types
 PeriodStats = _analytics.PeriodStats
@@ -136,14 +136,6 @@ aic = _analytics.aic
 bic = _analytics.bic
 hqic = _analytics.hqic
 
-# Comparable-company analysis aliases used by analytics examples
-percentile_rank = _statements_analytics.percentile_rank
-z_score = _statements_analytics.z_score
-peer_stats = _statements_analytics.peer_stats
-regression_fair_value = _statements_analytics.regression_fair_value
-compute_multiple = _statements_analytics.compute_multiple
-score_relative_value = _statements_analytics.score_relative_value
-
 __all__: list[str] = [
     "BacktestResult",
     "BenchmarkAlignmentPolicy",
@@ -187,7 +179,6 @@ __all__: list[str] = [
     "comp_sum",
     "comp_total",
     "compare_var_backtests",
-    "compute_multiple",
     "convert_to_prices",
     "cornish_fisher_var",
     "down_capture",
@@ -226,22 +217,18 @@ __all__: list[str] = [
     "pain_index",
     "pain_ratio",
     "parametric_var",
-    "peer_stats",
-    "percentile_rank",
     "period_stats",
     "pnl_explanation",
     "qtd_select",
     "r_squared",
     "rebase",
     "recovery_factor",
-    "regression_fair_value",
     "rolling_greeks",
     "rolling_sharpe",
     "rolling_sortino",
     "rolling_var_forecasts",
     "rolling_volatility",
     "run_backtest",
-    "score_relative_value",
     "sharpe",
     "simple_returns",
     "skewness",
@@ -257,5 +244,4 @@ __all__: list[str] = [
     "value_at_risk",
     "volatility",
     "ytd_select",
-    "z_score",
 ]

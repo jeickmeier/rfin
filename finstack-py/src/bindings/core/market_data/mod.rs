@@ -9,18 +9,18 @@ pub mod fx;
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 
-/// Promote all names from a submodule's `__all__` onto the parent module.
-fn promote_from_submodule(parent: &Bound<'_, PyModule>, submod_name: &str) -> PyResult<()> {
+const ROOT_SUBMODULES: &[&str] = &["curves", "fx", "context", "dtsm", "arbitrage"];
+
+/// Promote an explicit export list from a submodule onto the parent module.
+fn promote_exports(
+    parent: &Bound<'_, PyModule>,
+    submod_name: &str,
+    exports: &[&str],
+) -> PyResult<()> {
     let sub = parent.getattr(submod_name)?;
-    let all = match sub.getattr("__all__") {
-        Ok(a) => a,
-        Err(_) => return Ok(()),
-    };
-    let names: Vec<String> = all.extract()?;
-    for name in names {
-        if let Ok(obj) = sub.getattr(name.as_str()) {
-            parent.add(name.as_str(), obj)?;
-        }
+    for name in exports {
+        let obj = sub.getattr(*name)?;
+        parent.add(*name, obj)?;
     }
     Ok(())
 }
@@ -49,32 +49,16 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     dtsm::register(py, &m)?;
     arbitrage::register(py, &m)?;
 
-    promote_from_submodule(&m, "curves")?;
-    promote_from_submodule(&m, "fx")?;
-    promote_from_submodule(&m, "context")?;
+    promote_exports(&m, "curves", curves::EXPORTS)?;
+    promote_exports(&m, "fx", fx::EXPORTS)?;
+    promote_exports(&m, "context", context::EXPORTS)?;
 
-    let all = PyList::new(
-        py,
-        [
-            "curves",
-            "fx",
-            "context",
-            "dtsm",
-            "arbitrage",
-            "DiscountCurve",
-            "ForwardCurve",
-            "HazardCurve",
-            "InflationCurve",
-            "PriceCurve",
-            "VolCube",
-            "VolSurface",
-            "VolatilityIndexCurve",
-            "FxMatrix",
-            "FxRateResult",
-            "FxConversionPolicy",
-            "MarketContext",
-        ],
-    )?;
+    let mut all_names = ROOT_SUBMODULES.to_vec();
+    all_names.extend_from_slice(curves::EXPORTS);
+    all_names.extend_from_slice(fx::EXPORTS);
+    all_names.extend_from_slice(context::EXPORTS);
+
+    let all = PyList::new(py, &all_names)?;
     m.setattr("__all__", all)?;
 
     parent.add_submodule(&m)?;

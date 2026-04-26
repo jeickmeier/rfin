@@ -211,6 +211,8 @@ impl PyMarketContext {
 // Module registration
 // ---------------------------------------------------------------------------
 
+pub(super) const EXPORTS: &[&str] = &["MarketContext"];
+
 /// Register the `finstack.core.market_data.context` submodule.
 pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "context")?;
@@ -221,7 +223,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
 
     m.add_class::<PyMarketContext>()?;
 
-    let all = PyList::new(py, ["MarketContext"])?;
+    let all = PyList::new(py, EXPORTS)?;
     m.setattr("__all__", all)?;
 
     parent.add_submodule(&m)?;

@@ -267,6 +267,7 @@ impl CreditFactorModel {
 ### 5.3 Reconciliation invariant (tested)
 
 For every issuer present in both snapshots:
+
 ```
 observed_Δspread_i ≡ β_i^PC × ΔF_PC + Σ_levels β_i^<level> × ΔF_<level>(g_i) + Δadder_i
 ```
@@ -322,6 +323,7 @@ Holds by construction for Waterfall, by linearity for Taylor / MetricsBased, mod
 ### 6.4 Routing and ergonomics
 
 `AttributionSpec` gains:
+
 ```rust
 pub credit_factor_model: Option<CreditFactorModelRef>,
 pub credit_factor_detail_options: CreditFactorDetailOptions,
@@ -417,6 +419,7 @@ roll_credit_per_level:
 ### 8.1 Math
 
 For each common factor `k`:
+
 ```
 σ_k(t, h) = forecast_variance(vol_state.factors[k], horizon = h)
 D(t, h) = diag(σ_k(t, h))
@@ -424,12 +427,14 @@ D(t, h) = diag(σ_k(t, h))
 ```
 
 For each issuer `i`:
+
 ```
 σ_idio_i(t, h) = forecast_variance(vol_state.idiosyncratic[i], horizon = h)  // IssuerBeta
 σ_idio_i(t, h) = adder_vol_annualized                                          // BucketOnly
 ```
 
 Per-issuer total spread variance:
+
 ```
 σ²_spread_i(t, h) = β_i^T · Σ_factor(t, h) · β_i + σ²_idio_i(t, h)
 ```

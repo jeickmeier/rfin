@@ -180,6 +180,20 @@ impl YieldPca {
         })
     }
 
+    /// Fit PCA directly from row-major yield changes.
+    ///
+    /// This is equivalent to reconstructing a pseudo-panel with
+    /// [`YieldPanel::from_yield_changes`] and then calling [`Self::fit`].
+    ///
+    /// # Errors
+    /// - Yield-change rows are empty or ragged
+    /// - Fewer than two yield-change rows or fewer than two tenors are supplied
+    /// - The covariance matrix is degenerate
+    pub fn fit_yield_changes(yield_changes: Vec<Vec<f64>>) -> crate::Result<Self> {
+        let panel = YieldPanel::from_yield_changes(yield_changes)?;
+        Self::fit(&panel)
+    }
+
     /// Number of components extracted (min(T-1, N)).
     #[must_use]
     pub fn num_components(&self) -> usize {
@@ -271,6 +285,40 @@ impl YieldPca {
         }
 
         Ok(result)
+    }
+
+    /// Fit PCA from row-major yield changes and shock one component.
+    ///
+    /// Returns `sigma_shock * sqrt(eigenvalue_k) * loading_k` for the selected
+    /// component, preserving the same component-bound checks as the standard
+    /// scenario path.
+    ///
+    /// # Errors
+    /// - `n_components` is zero or exceeds the fitted component count
+    /// - `component_index >= n_components`
+    /// - Any invariant enforced by [`Self::fit_yield_changes`] fails
+    pub fn scenario_from_yield_changes(
+        yield_changes: Vec<Vec<f64>>,
+        component_index: usize,
+        sigma_shock: f64,
+        n_components: usize,
+    ) -> crate::Result<Vec<f64>> {
+        let pca = Self::fit_yield_changes(yield_changes)?;
+        if n_components == 0 || n_components > pca.num_components() {
+            return Err(crate::Error::Validation(format!(
+                "n_components must be in [1, {}], got {n_components}",
+                pca.num_components()
+            )));
+        }
+        if component_index >= n_components {
+            return Err(crate::Error::Validation(format!(
+                "component_index {component_index} must be < n_components {n_components}"
+            )));
+        }
+
+        let mut shocks = vec![0.0_f64; n_components];
+        shocks[component_index] = sigma_shock;
+        pca.scenario(&shocks)
     }
 
     /// Reconstruct yield changes from a truncated set of K components.
@@ -412,6 +460,12 @@ mod tests {
         vec![0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 20.0, 30.0]
     }
 
+    fn matrix_rows(matrix: &DMatrix<f64>) -> Vec<Vec<f64>> {
+        (0..matrix.nrows())
+            .map(|i| (0..matrix.ncols()).map(|j| matrix[(i, j)]).collect())
+            .collect()
+    }
+
     #[test]
     fn pca_fit_basic() {
         let tenors = standard_tenors();
@@ -437,6 +491,39 @@ mod tests {
         // Cumulative variance should be monotone
         for i in 1..pca.cumulative_variance().len() {
             assert!(pca.cumulative_variance()[i] >= pca.cumulative_variance()[i - 1] - 1e-15);
+        }
+    }
+
+    #[test]
+    fn fit_yield_changes_matches_panel_fit() {
+        let tenors = standard_tenors();
+        let panel = make_synthetic_panel(52, &tenors, &[0.01, 0.005, 0.002]);
+        let rows = matrix_rows(&panel.yield_changes());
+
+        let from_panel = YieldPca::fit(&panel).unwrap();
+        let from_changes = YieldPca::fit_yield_changes(rows).unwrap();
+
+        for (a, b) in from_panel
+            .eigenvalues()
+            .iter()
+            .zip(from_changes.eigenvalues())
+        {
+            assert!((a - b).abs() < 1e-14);
+        }
+    }
+
+    #[test]
+    fn scenario_from_yield_changes_matches_manual_shock() {
+        let tenors = standard_tenors();
+        let panel = make_synthetic_panel(52, &tenors, &[0.01, 0.005, 0.002]);
+        let rows = matrix_rows(&panel.yield_changes());
+
+        let pca = YieldPca::fit_yield_changes(rows.clone()).unwrap();
+        let expected = pca.scenario(&[2.0, 0.0, 0.0]).unwrap();
+        let actual = YieldPca::scenario_from_yield_changes(rows, 0, 2.0, 3).unwrap();
+
+        for (a, b) in expected.iter().zip(actual.iter()) {
+            assert!((a - b).abs() < 1e-14);
         }
     }
 

@@ -57,6 +57,69 @@ class TestCoreNamespace:
             MarketContext,
         )
 
+    def test_core_market_data_all_matches_static_parent_exports(self) -> None:
+        """Market data parent exports should stay explicit and non-dynamic."""
+        from finstack.core import market_data
+
+        expected = [
+            "curves",
+            "fx",
+            "context",
+            "dtsm",
+            "arbitrage",
+            "DiscountCurve",
+            "ForwardCurve",
+            "HazardCurve",
+            "InflationCurve",
+            "PriceCurve",
+            "VolSurface",
+            "VolCube",
+            "VolatilityIndexCurve",
+            "FxConversionPolicy",
+            "FxRateResult",
+            "FxMatrix",
+            "MarketContext",
+        ]
+
+        assert market_data.__all__ == expected
+        for name in expected:
+            assert hasattr(market_data, name)
+        assert not hasattr(market_data, "diebold_li_fit_factors")
+        assert not hasattr(market_data, "check_butterfly")
+
+    def test_core_credit_exports_do_not_leak_binding_suffixes(self) -> None:
+        """Credit scoring and PD bindings should expose canonical public names only."""
+        from finstack.core.credit import pd, scoring
+
+        for module, public_names, private_names in [
+            (
+                scoring,
+                [
+                    "altman_z_score",
+                    "altman_z_prime",
+                    "altman_z_double_prime",
+                    "ohlson_o_score",
+                    "zmijewski_score",
+                ],
+                [
+                    "altman_z_score_py",
+                    "altman_z_prime_py",
+                    "altman_z_double_prime_py",
+                    "ohlson_o_score_py",
+                    "zmijewski_score_py",
+                ],
+            ),
+            (
+                pd,
+                ["pit_to_ttc", "ttc_to_pit", "central_tendency"],
+                ["pit_to_ttc_py", "ttc_to_pit_py", "central_tendency_py"],
+            ),
+        ]:
+            for name in public_names:
+                assert callable(getattr(module, name))
+            for name in private_names:
+                assert not hasattr(module, name)
+
 
 class TestAnalyticsNamespace:
     """Verify the analytics subpackage."""
@@ -85,6 +148,21 @@ class TestAnalyticsNamespace:
         assert not hasattr(analytics, "rolling_sharpe_values")
         assert not hasattr(analytics, "rolling_sortino_values")
         assert not hasattr(analytics, "rolling_volatility_values")
+
+    def test_analytics_does_not_export_statement_comps(self) -> None:
+        """Comparable-company helpers belong on statements_analytics, not analytics."""
+        from finstack import analytics
+
+        for name in (
+            "compute_multiple",
+            "peer_stats",
+            "percentile_rank",
+            "regression_fair_value",
+            "score_relative_value",
+            "z_score",
+        ):
+            assert not hasattr(analytics, name)
+            assert name not in analytics.__all__
 
 
 class TestCashflowsNamespace:
@@ -246,9 +324,15 @@ class TestStatementsAnalyticsNamespace:
         """Statements analytics should export sensitivity and variance functions."""
         from finstack.statements_analytics import (  # noqa: F401
             backtest_forecast,
+            compute_multiple,
             evaluate_scenario_set,
+            peer_stats,
+            percentile_rank,
+            regression_fair_value,
             run_sensitivity,
             run_variance,
+            score_relative_value,
+            z_score,
         )
 
 

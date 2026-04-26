@@ -118,8 +118,8 @@ uv run python finstack-py/examples/run_all_notebooks.py --directory 05_portfolio
 ## Stubs, Parity, And Testing
 
 The Python package ships manually maintained `.pyi` stubs in
-`finstack-py/finstack/`. Runtime and parity coverage lives under
-`finstack-py/tests/`, including `finstack-py/tests/parity/`.
+`finstack-py/finstack/`. Runtime coverage lives under `finstack-py/tests/`;
+structural parity checks live under `finstack-py/tests/parity/`.
 
 Useful checks from the repository root:
 
@@ -127,19 +127,23 @@ Useful checks from the repository root:
 uv run pyright
 uv run ty check finstack-py/finstack
 uv run pytest finstack-py/tests
+uv run pytest finstack-py/tests/parity
 ```
 
 ### Parity contract
 
 `finstack-py/parity_contract.toml` is the authoritative spec for the
 Python-visible API surface that parity tests pin. When you add or rename a
-binding, update the contract in the same change. The parity tests under
-`finstack-py/tests/parity/` enforce that:
+binding, update the contract in the same change. The structural parity tests
+under `finstack-py/tests/parity/` enforce that:
 
 - Every entry in the contract resolves to an importable Python symbol.
 - Names match Rust source 1:1 (per `AGENTS.md` naming-strategy rules).
-- Public behaviour matches the Rust reference implementation on the cases
-  the contract pins.
+- Public modules marked `exists` or `flattened` import successfully, while
+  modules marked `missing` remain absent until the contract changes.
+
+Behavioral parity cases that compare Rust-backed results live alongside the
+runtime tests, for example `finstack-py/tests/test_core_parity.py`.
 
 ## Type Discovery
 

@@ -1,31 +1,14 @@
 //! Direct WASM wrappers for FX valuation instruments.
 
 use crate::utils::to_js_err;
+use finstack_valuations::pricer::{
+    canonical_instrument_json, canonical_instrument_json_from_str,
+    metric_value_from_instrument_json, present_standard_option_greeks_from_instrument_json,
+    pretty_instrument_json, price_instrument_json_string,
+    price_instrument_json_with_metrics_string,
+};
 use serde_json::{Map, Value};
 use wasm_bindgen::prelude::*;
-
-fn canonical_payload(type_tag: &str, value: Value) -> Result<String, JsValue> {
-    let payload = if value.get("type").is_some() {
-        let actual = value
-            .get("type")
-            .and_then(Value::as_str)
-            .ok_or_else(|| JsValue::from_str("instrument JSON field `type` must be a string"))?;
-        if actual != type_tag {
-            return Err(JsValue::from_str(&format!(
-                "expected instrument type `{type_tag}`, got `{actual}`"
-            )));
-        }
-        value
-    } else {
-        let mut payload = Map::new();
-        payload.insert("type".to_string(), Value::String(type_tag.to_string()));
-        payload.insert("spec".to_string(), value);
-        Value::Object(payload)
-    };
-
-    let json = serde_json::to_string(&payload).map_err(to_js_err)?;
-    finstack_valuations::pricer::validate_instrument_json(&json).map_err(to_js_err)
-}
 
 fn value_from_spec(spec: JsValue) -> Result<Value, JsValue> {
     if let Some(json) = spec.as_string() {
@@ -36,17 +19,15 @@ fn value_from_spec(spec: JsValue) -> Result<Value, JsValue> {
 }
 
 fn from_spec(type_tag: &str, spec: JsValue) -> Result<String, JsValue> {
-    canonical_payload(type_tag, value_from_spec(spec)?)
+    canonical_instrument_json(type_tag, value_from_spec(spec)?).map_err(to_js_err)
 }
 
 fn from_json_payload(type_tag: &str, json: &str) -> Result<String, JsValue> {
-    let value: Value = serde_json::from_str(json).map_err(to_js_err)?;
-    canonical_payload(type_tag, value)
+    canonical_instrument_json_from_str(type_tag, json).map_err(to_js_err)
 }
 
 fn pretty_json(json: &str) -> Result<String, JsValue> {
-    let value: Value = serde_json::from_str(json).map_err(to_js_err)?;
-    serde_json::to_string_pretty(&value).map_err(to_js_err)
+    pretty_instrument_json(json).map_err(to_js_err)
 }
 
 fn price_payload(
@@ -57,14 +38,8 @@ fn price_payload(
 ) -> Result<String, JsValue> {
     let market: finstack_core::market_data::context::MarketContext =
         serde_json::from_str(market_json).map_err(to_js_err)?;
-    let result = finstack_valuations::pricer::price_instrument_json(
-        json,
-        &market,
-        as_of,
-        model.as_deref().unwrap_or("default"),
-    )
-    .map_err(to_js_err)?;
-    serde_json::to_string(&result).map_err(to_js_err)
+    price_instrument_json_string(json, &market, as_of, model.as_deref().unwrap_or("default"))
+        .map_err(to_js_err)
 }
 
 fn price_payload_with_metrics(
@@ -78,7 +53,7 @@ fn price_payload_with_metrics(
     let market: finstack_core::market_data::context::MarketContext =
         serde_json::from_str(market_json).map_err(to_js_err)?;
     let metrics: Vec<String> = serde_wasm_bindgen::from_value(metrics).map_err(to_js_err)?;
-    let result = finstack_valuations::pricer::price_instrument_json_with_metrics(
+    price_instrument_json_with_metrics_string(
         json,
         &market,
         as_of,
@@ -86,8 +61,7 @@ fn price_payload_with_metrics(
         &metrics,
         pricing_options.as_deref(),
     )
-    .map_err(to_js_err)?;
-    serde_json::to_string(&result).map_err(to_js_err)
+    .map_err(to_js_err)
 }
 
 fn metric_value(
@@ -99,46 +73,14 @@ fn metric_value(
 ) -> Result<f64, JsValue> {
     let market: finstack_core::market_data::context::MarketContext =
         serde_json::from_str(market_json).map_err(to_js_err)?;
-    let result = finstack_valuations::pricer::price_instrument_json_with_metrics(
+    metric_value_from_instrument_json(
         json,
         &market,
         as_of,
         model.as_deref().unwrap_or("default"),
-        &[metric.to_string()],
-        None,
+        metric,
     )
-    .map_err(to_js_err)?;
-    result
-        .metric_str(metric)
-        .ok_or_else(|| JsValue::from_str(&format!("metric `{metric}` was not returned")))
-}
-
-/// Compute multiple metrics in a single dispatch and return only the ones
-/// that came back successfully. Used by the option `greeks()` aggregator to
-/// avoid the N+1 cost of one call per greek.
-fn metric_values_present(
-    json: &str,
-    market_json: &str,
-    as_of: &str,
-    model: Option<&str>,
-    metrics: &[&'static str],
-) -> Result<Vec<(&'static str, f64)>, JsValue> {
-    let market: finstack_core::market_data::context::MarketContext =
-        serde_json::from_str(market_json).map_err(to_js_err)?;
-    let metric_ids: Vec<String> = metrics.iter().map(|m| (*m).to_string()).collect();
-    let result = finstack_valuations::pricer::price_instrument_json_with_metrics(
-        json,
-        &market,
-        as_of,
-        model.unwrap_or("default"),
-        &metric_ids,
-        None,
-    )
-    .map_err(to_js_err)?;
-    Ok(metrics
-        .iter()
-        .filter_map(|m| result.metric_str(m).map(|v| (*m, v)))
-        .collect())
+    .map_err(to_js_err)
 }
 
 macro_rules! fx_class {
@@ -285,22 +227,15 @@ macro_rules! fx_option_class {
                 as_of: &str,
                 model: Option<String>,
             ) -> Result<JsValue, JsValue> {
-                let pairs = metric_values_present(
+                let market: finstack_core::market_data::context::MarketContext =
+                    serde_json::from_str(market_json).map_err(to_js_err)?;
+                let pairs = present_standard_option_greeks_from_instrument_json(
                     &self.json,
-                    market_json,
+                    &market,
                     as_of,
-                    model.as_deref(),
-                    &[
-                        "delta",
-                        "gamma",
-                        "vega",
-                        "theta",
-                        "rho",
-                        "foreign_rho",
-                        "vanna",
-                        "volga",
-                    ],
-                )?;
+                    model.as_deref().unwrap_or("default"),
+                )
+                .map_err(to_js_err)?;
                 let mut out = Map::new();
                 for (metric, value) in pairs {
                     out.insert(metric.to_string(), Value::from(value));

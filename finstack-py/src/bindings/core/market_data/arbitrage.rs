@@ -5,62 +5,14 @@
 //! callers can work directly with numpy-friendly inputs without first
 //! building a `VolSurface` wrapper.
 
-use std::collections::HashMap;
-
 use finstack_core::market_data::arbitrage::{
-    check_surface, ArbitrageCheck, ArbitrageCheckConfig, ArbitrageSeverity, ArbitrageType,
-    ArbitrageViolation, ButterflyCheck, CalendarSpreadCheck, LocalVolDensityCheck,
+    check_butterfly_grid, check_calendar_spread_grid, check_local_vol_density_grid,
+    check_surface_grid, ArbitrageSeverity, ArbitrageType, ArbitrageViolation,
 };
-use finstack_core::market_data::surfaces::VolSurface;
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule};
 
 use crate::errors::core_to_py;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/// Build a [`VolSurface`] from Python-friendly flat arrays.
-///
-/// `vols` is indexed as `vols[expiry_idx][strike_idx]`.
-fn build_surface(
-    id: &str,
-    expiries: &[f64],
-    strikes: &[f64],
-    vols: &[Vec<f64>],
-) -> PyResult<VolSurface> {
-    if vols.len() != expiries.len() {
-        return Err(PyValueError::new_err(format!(
-            "vols has {} rows but expiries has {} entries",
-            vols.len(),
-            expiries.len()
-        )));
-    }
-    let mut flat: Vec<f64> = Vec::with_capacity(expiries.len() * strikes.len());
-    for (i, row) in vols.iter().enumerate() {
-        if row.len() != strikes.len() {
-            return Err(PyValueError::new_err(format!(
-                "vols[{i}] has {} entries but strikes has {}",
-                row.len(),
-                strikes.len()
-            )));
-        }
-        flat.extend_from_slice(row);
-    }
-    VolSurface::from_grid(id, expiries, strikes, &flat).map_err(core_to_py)
-}
-
-fn normalize_forward_prices(expiry_count: usize, forward_prices: Vec<f64>) -> PyResult<Vec<f64>> {
-    match forward_prices.len() {
-        len if len == expiry_count => Ok(forward_prices),
-        1 => Ok(vec![forward_prices[0]; expiry_count]),
-        len => Err(PyValueError::new_err(format!(
-            "forward_prices has {len} entries but expiries has {expiry_count}; expected 1 or {expiry_count}"
-        ))),
-    }
-}
 
 /// Stable lowercase string name for an [`ArbitrageType`].
 fn arbitrage_type_str(t: ArbitrageType) -> &'static str {
@@ -151,13 +103,8 @@ fn check_butterfly<'py>(
     forward_prices: Vec<f64>,
     tolerance: f64,
 ) -> PyResult<Bound<'py, PyList>> {
-    let surface = build_surface("py-surface", &expiries, &strikes, &vols)?;
-    let forwards = normalize_forward_prices(expiries.len(), forward_prices)?;
-    let checker = ButterflyCheck {
-        forwards,
-        tolerance,
-    };
-    let violations = checker.check(&surface);
+    let violations = check_butterfly_grid(&strikes, &expiries, &vols, forward_prices, tolerance)
+        .map_err(core_to_py)?;
     violations_to_pylist(py, &violations)
 }
 
@@ -191,13 +138,9 @@ fn check_calendar_spread<'py>(
     forward_prices: Vec<f64>,
     tolerance: f64,
 ) -> PyResult<Bound<'py, PyList>> {
-    let surface = build_surface("py-surface", &expiries, &strikes, &vols)?;
-    let forwards = normalize_forward_prices(expiries.len(), forward_prices)?;
-    let checker = CalendarSpreadCheck {
-        forwards,
-        tolerance,
-    };
-    let violations = checker.check(&surface);
+    let violations =
+        check_calendar_spread_grid(&strikes, &expiries, &vols, forward_prices, tolerance)
+            .map_err(core_to_py)?;
     violations_to_pylist(py, &violations)
 }
 
@@ -229,40 +172,8 @@ fn check_local_vol_density<'py>(
     vols: Vec<Vec<f64>>,
     forward_prices: Vec<f64>,
 ) -> PyResult<Bound<'py, PyList>> {
-    if forward_prices.len() != expiries.len() {
-        return Err(PyValueError::new_err(format!(
-            "forward_prices has {} entries but expiries has {}",
-            forward_prices.len(),
-            expiries.len()
-        )));
-    }
-    let surface = build_surface("py-surface", &expiries, &strikes, &vols)?;
-
-    // Fast path: all forwards equal -> single check.
-    let all_equal = forward_prices
-        .windows(2)
-        .all(|w| (w[0] - w[1]).abs() < 1e-14);
-
-    let mut violations: Vec<ArbitrageViolation> = Vec::new();
-    if all_equal {
-        let checker = LocalVolDensityCheck {
-            forward: forward_prices[0],
-            tolerance: 1e-10,
-        };
-        violations.extend(checker.check(&surface));
-    } else {
-        for (i, &t) in expiries.iter().enumerate() {
-            let checker = LocalVolDensityCheck {
-                forward: forward_prices[i],
-                tolerance: 1e-10,
-            };
-            let slice_viols = checker
-                .check(&surface)
-                .into_iter()
-                .filter(|v| (v.location.expiry - t).abs() < 1e-12);
-            violations.extend(slice_viols);
-        }
-    }
+    let violations = check_local_vol_density_grid(&strikes, &expiries, &vols, forward_prices)
+        .map_err(core_to_py)?;
     violations_to_pylist(py, &violations)
 }
 
@@ -302,64 +213,21 @@ fn check_all<'py>(
     forward_prices: Option<Vec<f64>>,
     tolerance: f64,
 ) -> PyResult<Bound<'py, PyDict>> {
-    let surface = build_surface("py-surface", &expiries, &strikes, &vols)?;
-    let normalized_forward_prices = forward_prices
-        .map(|values| normalize_forward_prices(expiries.len(), values))
-        .transpose()?;
-    let local_vol_forward = forward.or_else(|| {
-        normalized_forward_prices.as_ref().and_then(|values| {
-            values
-                .first()
-                .copied()
-                .filter(|first| values.iter().all(|v| (v - first).abs() < 1e-14))
-        })
-    });
-    let config = ArbitrageCheckConfig {
-        check_butterfly: true,
-        check_calendar_spread: true,
-        check_local_vol_density: local_vol_forward.is_some(),
-        forward: local_vol_forward,
-        forward_prices: normalized_forward_prices.clone(),
+    let report = check_surface_grid(
+        &strikes,
+        &expiries,
+        &vols,
+        forward,
+        forward_prices,
         tolerance,
-        min_severity: ArbitrageSeverity::Negligible,
-    };
-    let mut report = check_surface(&surface, &config).map_err(core_to_py)?;
-
-    if local_vol_forward.is_none() {
-        if let Some(forwards) = normalized_forward_prices {
-            let mut extra_violations: Vec<ArbitrageViolation> = Vec::new();
-            for (i, &t) in expiries.iter().enumerate() {
-                let checker = LocalVolDensityCheck {
-                    forward: forwards[i],
-                    tolerance,
-                };
-                extra_violations.extend(
-                    checker
-                        .check(&surface)
-                        .into_iter()
-                        .filter(|v| (v.location.expiry - t).abs() < 1e-12),
-                );
-            }
-            report.violations.extend(extra_violations);
-            report
-                .violations
-                .sort_by(|a, b| b.severity.cmp(&a.severity));
-            report.passed = !report
-                .violations
-                .iter()
-                .any(|v| v.severity > ArbitrageSeverity::Negligible);
-        }
-    }
+    )
+    .map_err(core_to_py)?;
 
     let out = PyDict::new(py);
     out.set_item("total_violations", report.violations.len())?;
     out.set_item("passed", report.passed)?;
 
     let by_sev = PyDict::new(py);
-    let mut sev_counts: HashMap<ArbitrageSeverity, usize> = HashMap::new();
-    for v in &report.violations {
-        *sev_counts.entry(v.severity).or_insert(0) += 1;
-    }
     for sev in [
         ArbitrageSeverity::Negligible,
         ArbitrageSeverity::Minor,
@@ -368,16 +236,12 @@ fn check_all<'py>(
     ] {
         by_sev.set_item(
             severity_str(sev),
-            sev_counts.get(&sev).copied().unwrap_or(0),
+            report.counts_by_severity.get(&sev).copied().unwrap_or(0),
         )?;
     }
     out.set_item("by_severity", by_sev)?;
 
     let by_type = PyDict::new(py);
-    let mut type_counts: HashMap<ArbitrageType, usize> = HashMap::new();
-    for v in &report.violations {
-        *type_counts.entry(v.violation_type).or_insert(0) += 1;
-    }
     for t in [
         ArbitrageType::Butterfly,
         ArbitrageType::CalendarSpread,
@@ -385,7 +249,7 @@ fn check_all<'py>(
     ] {
         by_type.set_item(
             arbitrage_type_str(t),
-            type_counts.get(&t).copied().unwrap_or(0),
+            report.counts_by_type.get(&t).copied().unwrap_or(0),
         )?;
     }
     out.set_item("by_type", by_type)?;

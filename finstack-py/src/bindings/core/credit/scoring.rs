@@ -1,9 +1,10 @@
 //! Python bindings for `finstack_core::credit::scoring`.
 
 use finstack_core::credit::scoring::{
-    altman_z_double_prime, altman_z_prime, altman_z_score, ohlson_o_score, zmijewski_score,
-    AltmanZDoublePrimeInput, AltmanZPrimeInput, AltmanZScoreInput, OhlsonOScoreInput, ScoringZone,
-    ZmijewskiInput,
+    altman_z_double_prime as core_altman_z_double_prime, altman_z_prime as core_altman_z_prime,
+    altman_z_score as core_altman_z_score, ohlson_o_score as core_ohlson_o_score,
+    zmijewski_score as core_zmijewski_score, AltmanZDoublePrimeInput, AltmanZPrimeInput,
+    AltmanZScoreInput, OhlsonOScoreInput, ScoringZone, ZmijewskiInput,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
@@ -39,7 +40,7 @@ fn zone_to_str(zone: ScoringZone) -> &'static str {
 #[pyo3(
     text_signature = "(working_capital_to_ta, retained_earnings_to_ta, ebit_to_ta, market_equity_to_book_liab, sales_to_ta)"
 )]
-fn altman_z_score_py(
+fn altman_z_score(
     working_capital_to_ta: f64,
     retained_earnings_to_ta: f64,
     ebit_to_ta: f64,
@@ -53,7 +54,7 @@ fn altman_z_score_py(
         market_equity_to_total_liabilities: market_equity_to_book_liab,
         sales_to_total_assets: sales_to_ta,
     };
-    let r = altman_z_score(&input).map_err(display_to_py)?;
+    let r = core_altman_z_score(&input).map_err(display_to_py)?;
     Ok((r.score, zone_to_str(r.zone).to_string(), r.implied_pd))
 }
 
@@ -68,7 +69,7 @@ fn altman_z_score_py(
 #[pyo3(
     text_signature = "(working_capital_to_ta, retained_earnings_to_ta, ebit_to_ta, book_equity_to_book_liab, sales_to_ta)"
 )]
-fn altman_z_prime_py(
+fn altman_z_prime(
     working_capital_to_ta: f64,
     retained_earnings_to_ta: f64,
     ebit_to_ta: f64,
@@ -82,7 +83,7 @@ fn altman_z_prime_py(
         book_equity_to_total_liabilities: book_equity_to_book_liab,
         sales_to_total_assets: sales_to_ta,
     };
-    let r = altman_z_prime(&input).map_err(display_to_py)?;
+    let r = core_altman_z_prime(&input).map_err(display_to_py)?;
     Ok((r.score, zone_to_str(r.zone).to_string(), r.implied_pd))
 }
 
@@ -97,7 +98,7 @@ fn altman_z_prime_py(
 #[pyo3(
     text_signature = "(working_capital_to_ta, retained_earnings_to_ta, ebit_to_ta, book_equity_to_book_liab)"
 )]
-fn altman_z_double_prime_py(
+fn altman_z_double_prime(
     working_capital_to_ta: f64,
     retained_earnings_to_ta: f64,
     ebit_to_ta: f64,
@@ -109,7 +110,7 @@ fn altman_z_double_prime_py(
         ebit_to_total_assets: ebit_to_ta,
         book_equity_to_total_liabilities: book_equity_to_book_liab,
     };
-    let r = altman_z_double_prime(&input).map_err(display_to_py)?;
+    let r = core_altman_z_double_prime(&input).map_err(display_to_py)?;
     Ok((r.score, zone_to_str(r.zone).to_string(), r.implied_pd))
 }
 
@@ -130,7 +131,7 @@ fn altman_z_double_prime_py(
     text_signature = "(log_total_assets_adjusted, total_liab_to_ta, working_capital_to_ta, current_liab_to_current_assets, liab_exceed_assets, net_income_to_ta, ffo_to_total_liab, negative_ni_two_years, net_income_change)"
 )]
 #[allow(clippy::too_many_arguments)]
-fn ohlson_o_score_py(
+fn ohlson_o_score(
     log_total_assets_adjusted: f64,
     total_liab_to_ta: f64,
     working_capital_to_ta: f64,
@@ -152,7 +153,7 @@ fn ohlson_o_score_py(
         negative_net_income_two_years: negative_ni_two_years,
         net_income_change,
     };
-    let r = ohlson_o_score(&input).map_err(display_to_py)?;
+    let r = core_ohlson_o_score(&input).map_err(display_to_py)?;
     Ok((r.score, zone_to_str(r.zone).to_string(), r.implied_pd))
 }
 
@@ -171,13 +172,13 @@ fn ohlson_o_score_py(
 /// from the PD value (or use the Altman / Ohlson bindings which include it).
 #[pyfunction]
 #[pyo3(text_signature = "(roa, debt_ratio, current_ratio)")]
-fn zmijewski_score_py(roa: f64, debt_ratio: f64, current_ratio: f64) -> PyResult<(f64, f64)> {
+fn zmijewski_score(roa: f64, debt_ratio: f64, current_ratio: f64) -> PyResult<(f64, f64)> {
     let input = ZmijewskiInput {
         net_income_to_total_assets: roa,
         total_liabilities_to_total_assets: debt_ratio,
         current_assets_to_current_liabilities: current_ratio,
     };
-    let r = zmijewski_score(&input).map_err(display_to_py)?;
+    let r = core_zmijewski_score(&input).map_err(display_to_py)?;
     Ok((r.score, r.implied_pd))
 }
 
@@ -193,21 +194,11 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "Academic credit scoring models: Altman Z-Score family, Ohlson O-Score, Zmijewski probit.",
     )?;
 
-    m.add_function(wrap_pyfunction!(altman_z_score_py, &m)?)?;
-    m.add_function(wrap_pyfunction!(altman_z_prime_py, &m)?)?;
-    m.add_function(wrap_pyfunction!(altman_z_double_prime_py, &m)?)?;
-    m.add_function(wrap_pyfunction!(ohlson_o_score_py, &m)?)?;
-    m.add_function(wrap_pyfunction!(zmijewski_score_py, &m)?)?;
-
-    // Re-export with the unsuffixed public names the user asked for.
-    m.setattr("altman_z_score", m.getattr("altman_z_score_py")?)?;
-    m.setattr("altman_z_prime", m.getattr("altman_z_prime_py")?)?;
-    m.setattr(
-        "altman_z_double_prime",
-        m.getattr("altman_z_double_prime_py")?,
-    )?;
-    m.setattr("ohlson_o_score", m.getattr("ohlson_o_score_py")?)?;
-    m.setattr("zmijewski_score", m.getattr("zmijewski_score_py")?)?;
+    m.add_function(wrap_pyfunction!(altman_z_score, &m)?)?;
+    m.add_function(wrap_pyfunction!(altman_z_prime, &m)?)?;
+    m.add_function(wrap_pyfunction!(altman_z_double_prime, &m)?)?;
+    m.add_function(wrap_pyfunction!(ohlson_o_score, &m)?)?;
+    m.add_function(wrap_pyfunction!(zmijewski_score, &m)?)?;
 
     let all = PyList::new(
         py,

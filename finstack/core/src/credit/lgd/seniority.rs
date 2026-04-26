@@ -10,7 +10,9 @@
 //!   Wharton Financial Institutions Center Working Paper 04-01.
 
 use crate::error::InputError;
+use crate::math::random::Pcg64Rng;
 use crate::math::special_functions::norm_cdf;
+use crate::math::RandomNumberGenerator;
 use crate::Result;
 
 /// Debt seniority classification for recovery rate modeling.
@@ -37,6 +39,25 @@ pub enum SeniorityClass {
     Subordinated,
     /// Junior subordinated and deeply subordinated instruments.
     JuniorSubordinated,
+}
+
+impl std::str::FromStr for SeniorityClass {
+    type Err = crate::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        let norm = s.trim().to_ascii_lowercase().replace(['-', ' '], "_");
+        match norm.as_str() {
+            "senior_secured" | "seniorsecured" => Ok(Self::SeniorSecured),
+            "senior_unsecured" | "seniorunsecured" => Ok(Self::SeniorUnsecured),
+            "subordinated" | "sub" => Ok(Self::Subordinated),
+            "junior_subordinated" | "juniorsubordinated" | "junior" => {
+                Ok(Self::JuniorSubordinated)
+            }
+            _ => Err(crate::Error::Validation(format!(
+                "unknown seniority class: '{s}' (expected senior_secured, senior_unsecured, subordinated, junior_subordinated)"
+            ))),
+        }
+    }
 }
 
 /// Beta distribution parameterization for recovery rates.
@@ -147,6 +168,15 @@ impl BetaRecovery {
         }
     }
 
+    /// Sample N recovery rates with a deterministic PCG64 seed.
+    #[must_use]
+    pub fn sample_seeded(&self, n_samples: usize, seed: u64) -> Vec<f64> {
+        let mut rng = Pcg64Rng::new(seed);
+        let mut out = vec![0.0_f64; n_samples];
+        self.sample_n(&mut rng as &mut dyn RandomNumberGenerator, &mut out);
+        out
+    }
+
     /// Quantile function (inverse CDF) of the Beta distribution.
     ///
     /// Returns the value x such that P(X <= x) = p.
@@ -184,6 +214,25 @@ pub struct SeniorityCalibration {
 }
 
 impl SeniorityCalibration {
+    /// Load a built-in rating-agency calibration by name.
+    ///
+    /// Accepted names are case-insensitive. Moody's accepts `moodys`,
+    /// `moody`, and `moody_s`; S&P accepts `sp`, `s_p`,
+    /// `standard_and_poors`, and `standardandpoors`.
+    ///
+    /// # Errors
+    /// Returns a validation error for unknown agencies.
+    pub fn from_agency(agency: &str) -> Result<Self> {
+        let norm = agency.trim().to_ascii_lowercase().replace(['&', '.'], "");
+        match norm.as_str() {
+            "moodys" | "moody" | "moody_s" => Self::moodys_historical(),
+            "sp" | "s_p" | "standard_and_poors" | "standardandpoors" => Self::sp_historical(),
+            _ => Err(crate::Error::Validation(format!(
+                "unknown rating agency: '{agency}' (expected 'moodys' or 'sp')"
+            ))),
+        }
+    }
+
     /// Moody's historical average recovery rates (1982-2023, issuer-weighted).
     ///
     /// Approximate long-run averages:

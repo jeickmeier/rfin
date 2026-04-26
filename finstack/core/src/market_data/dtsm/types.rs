@@ -6,6 +6,33 @@
 use nalgebra::DMatrix;
 use serde::{Deserialize, Serialize};
 
+fn rows_to_dmatrix(rows: &[Vec<f64>], label: &str) -> crate::Result<DMatrix<f64>> {
+    if rows.is_empty() {
+        return Err(crate::Error::Validation(format!(
+            "{label} must not be empty"
+        )));
+    }
+
+    let nrows = rows.len();
+    let ncols = rows[0].len();
+    for (i, row) in rows.iter().enumerate() {
+        if row.len() != ncols {
+            return Err(crate::Error::Validation(format!(
+                "{label}: row {i} has length {} but expected {ncols} (first row)",
+                row.len()
+            )));
+        }
+    }
+
+    let mut matrix = DMatrix::zeros(nrows, ncols);
+    for (i, row) in rows.iter().enumerate() {
+        for (j, &value) in row.iter().enumerate() {
+            matrix[(i, j)] = value;
+        }
+    }
+    Ok(matrix)
+}
+
 // ---------------------------------------------------------------------------
 // YieldPanel
 // ---------------------------------------------------------------------------
@@ -26,6 +53,50 @@ pub struct YieldPanel {
 }
 
 impl YieldPanel {
+    /// Construct a yield panel from row-major yield observations.
+    ///
+    /// `yield_rows[date_idx][tenor_idx]` is converted into the canonical
+    /// matrix representation and validated through [`Self::new`].
+    ///
+    /// # Errors
+    /// - Yield rows are empty or ragged
+    /// - Tenor grid and yield-row width do not match
+    /// - Any invariant enforced by [`Self::new`] fails
+    pub fn from_rows(
+        tenors: Vec<f64>,
+        yield_rows: Vec<Vec<f64>>,
+        dates: Option<Vec<crate::dates::Date>>,
+    ) -> crate::Result<Self> {
+        let yields = rows_to_dmatrix(&yield_rows, "yield_rows")?;
+        Self::new(yields, tenors, dates)
+    }
+
+    /// Reconstruct a pseudo-panel from row-major yield changes.
+    ///
+    /// PCA depends only on first differences, so this helper integrates the
+    /// supplied changes from an arbitrary zero base and assigns a synthetic
+    /// strictly ascending tenor grid. It is intended for callers that already
+    /// have differenced yield data.
+    ///
+    /// # Errors
+    /// - Yield-change rows are empty or ragged
+    /// - The reconstructed panel violates [`Self::new`] invariants
+    pub fn from_yield_changes(yield_changes: Vec<Vec<f64>>) -> crate::Result<Self> {
+        let changes = rows_to_dmatrix(&yield_changes, "yield_changes")?;
+        let n = changes.ncols();
+        let m = changes.nrows();
+
+        let mut levels = DMatrix::zeros(m + 1, n);
+        for i in 0..m {
+            for j in 0..n {
+                levels[(i + 1, j)] = levels[(i, j)] + changes[(i, j)];
+            }
+        }
+
+        let tenors: Vec<f64> = (1..=n).map(|i| i as f64).collect();
+        Self::new(levels, tenors, None)
+    }
+
     /// Construct and validate a yield panel.
     ///
     /// # Errors

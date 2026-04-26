@@ -8,56 +8,11 @@
 //! - PCA-based scenario generation (N-sigma shocks along principal components).
 
 use finstack_core::market_data::dtsm::{DieboldLi, YieldPanel, YieldPca};
-use nalgebra::DMatrix;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule};
 
 use crate::errors::core_to_py;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/// Convert a nested `Vec<Vec<f64>>` into a nalgebra `DMatrix<f64>`.
-///
-/// Rows must all have the same length. `rows` is treated as row-major:
-/// `rows[i][j]` becomes entry `(i, j)` of the result.
-fn nested_to_dmatrix(rows: &[Vec<f64>], label: &str) -> PyResult<DMatrix<f64>> {
-    if rows.is_empty() {
-        return Err(PyValueError::new_err(format!("{label} must not be empty")));
-    }
-    let nrows = rows.len();
-    let ncols = rows[0].len();
-    for (i, row) in rows.iter().enumerate() {
-        if row.len() != ncols {
-            return Err(PyValueError::new_err(format!(
-                "{label}: row {i} has length {} but expected {ncols} (first row)",
-                row.len()
-            )));
-        }
-    }
-    let mut m = DMatrix::zeros(nrows, ncols);
-    for (i, row) in rows.iter().enumerate() {
-        for (j, &v) in row.iter().enumerate() {
-            m[(i, j)] = v;
-        }
-    }
-    Ok(m)
-}
-
-/// Build a validated `YieldPanel` from Python-side inputs.
-fn build_panel(tenors: Vec<f64>, yields_matrix: Vec<Vec<f64>>) -> PyResult<YieldPanel> {
-    let m = nested_to_dmatrix(&yields_matrix, "yields_matrix")?;
-    if m.ncols() != tenors.len() {
-        return Err(PyValueError::new_err(format!(
-            "yields_matrix has {} columns but tenors has {} entries",
-            m.ncols(),
-            tenors.len()
-        )));
-    }
-    YieldPanel::new(m, tenors, None).map_err(core_to_py)
-}
 
 // ---------------------------------------------------------------------------
 // Diebold-Li: factor extraction
@@ -89,7 +44,7 @@ fn diebold_li_fit_factors<'py>(
     yields_matrix: Vec<Vec<f64>>,
     lambda: f64,
 ) -> PyResult<Bound<'py, PyDict>> {
-    let panel = build_panel(tenors, yields_matrix)?;
+    let panel = YieldPanel::from_rows(tenors, yields_matrix, None).map_err(core_to_py)?;
     let model = DieboldLi::builder()
         .lambda(lambda)
         .build()
@@ -152,7 +107,7 @@ fn diebold_li_forecast<'py>(
     horizon: usize,
     lambda: f64,
 ) -> PyResult<Bound<'py, PyDict>> {
-    let panel = build_panel(tenors, yields_matrix)?;
+    let panel = YieldPanel::from_rows(tenors, yields_matrix, None).map_err(core_to_py)?;
     let model = DieboldLi::builder()
         .lambda(lambda)
         .build()
@@ -214,42 +169,14 @@ fn yield_pca_fit<'py>(
     yield_changes: Vec<Vec<f64>>,
     n_components: usize,
 ) -> PyResult<Bound<'py, PyDict>> {
-    let changes = nested_to_dmatrix(&yield_changes, "yield_changes")?;
-    let n = changes.ncols();
-    if n < 2 {
+    let pca = YieldPca::fit_yield_changes(yield_changes).map_err(core_to_py)?;
+    let n = pca.tenors().len();
+    if n_components == 0 || n_components > pca.num_components() {
         return Err(PyValueError::new_err(format!(
-            "yield_changes must have at least 2 columns (tenors), got {n}"
+            "n_components must be in [1, {}], got {n_components}",
+            pca.num_components()
         )));
     }
-    if n_components == 0 || n_components > n {
-        return Err(PyValueError::new_err(format!(
-            "n_components must be in [1, {n}], got {n_components}"
-        )));
-    }
-
-    // Reconstruct a pseudo-panel to reuse the existing YieldPca::fit path. We
-    // integrate the changes starting from an arbitrary zero base (mean-change
-    // subtraction inside PCA is unaffected by the integration constant).
-    let m = changes.nrows();
-    if m < 2 {
-        return Err(PyValueError::new_err(format!(
-            "yield_changes must have at least 2 rows, got {m}"
-        )));
-    }
-    let mut levels = DMatrix::zeros(m + 1, n);
-    for j in 0..n {
-        levels[(0, j)] = 0.0;
-    }
-    for i in 0..m {
-        for j in 0..n {
-            levels[(i + 1, j)] = levels[(i, j)] + changes[(i, j)];
-        }
-    }
-    // Tenor grid is required but the PCA result only depends on the changes;
-    // use an arbitrary strictly-ascending positive grid.
-    let tenors: Vec<f64> = (1..=n).map(|i| i as f64).collect();
-    let panel = YieldPanel::new(levels, tenors, None).map_err(core_to_py)?;
-    let pca = YieldPca::fit(&panel).map_err(core_to_py)?;
 
     // Truncate to n_components.
     let loadings = pca.loadings();
@@ -333,46 +260,8 @@ fn yield_pca_scenario(
     sigma_shock: f64,
     n_components: usize,
 ) -> PyResult<Vec<f64>> {
-    let changes = nested_to_dmatrix(&yield_changes, "yield_changes")?;
-    let n = changes.ncols();
-    if n < 2 {
-        return Err(PyValueError::new_err(format!(
-            "yield_changes must have at least 2 columns (tenors), got {n}"
-        )));
-    }
-    if n_components == 0 || n_components > n {
-        return Err(PyValueError::new_err(format!(
-            "n_components must be in [1, {n}], got {n_components}"
-        )));
-    }
-    if component_index >= n_components {
-        return Err(PyValueError::new_err(format!(
-            "component_index {component_index} must be < n_components {n_components}"
-        )));
-    }
-
-    // Same reconstruction trick as in yield_pca_fit.
-    let m = changes.nrows();
-    if m < 2 {
-        return Err(PyValueError::new_err(format!(
-            "yield_changes must have at least 2 rows, got {m}"
-        )));
-    }
-    let mut levels = DMatrix::zeros(m + 1, n);
-    for i in 0..m {
-        for j in 0..n {
-            levels[(i + 1, j)] = levels[(i, j)] + changes[(i, j)];
-        }
-    }
-    let tenors: Vec<f64> = (1..=n).map(|i| i as f64).collect();
-    let panel = YieldPanel::new(levels, tenors, None).map_err(core_to_py)?;
-    let pca = YieldPca::fit(&panel).map_err(core_to_py)?;
-
-    // Build a shocks vector of length n_components with a single non-zero entry.
-    let mut shocks = vec![0.0_f64; n_components];
-    shocks[component_index] = sigma_shock;
-
-    pca.scenario(&shocks).map_err(core_to_py)
+    YieldPca::scenario_from_yield_changes(yield_changes, component_index, sigma_shock, n_components)
+        .map_err(core_to_py)
 }
 
 // ---------------------------------------------------------------------------

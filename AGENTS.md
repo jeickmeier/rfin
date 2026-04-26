@@ -6,8 +6,8 @@
 - Python bindings in `finstack-py/` (PyO3); WASM bindings in `finstack-wasm/` (wasm-bindgen)
 - Python binding Rust code lives under `finstack-py/src/bindings/` (one subdirectory per crate domain)
 - WASM binding Rust code lives under `finstack-wasm/src/api/` with a hand-written JS facade at `finstack-wasm/index.js`
-- `.pyi` stubs in `finstack-py/finstack/` are derived from contract and binding code; parity tests under `finstack-py/tests/parity`
-- Parity contract at repo root: `parity_contract.toml`; design spec at `docs/superpowers/specs/2026-04-10-rust-canonical-api-alignment-design.md`
+- `.pyi` stubs in `finstack-py/finstack/` are derived from contract and binding code; structural parity tests live under `finstack-py/tests/parity`, with behavioral parity tests alongside runtime tests such as `finstack-py/tests/test_core_parity.py`
+- Parity contract: `finstack-py/parity_contract.toml`; design spec at `docs/superpowers/specs/2026-04-10-rust-canonical-api-alignment-design.md`
 - Example notebooks in `finstack-py/examples/notebooks/`; runner script: `run_all_notebooks.py`
 
 ## Build and Tooling
@@ -56,7 +56,7 @@
   - `rolling_var_forecasts_with_fn(..., fn)` — specialized closure variant (Rust-internal)
 - **Descriptive suffixes for specialized variants:** use `_from_<input>` (alternate input shape), `_with_<thing>` (alternate dispatch mechanism), `_unchecked` (invariant-skipping). Suffixes are only for the non-canonical variants; the short base name belongs to the one exposed through bindings.
 - **Accessors still use `get_*`** (see above) — naming-strategy shortening does not override the `get_*` convention.
-- **When renaming, propagate everywhere in one slice:** Rust source + Rust tests + re-exports → PyO3 `#[pyfunction]` + `__all__` + `.pyi` + `__init__.py` → WASM `#[wasm_bindgen(js_name=...)]` + `index.d.ts` + `exports/*.js` → `parity_contract.toml` + benchmarks + notebooks. Verify with `mise run all-fmt && mise run all-lint && mise run all-test && mise run python-build`.
+- **When renaming, propagate everywhere in one slice:** Rust source + Rust tests + re-exports → PyO3 `#[pyfunction]` + `__all__` + `.pyi` + `__init__.py` → WASM `#[wasm_bindgen(js_name=...)]` + `index.d.ts` + `exports/*.js` → `finstack-py/parity_contract.toml` + benchmarks + notebooks. Verify with `mise run all-fmt && mise run all-lint && mise run all-test && mise run python-build`.
 
 ## Workflow Preferences
 

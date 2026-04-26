@@ -34,8 +34,12 @@ mod registry;
 pub(crate) use errors::actionable_unknown_pricer_message;
 pub use errors::{PricingError, PricingErrorContext, PricingResult};
 pub use json::{
-    parse_as_of_date, parse_boxed_instrument_json, parse_instrument_json, parse_model_key,
-    price_instrument_json, price_instrument_json_with_metrics, validate_instrument_json,
+    canonical_instrument_json, canonical_instrument_json_from_str,
+    metric_value_from_instrument_json, parse_as_of_date, parse_boxed_instrument_json,
+    parse_instrument_json, parse_model_key, present_metric_values_from_instrument_json,
+    present_standard_option_greeks_from_instrument_json, pretty_instrument_json,
+    price_instrument_json, price_instrument_json_string, price_instrument_json_with_metrics,
+    price_instrument_json_with_metrics_string, validate_instrument_json, STANDARD_OPTION_GREEKS,
 };
 pub use keys::{InstrumentType, ModelKey, PricerKey};
 pub use registry::{expect_inst, Pricer, PricerRegistry};

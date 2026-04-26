@@ -2,10 +2,16 @@
 
 use crate::bindings::extract::extract_market;
 use crate::errors::display_to_py;
+use finstack_valuations::pricer::{
+    canonical_instrument_json, canonical_instrument_json_from_str,
+    metric_value_from_instrument_json, present_standard_option_greeks_from_instrument_json,
+    pretty_instrument_json, price_instrument_json_string,
+    price_instrument_json_with_metrics_string,
+};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList};
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 fn py_to_json_value<'py>(py: Python<'py>, obj: &Bound<'py, PyAny>, label: &str) -> PyResult<Value> {
     if let Ok(json) = obj.extract::<String>() {
@@ -20,28 +26,6 @@ fn py_to_json_value<'py>(py: Python<'py>, obj: &Bound<'py, PyAny>, label: &str) 
         .map_err(|e| PyValueError::new_err(format!("invalid {label}: {e}")))?;
     serde_json::from_str(&json)
         .map_err(|e| PyValueError::new_err(format!("invalid {label} JSON: {e}")))
-}
-
-fn canonical_payload(type_tag: &str, value: Value) -> PyResult<String> {
-    let payload = if value.get("type").is_some() {
-        let actual = value.get("type").and_then(Value::as_str).ok_or_else(|| {
-            PyValueError::new_err("instrument JSON field `type` must be a string")
-        })?;
-        if actual != type_tag {
-            return Err(PyValueError::new_err(format!(
-                "expected instrument type `{type_tag}`, got `{actual}`"
-            )));
-        }
-        value
-    } else {
-        let mut payload = Map::new();
-        payload.insert("type".to_string(), Value::String(type_tag.to_string()));
-        payload.insert("spec".to_string(), value);
-        Value::Object(payload)
-    };
-
-    let json = serde_json::to_string(&payload).map_err(display_to_py)?;
-    finstack_valuations::pricer::validate_instrument_json(&json).map_err(display_to_py)
 }
 
 fn build_from_py(
@@ -65,19 +49,17 @@ fn build_from_py(
             "FX instrument constructor requires a spec object, JSON string, or keyword fields",
         ));
     };
-    canonical_payload(type_tag, value)
+    canonical_instrument_json(type_tag, value).map_err(display_to_py)
 }
 
 fn from_json_payload(type_tag: &str, json: &str) -> PyResult<String> {
-    let value: Value = serde_json::from_str(json).map_err(display_to_py)?;
-    canonical_payload(type_tag, value)
+    canonical_instrument_json_from_str(type_tag, json).map_err(display_to_py)
 }
 
 fn pretty_json(json: &str) -> PyResult<String> {
     // `to_json` on the wrapper is informational/inspection-oriented; pretty
     // printing here is fine and not on the hot path.
-    let value: Value = serde_json::from_str(json).map_err(display_to_py)?;
-    serde_json::to_string_pretty(&value).map_err(display_to_py)
+    pretty_instrument_json(json).map_err(display_to_py)
 }
 
 fn price_payload(
@@ -87,10 +69,7 @@ fn price_payload(
     model: &str,
 ) -> PyResult<String> {
     let market = extract_market(market)?;
-    let result = finstack_valuations::pricer::price_instrument_json(json, &market, as_of, model)
-        .map_err(display_to_py)?;
-    // Compact JSON; pretty-print is a 2-3x allocation hit on the pricing path.
-    serde_json::to_string(&result).map_err(display_to_py)
+    price_instrument_json_string(json, &market, as_of, model).map_err(display_to_py)
 }
 
 fn price_payload_with_metrics(
@@ -102,7 +81,7 @@ fn price_payload_with_metrics(
     pricing_options: Option<&str>,
 ) -> PyResult<String> {
     let market = extract_market(market)?;
-    let result = finstack_valuations::pricer::price_instrument_json_with_metrics(
+    price_instrument_json_with_metrics_string(
         json,
         &market,
         as_of,
@@ -110,8 +89,7 @@ fn price_payload_with_metrics(
         &metrics,
         pricing_options,
     )
-    .map_err(display_to_py)?;
-    serde_json::to_string(&result).map_err(display_to_py)
+    .map_err(display_to_py)
 }
 
 fn metric_value(
@@ -122,45 +100,7 @@ fn metric_value(
     metric: &str,
 ) -> PyResult<f64> {
     let market = extract_market(market)?;
-    let result = finstack_valuations::pricer::price_instrument_json_with_metrics(
-        json,
-        &market,
-        as_of,
-        model,
-        &[metric.to_string()],
-        None,
-    )
-    .map_err(display_to_py)?;
-    result
-        .metric_str(metric)
-        .ok_or_else(|| PyValueError::new_err(format!("metric `{metric}` was not returned")))
-}
-
-/// Compute multiple metrics in a single dispatch and return only the ones
-/// that came back successfully. Used by the option `greeks()` aggregator to
-/// avoid the N+1 cost of one call per greek.
-fn metric_values_present(
-    json: &str,
-    market: &Bound<'_, PyAny>,
-    as_of: &str,
-    model: &str,
-    metrics: &[&'static str],
-) -> PyResult<Vec<(&'static str, f64)>> {
-    let market = extract_market(market)?;
-    let metric_ids: Vec<String> = metrics.iter().map(|m| (*m).to_string()).collect();
-    let result = finstack_valuations::pricer::price_instrument_json_with_metrics(
-        json,
-        &market,
-        as_of,
-        model,
-        &metric_ids,
-        None,
-    )
-    .map_err(display_to_py)?;
-    Ok(metrics
-        .iter()
-        .filter_map(|m| result.metric_str(m).map(|v| (*m, v)))
-        .collect())
+    metric_value_from_instrument_json(json, &market, as_of, model, metric).map_err(display_to_py)
 }
 
 macro_rules! fx_class {
@@ -292,22 +232,11 @@ macro_rules! fx_option_class {
                 model: &str,
             ) -> PyResult<Bound<'py, PyDict>> {
                 let out = PyDict::new(py);
-                let pairs = metric_values_present(
-                    &self.json,
-                    market,
-                    as_of,
-                    model,
-                    &[
-                        "delta",
-                        "gamma",
-                        "vega",
-                        "theta",
-                        "rho",
-                        "foreign_rho",
-                        "vanna",
-                        "volga",
-                    ],
-                )?;
+                let market = extract_market(market)?;
+                let pairs = present_standard_option_greeks_from_instrument_json(
+                    &self.json, &market, as_of, model,
+                )
+                .map_err(display_to_py)?;
                 for (metric, value) in pairs {
                     out.set_item(metric, value)?;
                 }
