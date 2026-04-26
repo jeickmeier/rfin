@@ -539,20 +539,9 @@ impl Evaluator {
     fn compile_formulas(&mut self, model: &FinancialModelSpec) -> Result<()> {
         let cache = std::sync::Arc::make_mut(&mut self.compiled_cache);
         for (node_id, node_spec) in &model.nodes {
-            if let Some(formula_text) = &node_spec.formula_text {
-                if !cache.contains_key(node_id) {
-                    let expr = dsl::parse_and_compile(formula_text)?;
-                    cache.insert(node_id.clone(), expr);
-                }
-            }
-
-            if let Some(where_text) = &node_spec.where_text {
-                let where_key = NodeId::new(format!("__where__{}", node_id));
-                if !cache.contains_key(&where_key) {
-                    let expr = dsl::parse_and_compile(where_text)?;
-                    cache.insert(where_key, expr);
-                }
-            }
+            compile_text_into_cache(cache, node_id.clone(), &node_spec.formula_text)?;
+            let where_key = NodeId::new(format!("__where__{}", node_id));
+            compile_text_into_cache(cache, where_key, &node_spec.where_text)?;
         }
         Ok(())
     }
@@ -755,6 +744,20 @@ fn build_cs_period_snapshot(
     }
     snapshot.reporting_currency = accum.reporting_currency;
     snapshot
+}
+
+fn compile_text_into_cache(
+    cache: &mut IndexMap<NodeId, Expr>,
+    key: NodeId,
+    text: &Option<String>,
+) -> Result<()> {
+    if let Some(t) = text {
+        if !cache.contains_key(&key) {
+            let expr = dsl::parse_and_compile(t)?;
+            cache.insert(key, expr);
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
