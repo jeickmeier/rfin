@@ -3,11 +3,12 @@
 //! Provides serializable specs for defining complete attribution runs in JSON,
 //! with stable schemas and deterministic round-trip serialization.
 
+use super::parallel::attribute_pnl_parallel_with_credit_model;
+use super::waterfall::attribute_pnl_waterfall_with_credit_model;
 use super::{
-    attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_taylor_standard,
-    attribute_pnl_waterfall, compute_credit_factor_attribution, AttributionMethod,
-    CreditAttributionInput, CreditFactorDetailOptions, CreditFactorModelRef, ModelParamsSnapshot,
-    PnlAttribution,
+    attribute_pnl_metrics_based, attribute_pnl_taylor_standard, compute_credit_factor_attribution,
+    AttributionMethod, CreditAttributionInput, CreditFactorDetailOptions, CreditFactorModelRef,
+    ModelParamsSnapshot, PnlAttribution,
 };
 use crate::factor_model::{decompose_levels, decompose_period};
 use crate::instruments::{DynInstrument, InstrumentJson};
@@ -181,9 +182,15 @@ impl AttributionSpec {
             .and_then(|c| c.strict_validation)
             .unwrap_or(false);
 
+        // Resolve optional credit-factor model for waterfall/parallel cascade.
+        let resolved_credit_model = match &self.credit_factor_model {
+            Some(m) => Some(m.resolve()?.clone()),
+            None => None,
+        };
+
         // Execute attribution based on method
         let mut attribution = match &self.method {
-            AttributionMethod::Parallel => attribute_pnl_parallel(
+            AttributionMethod::Parallel => attribute_pnl_parallel_with_credit_model(
                 &instrument_arc,
                 &market_t0,
                 &market_t1,
@@ -191,9 +198,11 @@ impl AttributionSpec {
                 self.as_of_t1,
                 &config,
                 self.model_params_t0.as_ref(),
+                resolved_credit_model.as_ref(),
+                &self.credit_factor_detail_options,
             )?,
 
-            AttributionMethod::Waterfall(order) => attribute_pnl_waterfall(
+            AttributionMethod::Waterfall(order) => attribute_pnl_waterfall_with_credit_model(
                 &instrument_arc,
                 &market_t0,
                 &market_t1,
@@ -203,6 +212,8 @@ impl AttributionSpec {
                 order.clone(),
                 strict_validation,
                 self.model_params_t0.as_ref(),
+                resolved_credit_model.as_ref(),
+                &self.credit_factor_detail_options,
             )?,
 
             AttributionMethod::Taylor(ref taylor_config) => attribute_pnl_taylor_standard(
@@ -285,11 +296,15 @@ impl AttributionSpec {
         // `credit_curves_pnl` field is unchanged numerically — this is purely
         // additive detail.
         if let Some(model_ref) = &self.credit_factor_model {
-            let supported = matches!(
+            let linear_path = matches!(
                 self.method,
                 AttributionMethod::MetricsBased | AttributionMethod::Taylor(_)
             );
-            if supported {
+            // PR-8a: Parallel and Waterfall now populate `credit_factor_detail`
+            // internally via the per-step credit cascade. The linear methods
+            // (PR-7) still go through the back-solve in
+            // `compute_credit_factor_detail`.
+            if linear_path {
                 let mut detail_notes: Vec<String> = Vec::new();
                 match self.compute_credit_factor_detail(
                     model_ref,
@@ -317,13 +332,9 @@ impl AttributionSpec {
                     }
                 }
                 attribution.meta.notes.extend(detail_notes);
-            } else {
-                attribution.meta.notes.push(format!(
-                    "credit_factor_model supplied but method {} is not yet wired for \
-                     hierarchy decomposition (PR-8); credit_factor_detail omitted",
-                    attribution.meta.method
-                ));
             }
+            // For Parallel / Waterfall methods, the detail (if any) is already
+            // populated inside the method itself.
         }
 
         // Create results metadata

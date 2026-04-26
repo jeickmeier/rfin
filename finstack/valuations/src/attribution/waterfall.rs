@@ -32,6 +32,11 @@
 //! - Residual is minimal by construction (should be within numeric precision)
 //! - Recommended for risk reporting where sum must equal total
 
+use super::credit_cascade::{
+    build_credit_factor_attribution, plan_credit_cascade, shift_hazard_curves, snap_hazard_to_t1,
+    CreditCascade, CreditStepKind,
+};
+use super::credit_factor::CreditFactorDetailOptions;
 use super::factors::*;
 use super::helpers::*;
 use super::model_params;
@@ -41,6 +46,7 @@ use crate::metrics::sensitivities::theta::collect_cashflows_in_period;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use finstack_core::factor_model::credit_hierarchy::CreditFactorModel;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::{Error, Result};
@@ -152,10 +158,57 @@ pub fn attribute_pnl_waterfall(
     market_t1: &MarketContext,
     as_of_t0: Date,
     as_of_t1: Date,
+    config: &FinstackConfig,
+    factor_order: Vec<AttributionFactor>,
+    strict_validation: bool,
+    model_params_t0: Option<&model_params::ModelParamsSnapshot>,
+) -> Result<PnlAttribution> {
+    attribute_pnl_waterfall_with_credit_model(
+        instrument,
+        market_t0,
+        market_t1,
+        as_of_t0,
+        as_of_t1,
+        config,
+        factor_order,
+        strict_validation,
+        model_params_t0,
+        None,
+        &CreditFactorDetailOptions::default(),
+    )
+}
+
+/// Waterfall attribution with optional `CreditFactorModel`.
+///
+/// When `credit_factor_model` is `Some(_)` and the order contains
+/// [`AttributionFactor::CreditCurves`], the single credit step is replaced by
+/// the per-issuer hierarchy cascade (`generic → level_0 → … → level_{L-1} →
+/// adder`). Each step bumps the instrument's hazard curves by the issuer's
+/// `β·ΔF` (or `Δadder` / snap-to-T1 for the final adder), reprices, and
+/// captures step-level credit P&L. The aggregate `credit_curves_pnl` matches
+/// the no-model single-step result byte-identically because the adder step
+/// snaps the running hazard curves to T1.
+///
+/// The reconciliation invariant
+/// `generic_pnl + Σ levels.total + adder_pnl_total ≡ credit_curves_pnl`
+/// holds at 1e-8 by construction.
+#[allow(clippy::too_many_arguments)]
+#[tracing::instrument(
+    skip_all,
+    fields(instrument_id = %instrument.id(), method = "waterfall")
+)]
+pub fn attribute_pnl_waterfall_with_credit_model(
+    instrument: &Arc<dyn Instrument>,
+    market_t0: &MarketContext,
+    market_t1: &MarketContext,
+    as_of_t0: Date,
+    as_of_t1: Date,
     _config: &FinstackConfig,
     factor_order: Vec<AttributionFactor>,
     strict_validation: bool,
     model_params_t0: Option<&model_params::ModelParamsSnapshot>,
+    credit_factor_model: Option<&CreditFactorModel>,
+    credit_factor_detail_options: &CreditFactorDetailOptions,
 ) -> Result<PnlAttribution> {
     if factor_order.is_empty() {
         return Err(Error::Validation(
@@ -194,6 +247,17 @@ pub fn attribute_pnl_waterfall(
         Some(_config),
     );
 
+    // Plan a credit cascade if a model was supplied. Falls back to the legacy
+    // single CreditCurves step when planning yields None (no issuer tag, no
+    // hazard deps, etc.).
+    let cascade: Option<CreditCascade> = match credit_factor_model {
+        Some(model) => {
+            plan_credit_cascade(model, instrument, market_t0, market_t1, as_of_t0, as_of_t1)?
+        }
+        None => None,
+    };
+    let mut credit_step_pnls: Vec<finstack_core::money::Money> = Vec::new();
+
     // Build hybrid market: start with all T₀, progressively apply T₁
     let mut ctx = WaterfallContext {
         target_instrument: instrument,
@@ -209,6 +273,15 @@ pub fn attribute_pnl_waterfall(
 
     // Apply each factor in sequence
     for factor in factor_order {
+        // Intercept CreditCurves with the cascade when a model is supplied.
+        if matches!(factor, AttributionFactor::CreditCurves) {
+            if let Some(c) = &cascade {
+                let total = ctx.apply_credit_cascade(c, &mut credit_step_pnls)?;
+                attribution.credit_curves_pnl = total;
+                continue;
+            }
+        }
+
         let factor_pnl = ctx.apply_factor(&factor)?;
 
         // Record factor P&L
@@ -255,6 +328,19 @@ pub fn attribute_pnl_waterfall(
         }
     }
 
+    // Populate credit_factor_detail when the cascade ran.
+    if let (Some(c), Some(model)) = (&cascade, credit_factor_model) {
+        if !credit_step_pnls.is_empty() {
+            let detail = build_credit_factor_attribution(
+                model,
+                c,
+                credit_factor_detail_options,
+                &credit_step_pnls,
+            );
+            attribution.credit_factor_detail = Some(detail);
+        }
+    }
+
     finalize_attribution(
         &mut attribution,
         instrument.id(),
@@ -282,6 +368,59 @@ struct WaterfallContext<'a> {
 impl<'a> WaterfallContext<'a> {
     fn num_repricings(&self) -> usize {
         self.num_repricings
+    }
+
+    /// Apply the credit cascade as a sequence of per-step bumps replacing the
+    /// single CreditCurves step. Returns the *aggregate* credit P&L (sum of
+    /// all step P&Ls); per-step amounts are appended to `step_pnls` in order.
+    fn apply_credit_cascade(
+        &mut self,
+        cascade: &CreditCascade,
+        step_pnls: &mut Vec<Money>,
+    ) -> Result<Money> {
+        let _span = tracing::info_span!("waterfall_credit_cascade").entered();
+        let base_currency = self.current_val.currency();
+        let mut total = Money::new(0.0, base_currency);
+
+        for (idx, step) in cascade.steps.iter().enumerate() {
+            let prev_val = self.current_val;
+            let new_market = match step.kind {
+                CreditStepKind::Adder => {
+                    // Snap to T1 hazard so the cascade end-state matches the
+                    // legacy single Credit step exactly.
+                    snap_hazard_to_t1(
+                        &self.current_market,
+                        self.market_t1,
+                        &cascade.hazard_curve_ids,
+                    )
+                }
+                _ => shift_hazard_curves(
+                    &self.current_market,
+                    &cascade.hazard_curve_ids,
+                    step.delta_bp,
+                )?,
+            };
+            let new_val = reprice_instrument(&self.current_instrument, &new_market, self.as_of_t1)?;
+            self.num_repricings += 1;
+            let step_pnl =
+                compute_pnl(prev_val, new_val, base_currency, &new_market, self.as_of_t1)?;
+            step_pnls.push(step_pnl);
+            total = total.checked_add(step_pnl).map_err(|_| {
+                finstack_core::Error::Validation(
+                    "Currency mismatch summing credit cascade steps".to_string(),
+                )
+            })?;
+            self.current_market = new_market;
+            self.update_current_value(prev_val, step_pnl)?;
+            tracing::trace!(
+                cascade_step = idx,
+                step_label = %step.label,
+                delta_bp = step.delta_bp,
+                step_pnl = step_pnl.amount(),
+                "applied credit cascade step"
+            );
+        }
+        Ok(total)
     }
 
     fn apply_factor(&mut self, factor: &AttributionFactor) -> Result<Money> {
