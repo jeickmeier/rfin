@@ -141,54 +141,6 @@ impl TableColumn {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
-
-    /// Return string values if this is a non-null string column.
-    #[must_use]
-    pub fn as_strings(&self) -> Option<&[String]> {
-        self.data.as_strings()
-    }
-
-    /// Return nullable string values if this is a nullable string column.
-    #[must_use]
-    pub fn as_nullable_strings(&self) -> Option<&[Option<String>]> {
-        self.data.as_nullable_strings()
-    }
-
-    /// Return floating-point values if this is a non-null float column.
-    #[must_use]
-    pub fn as_f64(&self) -> Option<&[f64]> {
-        self.data.as_f64()
-    }
-
-    /// Return nullable floating-point values if this is a nullable float column.
-    #[must_use]
-    pub fn as_nullable_f64(&self) -> Option<&[Option<f64>]> {
-        self.data.as_nullable_f64()
-    }
-
-    /// Return unsigned integer values if this is a non-null `u32` column.
-    #[must_use]
-    pub fn as_u32(&self) -> Option<&[u32]> {
-        self.data.as_u32()
-    }
-
-    /// Return nullable unsigned integer values if this is a nullable `u32` column.
-    #[must_use]
-    pub fn as_nullable_u32(&self) -> Option<&[Option<u32>]> {
-        self.data.as_nullable_u32()
-    }
-
-    /// Return signed integer values if this is a non-null `i64` column.
-    #[must_use]
-    pub fn as_i64(&self) -> Option<&[i64]> {
-        self.data.as_i64()
-    }
-
-    /// Return nullable signed integer values if this is a nullable `i64` column.
-    #[must_use]
-    pub fn as_nullable_i64(&self) -> Option<&[Option<i64>]> {
-        self.data.as_nullable_i64()
-    }
 }
 
 /// Column storage variants supported by the table envelope.
@@ -234,78 +186,71 @@ impl TableColumnData {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+}
 
-    /// Return string values if this is a non-null string column.
-    #[must_use]
-    pub fn as_strings(&self) -> Option<&[String]> {
-        match self {
-            Self::String(values) => Some(values),
-            _ => None,
-        }
-    }
+macro_rules! decl_typed_accessors {
+    (
+        $(
+            (
+                $variant:ident, $doc_fn:literal,
+                $nullable_variant:ident, $doc_nullable_fn:literal,
+                $ty:ty,
+                $as_fn:ident,
+                $as_nullable_fn:ident
+            )
+        ),* $(,)?
+    ) => {
+        impl TableColumnData {
+            $(
+                #[doc = $doc_fn]
+                #[must_use]
+                pub fn $as_fn(&self) -> Option<&[$ty]> {
+                    match self { Self::$variant(values) => Some(values), _ => None }
+                }
 
-    /// Return nullable string values if this is a nullable string column.
-    #[must_use]
-    pub fn as_nullable_strings(&self) -> Option<&[Option<String>]> {
-        match self {
-            Self::NullableString(values) => Some(values),
-            _ => None,
+                #[doc = $doc_nullable_fn]
+                #[must_use]
+                pub fn $as_nullable_fn(&self) -> Option<&[Option<$ty>]> {
+                    match self { Self::$nullable_variant(values) => Some(values), _ => None }
+                }
+            )*
         }
-    }
 
-    /// Return floating-point values if this is a non-null float column.
-    #[must_use]
-    pub fn as_f64(&self) -> Option<&[f64]> {
-        match self {
-            Self::Float64(values) => Some(values),
-            _ => None,
-        }
-    }
+        impl TableColumn {
+            $(
+                #[doc = $doc_fn]
+                #[must_use]
+                pub fn $as_fn(&self) -> Option<&[$ty]> { self.data.$as_fn() }
 
-    /// Return nullable floating-point values if this is a nullable float column.
-    #[must_use]
-    pub fn as_nullable_f64(&self) -> Option<&[Option<f64>]> {
-        match self {
-            Self::NullableFloat64(values) => Some(values),
-            _ => None,
+                #[doc = $doc_nullable_fn]
+                #[must_use]
+                pub fn $as_nullable_fn(&self) -> Option<&[Option<$ty>]> { self.data.$as_nullable_fn() }
+            )*
         }
-    }
+    };
+}
 
-    /// Return unsigned integer values if this is a non-null `u32` column.
-    #[must_use]
-    pub fn as_u32(&self) -> Option<&[u32]> {
-        match self {
-            Self::UInt32(values) => Some(values),
-            _ => None,
-        }
-    }
-
-    /// Return nullable unsigned integer values if this is a nullable `u32` column.
-    #[must_use]
-    pub fn as_nullable_u32(&self) -> Option<&[Option<u32>]> {
-        match self {
-            Self::NullableUInt32(values) => Some(values),
-            _ => None,
-        }
-    }
-
-    /// Return signed integer values if this is a non-null `i64` column.
-    #[must_use]
-    pub fn as_i64(&self) -> Option<&[i64]> {
-        match self {
-            Self::Int64(values) => Some(values),
-            _ => None,
-        }
-    }
-
-    /// Return nullable signed integer values if this is a nullable `i64` column.
-    #[must_use]
-    pub fn as_nullable_i64(&self) -> Option<&[Option<i64>]> {
-        match self {
-            Self::NullableInt64(values) => Some(values),
-            _ => None,
-        }
-    }
+decl_typed_accessors! {
+    (
+        String,   "Return string values if this is a non-null string column.",
+        NullableString, "Return nullable string values if this is a nullable string column.",
+        String, as_strings, as_nullable_strings
+    ),
+    (
+        Float64,  "Return floating-point values if this is a non-null float column.",
+        NullableFloat64, "Return nullable floating-point values if this is a nullable float column.",
+        f64, as_f64, as_nullable_f64
+    ),
+    (
+        UInt32,   "Return unsigned integer values if this is a non-null `u32` column.",
+        NullableUInt32, "Return nullable unsigned integer values if this is a nullable `u32` column.",
+        u32, as_u32, as_nullable_u32
+    ),
+    (
+        Int64,    "Return signed integer values if this is a non-null `i64` column.",
+        NullableInt64, "Return nullable signed integer values if this is a nullable `i64` column.",
+        i64, as_i64, as_nullable_i64
+    ),
 }
 
 /// Optional semantic hint for a column.

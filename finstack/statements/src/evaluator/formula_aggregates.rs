@@ -25,6 +25,34 @@ fn retain_finite(values: &[f64]) -> Vec<f64> {
     values.iter().copied().filter(|v| v.is_finite()).collect()
 }
 
+fn collect_window_values(
+    arg: &Expr,
+    context: &EvaluationContext,
+    window: usize,
+    node_id: Option<&str>,
+) -> Result<Vec<f64>> {
+    if let ExprNode::Column(node_name) = &arg.node {
+        collect_rolling_window_values(node_name, context, window)
+    } else {
+        collect_expression_window_values(arg, context, window, node_id)
+    }
+}
+
+fn collect_all_values(
+    arg: &Expr,
+    context: &EvaluationContext,
+    node_id: Option<&str>,
+) -> Result<Vec<f64>> {
+    if let ExprNode::Column(node_name) = &arg.node {
+        collect_all_historical_values(node_name, context)
+    } else {
+        Ok(collect_expression_values_sorted(arg, context, node_id)?
+            .values()
+            .copied()
+            .collect())
+    }
+}
+
 /// Sum finite values, returning `NaN` when none are present.
 ///
 /// Period aggregates (`ytd`, `qtd`, `fiscal_ytd`, `ttm`) use this so "no
@@ -87,11 +115,7 @@ fn evaluate_rolling_function(
         return Err(eval_error(node_id, "Window size must be greater than 0"));
     }
 
-    let raw_values = if let ExprNode::Column(node_name) = &args[0].node {
-        collect_rolling_window_values(node_name, context, window)?
-    } else {
-        collect_expression_window_values(&args[0], context, window, node_id)?
-    };
+    let raw_values = collect_window_values(&args[0], context, window, node_id)?;
 
     // Skip non-finite values (see `retain_finite` doc). Note: `RollingCount`
     // counts finite observations, matching pandas `rolling().count()`.
@@ -125,14 +149,7 @@ fn evaluate_statistical_function(
 ) -> Result<f64> {
     require_min_args(&func.to_string(), args, 1, node_id)?;
 
-    let raw_values = if let ExprNode::Column(node_name) = &args[0].node {
-        collect_all_historical_values(node_name, context)?
-    } else {
-        collect_expression_values_sorted(&args[0], context, node_id)?
-            .values()
-            .copied()
-            .collect()
-    };
+    let raw_values = collect_all_values(&args[0], context, node_id)?;
     let values = retain_finite(&raw_values);
 
     match func {
@@ -154,14 +171,7 @@ fn evaluate_cumulative_function(
 ) -> Result<f64> {
     require_min_args(&func.to_string(), args, 1, node_id)?;
 
-    let raw_values = if let ExprNode::Column(node_name) = &args[0].node {
-        collect_all_historical_values(node_name, context)?
-    } else {
-        collect_expression_values_sorted(&args[0], context, node_id)?
-            .values()
-            .copied()
-            .collect()
-    };
+    let raw_values = collect_all_values(&args[0], context, node_id)?;
     let values = retain_finite(&raw_values);
 
     if values.is_empty() {
@@ -297,11 +307,7 @@ fn evaluate_period_aggregate_function(
         Function::Ttm => {
             require_args("ttm", args, 1, node_id)?;
             let window = context.period_kind.periods_per_year() as usize;
-            let values = if let ExprNode::Column(node_name) = &args[0].node {
-                collect_rolling_window_values(node_name, context, window)?
-            } else {
-                collect_expression_window_values(&args[0], context, window, node_id)?
-            };
+            let values = collect_window_values(&args[0], context, window, node_id)?;
             if values.len() < window || !values.iter().all(|value| value.is_finite()) {
                 return Ok(f64::NAN);
             }

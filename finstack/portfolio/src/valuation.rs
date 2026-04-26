@@ -365,13 +365,6 @@ pub(crate) fn value_portfolio_serial(
     assemble_valuation(position_values_vec, portfolio.base_ccy, portfolio.as_of)
 }
 
-fn metric_scale_factor(position: &crate::position::Position) -> f64 {
-    match position.unit {
-        crate::position::PositionUnit::Percentage => position.quantity / 100.0,
-        _ => position.quantity,
-    }
-}
-
 /// Value a single position with metrics and FX conversion.
 ///
 /// This helper function is used by both serial and parallel implementations.
@@ -444,7 +437,7 @@ fn value_single_position(
         entity_id: position.entity_id.clone(),
         value_native: scaled_native,
         value_base,
-        metric_scale: metric_scale_factor(position),
+        metric_scale: position.scale_factor(),
         risk_metrics_complete,
         risk_error,
         valuation_result: Some(valuation_result),

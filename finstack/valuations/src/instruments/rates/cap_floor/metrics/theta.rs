@@ -17,8 +17,7 @@ impl MetricCalculator for ThetaCalculator {
 
         // Get theta period from pricing overrides, default to "1D"
         let period_str = context
-            .metric_overrides
-            .as_ref()
+            .get_metric_overrides()
             .and_then(|po| po.theta_period.as_deref())
             .unwrap_or("1D");
 

@@ -89,19 +89,25 @@ impl std::fmt::Display for RoundingMode {
     }
 }
 
+impl crate::parse::NormalizedEnum for RoundingMode {
+    const VARIANTS: &'static [(&'static str, Self)] = &[
+        ("bankers", Self::Bankers),
+        ("banker", Self::Bankers),
+        ("away_from_zero", Self::AwayFromZero),
+        ("awayfromzero", Self::AwayFromZero),
+        ("toward_zero", Self::TowardZero),
+        ("towards_zero", Self::TowardZero),
+        ("floor", Self::Floor),
+        ("ceil", Self::Ceil),
+        ("ceiling", Self::Ceil),
+    ];
+}
+
 impl std::str::FromStr for RoundingMode {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let n = crate::parse::normalize_label(s);
-        match n.as_str() {
-            "bankers" | "banker" => Ok(RoundingMode::Bankers),
-            "away_from_zero" | "awayfromzero" => Ok(RoundingMode::AwayFromZero),
-            "toward_zero" | "towards_zero" => Ok(RoundingMode::TowardZero),
-            "floor" => Ok(RoundingMode::Floor),
-            "ceil" | "ceiling" => Ok(RoundingMode::Ceil),
-            other => Err(format!("unknown RoundingMode: {other}")),
-        }
+        crate::parse::parse_normalized_enum(s)
     }
 }
 

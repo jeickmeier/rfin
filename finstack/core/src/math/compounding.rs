@@ -334,20 +334,23 @@ impl Compounding {
     }
 }
 
+impl crate::parse::NormalizedEnum for Compounding {
+    const VARIANTS: &'static [(&'static str, Self)] = &[
+        ("continuous", Self::Continuous),
+        ("simple", Self::Simple),
+        ("annual", Self::Annual),
+        ("semi_annual", Self::SEMI_ANNUAL),
+        ("semiannual", Self::SEMI_ANNUAL),
+        ("quarterly", Self::QUARTERLY),
+        ("monthly", Self::MONTHLY),
+    ];
+}
+
 impl std::str::FromStr for Compounding {
     type Err = crate::error::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let normalized = crate::parse::normalize_label(s);
-        match normalized.as_str() {
-            "continuous" => Ok(Self::Continuous),
-            "simple" => Ok(Self::Simple),
-            "annual" => Ok(Self::Annual),
-            "semi_annual" | "semiannual" => Ok(Self::SEMI_ANNUAL),
-            "quarterly" => Ok(Self::QUARTERLY),
-            "monthly" => Ok(Self::MONTHLY),
-            _ => Err(crate::error::InputError::Invalid.into()),
-        }
+        crate::parse::parse_normalized_enum(s).map_err(|_| crate::error::InputError::Invalid.into())
     }
 }
 

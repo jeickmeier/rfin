@@ -34,11 +34,9 @@ impl MetricCalculator for IrConvexityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let irs: &InterestRateSwap = context.instrument_as()?;
         let as_of = context.as_of;
-        let bump_bp = sens_config::from_context_or_default(
-            context.config(),
-            context.metric_overrides.as_ref(),
-        )?
-        .rate_bump_bp;
+        let bump_bp =
+            sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?
+                .rate_bump_bp;
 
         let base_pv = irs.value_raw(context.curves.as_ref(), as_of)?;
 
@@ -116,11 +114,9 @@ impl MetricCalculator for CrossGammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let irs: &InterestRateSwap = context.instrument_as()?;
         let as_of = context.as_of;
-        let bump_bp = sens_config::from_context_or_default(
-            context.config(),
-            context.metric_overrides.as_ref(),
-        )?
-        .rate_bump_bp;
+        let bump_bp =
+            sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?
+                .rate_bump_bp;
 
         if irs.fixed.discount_curve_id == irs.float.forward_curve_id {
             return Ok(0.0);

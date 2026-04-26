@@ -1230,25 +1230,48 @@ impl std::fmt::Display for DayCount {
     }
 }
 
+impl crate::parse::NormalizedEnum for DayCount {
+    const VARIANTS: &'static [(&'static str, Self)] = &[
+        ("act_360", Self::Act360),
+        ("act360", Self::Act360),
+        ("actual_360", Self::Act360),
+        ("act_365f", Self::Act365F),
+        ("act365f", Self::Act365F),
+        ("actual_365f", Self::Act365F),
+        ("act_365l", Self::Act365L),
+        ("act365l", Self::Act365L),
+        ("actual_365l", Self::Act365L),
+        ("act_365afb", Self::Act365L),
+        ("30_360", Self::Thirty360),
+        ("thirty_360", Self::Thirty360),
+        ("thirty360", Self::Thirty360),
+        ("30u_360", Self::Thirty360),
+        ("bond_basis", Self::Thirty360),
+        ("30_360_bond_basis", Self::Thirty360),
+        ("30e_360", Self::ThirtyE360),
+        ("30e360", Self::ThirtyE360),
+        ("30_360e", Self::ThirtyE360),
+        ("eurobond_basis", Self::ThirtyE360),
+        ("act_act", Self::ActAct),
+        ("actact", Self::ActAct),
+        ("actual_actual", Self::ActAct),
+        ("act_act_isda", Self::ActAct),
+        ("isda", Self::ActAct),
+        ("act_act_isma", Self::ActActIsma),
+        ("act_act_icma", Self::ActActIsma),
+        ("actactisma", Self::ActActIsma),
+        ("icma", Self::ActActIsma),
+        ("bus_252", Self::Bus252),
+        ("bus252", Self::Bus252),
+        ("business_252", Self::Bus252),
+    ];
+}
+
 impl std::str::FromStr for DayCount {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let n = crate::parse::normalize_label(s);
-        match n.as_str() {
-            "act_360" | "act360" | "actual_360" => Ok(DayCount::Act360),
-            "act_365f" | "act365f" | "actual_365f" => Ok(DayCount::Act365F),
-            "act_365l" | "act365l" | "actual_365l" | "act_365afb" => Ok(DayCount::Act365L),
-            "30_360" | "thirty_360" | "thirty360" | "30u_360" | "bond_basis"
-            | "30_360_bond_basis" => Ok(DayCount::Thirty360),
-            "30e_360" | "30e360" | "30_360e" | "eurobond_basis" => Ok(DayCount::ThirtyE360),
-            "act_act" | "actact" | "actual_actual" | "act_act_isda" | "isda" => {
-                Ok(DayCount::ActAct)
-            }
-            "act_act_isma" | "act_act_icma" | "actactisma" | "icma" => Ok(DayCount::ActActIsma),
-            "bus_252" | "bus252" | "business_252" => Ok(DayCount::Bus252),
-            other => Err(format!("unknown DayCount: {other}")),
-        }
+        crate::parse::parse_normalized_enum(s)
     }
 }
 

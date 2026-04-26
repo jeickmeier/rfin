@@ -62,24 +62,12 @@ pub fn kind_rank(kind: CFKind) -> u8 {
 /// rely on. The sort is stable across runs and across `Vec` reorderings.
 pub fn sort_flows(flows: &mut [CashFlow]) {
     flows.sort_by(|a, b| {
-        use core::cmp::Ordering;
-        match a.date.cmp(&b.date) {
-            Ordering::Less => Ordering::Less,
-            Ordering::Greater => Ordering::Greater,
-            Ordering::Equal => match kind_rank(a.kind).cmp(&kind_rank(b.kind)) {
-                Ordering::Less => Ordering::Less,
-                Ordering::Greater => Ordering::Greater,
-                Ordering::Equal => match a.amount.currency().cmp(&b.amount.currency()) {
-                    Ordering::Less => Ordering::Less,
-                    Ordering::Greater => Ordering::Greater,
-                    Ordering::Equal => match a.amount.amount().total_cmp(&b.amount.amount()) {
-                        Ordering::Less => Ordering::Less,
-                        Ordering::Greater => Ordering::Greater,
-                        Ordering::Equal => a.reset_date.cmp(&b.reset_date),
-                    },
-                },
-            },
-        }
+        a.date
+            .cmp(&b.date)
+            .then_with(|| kind_rank(a.kind).cmp(&kind_rank(b.kind)))
+            .then_with(|| a.amount.currency().cmp(&b.amount.currency()))
+            .then_with(|| a.amount.amount().total_cmp(&b.amount.amount()))
+            .then_with(|| a.reset_date.cmp(&b.reset_date))
     });
 }
 
@@ -436,22 +424,22 @@ impl CashFlowSchedule {
     ///
     /// Returns an error if the day-count year-fraction calculation fails.
     pub fn weighted_average_life(&self, as_of: Date) -> finstack_core::Result<f64> {
-        let mut principal_time_sum = 0.0;
-        let mut principal_total = 0.0;
-
-        for cf in &self.flows {
-            if matches!(
-                cf.kind,
-                CFKind::Amortization | CFKind::Notional | CFKind::PrePayment
-            ) && cf.date > as_of
-                && cf.amount.amount() > 0.0
-            {
+        let (principal_time_sum, principal_total) = self
+            .flows
+            .iter()
+            .filter(|cf| {
+                matches!(
+                    cf.kind,
+                    CFKind::Amortization | CFKind::Notional | CFKind::PrePayment
+                ) && cf.date > as_of
+                    && cf.amount.amount() > 0.0
+            })
+            .try_fold((0.0_f64, 0.0_f64), |(pts, pt), cf| {
                 let t =
                     DayCount::Act365F.year_fraction(as_of, cf.date, DayCountContext::default())?;
-                principal_time_sum += cf.amount.amount() * t;
-                principal_total += cf.amount.amount();
-            }
-        }
+                let a = cf.amount.amount();
+                Ok::<_, finstack_core::Error>((pts + a * t, pt + a))
+            })?;
 
         if principal_total > 0.0 {
             Ok(principal_time_sum / principal_total)

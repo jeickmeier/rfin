@@ -275,10 +275,8 @@ impl BumperFactory for RatesBumperFactory {
             return Ok(None);
         }
 
-        let defaults = sens_config::from_context_or_default(
-            context.config(),
-            context.metric_overrides.as_ref(),
-        )?;
+        let defaults =
+            sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?;
         Ok(Some(Box::new(RatesParallelBumper {
             curve_ids,
             bump_bp: defaults.rate_bump_bp,
@@ -297,10 +295,8 @@ impl BumperFactory for CreditBumperFactory {
             return Ok(None);
         }
 
-        let defaults = sens_config::from_context_or_default(
-            context.config(),
-            context.metric_overrides.as_ref(),
-        )?;
+        let defaults =
+            sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?;
         Ok(Some(Box::new(CreditParallelBumper {
             curve_ids: deps.curves.credit_curves.to_vec(),
             bump_bp: defaults.credit_spread_bump_bp,
@@ -324,10 +320,8 @@ impl BumperFactory for VolBumperFactory {
             return Ok(None);
         };
 
-        let defaults = sens_config::from_context_or_default(
-            context.config(),
-            context.metric_overrides.as_ref(),
-        )?;
+        let defaults =
+            sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?;
         Ok(Some(Box::new(VolParallelBumper {
             surface_id: CurveId::from(surface_id.as_str()),
             bump_abs: defaults.vol_bump_pct,
@@ -346,10 +340,8 @@ impl BumperFactory for SpotBumperFactory {
             return Ok(None);
         };
 
-        let defaults = sens_config::from_context_or_default(
-            context.config(),
-            context.metric_overrides.as_ref(),
-        )?;
+        let defaults =
+            sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?;
         Ok(Some(Box::new(SpotBumper {
             price_id: price_id.clone(),
             bump_pct: defaults.spot_bump_pct,
@@ -368,10 +360,8 @@ impl BumperFactory for FxBumperFactory {
             return Ok(None);
         }
 
-        let defaults = sens_config::from_context_or_default(
-            context.config(),
-            context.metric_overrides.as_ref(),
-        )?;
+        let defaults =
+            sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?;
         Ok(Some(Box::new(FxBumper {
             pairs: deps.fx_pairs,
             bump_pct: defaults.spot_bump_pct,

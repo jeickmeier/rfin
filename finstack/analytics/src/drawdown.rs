@@ -346,16 +346,15 @@ pub fn cdar(drawdown: &[f64], confidence: f64) -> f64 {
     let mut abs_dd: Vec<f64> = drawdown.iter().map(|&d| d.abs()).collect();
     let threshold = quantile(&mut abs_dd, confidence);
     // Note: `abs_dd` is partially reordered by `quantile` (nth_element partition),
-    // not sorted. The filter below is order-independent so this is correct.
-    let tail: Vec<f64> = abs_dd
+    // not sorted. The fold below is order-independent so this is correct.
+    let (sum, count) = abs_dd
         .iter()
         .filter(|&&d| d >= threshold)
-        .copied()
-        .collect();
-    if tail.is_empty() {
+        .fold((0.0_f64, 0usize), |(s, n), &d| (s + d, n + 1));
+    if count == 0 {
         return threshold;
     }
-    tail.iter().sum::<f64>() / tail.len() as f64
+    sum / count as f64
 }
 
 #[cfg(test)]
