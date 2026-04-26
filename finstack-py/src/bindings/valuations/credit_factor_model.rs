@@ -708,9 +708,8 @@ impl PyFactorCovarianceForecast {
             .factor_model_at(h, measure)
             .map_err(display_to_py)?;
         // Build the config manually: original config + horizon-scaled covariance.
-        let forecast2 =
-            finstack_portfolio::factor_model::FactorCovarianceForecast::new(&self.model);
-        let covariance = forecast2.covariance_at(h).map_err(display_to_py)?;
+        // Reuse the same forecast instance — no need to construct a second one.
+        let covariance = forecast.covariance_at(h).map_err(display_to_py)?;
         let mut config = self.model.config.clone();
         config.covariance = covariance;
         config.risk_measure = measure;
