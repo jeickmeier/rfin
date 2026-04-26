@@ -18,15 +18,14 @@
 //! 7. Anchor every factor's level value at `as_of` using the same peeling logic
 //!    on a single observation in level space.
 //! 8. Estimate per-factor variance via the sample variance.
-//! 9. Set the static correlation matrix to the identity (PR-4 default).
+//! 9. Assemble correlation and covariance per [`CovarianceStrategy`]:
+//!    `Diagonal` → identity ρ, Σ = diag(σ²); `Ridge` → sample ρ (PSD-repaired
+//!    if needed), Σ = D·ρ·D + α·I; `FullSampleRepaired` → sample ρ repaired
+//!    to PSD, Σ = D·ρ_repaired·D.
 //! 10. Assemble [`FactorModelConfig`] with `MatchingConfig::CreditHierarchical`.
 //! 11. Build [`CalibrationDiagnostics`] from the bookkeeping above.
 //! 12. Return the assembled [`CreditFactorModel`] after a final
 //!     [`CreditFactorModel::validate`] check.
-//!
-//! Diagonal covariance (PR-4) means every factor is treated as orthogonal:
-//! Σ = diag(σ²). Future PRs (5a/5b) will add GARCH/EWMA, peer-proxy fallbacks,
-//! and full sample-covariance repairs.
 //!
 //! # Determinism
 //!
@@ -114,12 +113,14 @@ pub enum VolModelChoice {
 pub enum CovarianceStrategy {
     /// Diagonal Σ = diag(σ²) under identity correlation (PR-4 default).
     Diagonal,
-    /// Ridge-shrunk full-sample covariance (deferred to PR-5b).
+    /// Sample correlation (PSD-repaired if needed) plus diagonal ridge:
+    /// Σ = D·ρ·D + α·I. Requires `alpha >= 0`. See design spec §4.1.
     Ridge {
-        /// Ridge alpha.
+        /// Ridge regularisation parameter; must be `>= 0`.
         alpha: f64,
     },
-    /// Full sample covariance with PSD repair (deferred to PR-5b).
+    /// Full sample covariance with PSD repair via nearest-correlation projection:
+    /// Σ = D·ρ_repaired·D. See design spec §4.1.
     FullSampleRepaired,
 }
 
@@ -1384,16 +1385,30 @@ fn assemble_factor_model_config(
             (corr, data)
         }
         CovarianceStrategy::Ridge { alpha } => {
-            // Sample correlation ρ; Σ = D·ρ·D + α·I.
+            if alpha < 0.0 {
+                return Err(validation_err(format!(
+                    "Ridge: alpha must be >= 0.0; got {alpha}"
+                )));
+            }
+            // Sample correlation ρ (PSD-repaired if needed); Σ = D·ρ·D + α·I.
             let rho_flat = sample_correlation_flat(factor_id_order, factor_returns);
+            // Repair ρ to PSD if needed (e.g. when n_factors > n_obs).
+            let rho_flat = if validate_correlation_matrix(&rho_flat, n).is_ok() {
+                rho_flat
+            } else {
+                nearest_correlation_matrix(&rho_flat, n, NearestCorrelationOpts::default())
+                    .map_err(|e| {
+                        validation_err(format!("Ridge: nearest_correlation_matrix failed: {e}"))
+                    })?
+            };
             let corr_data = flat_to_row_major(&rho_flat, n);
             let corr =
                 FactorCorrelationMatrix::new(factor_id_order.to_vec(), corr_data).map_err(|e| {
                     validation_err(format!(
-                        "Ridge: sample correlation is not a valid correlation matrix: {e}"
+                        "Ridge: repaired correlation is not a valid correlation matrix: {e}"
                     ))
                 })?;
-            // Σ = D·ρ·D + α·I (row-major flat).
+            // Σ = D·ρ_repaired·D + α·I (row-major flat).
             let mut data = d_rho_d(&stds, &rho_flat, n);
             for i in 0..n {
                 data[i * n + i] += alpha;
@@ -1454,6 +1469,23 @@ fn assemble_factor_model_config(
 ///
 /// If a factor has fewer than 2 valid observations, all off-diagonal entries in
 /// its row/column are set to 0.0 (i.e. the factor is treated as uncorrelated).
+///
+/// # Marginal-mean limitation
+///
+/// The mean subtracted before computing the covariance for each factor is its
+/// **marginal** mean — the mean over all dates where that factor individually
+/// has a valid observation, not the mean over the pairwise overlap. This is a
+/// deliberate simplification that avoids data-dependent conditioning but means
+/// the off-diagonal terms are not strictly centred on the joint distribution.
+///
+/// # PSD guarantee
+///
+/// Off-diagonal entries are clamped to `[-1, 1]` but the resulting matrix is
+/// **not guaranteed to be positive semi-definite** (e.g. when the number of
+/// factors exceeds the number of observations). Callers that require a PSD
+/// matrix must use [`CovarianceStrategy::Ridge`] or
+/// [`CovarianceStrategy::FullSampleRepaired`], both of which apply
+/// nearest-correlation repair when the raw sample matrix is not PSD.
 fn sample_correlation_flat(
     factor_id_order: &[FactorId],
     factor_returns: &BTreeMap<FactorId, Vec<Option<f64>>>,

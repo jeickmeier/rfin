@@ -644,6 +644,24 @@ fn ridge_covariance_accepted() {
     );
 }
 
+/// PR-5b I3: Ridge must reject negative alpha.
+#[test]
+fn ridge_covariance_rejects_negative_alpha() {
+    let cfg = CreditCalibrationConfig {
+        covariance_strategy: CovarianceStrategy::Ridge { alpha: -0.01 },
+        min_bucket_size_per_level: BucketSizeThresholds { per_level: vec![1] },
+        ..config_with(
+            IssuerBetaPolicy::GloballyOff,
+            vec![HierarchyDimension::Rating],
+        )
+    };
+    let inputs = fixture_panel().into_inputs();
+    assert!(
+        CreditCalibrator::new(cfg).calibrate(inputs).is_err(),
+        "Ridge covariance with negative alpha must return an error"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // PR-5a Test 1: caller override wins over IssuerBeta history
 // ---------------------------------------------------------------------------
@@ -1354,9 +1372,21 @@ fn full_sample_repaired_covariance_is_psd() {
         )
     };
 
+    // Capture before inputs is consumed by calibrate().
+    let n_dates = inputs.history_panel.dates.len();
+
     let model = CreditCalibrator::new(cfg)
         .calibrate(inputs)
         .expect("FullSampleRepaired calibration must succeed");
+
+    // Structural sanity: n_factors > n_obs guarantees the unrepaired sample
+    // correlation is rank-deficient, exercising the repair branch.
+    let n_factors = model.config.factors.len();
+    let n_obs = n_dates - 1; // returns = dates - 1
+    assert!(
+        n_factors > n_obs,
+        "fixture must have n_factors ({n_factors}) > n_obs ({n_obs}) to exercise repair"
+    );
 
     model.validate().expect("model must validate");
 
@@ -1521,14 +1551,14 @@ fn golden_credit_factor_model_matches_checked_in_json() {
     let produced = serde_json::to_string_pretty(&model).expect("serialize to pretty JSON");
 
     // Read the checked-in golden file. If it doesn't exist yet, the test fails
-    // with a clear message telling the developer how to bootstrap it.
+    // with a clear message telling the developer how to bootstrap it by running
+    // the dedicated #[ignore]d generator test.
     let golden = std::fs::read_to_string(golden_path).unwrap_or_else(|e| {
         panic!(
             "Golden file not found at {golden_path}: {e}\n\
              Bootstrap it by running:\n  \
              cargo test -p finstack-valuations --test credit_calibration \
-             golden_credit_factor_model_matches_checked_in_json -- --nocapture\n\
-             and writing the produced JSON to that path."
+             generate_golden_artifact -- --ignored --nocapture"
         )
     });
 
