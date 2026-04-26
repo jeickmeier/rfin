@@ -196,6 +196,7 @@
       "type": "object",
       "description": "A signed monetary amount with currency.",
       "required": ["amount", "currency"],
+      "additionalProperties": false,
       "properties": {
         "amount": { "type": "string", "description": "Decimal string representation of the amount." },
         "currency": { "type": "string", "pattern": "^[A-Z]{3}$", "description": "ISO 4217 currency code." }

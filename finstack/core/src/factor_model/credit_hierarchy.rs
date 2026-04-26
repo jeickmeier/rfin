@@ -557,6 +557,7 @@ pub struct FactorHistories {
 /// When a bucket lacks sufficient coverage, its issuers are promoted to a
 /// coarser level. Each such event is logged here for auditability.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FoldUpRecord {
     /// Issuer that was folded up.
     pub issuer_id: IssuerId,

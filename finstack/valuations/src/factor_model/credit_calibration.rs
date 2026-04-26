@@ -47,6 +47,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use serde::{Deserialize, Serialize};
+
 use finstack_core::dates::Date;
 use finstack_core::factor_model::credit_hierarchy::{
     dimension_key, AdderVolSource, CalibrationDiagnostics, CreditFactorModel, CreditHierarchySpec,
@@ -77,7 +79,8 @@ use crate::error::{Error, Result};
 ///
 /// `Returns` (the default) matches the spec's reference math: `r_i(t) =
 /// S_i(t) - S_i(t-1)` and the generic factor is differenced the same way.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum PanelSpace {
     /// Difference consecutive observations into a return panel before peeling.
     #[default]
@@ -91,7 +94,8 @@ pub enum PanelSpace {
 /// PR-4 supports `Sample` only. The other variants are accepted at the type
 /// level so that downstream code does not break when those PRs land, but the
 /// calibrator returns a clean error if any non-`Sample` variant is supplied.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum VolModelChoice {
     /// Plain sample variance (PR-4).
     Sample,
@@ -109,7 +113,8 @@ pub enum VolModelChoice {
 /// Strategy for assembling the factor covariance matrix.
 ///
 /// PR-4 supports `Diagonal` only.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum CovarianceStrategy {
     /// Diagonal Σ = diag(σ²) under identity correlation (PR-4 default).
     Diagonal,
@@ -125,7 +130,8 @@ pub enum CovarianceStrategy {
 }
 
 /// OLS β shrinkage rule.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum BetaShrinkage {
     /// No shrinkage; use the OLS estimate directly.
     None,
@@ -138,7 +144,7 @@ pub enum BetaShrinkage {
 
 /// Per-level minimum-bucket-size thresholds used to gate fold-up of sparse
 /// hierarchy buckets.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BucketSizeThresholds {
     /// Threshold per hierarchy level. Levels beyond `per_level.len()` use the
     /// default of 5.
@@ -160,7 +166,7 @@ impl BucketSizeThresholds {
 }
 
 /// Configuration for the calibrator.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreditCalibrationConfig {
     /// Issuer-beta classification policy.
     pub policy: IssuerBetaPolicy,
@@ -204,7 +210,7 @@ impl Default for CreditCalibrationConfig {
 /// `dates` is the sorted observation grid. `spreads[issuer]` has length
 /// `dates.len()`; entries are `Some(spread)` when the issuer was observed at
 /// that date and `None` otherwise.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct HistoryPanel {
     /// Observation dates (sorted ascending).
     pub dates: Vec<Date>,
@@ -213,14 +219,14 @@ pub struct HistoryPanel {
 }
 
 /// Point-in-time issuer tags at the calibration `as_of`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IssuerTagPanel {
     /// Tag map keyed by issuer.
     pub tags: BTreeMap<IssuerId, IssuerTags>,
 }
 
 /// Generic (PC) factor reference and aligned values.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GenericFactorSeries {
     /// Reference (name + series_id) embedded into the artifact.
     pub spec: GenericFactorSpec,
@@ -229,7 +235,7 @@ pub struct GenericFactorSeries {
 }
 
 /// All inputs the calibrator needs for a single calibration run.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreditCalibrationInputs {
     /// Sparse issuer-spread history.
     pub history_panel: HistoryPanel,

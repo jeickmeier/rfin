@@ -1577,3 +1577,107 @@ fn golden_credit_factor_model_matches_checked_in_json() {
          If this change is intentional, regenerate the golden file."
     );
 }
+
+// ---------------------------------------------------------------------------
+// Serde round-trip tests (PR-9 Fix 1)
+// ---------------------------------------------------------------------------
+
+/// `CreditCalibrationConfig` must round-trip through JSON without loss.
+///
+/// Tests the default config as well as non-default variants of each enum
+/// field to confirm the serde derives are correct and match the schema
+/// (snake_case unit variants, externally-tagged struct variants).
+#[test]
+fn calibration_config_round_trips_through_json() {
+    // 1. Default config (the simple case: all unit-variant enums).
+    let default_cfg = CreditCalibrationConfig::default();
+    let json = serde_json::to_string(&default_cfg).expect("serialize default config");
+    let back: CreditCalibrationConfig =
+        serde_json::from_str(&json).expect("deserialize default config");
+    // Compare field-by-field via Debug since CreditCalibrationConfig doesn't impl PartialEq.
+    assert_eq!(format!("{:?}", default_cfg), format!("{:?}", back));
+
+    // 2. Config with struct-variant enums (Ridge, TowardOne, Ewma).
+    let complex_cfg = CreditCalibrationConfig {
+        policy: IssuerBetaPolicy::GloballyOff,
+        hierarchy: CreditHierarchySpec {
+            levels: vec![HierarchyDimension::Rating, HierarchyDimension::Region],
+        },
+        min_bucket_size_per_level: BucketSizeThresholds {
+            per_level: vec![3, 5],
+        },
+        vol_model: VolModelChoice::Ewma { lambda: 0.94 },
+        covariance_strategy: CovarianceStrategy::Ridge { alpha: 0.01 },
+        beta_shrinkage: BetaShrinkage::TowardOne { alpha: 0.2 },
+        use_returns_or_levels: PanelSpace::Returns,
+        annualization_factor: 12.0,
+    };
+    let json2 = serde_json::to_string(&complex_cfg).expect("serialize complex config");
+    let back2: CreditCalibrationConfig =
+        serde_json::from_str(&json2).expect("deserialize complex config");
+    assert_eq!(format!("{:?}", complex_cfg), format!("{:?}", back2));
+
+    // Spot-check that struct variants serialize in schema-compatible form.
+    let v: serde_json::Value = serde_json::from_str(&json2).expect("parse complex config as Value");
+    assert_eq!(
+        v["vol_model"],
+        serde_json::json!({"ewma": {"lambda": 0.94}}),
+        "VolModelChoice::Ewma must serialize as {{\"ewma\": {{\"lambda\": ...}}}}"
+    );
+    assert_eq!(
+        v["covariance_strategy"],
+        serde_json::json!({"ridge": {"alpha": 0.01}}),
+        "CovarianceStrategy::Ridge must serialize as {{\"ridge\": {{\"alpha\": ...}}}}"
+    );
+    assert_eq!(
+        v["beta_shrinkage"],
+        serde_json::json!({"toward_one": {"alpha": 0.2}}),
+        "BetaShrinkage::TowardOne must serialize as {{\"toward_one\": {{\"alpha\": ...}}}}"
+    );
+}
+
+/// Serialize a default `CreditCalibrationConfig` and validate the JSON against
+/// `credit_calibration_config.schema.json`.
+#[test]
+fn calibration_config_serialization_matches_schema() {
+    let schema_content =
+        include_str!("../schemas/factor_model/1/credit_calibration_config.schema.json");
+    let schema: serde_json::Value =
+        serde_json::from_str(schema_content).expect("schema must be valid JSON");
+
+    // Use a non-trivial config so validation exercises required fields.
+    let cfg = CreditCalibrationConfig {
+        policy: IssuerBetaPolicy::GloballyOff,
+        hierarchy: CreditHierarchySpec {
+            levels: vec![HierarchyDimension::Rating],
+        },
+        min_bucket_size_per_level: BucketSizeThresholds { per_level: vec![5] },
+        vol_model: VolModelChoice::Sample,
+        covariance_strategy: CovarianceStrategy::Diagonal,
+        beta_shrinkage: BetaShrinkage::None,
+        use_returns_or_levels: PanelSpace::Returns,
+        annualization_factor: 12.0,
+    };
+
+    let instance: serde_json::Value =
+        serde_json::from_str(&serde_json::to_string(&cfg).expect("serialize config"))
+            .expect("re-parse as Value");
+
+    let validator = jsonschema::validator_for(&schema).expect("schema must compile");
+    let errors: Vec<String> = validator
+        .iter_errors(&instance)
+        .map(|e| {
+            let path = e.instance_path.to_string();
+            if path.is_empty() {
+                e.to_string()
+            } else {
+                format!("{path}: {e}")
+            }
+        })
+        .collect();
+    assert!(
+        errors.is_empty(),
+        "CreditCalibrationConfig serialization failed schema validation:\n  {}",
+        errors.join("\n  ")
+    );
+}
