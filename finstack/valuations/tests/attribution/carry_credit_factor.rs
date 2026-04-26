@@ -467,6 +467,36 @@ fn carry_credit_roll_down_all_to_adder() {
     );
 }
 
+/// Regression (Fix 1): when `s_model` is in the subnormal range `(0, 1e-15]`
+/// (all betas = 0, anchor levels = 0, adder = 0), the adder fallback must
+/// absorb `credit_total` so invariant 4 still holds at `TOL = 1e-8`.
+///
+/// Before Fix 1 the `s_for_scale != 0.0` check diverged from `s_model.abs() > 1e-15`,
+/// leaving the adder as `0` and breaking invariant 4 for subnormal spreads.
+#[test]
+fn invariant4_holds_when_s_model_is_subnormal() {
+    // Build a model where betas = 0 and adder = 0, so S_model = 0 exactly.
+    let mut model = make_model();
+    // Replace the single issuer row with one that has zero betas and zero adder.
+    model.issuer_betas = vec![issuer_row("ISSUER-A", "IG", "EU", 0.0, vec![0.0, 0.0], 0.0)];
+
+    let attribution = run_metrics_based_with_model(Some(model));
+    let cc = attribution
+        .credit_carry_decomposition
+        .as_ref()
+        .expect("credit_carry_decomposition populated even with zero s_model");
+    let by = &cc.credit_by_level;
+    let recomposed = by.generic.amount()
+        + by.levels.iter().map(|l| l.total.amount()).sum::<f64>()
+        + by.adder_total.amount();
+    assert!(
+        (cc.credit_carry_total.amount() - recomposed).abs() < TOL,
+        "invariant 4 broken for subnormal s_model: total={}, generic+levels+adder={}",
+        cc.credit_carry_total.amount(),
+        recomposed
+    );
+}
+
 /// Backward-compat: a JSON payload using the legacy `Money` shape for
 /// `coupon_income` / `roll_down` deserializes into `SourceLine::scalar`.
 ///

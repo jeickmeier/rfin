@@ -552,6 +552,14 @@ pub struct CarryDetail {
 /// - `credit_carry_total ≡ Σ_lines SourceLine.credit_part` (lines = coupon + roll)
 /// - `credit_carry_total ≡ generic + Σ_levels(level.total) + adder_total`
 /// - `rates_carry_total ≡ Σ_lines SourceLine.rates_part − funding_cost`
+///
+/// # Attribution method coverage
+///
+/// Note: Parallel and Waterfall attribution methods do not currently populate
+/// `carry_detail` (only `coupon_income` and `theta` from `apply_total_return_carry`
+/// for some paths). Therefore `credit_carry_decomposition` is typically emitted
+/// only on the MetricsBased / Taylor path. Future PRs may extend Parallel/Waterfall
+/// to populate carry — the decomposition logic is method-agnostic.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CreditCarryDecomposition {
     /// Deterministic traceability id of the model used (matches

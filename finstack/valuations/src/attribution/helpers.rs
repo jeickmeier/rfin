@@ -153,6 +153,13 @@ pub(crate) fn init_attribution(
     }
 }
 
+/// Populate carry and `carry_detail` for the Taylor (total-return) path.
+///
+/// `roll_down` is intentionally `None` for the Taylor path: Taylor's
+/// first-order approximation does not separately track time-decay vs
+/// spread-shift contributions, so roll-down is rolled into the bond's total
+/// return. PR-8b's carry credit decomposition handles `coupon_income.split`
+/// but skips `roll_down.split` when this field is `None`.
 pub(crate) fn apply_total_return_carry(
     attribution: &mut PnlAttribution,
     theta: Money,

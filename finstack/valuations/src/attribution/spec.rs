@@ -340,6 +340,13 @@ impl AttributionSpec {
             // and emit `credit_carry_decomposition` (the second lens, §7.2).
             // Best-effort: failures fall back to leaving the existing scalar
             // CarryDetail untouched and append a diagnostic note.
+            //
+            // Note: Parallel and Waterfall attribution methods do not currently
+            // populate `carry_detail` (only `coupon_income` and `theta` from
+            // `apply_total_return_carry` for some paths). Therefore
+            // `credit_carry_decomposition` is typically emitted only on the
+            // MetricsBased / Taylor path. Future PRs may extend Parallel/Waterfall
+            // to populate carry — the decomposition logic is method-agnostic.
             match self.compute_carry_credit_split_and_decomposition(
                 model_ref,
                 &instrument_arc,
@@ -607,11 +614,16 @@ impl AttributionSpec {
         let s = haz.hazard_rate_on_date(tenor_date).unwrap_or(0.0);
 
         // 4. Split coupon_income proportionally to r and s.
-        let total_yield = r + s;
+        // coupon_income must be present; if not, skip the decomposition entirely.
+        // Emitting zeros would be indistinguishable from a genuinely zero-spread
+        // issuer, so we return Ok(()) to match the existing early-return pattern
+        // used above for missing issuer_id, credit curve, etc.
+        // Note: "credit_carry_decomposition skipped: coupon_income not present".
         let coupon = match carry_detail.coupon_income.as_ref() {
             Some(line) => line.total,
-            None => Money::new(0.0, ccy),
+            None => return Ok(()),
         };
+        let total_yield = r + s;
         let (coupon_rates, coupon_credit) = if total_yield.abs() > 1e-15 {
             let credit_amt = coupon.amount() * (s / total_yield);
             let rates_amt = coupon.amount() - credit_amt;
@@ -691,10 +703,6 @@ impl AttributionSpec {
         } else {
             0.0
         };
-        let s_for_scale = s_model;
-        // For diagnostics / dead-store check (referenced again below).
-        let _ = s; // observed hazard sample, kept for potential v2 cross-check.
-
         // Build the LevelCarry vector.
         let mut levels_out: Vec<LevelCarry> = Vec::with_capacity(num_levels);
         for k in 0..num_levels {
@@ -723,7 +731,7 @@ impl AttributionSpec {
         }
 
         let generic_money = Money::new(pc_share_of_s * scale_coupon, ccy);
-        let adder_total_money = if s_for_scale != 0.0 {
+        let adder_total_money = if s_model.abs() > 1e-15 {
             Money::new(adder_of_s * scale_coupon, ccy)
         } else {
             // Degenerate: no spread observable, route the entire credit
