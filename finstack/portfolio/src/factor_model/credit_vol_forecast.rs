@@ -252,7 +252,9 @@ impl<'a> FactorCovarianceForecast<'a> {
 ///
 /// Produced by [`build_credit_vol_report`] from a portfolio
 /// [`RiskDecomposition`] together with the calibrated [`CreditFactorModel`].
-/// All values are reported in the units of [`Self::measure`].
+/// All values are in the units of [`Self::measure`]. `idiosyncratic_total` is
+/// computed by combining per-position residual *variances* (independent), then
+/// converted to match `measure`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CreditVolReport {
     /// Total annualized risk under the chosen risk measure (matches
@@ -293,11 +295,15 @@ pub struct PositionVolContribution {
     pub position_id: PositionId,
     /// Total factor-driven (systematic) risk for the position.
     pub factor_total: f64,
-    /// Idiosyncratic (issuer-specific) risk for the position. Reported as
-    /// vol (square root of variance) so the units line up with
-    /// `factor_total`.
+    /// Idiosyncratic (issuer-specific) risk for the position in the units of
+    /// [`CreditVolReport::measure`]. Computed by summing per-position residual
+    /// *variances* (independent across positions), then converting to match
+    /// `measure` (sqrt for Volatility, identity for Variance).
     pub idiosyncratic: f64,
-    /// `factor_total + idiosyncratic`.
+    /// Approximate total combining factor and idiosyncratic contributions in
+    /// the units of `measure`. For Volatility, this is `factor + idio` rather
+    /// than `sqrt(factor² + idio²)` — see PR-7 for refinement when
+    /// factor-residual covariance becomes available.
     pub total: f64,
 }
 
@@ -379,11 +385,23 @@ pub fn build_credit_vol_report(
             .or_insert(0.0) += fc.absolute_risk;
     }
 
-    let idiosyncratic_total: f64 = decomposition
+    // Sum per-position residual variances (independent across positions, so
+    // portfolio idiosyncratic variance = sum of individual variances).
+    let idiosyncratic_variance_sum: f64 = decomposition
         .position_residual_contributions
         .iter()
         .map(|c| c.residual_variance)
         .sum();
+    // Convert to match `measure`.
+    let idiosyncratic_total = match decomposition.measure {
+        RiskMeasure::Volatility => idiosyncratic_variance_sum.sqrt(),
+        // Variance: keep as-is.
+        RiskMeasure::Variance => idiosyncratic_variance_sum,
+        // For other measures (e.g. VaR/ES if added): treat as vol-flavoured
+        // (sqrt). Revisit when such measures are wired.
+        #[allow(unreachable_patterns)]
+        _ => idiosyncratic_variance_sum.sqrt(),
+    };
 
     let by_position_optional = if by_position {
         // Aggregate per-position factor totals. We key on the position id's
@@ -396,16 +414,25 @@ pub fn build_credit_vol_report(
                 .or_insert_with(|| (pfc.position_id.clone(), 0.0));
             entry.1 += pfc.risk_contribution;
         }
+        // Accumulate residual *variances* per position (correct for independent
+        // residuals). Conversion to `measure` units happens after the loop.
         let mut idio_by_pos: BTreeMap<String, (PositionId, f64)> = BTreeMap::new();
         for prc in &decomposition.position_residual_contributions {
-            // Convert variance contribution to vol so units align with
-            // `factor_total`. Each position's residual is treated as
-            // independent of the others, so its individual vol is `sqrt(var)`.
-            let vol = prc.residual_variance.max(0.0).sqrt();
             let entry = idio_by_pos
                 .entry(prc.position_id.as_str().to_owned())
                 .or_insert_with(|| (prc.position_id.clone(), 0.0));
-            entry.1 += vol;
+            entry.1 += prc.residual_variance;
+        }
+        // Convert variance sums to match `measure`.
+        for (_, variance) in idio_by_pos.values_mut() {
+            *variance = match decomposition.measure {
+                RiskMeasure::Volatility => variance.max(0.0).sqrt(),
+                RiskMeasure::Variance => *variance,
+                // For other measures: treat as vol-flavoured (sqrt).
+                // Revisit when such measures are wired.
+                #[allow(unreachable_patterns)]
+                _ => variance.max(0.0).sqrt(),
+            };
         }
 
         let mut all_keys: std::collections::BTreeSet<String> =
@@ -415,12 +442,18 @@ pub fn build_credit_vol_report(
         let rows: Vec<PositionVolContribution> = all_keys
             .into_iter()
             .map(|key| {
-                let (pid, factor_total) = factor_by_pos
-                    .get(&key)
-                    .map(|(p, v)| (p.clone(), *v))
-                    .or_else(|| idio_by_pos.get(&key).map(|(p, v)| (p.clone(), *v)))
-                    .map(|(p, _)| (p, factor_by_pos.get(&key).map(|(_, v)| *v).unwrap_or(0.0)))
-                    .unwrap_or_else(|| (PositionId::new(&key), 0.0));
+                // `key` came from the union of `factor_by_pos` and
+                // `idio_by_pos`, so it must be in at least one of them.
+                // Use `or_else` to pick whichever map holds the position id;
+                // the fallback branch is unreachable by invariant.
+                let (factor_total, pid) = if let Some((p, v)) = factor_by_pos.get(&key) {
+                    (*v, p.clone())
+                } else if let Some((p, _)) = idio_by_pos.get(&key) {
+                    (0.0, p.clone())
+                } else {
+                    // Unreachable: key is guaranteed to be in at least one map.
+                    (0.0, PositionId::new(&key))
+                };
                 let idiosyncratic = idio_by_pos.get(&key).map(|(_, v)| *v).unwrap_or(0.0);
                 PositionVolContribution {
                     position_id: pid,
@@ -807,9 +840,10 @@ mod tests {
         let by_pos = report.by_position_optional.expect("by_position rows");
         assert_eq!(by_pos.len(), 1);
         assert_eq!(by_pos[0].position_id, PositionId::new("pos-1"));
-        assert!((by_pos[0].idiosyncratic - 2.0).abs() < 1e-12);
+        // measure=Variance: idiosyncratic stays as raw variance (4.0), not sqrt.
+        assert!((by_pos[0].idiosyncratic - 4.0).abs() < 1e-12);
         assert!((by_pos[0].factor_total).abs() < 1e-12);
-        assert!((by_pos[0].total - 2.0).abs() < 1e-12);
+        assert!((by_pos[0].total - 4.0).abs() < 1e-12);
     }
 
     #[test]
