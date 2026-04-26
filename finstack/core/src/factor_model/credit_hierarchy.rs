@@ -15,7 +15,7 @@
 //! ```rust
 //! use finstack_core::factor_model::credit_hierarchy::CreditFactorModel;
 //!
-//! // Deserialize from JSON artifact (schema_version is validated on construction)
+//! // Deserialize from JSON — call `model.validate()` to check schema_version and consistency
 //! let json = r#"{
 //!   "schema_version": "finstack.credit_factor_model/1",
 //!   "as_of": "2024-03-29",
@@ -311,8 +311,17 @@ impl FactorCorrelationMatrix {
     /// - Any row has length `!= factor_ids.len()`
     /// - Any diagonal entry deviates from `1.0` by more than `1e-9`
     /// - The matrix is not symmetric within `1e-9`
+    /// - the `factor_ids` list contains duplicates.
     pub fn new(factor_ids: Vec<FactorId>, data: Vec<Vec<f64>>) -> crate::Result<Self> {
         let n = factor_ids.len();
+        let mut seen = std::collections::BTreeSet::new();
+        for fid in &factor_ids {
+            if !seen.insert(fid) {
+                return Err(crate::Error::Validation(format!(
+                    "FactorCorrelationMatrix: duplicate factor_id {fid:?}"
+                )));
+            }
+        }
         if data.len() != n {
             return Err(crate::Error::Validation(format!(
                 "FactorCorrelationMatrix: expected {n} rows, got {}",
@@ -360,6 +369,64 @@ impl FactorCorrelationMatrix {
             .map(|i| (0..n).map(|j| if i == j { 1.0 } else { 0.0 }).collect())
             .collect();
         Self { factor_ids, data }
+    }
+
+    /// Check the structural validity of `&self` (shape, diagonal, symmetry, no duplicate IDs).
+    ///
+    /// Called by [`CreditFactorModel::validate`] to catch matrices that were
+    /// constructed via direct field assignment rather than through [`Self::new`].
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when:
+    /// - `data.len() != factor_ids.len()`
+    /// - Any row has length `!= factor_ids.len()`
+    /// - Any diagonal entry deviates from `1.0` by more than `1e-9`
+    /// - The matrix is not symmetric within `1e-9`
+    /// - `factor_ids` contains duplicates
+    pub fn check_structure(&self) -> crate::Result<()> {
+        let n = self.factor_ids.len();
+        let mut seen = std::collections::BTreeSet::new();
+        for fid in &self.factor_ids {
+            if !seen.insert(fid) {
+                return Err(crate::Error::Validation(format!(
+                    "FactorCorrelationMatrix: duplicate factor_id {fid:?}"
+                )));
+            }
+        }
+        if self.data.len() != n {
+            return Err(crate::Error::Validation(format!(
+                "FactorCorrelationMatrix: expected {n} rows, got {}",
+                self.data.len()
+            )));
+        }
+        for (i, row) in self.data.iter().enumerate() {
+            if row.len() != n {
+                return Err(crate::Error::Validation(format!(
+                    "FactorCorrelationMatrix: row {i} has length {}, expected {n}",
+                    row.len()
+                )));
+            }
+            let diag = row[i];
+            if (diag - 1.0).abs() > 1e-9 {
+                return Err(crate::Error::Validation(format!(
+                    "FactorCorrelationMatrix: diagonal entry [{i}][{i}] = {diag}, expected 1.0"
+                )));
+            }
+        }
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let lo = self.data[i][j];
+                let hi = self.data[j][i];
+                if (lo - hi).abs() > 1e-9 {
+                    return Err(crate::Error::Validation(format!(
+                        "FactorCorrelationMatrix: not symmetric at [{i}][{j}]: {lo} vs {hi}"
+                    )));
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -572,7 +639,7 @@ impl CreditFactorModel {
     /// - `issuer_betas` contains duplicate `issuer_id` values.
     /// - `hierarchy.levels` contains duplicate dimension names.
     /// - `factor_histories` has vectors of inconsistent length.
-    /// - `static_correlation` fails its own structural checks.
+    /// - `static_correlation` fails structural checks (shape, diagonal, symmetry, duplicate IDs).
     pub fn validate(&self) -> crate::Result<()> {
         // Schema version
         if self.schema_version != Self::SCHEMA_VERSION {
@@ -595,7 +662,7 @@ impl CreditFactorModel {
         }
 
         // Duplicate hierarchy dimension names
-        let mut seen_dims: Vec<String> = Vec::new();
+        let mut seen_dims: BTreeSet<String> = BTreeSet::new();
         for dim in &self.hierarchy.levels {
             let key = match dim {
                 HierarchyDimension::Rating => "rating".to_owned(),
@@ -603,13 +670,15 @@ impl CreditFactorModel {
                 HierarchyDimension::Sector => "sector".to_owned(),
                 HierarchyDimension::Custom(s) => format!("custom:{s}"),
             };
-            if seen_dims.contains(&key) {
+            if !seen_dims.insert(key.clone()) {
                 return Err(crate::Error::Validation(format!(
                     "CreditFactorModel: duplicate hierarchy dimension {key:?}"
                 )));
             }
-            seen_dims.push(key);
         }
+
+        // Static correlation structural re-check (fields are pub, so bypass of new() is possible)
+        self.static_correlation.check_structure()?;
 
         // Factor histories length consistency
         if let Some(hist) = &self.factor_histories {
@@ -935,5 +1004,31 @@ mod tests {
         let json = serde_json::to_string(&policy).unwrap();
         let back: IssuerBetaPolicy = serde_json::from_str(&json).unwrap();
         assert_eq!(policy, back);
+    }
+
+    // ------------------------------------------------------------------
+    // Fix 1 test: FactorCorrelationMatrix rejects duplicate factor IDs
+    // ------------------------------------------------------------------
+    #[test]
+    fn factor_correlation_matrix_rejects_duplicate_factor_ids() {
+        let fid_a = FactorId::new("f1");
+        let result =
+            FactorCorrelationMatrix::new(vec![fid_a.clone(), fid_a], vec![vec![1.0], vec![1.0]]);
+        assert!(result.is_err());
+    }
+
+    // ------------------------------------------------------------------
+    // Fix 2 test: validate() rejects a corrupt static_correlation
+    // ------------------------------------------------------------------
+    #[test]
+    fn validate_rejects_corrupt_static_correlation() {
+        let mut model = minimal_model();
+        // Bypass new() by assigning directly to the public field.
+        // This matrix has a non-unit diagonal — structurally invalid.
+        model.static_correlation = FactorCorrelationMatrix {
+            factor_ids: vec![FactorId::new("f1")],
+            data: vec![vec![0.5]], // diagonal != 1.0
+        };
+        assert!(model.validate().is_err());
     }
 }
