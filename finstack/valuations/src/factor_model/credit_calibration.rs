@@ -1137,21 +1137,15 @@ fn assign_adder_vol(
         }
     }
 
-    // 3 & 4. Bucket-peer proxy cascade (for BucketOnly issuers, or IssuerBeta
-    //        with no successful fit). Walk from deepest level to broadest.
+    // 3. Bucket-peer proxy cascade: walk from deepest level to broadest.
     if let Some(paths) = bucket_paths.get(issuer_id) {
-        // Try deepest level first, then walk up.
         for k in (0..num_levels).rev() {
             if k < paths.len() && k < peer_proxy_index.len() {
                 let bucket = &paths[k];
                 if let Some(peer_vols) = peer_proxy_index[k].get(bucket) {
                     if !peer_vols.is_empty() {
-                        // Exclude the issuer itself from the peer mean (only
-                        // relevant for IssuerBeta issuers with no fit, but
-                        // correct to apply always).
-                        let mean = mean_excluding(peer_vols, from_history_vols.get(issuer_id));
                         return (
-                            mean,
+                            mean_of(peer_vols).unwrap_or(0.0),
                             AdderVolSource::BucketPeerProxy {
                                 peer_bucket: bucket.clone(),
                             },
@@ -1165,56 +1159,22 @@ fn assign_adder_vol(
     // 4. Global mean of all IssuerBeta FromHistory vols.
     if !from_history_vols.is_empty() {
         let global_vols: Vec<f64> = from_history_vols.values().copied().collect();
-        let global_mean = global_vols.iter().sum::<f64>() / (global_vols.len() as f64);
-        return (global_mean, AdderVolSource::Default);
+        return (
+            mean_of(&global_vols).unwrap_or(0.0),
+            AdderVolSource::Default,
+        );
     }
 
     // 5. No IssuerBeta data anywhere: hardcoded 0.0.
     (0.0, AdderVolSource::Default)
 }
 
-/// Compute the mean of a sorted vol slice, optionally excluding one value.
-///
-/// The exclusion is used to avoid counting the issuer itself when it appears in
-/// the peer bucket (only possible for `IssuerBeta` issuers with no successful
-/// fit, but applied uniformly for correctness).
-///
-/// If `exclude` is `Some(v)` the first occurrence of `v` in `vols` is skipped.
-/// If excluding leaves an empty slice the original mean (including `v`) is
-/// returned so that a single-member bucket still produces a non-zero proxy.
-fn mean_excluding(vols: &[f64], exclude: Option<&f64>) -> f64 {
-    if vols.is_empty() {
-        return 0.0;
+/// Compute the arithmetic mean of a slice. Returns `None` for an empty slice.
+fn mean_of(values: &[f64]) -> Option<f64> {
+    if values.is_empty() {
+        return None;
     }
-    match exclude {
-        None => vols.iter().sum::<f64>() / (vols.len() as f64),
-        Some(ex) => {
-            // Find and remove the first occurrence equal by bit pattern to *ex.
-            // We use to_bits() to express exact bit-level identity, which is the
-            // correct check here: the value was stored from the same computation
-            // and we want to skip precisely that one copy.
-            let ex_bits = ex.to_bits();
-            let mut excluded = false;
-            let filtered: Vec<f64> = vols
-                .iter()
-                .filter(|&&v| {
-                    if !excluded && v.to_bits() == ex_bits {
-                        excluded = true;
-                        false
-                    } else {
-                        true
-                    }
-                })
-                .copied()
-                .collect();
-            if filtered.is_empty() {
-                // Only one peer (the issuer itself) — fall back to including it.
-                vols.iter().sum::<f64>() / (vols.len() as f64)
-            } else {
-                filtered.iter().sum::<f64>() / (filtered.len() as f64)
-            }
-        }
-    }
+    Some(values.iter().sum::<f64>() / (values.len() as f64))
 }
 
 /// Anchor-step output: anchor levels + per-issuer adder values at as_of.
