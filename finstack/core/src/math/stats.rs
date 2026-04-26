@@ -62,21 +62,14 @@ pub fn mean(xs: &[f64]) -> f64 {
 /// Matches Bloomberg, QuantLib, and the `OnlineStats::variance()` convention.
 /// Returns `0.0` for fewer than 2 observations.
 pub fn variance(xs: &[f64]) -> f64 {
-    let n = xs.len();
-    if n < 2 {
+    if xs.len() < 2 {
         return 0.0;
     }
-    let mut mean = 0.0;
-    let mut m2 = 0.0;
-    let mut k = 0.0;
+    let mut s = OnlineStats::new();
     for &x in xs {
-        k += 1.0;
-        let delta = x - mean;
-        mean += delta / k;
-        let delta2 = x - mean;
-        m2 += delta * delta2;
+        s.update(x);
     }
-    m2 / (n - 1) as f64
+    s.variance()
 }
 
 /// Population variance (n denominator) using a single-pass Welford algorithm.
@@ -85,21 +78,14 @@ pub fn variance(xs: &[f64]) -> f64 {
 /// estimating from a sample (e.g., moment-matching for Monte Carlo).
 /// Returns `0.0` for an empty slice.
 pub fn population_variance(xs: &[f64]) -> f64 {
-    let n = xs.len();
-    if n == 0 {
+    if xs.is_empty() {
         return 0.0;
     }
-    let mut mean = 0.0;
-    let mut m2 = 0.0;
-    let mut k = 0.0;
+    let mut s = OnlineStats::new();
     for &x in xs {
-        k += 1.0;
-        let delta = x - mean;
-        mean += delta / k;
-        let delta2 = x - mean;
-        m2 += delta * delta2;
+        s.update(x);
     }
-    m2 / n as f64
+    s.population_variance()
 }
 
 /// Return (mean, variance) pair in a single Welford pass.
@@ -107,21 +93,11 @@ pub fn mean_var(xs: &[f64]) -> (f64, f64) {
     if xs.is_empty() {
         return (0.0, 0.0);
     }
-    let mut m = 0.0_f64;
-    let mut m2 = 0.0_f64;
-    let mut k = 0.0_f64;
+    let mut s = OnlineStats::new();
     for &x in xs {
-        k += 1.0;
-        let d = x - m;
-        m += d / k;
-        m2 += d * (x - m);
+        s.update(x);
     }
-    let var = if xs.len() < 2 {
-        0.0
-    } else {
-        m2 / (xs.len() - 1) as f64
-    };
-    (m, var)
+    (s.mean(), s.variance())
 }
 
 /// Arithmetic mean, returning [`f64::NAN`] for empty input.
@@ -214,25 +190,14 @@ pub fn covariance(x: &[f64], y: &[f64]) -> f64 {
     if x.len() != y.len() {
         return f64::NAN;
     }
-    let n = x.len();
-    if n < 2 {
+    if x.len() < 2 {
         return 0.0;
     }
-    let mut mean_x = 0.0;
-    let mut mean_y = 0.0;
-    let mut co_moment = 0.0;
-    let mut k = 0.0;
-    for i in 0..n {
-        let xi = x[i];
-        let yi = y[i];
-        k += 1.0;
-        let dx = xi - mean_x;
-        mean_x += dx / k;
-        let dy = yi - mean_y;
-        mean_y += dy / k;
-        co_moment += dx * (yi - mean_y);
+    let mut oc = OnlineCovariance::new();
+    for i in 0..x.len() {
+        oc.update(x[i], y[i]);
     }
-    co_moment / (n - 1) as f64
+    oc.covariance()
 }
 
 /// Pearson correlation in a single Welford pass via `OnlineCovariance`.
@@ -740,6 +705,14 @@ impl OnlineStats {
         self.m2 / (self.count - 1) as f64
     }
 
+    /// Population variance (n denominator).
+    pub fn population_variance(&self) -> f64 {
+        if self.count == 0 {
+            return 0.0;
+        }
+        self.m2 / self.count as f64
+    }
+
     /// Sample standard deviation.
     pub fn std_dev(&self) -> f64 {
         self.variance().sqrt()
@@ -1051,6 +1024,44 @@ mod tests {
         let x = [1.0, 2.0, 3.0];
         let y = [1.0, 2.0];
         assert!(correlation(&x, &y).is_nan());
+    }
+
+    #[test]
+    fn variance_matches_online_stats() {
+        let datasets: &[&[f64]] = &[
+            &[1.0, 2.0, 3.0, 4.0, 5.0],
+            &[0.0, 0.0, 0.0, 1.0],
+            &[-3.0, -1.0, 0.0, 1.0, 3.0],
+            &[1e6, 1e6 + 1.0, 1e6 + 2.0],
+            &[1e-12, 2e-12, 3e-12],
+        ];
+        for xs in datasets {
+            let mut s = OnlineStats::new();
+            for &x in *xs {
+                s.update(x);
+            }
+            assert!(
+                (variance(xs) - s.variance()).abs() < 1e-12,
+                "variance mismatch for {:?}",
+                xs
+            );
+            assert!(
+                (population_variance(xs) - s.population_variance()).abs() < 1e-12,
+                "population_variance mismatch for {:?}",
+                xs
+            );
+            let (m, v) = mean_var(xs);
+            assert!(
+                (m - s.mean()).abs() < 1e-12,
+                "mean_var mean mismatch for {:?}",
+                xs
+            );
+            assert!(
+                (v - s.variance()).abs() < 1e-12,
+                "mean_var variance mismatch for {:?}",
+                xs
+            );
+        }
     }
 
     #[test]
