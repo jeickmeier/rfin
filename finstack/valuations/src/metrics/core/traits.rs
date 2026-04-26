@@ -152,13 +152,13 @@ pub struct MetricContext {
     ///
     /// This is intentionally **not** stored inside `finstack_core::MarketContext` to keep
     /// the core market container strongly typed and fully serializable.
-    pub(crate) market_history: Option<Arc<MarketHistory>>,
+    market_history: Option<Arc<MarketHistory>>,
 
     /// Pricing model to reuse for bump-and-reprice metrics.
-    pub(crate) pricing_model: Option<ModelKey>,
+    pricing_model: Option<ModelKey>,
 
     /// Pricer registry to reuse for bump-and-reprice metrics.
-    pub(crate) pricer_registry: Option<Arc<PricerRegistry>>,
+    pricer_registry: Option<Arc<PricerRegistry>>,
 
     /// Valuation date.
     pub as_of: Date,
@@ -210,21 +210,21 @@ pub struct MetricContext {
     ///
     /// When set, bucketed metrics (e.g., DV01 by tenor) will use this resolver
     /// to produce `MetricId`s instead of default static keys.
-    pub(crate) bucket_key_resolver: Option<Arc<BucketKeyResolverFn>>,
+    bucket_key_resolver: Option<Arc<BucketKeyResolverFn>>,
     /// Optional instrument-owned pricing inputs needed by specific metrics.
-    pub(crate) instrument_overrides: Option<crate::instruments::InstrumentPricingOverrides>,
+    instrument_overrides: Option<crate::instruments::InstrumentPricingOverrides>,
 
     /// Optional metric-only overrides to control risk calculations (e.g., bumps, theta horizon).
-    pub(crate) metric_overrides: Option<crate::instruments::MetricPricingOverrides>,
+    metric_overrides: Option<crate::instruments::MetricPricingOverrides>,
 
     /// Optional scenario-only adjustments applied at the valuation boundary.
-    pub(crate) scenario_overrides: Option<crate::instruments::ScenarioPricingOverrides>,
+    scenario_overrides: Option<crate::instruments::ScenarioPricingOverrides>,
 
     /// Finstack configuration (tolerances + versioned extensions).
     ///
     /// This is used by metric calculators to resolve user-facing defaults
     /// (e.g., risk bump sizes) and to keep results reproducible.
-    pub(crate) finstack_config: Arc<FinstackConfig>,
+    finstack_config: Arc<FinstackConfig>,
 }
 
 impl MetricContext {
@@ -287,6 +287,36 @@ impl MetricContext {
     #[inline]
     pub fn config_arc(&self) -> Arc<FinstackConfig> {
         Arc::clone(&self.finstack_config)
+    }
+
+    /// Returns the metric-only overrides, if any.
+    #[inline]
+    pub(crate) fn get_metric_overrides(
+        &self,
+    ) -> Option<&crate::instruments::MetricPricingOverrides> {
+        self.metric_overrides.as_ref()
+    }
+
+    /// Returns the instrument-owned pricing overrides, if any.
+    #[inline]
+    pub(crate) fn get_instrument_overrides(
+        &self,
+    ) -> Option<&crate::instruments::InstrumentPricingOverrides> {
+        self.instrument_overrides.as_ref()
+    }
+
+    /// Returns a reference to the market history, if set.
+    #[inline]
+    pub(crate) fn get_market_history(&self) -> Option<&MarketHistory> {
+        self.market_history.as_deref()
+    }
+
+    /// Clones the pricing dispatch pair (model + registry) for use in sub-contexts.
+    #[inline]
+    pub(crate) fn clone_pricer_dispatch(
+        &self,
+    ) -> (Option<ModelKey>, Option<Arc<PricerRegistry>>) {
+        (self.pricing_model, self.pricer_registry.clone())
     }
 
     /// Attach market history to this context (used by Historical VaR metrics).

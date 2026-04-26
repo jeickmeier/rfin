@@ -277,7 +277,7 @@ impl BumperFactory for RatesBumperFactory {
 
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.metric_overrides.as_ref(),
+            context.get_metric_overrides(),
         )?;
         Ok(Some(Box::new(RatesParallelBumper {
             curve_ids,
@@ -299,7 +299,7 @@ impl BumperFactory for CreditBumperFactory {
 
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.metric_overrides.as_ref(),
+            context.get_metric_overrides(),
         )?;
         Ok(Some(Box::new(CreditParallelBumper {
             curve_ids: deps.curves.credit_curves.to_vec(),
@@ -326,7 +326,7 @@ impl BumperFactory for VolBumperFactory {
 
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.metric_overrides.as_ref(),
+            context.get_metric_overrides(),
         )?;
         Ok(Some(Box::new(VolParallelBumper {
             surface_id: CurveId::from(surface_id.as_str()),
@@ -348,7 +348,7 @@ impl BumperFactory for SpotBumperFactory {
 
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.metric_overrides.as_ref(),
+            context.get_metric_overrides(),
         )?;
         Ok(Some(Box::new(SpotBumper {
             price_id: price_id.clone(),
@@ -370,7 +370,7 @@ impl BumperFactory for FxBumperFactory {
 
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.metric_overrides.as_ref(),
+            context.get_metric_overrides(),
         )?;
         Ok(Some(Box::new(FxBumper {
             pairs: deps.fx_pairs,

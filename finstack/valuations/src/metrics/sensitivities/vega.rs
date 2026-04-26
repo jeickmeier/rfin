@@ -120,7 +120,7 @@ where
         let instrument: &I = context.instrument_as()?;
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.metric_overrides.as_ref(),
+            context.get_metric_overrides(),
         )?;
 
         let eq_deps = instrument.market_dependencies()?.equity_dependencies();

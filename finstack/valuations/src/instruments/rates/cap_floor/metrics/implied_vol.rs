@@ -54,8 +54,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         // The quoted_clean_price is passed via the MetricContext pricing overrides,
         // not stored on the instrument itself.
         let market_price = context
-            .instrument_overrides
-            .as_ref()
+            .get_instrument_overrides()
             .and_then(|po| po.market_quotes.quoted_clean_price)
             .ok_or_else(|| {
                 finstack_core::Error::Input(finstack_core::InputError::NotFound {

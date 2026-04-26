@@ -47,21 +47,22 @@ impl MetricCalculator for GenericHVar {
             return Ok(var);
         }
 
-        let history = context.market_history.as_deref().ok_or_else(|| {
+        let history = context.get_market_history().ok_or_else(|| {
             finstack_core::Error::Validation(
                 "Market history required for VaR calculation. Provide it via Instrument::price_with_metrics(...) with PricingOptions::with_market_history(...)"
                     .to_string(),
             )
         })?;
 
+        let (pricing_model, pricer_registry) = context.clone_pricer_dispatch();
         let result = calculate_var_with_pricing(
             &[context.instrument.as_ref()],
             &context.curves,
             history,
             context.as_of,
             &self.config,
-            context.pricing_model,
-            context.pricer_registry.clone(),
+            pricing_model,
+            pricer_registry,
         )?;
 
         context
@@ -99,21 +100,22 @@ impl MetricCalculator for GenericExpectedShortfall {
             return Ok(es);
         }
 
-        let history = context.market_history.as_deref().ok_or_else(|| {
+        let history = context.get_market_history().ok_or_else(|| {
             finstack_core::Error::Validation(
                 "Market history required for VaR/ES calculation. Provide it via Instrument::price_with_metrics(...) with PricingOptions::with_market_history(...)"
                     .to_string(),
             )
         })?;
 
+        let (pricing_model, pricer_registry) = context.clone_pricer_dispatch();
         let result = calculate_var_with_pricing(
             &[context.instrument.as_ref()],
             &context.curves,
             history,
             context.as_of,
             &self.config,
-            context.pricing_model,
-            context.pricer_registry.clone(),
+            pricing_model,
+            pricer_registry,
         )?;
 
         context.computed.insert(MetricId::HVar, result.var);
