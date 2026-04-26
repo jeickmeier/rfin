@@ -332,6 +332,33 @@ pub struct FactorModelConfig {
     pub unmatched_policy: Option<UnmatchedPolicy>,
 }
 
+impl FactorModelConfig {
+    /// Validates that every factor identifier the matcher can emit is also
+    /// present in `factors`.
+    ///
+    /// This is the static counterpart to runtime "missing factor" failures:
+    /// catching the misalignment at config-load time avoids surprises during
+    /// portfolio analysis. Cascades and credit hierarchies are walked
+    /// recursively so every reachable factor ID is checked.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::Error::Validation`] when any factor ID emitted by the
+    /// matching config is not declared in [`Self::factors`].
+    pub fn validate_matching_factor_ids(&self) -> crate::Result<()> {
+        use std::collections::BTreeSet;
+        let known: BTreeSet<&FactorId> = self.factors.iter().map(|f| &f.id).collect();
+        for fid in self.matching.enumerate_factor_ids() {
+            if !known.contains(&fid) {
+                return Err(crate::Error::Validation(format!(
+                    "FactorModelConfig: matcher references factor_id {fid:?} not present in factors"
+                )));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -340,7 +367,8 @@ mod tests {
         assert!(matches!(label.parse::<PricingMode>(), Ok(value) if value == expected));
     }
     use crate::factor_model::{
-        FactorCovarianceMatrix, FactorDefinition, MarketMapping, MatchingConfig, UnmatchedPolicy,
+        FactorCovarianceMatrix, FactorDefinition, FactorType, MarketMapping, MatchingConfig,
+        UnmatchedPolicy,
     };
     use crate::market_data::bumps::BumpUnits;
     use crate::types::CurveId;
@@ -608,5 +636,110 @@ mod tests {
     #[test]
     fn test_pricing_mode_fromstr_rejects_unknown() {
         assert!("unknown".parse::<PricingMode>().is_err());
+    }
+
+    // ------------------------------------------------------------------
+    // PR-2 test: matcher-emitted factor IDs must exist in `factors`
+    // ------------------------------------------------------------------
+    #[test]
+    fn credit_hierarchical_config_rejects_unknown_factor_id() {
+        use crate::factor_model::credit_hierarchy::{
+            AdderVolSource, CreditHierarchySpec, HierarchyDimension, IssuerBetaMode, IssuerBetaRow,
+            IssuerBetas, IssuerTags,
+        };
+        use crate::factor_model::matching::{CreditHierarchicalConfig, DependencyFilter};
+        use crate::types::IssuerId;
+        use std::collections::BTreeMap;
+
+        let mut tags = BTreeMap::new();
+        tags.insert("rating".to_owned(), "IG".to_owned());
+        let row = IssuerBetaRow {
+            issuer_id: IssuerId::new("ISSUER-A"),
+            tags: IssuerTags(tags),
+            mode: IssuerBetaMode::IssuerBeta,
+            betas: IssuerBetas {
+                pc: 0.9,
+                levels: vec![0.85],
+            },
+            adder_at_anchor: 0.0,
+            adder_vol_annualized: 0.01,
+            adder_vol_source: AdderVolSource::Default,
+            fit_quality: None,
+        };
+        let credit_config = CreditHierarchicalConfig {
+            dependency_filter: DependencyFilter::default(),
+            hierarchy: CreditHierarchySpec {
+                levels: vec![HierarchyDimension::Rating],
+            },
+            issuer_betas: vec![row],
+        };
+
+        // Build a FactorModelConfig where `factors` only knows about
+        // `credit::generic` but NOT the `credit::level0::Rating::IG` bucket
+        // factor that the matcher will try to emit.
+        let factor_id = FactorId::new("credit::generic");
+        let factors = vec![FactorDefinition {
+            id: factor_id.clone(),
+            factor_type: FactorType::Credit,
+            market_mapping: MarketMapping::CurveParallel {
+                curve_ids: vec![CurveId::new("CDX.IG")],
+                units: BumpUnits::RateBp,
+            },
+            description: None,
+        }];
+        let covariance = FactorCovarianceMatrix::new(vec![factor_id], vec![0.04]).unwrap();
+
+        let config = FactorModelConfig {
+            factors,
+            covariance,
+            matching: MatchingConfig::CreditHierarchical(credit_config),
+            pricing_mode: PricingMode::DeltaBased,
+            risk_measure: RiskMeasure::Variance,
+            bump_size: None,
+            unmatched_policy: None,
+        };
+
+        let result = config.validate_matching_factor_ids();
+        assert!(
+            result.is_err(),
+            "validation must reject matcher referencing unknown factor IDs"
+        );
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("credit::level0::Rating::IG"),
+            "error must name the missing factor: {msg}"
+        );
+    }
+
+    #[test]
+    fn validate_matching_factor_ids_accepts_aligned_config() {
+        // Single MappingTable rule referencing a factor that does exist.
+        let factor_id = FactorId::new("Rates");
+        let factors = vec![FactorDefinition {
+            id: factor_id.clone(),
+            factor_type: FactorType::Rates,
+            market_mapping: MarketMapping::CurveParallel {
+                curve_ids: vec![CurveId::new("USD-OIS")],
+                units: BumpUnits::RateBp,
+            },
+            description: None,
+        }];
+        let covariance = FactorCovarianceMatrix::new(vec![factor_id.clone()], vec![0.04]).unwrap();
+        let config = FactorModelConfig {
+            factors,
+            covariance,
+            matching: MatchingConfig::MappingTable(vec![
+                crate::factor_model::matching::MappingRule {
+                    dependency_filter: crate::factor_model::matching::DependencyFilter::default(),
+                    attribute_filter: crate::factor_model::matching::AttributeFilter::default(),
+                    factor_id,
+                },
+            ]),
+            pricing_mode: PricingMode::DeltaBased,
+            risk_measure: RiskMeasure::Variance,
+            bump_size: None,
+            unmatched_policy: None,
+        };
+        assert!(config.validate_matching_factor_ids().is_ok());
     }
 }

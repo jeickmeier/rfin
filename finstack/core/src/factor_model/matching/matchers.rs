@@ -4,6 +4,10 @@
 //! - [`MappingTableMatcher`]: flat rule-table lookup, first match wins.
 //! - [`HierarchicalMatcher`]: tree traversal, deepest match wins.
 //! - [`CascadeMatcher`]: ordered fallback chain over other matchers.
+//!
+//! A fourth matcher, [`CreditHierarchicalMatcher`], is only constructed
+//! through [`MatchingConfig::CreditHierarchical`] and lives in
+//! [`super::credit`].
 
 use super::filter::{AttributeFilter, DependencyFilter};
 use crate::factor_model::dependency::MarketDependency;
@@ -15,14 +19,91 @@ use serde::{Deserialize, Serialize};
 // Trait
 // ---------------------------------------------------------------------------
 
-/// Matches a market dependency and instrument attributes to a factor identifier.
+/// One factor match decorated with a beta loading.
+///
+/// For most matchers this collapses to `(factor_id, 1.0)` — one entry per
+/// dependency, beta = 1. The credit hierarchy matcher (
+/// [`super::credit::CreditHierarchicalMatcher`]) emits multiple entries with
+/// calibrated betas read from a [`crate::factor_model::credit_hierarchy::IssuerBetaRow`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct FactorMatchEntry {
+    /// Matched factor identifier.
+    pub factor_id: FactorId,
+    /// Beta loading on the matched factor.
+    pub beta: f64,
+}
+
+/// Error returned by [`FactorMatcher::match_factor_with_betas`] when the
+/// matcher can determine the dependency is in scope but cannot produce
+/// a deterministic answer (e.g. a required issuer tag is missing).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FactorMatchError {
+    /// A required issuer tag is missing for hierarchy bucketing.
+    MissingRequiredTag {
+        /// Hierarchy dimension key that was not found.
+        dimension: String,
+    },
+}
+
+impl std::fmt::Display for FactorMatchError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MissingRequiredTag { dimension } => write!(
+                f,
+                "credit-hierarchical matcher: issuer tag for dimension '{dimension}' is required but missing"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for FactorMatchError {}
+
+/// Outcome of [`FactorMatcher::match_factor_with_betas`].
+///
+/// - `Skip` — the matcher does not handle this dependency (caller should
+///   fall through to the next matcher).
+/// - `Ok(entries)` — zero or more `(factor_id, beta)` matches in canonical
+///   order. `entries.is_empty()` is allowed and treated as no match.
+/// - `Err(FactorMatchError)` — the matcher recognised the dependency but
+///   the input was malformed for the matcher's contract.
+pub type FactorMatchResult = Result<Option<Vec<FactorMatchEntry>>, FactorMatchError>;
+
+/// Matches a market dependency and instrument attributes to factor identifiers.
 pub trait FactorMatcher: Send + Sync {
-    /// Returns the matching factor identifier, if any.
+    /// Returns the single matching factor identifier, if any.
+    ///
+    /// This is the legacy, single-factor dispatch retained for matchers whose
+    /// semantics are "deepest match wins" or "first rule wins". New matchers
+    /// that produce multiple factors per dependency should override
+    /// [`Self::match_factor_with_betas`].
     fn match_factor(
         &self,
         dependency: &MarketDependency,
         attributes: &Attributes,
     ) -> Option<FactorId>;
+
+    /// Returns the matched `(factor_id, beta)` entries for a dependency.
+    ///
+    /// The default implementation lifts [`Self::match_factor`] into a single
+    /// entry with `beta = 1.0`. The credit hierarchy matcher overrides this
+    /// to emit multiple entries per dependency.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FactorMatchError`] when the matcher recognised the dependency
+    /// but the inputs (typically issuer tags) violate the matcher's contract.
+    fn match_factor_with_betas(
+        &self,
+        dependency: &MarketDependency,
+        attributes: &Attributes,
+    ) -> FactorMatchResult {
+        Ok(self.match_factor(dependency, attributes).map(|factor_id| {
+            vec![FactorMatchEntry {
+                factor_id,
+                beta: 1.0,
+            }]
+        }))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -181,6 +262,20 @@ impl FactorMatcher for CascadeMatcher {
         self.matchers
             .iter()
             .find_map(|matcher| matcher.match_factor(dependency, attributes))
+    }
+
+    fn match_factor_with_betas(
+        &self,
+        dependency: &MarketDependency,
+        attributes: &Attributes,
+    ) -> FactorMatchResult {
+        for matcher in &self.matchers {
+            match matcher.match_factor_with_betas(dependency, attributes)? {
+                Some(entries) if !entries.is_empty() => return Ok(Some(entries)),
+                _ => continue,
+            }
+        }
+        Ok(None)
     }
 }
 

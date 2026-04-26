@@ -1,0 +1,628 @@
+//! Calibrated credit-hierarchy matcher.
+//!
+//! Maps a [`MarketDependency::CreditCurve`] (or `Curve` with hazard role) plus
+//! issuer tags into the canonical list of credit factors:
+//!
+//! - `credit::generic` (the PC factor) with the issuer's calibrated `pc` beta;
+//! - `credit::level{idx}::{dim_path}::{val_path}` for each hierarchy level the
+//!   issuer is tagged for, with its calibrated `levels[idx]` beta.
+//!
+//! Unknown issuers (no row in `issuer_betas`) are treated as `BucketOnly`:
+//! every emitted factor carries beta = 1.0. Issuers tagged for some but not
+//! all hierarchy levels emit only the levels they are tagged for. A required
+//! tag missing for a level the issuer is *expected* to participate in returns
+//! [`FactorMatchError::MissingRequiredTag`].
+//!
+//! The matcher delegates the dependency-side gating to the existing
+//! [`DependencyFilter`]; it does not duplicate the tree-walking semantics of
+//! [`super::HierarchicalMatcher`]. Factor identities are computed
+//! deterministically from the calibrated [`CreditHierarchySpec`] and issuer
+//! tags rather than enumerated as nodes in a tree.
+
+use super::filter::DependencyFilter;
+use super::matchers::{FactorMatchEntry, FactorMatchError, FactorMatchResult, FactorMatcher};
+use crate::factor_model::credit_hierarchy::{
+    CreditHierarchySpec, HierarchyDimension, IssuerBetaRow, IssuerTags,
+};
+use crate::factor_model::dependency::MarketDependency;
+use crate::factor_model::types::FactorId;
+use crate::types::{Attributes, IssuerId};
+use serde::{Deserialize, Serialize};
+
+// ---------------------------------------------------------------------------
+// Public constants
+// ---------------------------------------------------------------------------
+
+/// Reserved key in [`Attributes::meta`] used to thread the issuer identifier
+/// from the position into the matcher.
+///
+/// The matcher reads this key first, then falls back to `"issuer_id"` (no
+/// namespace) and finally to no issuer at all (treated as `BucketOnly`).
+pub const ISSUER_ID_META_KEY: &str = "credit::issuer_id";
+
+/// Canonical factor ID for the generic credit (PC) factor.
+pub const CREDIT_GENERIC_FACTOR_ID: &str = "credit::generic";
+
+// ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
+
+/// Declarative configuration for a calibrated credit-hierarchy matcher.
+///
+/// The matcher emits PC + per-level credit factors with calibrated betas
+/// looked up from `issuer_betas`. `issuer_betas` must be sorted by
+/// `issuer_id` (binary search is used). `hierarchy` defines the level
+/// ordering and dimension keys used to build factor IDs.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CreditHierarchicalConfig {
+    /// Dependency filter; defaults to "any credit-curve dependency".
+    #[serde(default)]
+    pub dependency_filter: DependencyFilter,
+    /// Hierarchy specification (level ordering and dimension keys).
+    pub hierarchy: CreditHierarchySpec,
+    /// Issuer beta rows, sorted by `issuer_id`.
+    #[serde(default)]
+    pub issuer_betas: Vec<IssuerBetaRow>,
+}
+
+impl CreditHierarchicalConfig {
+    /// Returns the deterministic list of factor IDs this config can emit.
+    ///
+    /// The list is the union of `credit::generic` and every
+    /// `credit::level{idx}::{dim_path}::{val_path}` that appears for any
+    /// known issuer in `issuer_betas`. The list is deduplicated and sorted
+    /// for stable output.
+    #[must_use]
+    pub fn enumerate_factor_ids(&self) -> Vec<FactorId> {
+        use std::collections::BTreeSet;
+        let mut ids: BTreeSet<FactorId> = BTreeSet::new();
+        ids.insert(FactorId::new(CREDIT_GENERIC_FACTOR_ID));
+        for row in &self.issuer_betas {
+            for level_idx in 0..self.hierarchy.levels.len() {
+                if let Some(id) = bucket_factor_id(&self.hierarchy, &row.tags, level_idx) {
+                    ids.insert(id);
+                }
+            }
+        }
+        ids.into_iter().collect()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Matcher
+// ---------------------------------------------------------------------------
+
+/// Calibrated credit-hierarchy matcher.
+///
+/// See the module-level docs for the semantics.
+#[derive(Debug, Clone)]
+pub struct CreditHierarchicalMatcher {
+    config: CreditHierarchicalConfig,
+}
+
+impl CreditHierarchicalMatcher {
+    /// Creates a matcher from a calibrated config.
+    #[must_use]
+    pub fn new(config: CreditHierarchicalConfig) -> Self {
+        Self { config }
+    }
+
+    fn lookup_row(&self, issuer_id: &IssuerId) -> Option<&IssuerBetaRow> {
+        self.config
+            .issuer_betas
+            .binary_search_by(|row| row.issuer_id.as_str().cmp(issuer_id.as_str()))
+            .ok()
+            .map(|idx| &self.config.issuer_betas[idx])
+    }
+}
+
+impl FactorMatcher for CreditHierarchicalMatcher {
+    fn match_factor(
+        &self,
+        dependency: &MarketDependency,
+        attributes: &Attributes,
+    ) -> Option<FactorId> {
+        // Single-factor dispatch picks the deepest level the issuer is tagged
+        // for (or `credit::generic` if no level matches). This preserves the
+        // FactorMatcher trait contract for callers that only need one ID.
+        match self.match_factor_with_betas(dependency, attributes).ok()? {
+            Some(entries) if !entries.is_empty() => entries.last().map(|e| e.factor_id.clone()),
+            _ => None,
+        }
+    }
+
+    fn match_factor_with_betas(
+        &self,
+        dependency: &MarketDependency,
+        attributes: &Attributes,
+    ) -> FactorMatchResult {
+        if !self.config.dependency_filter.matches(dependency) {
+            return Ok(None);
+        }
+        if !is_credit_dependency(dependency) {
+            return Ok(None);
+        }
+
+        let issuer_id_str = attributes
+            .get_meta(ISSUER_ID_META_KEY)
+            .or_else(|| attributes.get_meta("issuer_id"));
+
+        // Look up calibrated betas if available; otherwise fall back to 1.0.
+        let row = issuer_id_str
+            .map(IssuerId::new)
+            .as_ref()
+            .and_then(|id| self.lookup_row(id));
+
+        // Source of issuer tags: the calibrated row's tags take precedence,
+        // because they reflect the canonical taxonomy. If no row is found,
+        // we read tags directly from `attributes.meta` using the same key
+        // convention.
+        let tags_owned: IssuerTags;
+        let tags = match row {
+            Some(r) => &r.tags,
+            None => {
+                tags_owned = tags_from_attributes(&self.config.hierarchy, attributes);
+                &tags_owned
+            }
+        };
+
+        // Emit PC factor first.
+        let mut entries = Vec::with_capacity(1 + self.config.hierarchy.levels.len());
+        let pc_beta = row.map_or(1.0, |r| r.betas.pc);
+        entries.push(FactorMatchEntry {
+            factor_id: FactorId::new(CREDIT_GENERIC_FACTOR_ID),
+            beta: pc_beta,
+        });
+
+        // Emit one entry per hierarchy level the issuer is tagged for.
+        for (level_idx, dim) in self.config.hierarchy.levels.iter().enumerate() {
+            // For unknown issuers we proceed best-effort: a missing tag at a
+            // given level just stops level emission (we treat the issuer as
+            // tagged only down to the level we have data for). For *known*
+            // issuers (a row exists), we treat a missing tag as a contract
+            // violation.
+            let tag_present = tags.0.contains_key(&dimension_key(dim));
+            if !tag_present {
+                if row.is_some() {
+                    return Err(FactorMatchError::MissingRequiredTag {
+                        dimension: dimension_key(dim),
+                    });
+                }
+                break;
+            }
+
+            // Build the bucket factor ID for this level.
+            let Some(factor_id) = bucket_factor_id(&self.config.hierarchy, tags, level_idx) else {
+                // bucket_factor_id only fails if a deeper-level tag is missing,
+                // but we already checked the current level; treat as missing.
+                if row.is_some() {
+                    return Err(FactorMatchError::MissingRequiredTag {
+                        dimension: dimension_key(dim),
+                    });
+                }
+                break;
+            };
+
+            let beta = row
+                .and_then(|r| r.betas.levels.get(level_idx).copied())
+                .unwrap_or(1.0);
+            entries.push(FactorMatchEntry { factor_id, beta });
+        }
+
+        Ok(Some(entries))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// Canonical lowercase key used to read a [`HierarchyDimension`] from a tag map.
+///
+/// - `Rating` → `"rating"`
+/// - `Region` → `"region"`
+/// - `Sector` → `"sector"`
+/// - `Custom(name)` → `name` (the caller-chosen string, used verbatim).
+#[must_use]
+pub fn dimension_key(dim: &HierarchyDimension) -> String {
+    match dim {
+        HierarchyDimension::Rating => "rating".to_owned(),
+        HierarchyDimension::Region => "region".to_owned(),
+        HierarchyDimension::Sector => "sector".to_owned(),
+        HierarchyDimension::Custom(name) => name.clone(),
+    }
+}
+
+/// Dotted dimension-name path through the first `level_idx + 1` levels of
+/// the hierarchy spec, e.g. `"Rating.Region"` for level index 1.
+fn dimension_path(spec: &CreditHierarchySpec, level_idx: usize) -> String {
+    spec.levels
+        .iter()
+        .take(level_idx + 1)
+        .map(|dim| match dim {
+            HierarchyDimension::Rating => "Rating".to_owned(),
+            HierarchyDimension::Region => "Region".to_owned(),
+            HierarchyDimension::Sector => "Sector".to_owned(),
+            HierarchyDimension::Custom(name) => name.clone(),
+        })
+        .collect::<Vec<_>>()
+        .join(".")
+}
+
+/// Dotted tag-value path through the first `level_idx + 1` levels of the
+/// hierarchy spec, reading values from `tags`. Returns `None` if any tag is
+/// missing.
+fn value_path(spec: &CreditHierarchySpec, tags: &IssuerTags, level_idx: usize) -> Option<String> {
+    let mut parts = Vec::with_capacity(level_idx + 1);
+    for dim in spec.levels.iter().take(level_idx + 1) {
+        let key = dimension_key(dim);
+        let value = tags.0.get(&key)?;
+        parts.push(value.clone());
+    }
+    Some(parts.join("."))
+}
+
+/// Builds the canonical factor ID `credit::level{idx}::{dim_path}::{val_path}`
+/// for the given hierarchy level. Returns `None` if any required tag is missing.
+#[must_use]
+pub fn bucket_factor_id(
+    spec: &CreditHierarchySpec,
+    tags: &IssuerTags,
+    level_idx: usize,
+) -> Option<FactorId> {
+    if level_idx >= spec.levels.len() {
+        return None;
+    }
+    let dim_path = dimension_path(spec, level_idx);
+    let val_path = value_path(spec, tags, level_idx)?;
+    Some(FactorId::new(format!(
+        "credit::level{level_idx}::{dim_path}::{val_path}"
+    )))
+}
+
+/// Whether a [`MarketDependency`] is a credit/hazard one. The matcher only
+/// emits factors for credit-side dependencies regardless of how the user
+/// configured `dependency_filter`.
+fn is_credit_dependency(dep: &MarketDependency) -> bool {
+    use crate::factor_model::dependency::CurveType;
+    match dep {
+        MarketDependency::CreditCurve { .. } => true,
+        MarketDependency::Curve { curve_type, .. } => *curve_type == CurveType::Hazard,
+        _ => false,
+    }
+}
+
+/// Build an [`IssuerTags`] view from `attributes.meta` using the canonical
+/// dimension keys defined by `spec`.
+///
+/// Used as a fallback for unknown issuers (no calibrated row): the matcher
+/// reads tags from instrument metadata using the same key convention as
+/// [`dimension_key`].
+fn tags_from_attributes(spec: &CreditHierarchySpec, attrs: &Attributes) -> IssuerTags {
+    use std::collections::BTreeMap;
+    let mut map = BTreeMap::new();
+    for dim in &spec.levels {
+        let key = dimension_key(dim);
+        if let Some(v) = attrs.get_meta(&key) {
+            map.insert(key, v.to_owned());
+        }
+    }
+    IssuerTags(map)
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::factor_model::credit_hierarchy::{
+        AdderVolSource, IssuerBetaMode, IssuerBetaRow, IssuerBetas, IssuerTags,
+    };
+    use crate::factor_model::dependency::{DependencyType, MarketDependency};
+    use crate::types::{Attributes, CurveId, IssuerId};
+    use std::collections::BTreeMap;
+
+    fn three_level_spec() -> CreditHierarchySpec {
+        CreditHierarchySpec {
+            levels: vec![
+                HierarchyDimension::Rating,
+                HierarchyDimension::Region,
+                HierarchyDimension::Sector,
+            ],
+        }
+    }
+
+    fn issuer_row(
+        id: &str,
+        pc: f64,
+        levels: Vec<f64>,
+        tags: BTreeMap<String, String>,
+    ) -> IssuerBetaRow {
+        IssuerBetaRow {
+            issuer_id: IssuerId::new(id),
+            tags: IssuerTags(tags),
+            mode: IssuerBetaMode::IssuerBeta,
+            betas: IssuerBetas { pc, levels },
+            adder_at_anchor: 0.0,
+            adder_vol_annualized: 0.01,
+            adder_vol_source: AdderVolSource::Default,
+            fit_quality: None,
+        }
+    }
+
+    fn three_level_tags() -> BTreeMap<String, String> {
+        let mut tags = BTreeMap::new();
+        tags.insert("rating".to_owned(), "IG".to_owned());
+        tags.insert("region".to_owned(), "EU".to_owned());
+        tags.insert("sector".to_owned(), "FIN".to_owned());
+        tags
+    }
+
+    fn matcher_with_one_issuer() -> CreditHierarchicalMatcher {
+        let row = issuer_row("ISSUER-A", 0.9, vec![0.85, 0.8, 0.75], three_level_tags());
+        CreditHierarchicalMatcher::new(CreditHierarchicalConfig {
+            dependency_filter: DependencyFilter {
+                dependency_type: Some(DependencyType::Credit),
+                curve_type: None,
+                id: None,
+            },
+            hierarchy: three_level_spec(),
+            issuer_betas: vec![row],
+        })
+    }
+
+    // --------------------------------------------------------------
+    // PR-2 test: known issuer → PC + bucket factors in canonical order
+    // --------------------------------------------------------------
+    #[test]
+    fn credit_hierarchical_matcher_returns_generic_and_bucket_factors() {
+        let matcher = matcher_with_one_issuer();
+        let dep = MarketDependency::CreditCurve {
+            id: CurveId::new("ISSUER-A-HAZARD"),
+        };
+        let attrs = Attributes::default().with_meta(ISSUER_ID_META_KEY, "ISSUER-A");
+
+        let entries = matcher
+            .match_factor_with_betas(&dep, &attrs)
+            .expect("must succeed")
+            .expect("must match");
+
+        assert_eq!(entries.len(), 4, "PC + 3 levels");
+        assert_eq!(
+            entries[0].factor_id,
+            FactorId::new("credit::generic"),
+            "PC factor must be first"
+        );
+        assert!((entries[0].beta - 0.9).abs() < 1e-12);
+
+        assert_eq!(
+            entries[1].factor_id,
+            FactorId::new("credit::level0::Rating::IG")
+        );
+        assert!((entries[1].beta - 0.85).abs() < 1e-12);
+
+        assert_eq!(
+            entries[2].factor_id,
+            FactorId::new("credit::level1::Rating.Region::IG.EU")
+        );
+        assert!((entries[2].beta - 0.8).abs() < 1e-12);
+
+        assert_eq!(
+            entries[3].factor_id,
+            FactorId::new("credit::level2::Rating.Region.Sector::IG.EU.FIN")
+        );
+        assert!((entries[3].beta - 0.75).abs() < 1e-12);
+    }
+
+    // --------------------------------------------------------------
+    // PR-2 test: known issuer with missing tag is a typed error
+    // --------------------------------------------------------------
+    #[test]
+    fn credit_hierarchical_matcher_errors_on_missing_required_tag() {
+        let mut tags = three_level_tags();
+        tags.remove("region"); // Known issuer, but tagged for only level 0.
+        let row = issuer_row("ISSUER-MISSING", 1.0, vec![1.0, 1.0, 1.0], tags);
+        let matcher = CreditHierarchicalMatcher::new(CreditHierarchicalConfig {
+            dependency_filter: DependencyFilter::default(),
+            hierarchy: three_level_spec(),
+            issuer_betas: vec![row],
+        });
+
+        let dep = MarketDependency::CreditCurve {
+            id: CurveId::new("ISSUER-MISSING-HAZARD"),
+        };
+        let attrs = Attributes::default().with_meta(ISSUER_ID_META_KEY, "ISSUER-MISSING");
+
+        let err = matcher
+            .match_factor_with_betas(&dep, &attrs)
+            .expect_err("missing region tag must be reported as error");
+        match err {
+            FactorMatchError::MissingRequiredTag { dimension } => {
+                assert_eq!(dimension, "region");
+            }
+        }
+    }
+
+    // --------------------------------------------------------------
+    // PR-2 test: unknown issuer with full tags → BucketOnly (β = 1)
+    // --------------------------------------------------------------
+    #[test]
+    fn credit_hierarchical_matcher_treats_unknown_issuer_as_bucket_only_when_tags_exist() {
+        // Configure with NO known issuers; all matches must come from instrument tags.
+        let matcher = CreditHierarchicalMatcher::new(CreditHierarchicalConfig {
+            dependency_filter: DependencyFilter::default(),
+            hierarchy: three_level_spec(),
+            issuer_betas: vec![],
+        });
+
+        let dep = MarketDependency::CreditCurve {
+            id: CurveId::new("UNKNOWN-HAZARD"),
+        };
+        let attrs = Attributes::default()
+            .with_meta(ISSUER_ID_META_KEY, "UNKNOWN-ISSUER")
+            .with_meta("rating", "IG")
+            .with_meta("region", "EU")
+            .with_meta("sector", "FIN");
+
+        let entries = matcher
+            .match_factor_with_betas(&dep, &attrs)
+            .expect("must succeed")
+            .expect("must match (bucket-only)");
+
+        assert_eq!(entries.len(), 4);
+        for entry in &entries {
+            assert!(
+                (entry.beta - 1.0).abs() < 1e-12,
+                "BucketOnly betas must all be 1.0"
+            );
+        }
+        assert_eq!(entries[0].factor_id, FactorId::new("credit::generic"));
+        assert_eq!(
+            entries[3].factor_id,
+            FactorId::new("credit::level2::Rating.Region.Sector::IG.EU.FIN")
+        );
+    }
+
+    // --------------------------------------------------------------
+    // Single-factor dispatch picks deepest level (legacy trait method)
+    // --------------------------------------------------------------
+    #[test]
+    fn match_factor_returns_deepest_factor_id_for_legacy_callers() {
+        let matcher = matcher_with_one_issuer();
+        let dep = MarketDependency::CreditCurve {
+            id: CurveId::new("X"),
+        };
+        let attrs = Attributes::default().with_meta(ISSUER_ID_META_KEY, "ISSUER-A");
+
+        assert_eq!(
+            matcher.match_factor(&dep, &attrs),
+            Some(FactorId::new(
+                "credit::level2::Rating.Region.Sector::IG.EU.FIN"
+            ))
+        );
+    }
+
+    // --------------------------------------------------------------
+    // Non-credit dependency falls through to None
+    // --------------------------------------------------------------
+    #[test]
+    fn non_credit_dependency_falls_through() {
+        let matcher = matcher_with_one_issuer();
+        let dep = MarketDependency::Spot { id: "AAPL".into() };
+        let attrs = Attributes::default().with_meta(ISSUER_ID_META_KEY, "ISSUER-A");
+        let result = matcher.match_factor_with_betas(&dep, &attrs).unwrap();
+        assert!(result.is_none());
+        assert!(matcher.match_factor(&dep, &attrs).is_none());
+    }
+
+    // --------------------------------------------------------------
+    // Custom dimension keys read from `Custom(name)`
+    // --------------------------------------------------------------
+    #[test]
+    fn custom_hierarchy_dimension_uses_caller_supplied_key() {
+        let spec = CreditHierarchySpec {
+            levels: vec![
+                HierarchyDimension::Rating,
+                HierarchyDimension::Custom("Currency".into()),
+            ],
+        };
+        let mut tags = BTreeMap::new();
+        tags.insert("rating".to_owned(), "IG".to_owned());
+        tags.insert("Currency".to_owned(), "USD".to_owned());
+
+        let row = issuer_row("ISS-X", 1.0, vec![1.0, 1.0], tags);
+        let matcher = CreditHierarchicalMatcher::new(CreditHierarchicalConfig {
+            dependency_filter: DependencyFilter::default(),
+            hierarchy: spec,
+            issuer_betas: vec![row],
+        });
+
+        let dep = MarketDependency::CreditCurve {
+            id: CurveId::new("X"),
+        };
+        let attrs = Attributes::default().with_meta(ISSUER_ID_META_KEY, "ISS-X");
+
+        let entries = matcher
+            .match_factor_with_betas(&dep, &attrs)
+            .unwrap()
+            .unwrap();
+        assert_eq!(entries.len(), 3);
+        assert_eq!(
+            entries[2].factor_id,
+            FactorId::new("credit::level1::Rating.Currency::IG.USD")
+        );
+    }
+
+    // --------------------------------------------------------------
+    // enumerate_factor_ids covers every bucket present in calibrated rows
+    // --------------------------------------------------------------
+    #[test]
+    fn enumerate_factor_ids_returns_pc_and_all_buckets() {
+        let matcher = matcher_with_one_issuer();
+        let ids = matcher.config.enumerate_factor_ids();
+        assert!(ids.contains(&FactorId::new("credit::generic")));
+        assert!(ids.contains(&FactorId::new("credit::level0::Rating::IG")));
+        assert!(ids.contains(&FactorId::new("credit::level1::Rating.Region::IG.EU")));
+        assert!(ids.contains(&FactorId::new(
+            "credit::level2::Rating.Region.Sector::IG.EU.FIN"
+        )));
+    }
+
+    // --------------------------------------------------------------
+    // Issuer betas are looked up via binary search; sort order matters.
+    // --------------------------------------------------------------
+    #[test]
+    fn binary_search_finds_issuer_in_sorted_vec() {
+        let mut rows = Vec::new();
+        for tag in ["AAA", "BBB", "CCC", "DDD"] {
+            rows.push(issuer_row(
+                tag,
+                1.5,
+                vec![1.0, 1.0, 1.0],
+                three_level_tags(),
+            ));
+        }
+        let matcher = CreditHierarchicalMatcher::new(CreditHierarchicalConfig {
+            dependency_filter: DependencyFilter::default(),
+            hierarchy: three_level_spec(),
+            issuer_betas: rows,
+        });
+        let dep = MarketDependency::CreditCurve {
+            id: CurveId::new("X"),
+        };
+        let attrs = Attributes::default().with_meta(ISSUER_ID_META_KEY, "CCC");
+        let entries = matcher
+            .match_factor_with_betas(&dep, &attrs)
+            .unwrap()
+            .unwrap();
+        assert!((entries[0].beta - 1.5).abs() < 1e-12);
+    }
+
+    // --------------------------------------------------------------
+    // Serde round-trip on the config
+    // --------------------------------------------------------------
+    #[test]
+    fn credit_hierarchical_config_serde_roundtrip() {
+        let config = CreditHierarchicalConfig {
+            dependency_filter: DependencyFilter {
+                dependency_type: Some(DependencyType::Credit),
+                curve_type: None,
+                id: None,
+            },
+            hierarchy: three_level_spec(),
+            issuer_betas: vec![issuer_row(
+                "ISSUER-A",
+                0.9,
+                vec![0.85, 0.8, 0.75],
+                three_level_tags(),
+            )],
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let back: CreditHierarchicalConfig = serde_json::from_str(&json).unwrap();
+        let json2 = serde_json::to_string(&back).unwrap();
+        assert_eq!(json, json2);
+    }
+}
