@@ -259,11 +259,11 @@ fn parallel_credit_detail_plus_cross_effects_preserves_total() {
         + detail.levels.iter().map(|l| l.total.amount()).sum::<f64>()
         + detail.adder_pnl_total.amount();
 
-    // Compute the Credit×Hierarchy cross-effect captured for parallel.
+    // Compute the CreditCascadeResidual cross-effect captured for parallel.
     let credit_hier_cross = attribution
         .cross_factor_detail
         .as_ref()
-        .and_then(|d| d.by_pair.get("Credit×Hierarchy"))
+        .and_then(|d| d.by_pair.get("CreditCascadeResidual"))
         .map(|m| m.amount())
         .unwrap_or(0.0);
 

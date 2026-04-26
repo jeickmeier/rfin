@@ -241,7 +241,18 @@ pub fn attribute_pnl_parallel(
 /// P&L. Step P&Ls populate `credit_factor_detail`; the deviation between
 /// `Σ step_pnl` and `credit_curves_pnl` is the parallel method's intrinsic
 /// cross-effect for credit and is added into the existing `cross_factor_pnl`
-/// bucket under the pair label `"Credit×Hierarchy"`.
+/// bucket under the pair label `"CreditCascadeResidual"`.
+///
+/// See `credit_cascade::plan_credit_cascade` for the multi-curve issuer averaging caveat.
+///
+/// # Performance
+///
+/// When a `CreditFactorModel` is supplied with `L` hierarchy levels, the credit
+/// cascade performs `L + 2` additional repricings (PC, one per level, and
+/// Adder) compared to the single-step credit reprice without a model. For
+/// typical L = 1–3 and portfolios of thousands of instruments this is
+/// acceptable; consider `MetricsBased` or `Taylor` for cost-sensitive use cases
+/// (they remain linear, no reprice).
 #[allow(clippy::too_many_arguments)]
 #[tracing::instrument(
     skip_all,
@@ -656,7 +667,7 @@ pub fn attribute_pnl_parallel_with_credit_model(
             if gap.abs() > CROSS_FACTOR_TOLERANCE {
                 let pnl = Money::new(gap, val_t1.currency());
                 record_cross_pair(
-                    "Credit×Hierarchy",
+                    "CreditCascadeResidual",
                     pnl,
                     &mut cross_total,
                     &mut cross_by_pair,

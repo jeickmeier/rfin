@@ -85,6 +85,16 @@ pub(crate) struct CreditCascade {
 /// `credit::issuer_id` attribute, the issuer is not in the model's
 /// `issuer_betas`, the instrument has no hazard curve dependencies, or none of
 /// the hazard curves can be measured (missing curves on either side).
+///
+/// # Multi-curve averaging
+///
+/// When the instrument has multiple hazard curves for the same issuer, the
+/// cascade uses the simple average ΔS across curves (in bp). This is exact for
+/// single-curve issuers and an approximation otherwise; all curves are shifted
+/// by the same bp at each step. The Adder step's snap-to-T1 absorbs any
+/// residual curve-shape differences so reconciliation remains exact, but the
+/// split between level-k and Adder for multi-curve divergent moves is
+/// approximate.
 pub(crate) fn plan_credit_cascade(
     model: &CreditFactorModel,
     instrument: &Arc<dyn Instrument>,
