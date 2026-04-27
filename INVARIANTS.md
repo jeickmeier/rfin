@@ -207,17 +207,17 @@ finstack.credit_factor_model/1
 It is stored as `CreditFactorModel::SCHEMA_VERSION` in
 `finstack_core::factor_model::credit_hierarchy`. Rules:
 
-- Consumers **must** check `schema_version == CreditFactorModel::SCHEMA_VERSION`
+* Consumers **must** check `schema_version == CreditFactorModel::SCHEMA_VERSION`
   before trusting any other field; `CreditFactorModel::validate()` enforces
   this automatically.
-- The JSON schema file (`schemas/factor_model/1/credit_factor_model.schema.json`)
+* The JSON schema file (`schemas/factor_model/1/credit_factor_model.schema.json`)
   uses `"const": "finstack.credit_factor_model/1"` to enforce the version at
   schema-validation time.
-- **Additive-only additions** (new `#[serde(default)]` fields, new optional
+* **Additive-only additions** (new `#[serde(default)]` fields, new optional
   keys in `CalibrationDiagnostics`) do NOT require a version bump. The `v1`
   schema explicitly omits `additionalProperties: false` on extension points so
   that older readers can deserialize newer artifacts safely.
-- **Breaking changes** (field removal, type change, semantic change to
+* **Breaking changes** (field removal, type change, semantic change to
   required fields) require a new version string (e.g.
   `"finstack.credit_factor_model/2"`) and a corresponding schema file under
   `schemas/factor_model/2/`.
