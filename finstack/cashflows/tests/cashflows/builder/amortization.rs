@@ -606,6 +606,55 @@ mod computation {
         );
     }
 
+    #[test]
+    fn custom_principal_at_maturity_emits_requested_amortization_and_residual_notional() {
+        let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+        let init = Money::new(1_000_000.0, Currency::USD);
+        let custom_payment = Money::new(250_000.0, Currency::USD);
+
+        let mut builder = CashFlowSchedule::builder();
+        let _ = builder.principal(init, issue, maturity).amortization(
+            AmortizationSpec::CustomPrincipal {
+                items: vec![(maturity, custom_payment)],
+            },
+        );
+
+        let schedule = builder.build_with_curves(None).unwrap();
+
+        let amortization: Vec<_> = schedule
+            .flows
+            .iter()
+            .filter(|cf| cf.date == maturity && cf.kind == CFKind::Amortization)
+            .collect();
+        assert_eq!(
+            amortization.len(),
+            1,
+            "custom maturity payment should emit one amortization flow"
+        );
+        assert!(
+            (amortization[0].amount.amount() - custom_payment.amount()).abs() < 1e-9,
+            "custom maturity amortization should honor the configured amount"
+        );
+
+        let residual_notional: Vec<_> = schedule
+            .flows
+            .iter()
+            .filter(|cf| {
+                cf.date == maturity && cf.kind == CFKind::Notional && cf.amount.amount() > 0.0
+            })
+            .collect();
+        assert_eq!(
+            residual_notional.len(),
+            1,
+            "residual maturity balance should emit one positive notional flow"
+        );
+        assert!(
+            (residual_notional[0].amount.amount() - 750_000.0).abs() < 1e-9,
+            "residual maturity notional should redeem the remaining balance"
+        );
+    }
+
     /// Test step-remaining amortization produces correct outstanding path
     #[test]
     fn step_remaining_amortization_golden_values() {
