@@ -7,6 +7,7 @@ const COLLATERAL_SCHEDULES_PATH: &str =
 const DEFAULTS_PATH: &str = include_str!("../../data/margin/defaults.v1.json");
 const CCP_PATH: &str = include_str!("../../data/margin/ccp_methodologies.v1.json");
 const SIMM_PATH: &str = include_str!("../../data/margin/simm.v1.json");
+const XVA_DEFAULTS_PATH: &str = include_str!("../../data/margin/xva_defaults.v1.json");
 
 /// Load all embedded margin registry JSON blobs into a single root object.
 pub(crate) fn load_embedded_root() -> Result<Value> {
@@ -16,6 +17,7 @@ pub(crate) fn load_embedded_root() -> Result<Value> {
         "defaults": parse_json(DEFAULTS_PATH)?,
         "ccp": parse_json(CCP_PATH)?,
         "simm": parse_json(SIMM_PATH)?,
+        "xva_defaults": parse_json(XVA_DEFAULTS_PATH)?,
     }))
 }
 

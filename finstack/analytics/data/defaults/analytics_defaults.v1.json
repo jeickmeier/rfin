@@ -1,0 +1,57 @@
+{
+  "schema": "finstack.analytics.defaults.v1",
+  "version": 1,
+  "python_bindings": {
+    "mean_return": {
+      "annualize": false,
+      "ann_factor": 1.0
+    },
+    "volatility": {
+      "annualize": true,
+      "ann_factor": 252.0
+    },
+    "downside_deviation": {
+      "mar": 0.0,
+      "annualize": true,
+      "ann_factor": 252.0
+    },
+    "sortino": {
+      "annualize": true,
+      "ann_factor": 252.0,
+      "mar": 0.0
+    },
+    "modified_sharpe": {
+      "risk_free_rate": 0.0,
+      "confidence": 0.95,
+      "ann_factor": 252.0
+    },
+    "rolling": {
+      "window": 63,
+      "ann_factor": 252.0,
+      "risk_free_rate": 0.0
+    },
+    "tail_risk": {
+      "confidence": 0.95
+    },
+    "benchmark": {
+      "ann_factor": 252.0,
+      "rolling_window": 63,
+      "annualize": true
+    },
+    "ruin_model": {
+      "horizon_periods": 252,
+      "n_paths": 10000,
+      "block_size": 5,
+      "seed": 42,
+      "confidence_level": 0.95
+    },
+    "lookback": {
+      "default_fiscal_calendar": {
+        "id": "us_equity_calendar_year",
+        "calendar_id": "nyse",
+        "start_month": 1,
+        "start_day": 1
+      }
+    }
+  }
+}

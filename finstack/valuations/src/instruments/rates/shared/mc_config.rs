@@ -25,12 +25,15 @@ pub struct RateExoticMcConfig {
 
 impl Default for RateExoticMcConfig {
     fn default() -> Self {
+        let defaults = &finstack_monte_carlo::registry::embedded_defaults_or_panic()
+            .rust
+            .rate_exotics;
         Self {
-            num_paths: 20_000,
-            seed: 42,
-            antithetic: true,
-            min_steps_between_events: 4,
-            basis_degree: 2,
+            num_paths: defaults.num_paths,
+            seed: defaults.seed,
+            antithetic: defaults.antithetic,
+            min_steps_between_events: defaults.min_steps_between_events,
+            basis_degree: defaults.basis_degree,
         }
     }
 }

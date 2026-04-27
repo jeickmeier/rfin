@@ -357,8 +357,13 @@ where
     };
     use finstack_monte_carlo::pricer::lsmc::{LsmcConfig, LsmcPricer};
 
+    let defaults = finstack_monte_carlo::registry::embedded_defaults()
+        .map_err(|err| to_js_err(err.to_string()))?
+        .python_bindings
+        .lsmc
+        .clone();
     let ccy = resolve_currency(currency.as_deref())?;
-    let steps = num_steps.unwrap_or(50);
+    let steps = num_steps.unwrap_or(defaults.num_steps);
     let exercise_dates: Vec<usize> = (1..=steps).collect();
     let config = LsmcConfig::new(num_paths, exercise_dates, steps)
         .map_err(to_js_err)?
@@ -367,8 +372,11 @@ where
     let pricer = LsmcPricer::new(config);
     let process = GbmProcess::with_params(rate, div_yield, vol).map_err(to_js_err)?;
 
-    let degree = basis_degree.unwrap_or(3);
-    let basis_name = basis.as_deref().unwrap_or("laguerre").to_ascii_lowercase();
+    let degree = basis_degree.unwrap_or(defaults.basis_degree);
+    let basis_name = basis
+        .as_deref()
+        .unwrap_or(defaults.basis.as_str())
+        .to_ascii_lowercase();
     let basis: Box<dyn BasisFunctions> = match basis_name.as_str() {
         "laguerre" => Box::new(LaguerreBasis::try_new(degree, strike).map_err(to_js_err)?),
         "polynomial" | "poly" => Box::new(PolynomialBasis::try_new(degree).map_err(to_js_err)?),

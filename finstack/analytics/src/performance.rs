@@ -3,7 +3,7 @@
 //! Mirrors the Python `Performance` class 1:1 (minus plotting), operating on
 //! internal slices and returning numeric results.
 
-use crate::dates::{Date, FiscalConfig, PeriodKind};
+use crate::dates::{Date, FiscalConfig, HolidayCalendar, PeriodKind};
 
 use super::aggregation::{group_by_period, period_stats_from_grouped, PeriodStats};
 use super::benchmark::{
@@ -17,7 +17,7 @@ use super::drawdown::{
     max_drawdown_duration as dd_max_duration, pain_index, pain_ratio, recovery_factor,
     sterling_ratio, to_drawdown_series, ulcer_index, DrawdownEpisode,
 };
-use super::lookback;
+use super::lookback::{self, LookbackDateAlignment};
 use super::returns::{clean_returns, comp_sum, comp_total, excess_returns, simple_returns};
 use super::risk_metrics::{
     self, rolling_sharpe, rolling_sortino, rolling_volatility, RollingSharpe, RollingSortino,
@@ -1181,6 +1181,50 @@ impl Performance {
             ytd: compute(&ytd),
             fytd: fytd.map(|r| compute(&r)),
         }
+    }
+
+    /// Compounded lookback returns with calendar-aware FYTD start alignment.
+    ///
+    /// The FYTD start is aligned as a return series: the fiscal start date
+    /// itself when it is a business day, otherwise the next business day.
+    ///
+    /// # Errors
+    /// Returns an error if the fiscal start cannot be adjusted on the supplied
+    /// calendar.
+    pub fn lookback_returns_with_calendar(
+        &self,
+        ref_date: Date,
+        fiscal_config: FiscalConfig,
+        calendar: &dyn HolidayCalendar,
+    ) -> crate::Result<LookbackReturns> {
+        let dates = self.active_dates();
+        let mtd = lookback::mtd_select(dates, ref_date, 0);
+        let qtd = lookback::qtd_select(dates, ref_date, 0);
+        let ytd = lookback::ytd_select(dates, ref_date, 0);
+        let fytd = lookback::fytd_select_aligned(
+            dates,
+            ref_date,
+            fiscal_config,
+            calendar,
+            LookbackDateAlignment::ReturnSeries,
+            0,
+        )?;
+
+        let compute = |range: &core::ops::Range<usize>| -> Vec<f64> {
+            self.map_tickers(|i| {
+                let r = self.active_returns(i);
+                let start = range.start.min(r.len());
+                let end = range.end.min(r.len()).max(start);
+                comp_total(&r[start..end])
+            })
+        };
+
+        Ok(LookbackReturns {
+            mtd: compute(&mtd),
+            qtd: compute(&qtd),
+            ytd: compute(&ytd),
+            fytd: Some(compute(&fytd)),
+        })
     }
 
     // ── Aggregation ──

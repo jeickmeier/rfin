@@ -311,20 +311,22 @@ impl PyHazardCurve {
     /// knots : list[tuple[float, float]]
     ///     ``(time_years, hazard_rate)`` pairs.
     /// recovery_rate : float, optional
-    ///     Recovery rate (default ``0.4``).
+    ///     Recovery rate. Defaults to the credit assumptions registry value.
     /// day_count : str, optional
     ///     Day-count convention (default ``"act_365f"``).
     #[new]
-    #[pyo3(signature = (id, base_date, knots, recovery_rate=0.4, day_count="act_365f"))]
+    #[pyo3(signature = (id, base_date, knots, recovery_rate=None, day_count="act_365f"))]
     fn new(
         id: &str,
         base_date: &Bound<'_, PyAny>,
         knots: Vec<(f64, f64)>,
-        recovery_rate: f64,
+        recovery_rate: Option<f64>,
         day_count: &str,
     ) -> PyResult<Self> {
         let base = py_to_date(base_date)?;
         let dc = parse_day_count(day_count)?;
+        let recovery_rate = recovery_rate
+            .unwrap_or_else(finstack_core::credit::registry::default_market_recovery_rate_or_panic);
 
         let curve = HazardCurve::builder(id)
             .base_date(base)

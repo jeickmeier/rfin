@@ -214,7 +214,10 @@ impl HazardCurveTarget {
             } => (*running_spread_bp, *recovery_rate),
         };
 
-        let loss_given_default = (1.0 - recovery).max(1e-6);
+        let min_lgd = crate::calibration::defaults::embedded_defaults_or_panic()
+            .validation
+            .minimum_lgd_for_hazard_guess;
+        let loss_given_default = (1.0 - recovery).max(min_lgd);
         let guess = (spread_bp / 10_000.0) / loss_given_default;
         let hazard_min = self.config.hazard_curve.hazard_hard_min;
         let hazard_max = self.config.hazard_curve.hazard_hard_max;

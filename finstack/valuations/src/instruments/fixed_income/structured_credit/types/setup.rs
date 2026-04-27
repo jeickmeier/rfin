@@ -3,13 +3,15 @@
 //! This module contains deal-level configuration types including dates,
 //! fees, coverage tests, and default assumptions.
 
-use super::constants::*;
 use super::enums::DealType;
+use crate::instruments::fixed_income::structured_credit::assumptions::{
+    embedded_registry, StructuredCreditAssumptionRegistry,
+};
 use crate::instruments::rates::irs::InterestRateSwap;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::CreditRating;
-use finstack_core::HashMap;
+use finstack_core::{HashMap, Result};
 
 use serde::{Deserialize, Serialize};
 
@@ -96,50 +98,34 @@ pub struct DealFees {
 impl DealFees {
     /// Create CLO-style fee structure
     pub fn clo_standard(base_currency: finstack_core::currency::Currency) -> Self {
-        Self {
-            trustee_fee_annual: Money::new(CLO_TRUSTEE_FEE_ANNUAL, base_currency),
-            senior_mgmt_fee_bps: CLO_SENIOR_MGMT_FEE_BPS,
-            subordinated_mgmt_fee_bps: CLO_SUBORDINATED_MGMT_FEE_BPS,
-            servicing_fee_bps: 0.0,
-            master_servicer_fee_bps: None,
-            special_servicer_fee_bps: None,
-        }
+        required_assumption(
+            assumptions_registry().deal_fees("clo_standard", base_currency),
+            "standard CLO fees",
+        )
     }
 
     /// Create ABS-style fee structure
     pub fn abs_standard(base_currency: finstack_core::currency::Currency) -> Self {
-        Self {
-            trustee_fee_annual: Money::new(ABS_TRUSTEE_FEE_ANNUAL, base_currency),
-            senior_mgmt_fee_bps: 0.0,
-            subordinated_mgmt_fee_bps: 0.0,
-            servicing_fee_bps: ABS_SERVICING_FEE_BPS,
-            master_servicer_fee_bps: None,
-            special_servicer_fee_bps: None,
-        }
+        required_assumption(
+            assumptions_registry().deal_fees("abs_auto_standard", base_currency),
+            "standard ABS fees",
+        )
     }
 
     /// Create CMBS-style fee structure
     pub fn cmbs_standard(base_currency: finstack_core::currency::Currency) -> Self {
-        Self {
-            trustee_fee_annual: Money::new(CMBS_TRUSTEE_FEE_ANNUAL, base_currency),
-            senior_mgmt_fee_bps: 0.0,
-            subordinated_mgmt_fee_bps: 0.0,
-            servicing_fee_bps: 0.0,
-            master_servicer_fee_bps: Some(CMBS_MASTER_SERVICER_FEE_BPS),
-            special_servicer_fee_bps: Some(CMBS_SPECIAL_SERVICER_FEE_BPS),
-        }
+        required_assumption(
+            assumptions_registry().deal_fees("cmbs_standard", base_currency),
+            "standard CMBS fees",
+        )
     }
 
     /// Create RMBS-style fee structure
     pub fn rmbs_standard(base_currency: finstack_core::currency::Currency) -> Self {
-        Self {
-            trustee_fee_annual: Money::new(RMBS_TRUSTEE_FEE_ANNUAL, base_currency),
-            senior_mgmt_fee_bps: 0.0,
-            subordinated_mgmt_fee_bps: 0.0,
-            servicing_fee_bps: RMBS_SERVICING_FEE_BPS,
-            master_servicer_fee_bps: None,
-            special_servicer_fee_bps: None,
-        }
+        required_assumption(
+            assumptions_registry().deal_fees("rmbs_standard", base_currency),
+            "standard RMBS fees",
+        )
     }
 }
 
@@ -169,19 +155,7 @@ impl CoverageTestConfig {
 
     /// Standard CLO haircuts (conservative)
     pub fn default_haircuts() -> HashMap<CreditRating, f64> {
-        let mut haircuts = HashMap::default();
-        haircuts.insert(CreditRating::AAA, 0.0);
-        haircuts.insert(CreditRating::AA, 0.0);
-        haircuts.insert(CreditRating::A, 0.01); // 1%
-        haircuts.insert(CreditRating::BBB, 0.02); // 2%
-        haircuts.insert(CreditRating::BB, 0.05); // 5%
-        haircuts.insert(CreditRating::B, 0.10); // 10%
-        haircuts.insert(CreditRating::CCC, 0.20); // 20%
-        haircuts.insert(CreditRating::CC, 0.30); // 30%
-        haircuts.insert(CreditRating::C, 0.40); // 40%
-        haircuts.insert(CreditRating::D, 0.50); // 50%
-        haircuts.insert(CreditRating::NR, 0.15); // 15%
-        haircuts
+        assumptions_registry().coverage_haircuts()
     }
 
     /// Add OC test for a tranche
@@ -256,118 +230,40 @@ pub struct DefaultAssumptions {
 impl DefaultAssumptions {
     /// CLO default assumptions
     pub fn clo_standard() -> Self {
-        Self {
-            base_cdr_annual: CLO_STANDARD_CDR,
-            base_recovery_rate: CLO_STANDARD_RECOVERY,
-            base_cpr_annual: CLO_STANDARD_CPR,
-            psa_speed: None,
-            sda_speed: None,
-            abs_speed_monthly: None,
-            cpr_by_asset_type: HashMap::default(),
-            cdr_by_asset_type: HashMap::default(),
-            recovery_by_asset_type: HashMap::default(),
-        }
+        required_assumption(
+            assumptions_registry().default_assumptions("clo_standard"),
+            "standard CLO default assumptions",
+        )
     }
 
     /// RMBS default assumptions
     pub fn rmbs_standard() -> Self {
-        Self {
-            base_cdr_annual: RMBS_STANDARD_CDR,
-            base_recovery_rate: RMBS_STANDARD_RECOVERY,
-            base_cpr_annual: RMBS_STANDARD_CPR,
-            psa_speed: Some(RMBS_STANDARD_PSA),
-            sda_speed: Some(RMBS_STANDARD_SDA),
-            abs_speed_monthly: None,
-            cpr_by_asset_type: HashMap::default(),
-            cdr_by_asset_type: HashMap::default(),
-            recovery_by_asset_type: HashMap::default(),
-        }
+        required_assumption(
+            assumptions_registry().default_assumptions("rmbs_standard"),
+            "standard RMBS default assumptions",
+        )
     }
 
     /// Auto ABS default assumptions
     pub fn abs_auto_standard() -> Self {
-        Self {
-            base_cdr_annual: ABS_AUTO_STANDARD_CDR,
-            base_recovery_rate: ABS_AUTO_STANDARD_RECOVERY,
-            base_cpr_annual: 0.0, // Not used for auto
-            psa_speed: None,
-            sda_speed: None,
-            abs_speed_monthly: Some(ABS_AUTO_STANDARD_SPEED),
-            cpr_by_asset_type: HashMap::default(),
-            cdr_by_asset_type: HashMap::default(),
-            recovery_by_asset_type: HashMap::default(),
-        }
+        required_assumption(
+            assumptions_registry().default_assumptions("abs_auto_standard"),
+            "standard Auto ABS default assumptions",
+        )
     }
 
     /// CMBS default assumptions
     pub fn cmbs_standard() -> Self {
-        Self {
-            base_cdr_annual: CMBS_STANDARD_CDR,
-            base_recovery_rate: CMBS_STANDARD_RECOVERY,
-            base_cpr_annual: CMBS_STANDARD_CPR,
-            psa_speed: None,
-            sda_speed: None,
-            abs_speed_monthly: None,
-            cpr_by_asset_type: HashMap::default(),
-            cdr_by_asset_type: HashMap::default(),
-            recovery_by_asset_type: HashMap::default(),
-        }
+        required_assumption(
+            assumptions_registry().default_assumptions("cmbs_standard"),
+            "standard CMBS default assumptions",
+        )
     }
 }
 
 impl Default for DefaultAssumptions {
     fn default() -> Self {
-        let mut cpr_by_asset_type = HashMap::default();
-        cpr_by_asset_type.insert("mortgage".to_string(), 0.06); // 100% PSA
-        cpr_by_asset_type.insert("rmbs".to_string(), 0.06);
-        cpr_by_asset_type.insert("auto".to_string(), 0.18);
-        cpr_by_asset_type.insert("abs_auto".to_string(), 0.18);
-        cpr_by_asset_type.insert("card".to_string(), 0.15);
-        cpr_by_asset_type.insert("credit_card".to_string(), 0.15);
-        cpr_by_asset_type.insert("cc".to_string(), 0.15);
-        cpr_by_asset_type.insert("commercial".to_string(), 0.10);
-        cpr_by_asset_type.insert("cmbs".to_string(), 0.10);
-        cpr_by_asset_type.insert("cre".to_string(), 0.10);
-        cpr_by_asset_type.insert("student".to_string(), 0.03);
-        cpr_by_asset_type.insert("student_loan".to_string(), 0.03);
-
-        let mut cdr_by_asset_type = HashMap::default();
-        cdr_by_asset_type.insert("mortgage".to_string(), 0.002);
-        cdr_by_asset_type.insert("rmbs".to_string(), 0.002);
-        cdr_by_asset_type.insert("auto".to_string(), 0.02);
-        cdr_by_asset_type.insert("abs_auto".to_string(), 0.02);
-        cdr_by_asset_type.insert("consumer".to_string(), 0.02);
-        cdr_by_asset_type.insert("card".to_string(), 0.048); // 0.4% monthly MDR to annual CDR
-        cdr_by_asset_type.insert("credit_card".to_string(), 0.048);
-        cdr_by_asset_type.insert("corporate".to_string(), 0.02);
-        cdr_by_asset_type.insert("clo".to_string(), 0.02);
-        cdr_by_asset_type.insert("commercial".to_string(), 0.02);
-
-        let mut recovery_by_asset_type = HashMap::default();
-        recovery_by_asset_type.insert("mortgage".to_string(), 0.60);
-        recovery_by_asset_type.insert("rmbs".to_string(), 0.60);
-        recovery_by_asset_type.insert("collateral".to_string(), 0.60);
-        recovery_by_asset_type.insert("auto".to_string(), 0.45);
-        recovery_by_asset_type.insert("abs_auto".to_string(), 0.45);
-        recovery_by_asset_type.insert("consumer".to_string(), 0.45);
-        recovery_by_asset_type.insert("card".to_string(), 0.05);
-        recovery_by_asset_type.insert("credit_card".to_string(), 0.05);
-        recovery_by_asset_type.insert("unsecured".to_string(), 0.05);
-        recovery_by_asset_type.insert("corporate".to_string(), CLO_STANDARD_RECOVERY);
-        recovery_by_asset_type.insert("clo".to_string(), CLO_STANDARD_RECOVERY);
-        recovery_by_asset_type.insert("commercial".to_string(), CLO_STANDARD_RECOVERY);
-
-        Self {
-            base_cdr_annual: CLO_STANDARD_CDR,
-            base_recovery_rate: CLO_STANDARD_RECOVERY,
-            base_cpr_annual: 0.05,
-            psa_speed: None,
-            sda_speed: None,
-            abs_speed_monthly: None,
-            cpr_by_asset_type,
-            cdr_by_asset_type,
-            recovery_by_asset_type,
-        }
+        assumptions_registry().generic_default_assumptions()
     }
 }
 
@@ -378,28 +274,15 @@ impl DealConfig {
         dates: DealDates,
         base_currency: finstack_core::currency::Currency,
     ) -> Self {
-        let (fees, default_assumptions) = match deal_type {
-            DealType::CLO => (
-                DealFees::clo_standard(base_currency),
-                DefaultAssumptions::clo_standard(),
-            ),
-            DealType::RMBS => (
-                DealFees::rmbs_standard(base_currency),
-                DefaultAssumptions::rmbs_standard(),
-            ),
-            DealType::ABS | DealType::Auto => (
-                DealFees::abs_standard(base_currency),
-                DefaultAssumptions::abs_auto_standard(),
-            ),
-            DealType::CMBS => (
-                DealFees::cmbs_standard(base_currency),
-                DefaultAssumptions::cmbs_standard(),
-            ),
-            _ => (
-                DealFees::abs_standard(base_currency),
-                DefaultAssumptions::abs_auto_standard(),
-            ),
-        };
+        let profile_id = assumptions_registry().profile_id_for_deal_type(deal_type);
+        let fees = required_assumption(
+            assumptions_registry().deal_fees(profile_id, base_currency),
+            "standard deal fees",
+        );
+        let default_assumptions = required_assumption(
+            assumptions_registry().default_assumptions(profile_id),
+            "standard deal default assumptions",
+        );
 
         Self {
             dates,
@@ -454,6 +337,16 @@ impl DealConfig {
         self.hedge_swaps.extend(swaps);
         self
     }
+}
+
+#[allow(clippy::expect_used)]
+fn assumptions_registry() -> &'static StructuredCreditAssumptionRegistry {
+    embedded_registry().expect("embedded structured-credit assumptions registry should load")
+}
+
+#[allow(clippy::expect_used)]
+fn required_assumption<T>(result: Result<T>, _label: &str) -> T {
+    result.expect("embedded structured-credit assumptions registry value should exist")
 }
 
 #[cfg(test)]

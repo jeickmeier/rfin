@@ -40,6 +40,7 @@ pub mod config {
 }
 
 // New module structure
+pub(crate) mod assumptions;
 pub(crate) mod metrics;
 pub(crate) mod pricer;
 pub(crate) mod pricing;
@@ -240,16 +241,21 @@ pub use metrics::{
 // ============================================================================
 
 pub use types::constants::{
-    ABS_SERVICING_FEE_BPS, AVERAGE_DAYS_PER_YEAR, BASELINE_UNEMPLOYMENT_RATE, BASIS_POINTS_DIVISOR,
-    CLO_SENIOR_MGMT_FEE_BPS, CLO_SUBORDINATED_MGMT_FEE_BPS, CLO_TRUSTEE_FEE_ANNUAL,
-    CMBS_MASTER_SERVICER_FEE_BPS, CMBS_SPECIAL_SERVICER_FEE_BPS, CREDIT_CARD_SEASONALITY,
-    DEFAULT_AUTO_ABS_SPEED, DEFAULT_AUTO_RAMP_MONTHS, DEFAULT_BURNOUT_THRESHOLD_MONTHS,
-    DEFAULT_MAX_COV_LITE, DEFAULT_MAX_DIP, DEFAULT_MAX_OBLIGOR_CONCENTRATION,
-    DEFAULT_MAX_SECOND_LIEN, DEFAULT_MAX_TOP10_CONCENTRATION, DEFAULT_MAX_TOP5_CONCENTRATION,
-    DEFAULT_RESOLUTION_LAG_MONTHS, MIN_PREPAYMENT_RATE, MONTHS_PER_YEAR, MORTGAGE_SEASONALITY,
-    PERCENTAGE_MULTIPLIER, POOL_BALANCE_CLEANUP_THRESHOLD, PSA_RAMP_MONTHS, PSA_TERMINAL_CPR,
-    QUARTERLY_PERIODS_PER_YEAR, RMBS_SERVICING_FEE_BPS, SDA_PEAK_CDR, SDA_PEAK_MONTH,
-    SDA_TERMINAL_CDR, STANDARD_CDR_RATES, STANDARD_PSA_SPEEDS, STANDARD_SEVERITY_RATES,
+    abs_auto_standard_cdr, abs_auto_standard_recovery, abs_auto_standard_speed,
+    abs_servicing_fee_bps, abs_trustee_fee_annual, baseline_unemployment_rate,
+    clo_senior_mgmt_fee_bps, clo_standard_cdr, clo_standard_cpr, clo_standard_recovery,
+    clo_subordinated_mgmt_fee_bps, clo_trustee_fee_annual, cmbs_master_servicer_fee_bps,
+    cmbs_special_servicer_fee_bps, cmbs_standard_cdr, cmbs_standard_cpr, cmbs_standard_recovery,
+    cmbs_trustee_fee_annual, credit_card_seasonality, default_auto_abs_speed,
+    default_auto_ramp_months, default_burnout_threshold_months, default_max_cov_lite,
+    default_max_dip, default_max_obligor_concentration, default_max_second_lien,
+    default_max_top10_concentration, default_max_top5_concentration, default_resolution_lag_months,
+    mortgage_seasonality, pool_balance_cleanup_threshold, psa_ramp_months, psa_terminal_cpr,
+    rmbs_servicing_fee_bps, rmbs_standard_cdr, rmbs_standard_cpr, rmbs_standard_psa,
+    rmbs_standard_recovery, rmbs_standard_sda, rmbs_trustee_fee_annual, sda_peak_cdr,
+    sda_peak_month, sda_terminal_cdr, standard_cdr_rates, standard_psa_speeds,
+    standard_severity_rates, AVERAGE_DAYS_PER_YEAR, BASIS_POINTS_DIVISOR, MIN_PREPAYMENT_RATE,
+    MONTHS_PER_YEAR, PERCENTAGE_MULTIPLIER, QUARTERLY_PERIODS_PER_YEAR,
 };
 
 // Re-export waterfall coverage trigger with clear name

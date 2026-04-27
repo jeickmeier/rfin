@@ -43,6 +43,7 @@ listed below) and **deep-dive sub-directories** (jump to as needed).
 | Dates, Calendars, Schedules | DayCount, Tenor, PeriodId, HolidayCalendar, ScheduleBuilder |
 | Market Data and Curves | DiscountCurve, ForwardCurve, HazardCurve, FxMatrix, MarketContext |
 | Math Toolkit | Linear algebra, statistics, special functions, compensated summation |
+| Registry Defaults and Overrides | FinstackConfig extensions, registry override payloads, JSON round-tripping |
 
 Deep dives: `market_data/` (9 notebooks, including dynamic term structure), `dates/` (3 notebooks)
 

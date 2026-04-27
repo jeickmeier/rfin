@@ -35,8 +35,8 @@
 //!
 //! PSA speeds are multiples of this curve (e.g., 150% PSA = 1.5x the standard curve).
 
-use crate::instruments::fixed_income::structured_credit::types::constants::{
-    PSA_RAMP_MONTHS, PSA_TERMINAL_CPR,
+use crate::instruments::fixed_income::structured_credit::assumptions::{
+    embedded_registry, StructuredCreditAssumptionRegistry,
 };
 
 /// Converts annual CPR to monthly SMM.
@@ -180,13 +180,19 @@ pub fn psa_to_cpr(psa_speed: f64, month: u32) -> f64 {
         return 0.0;
     }
 
-    let base_cpr = if month <= PSA_RAMP_MONTHS {
-        (month as f64 / PSA_RAMP_MONTHS as f64) * PSA_TERMINAL_CPR
+    let psa_curve = structured_credit_assumptions_registry().psa_curve();
+    let base_cpr = if month <= psa_curve.ramp_months {
+        (month as f64 / psa_curve.ramp_months as f64) * psa_curve.terminal_cpr
     } else {
-        PSA_TERMINAL_CPR
+        psa_curve.terminal_cpr
     };
 
     (psa_speed * base_cpr).min(1.0)
+}
+
+#[allow(clippy::expect_used)]
+fn structured_credit_assumptions_registry() -> &'static StructuredCreditAssumptionRegistry {
+    embedded_registry().expect("embedded structured-credit assumptions registry should load")
 }
 
 /// Calculate periods per year from a payment frequency.

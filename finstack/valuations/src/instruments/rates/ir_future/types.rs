@@ -142,16 +142,25 @@ pub struct FutureContractSpecs {
 
 impl Default for FutureContractSpecs {
     fn default() -> Self {
-        Self {
-            face_value: 1_000_000.0,
-            tick_size: 0.0025, // 0.25 bp (in price points)
-            // Default tick value for a 3M contract on a $1MM face: $6.25 per tick
-            // (Face × 0.25y × 1bp × 0.25bp-per-tick / 1bp = $6.25). For
-            // other accrual lengths, prefer `InterestRateFuture::derived_tick_value`.
-            tick_value: 6.25,
-            delivery_months: 3,
-            convexity_adjustment: None,
-        }
+        default_ir_future_contract_specs_or_panic()
+    }
+}
+
+#[allow(clippy::expect_used)]
+fn default_ir_future_contract_specs_or_panic() -> FutureContractSpecs {
+    let conventions = crate::market::conventions::ConventionRegistry::try_global()
+        .and_then(|registry| {
+            registry.require_ir_future(&crate::market::conventions::ids::IrFutureContractId::new(
+                "CME:SR3",
+            ))
+        })
+        .expect("embedded IR future conventions registry should contain CME:SR3");
+    FutureContractSpecs {
+        face_value: conventions.face_value,
+        tick_size: conventions.tick_size,
+        tick_value: conventions.tick_value,
+        delivery_months: conventions.delivery_months,
+        convexity_adjustment: conventions.convexity_adjustment,
     }
 }
 

@@ -22,7 +22,7 @@
 
 #![allow(dead_code)]
 
-use super::super::calibrations::{CLO_STANDARD, RMBS_STANDARD};
+use super::super::calibrations::{clo_standard, rmbs_standard};
 use super::traits::{MacroCreditFactors, StochasticDefault};
 use crate::instruments::common_impl::models::correlation::copula::{Copula, CopulaSpec};
 use crate::instruments::fixed_income::structured_credit::utils::rates::cdr_to_mdr;
@@ -208,23 +208,25 @@ impl CopulaBasedDefault {
 
     /// Standard RMBS calibration.
     ///
-    /// Uses shared calibration constants from `RMBS_STANDARD`:
+    /// Uses the registry-backed `rmbs_standard` calibration profile:
     /// - Base CDR: 2%
     /// - Correlation: 5% (low for diversified pools)
     /// - SDA seasoning curve (100%)
     pub(crate) fn rmbs_standard() -> Self {
-        Self::gaussian(RMBS_STANDARD.base_cdr, RMBS_STANDARD.default_correlation)
+        let calibration = rmbs_standard();
+        Self::gaussian(calibration.base_cdr, calibration.default_correlation)
             .with_seasoning_curve(SeasoningCurve::sda(1.0))
     }
 
     /// Standard CLO calibration.
     ///
-    /// Uses shared calibration constants from `CLO_STANDARD`:
+    /// Uses the registry-backed `clo_standard` calibration profile:
     /// - Base CDR: 3%
     /// - Correlation: 20% (higher for corporate loans)
     /// - No seasoning curve (flat CDR)
     pub(crate) fn clo_standard() -> Self {
-        Self::gaussian(CLO_STANDARD.base_cdr, CLO_STANDARD.default_correlation)
+        let calibration = clo_standard();
+        Self::gaussian(calibration.base_cdr, calibration.default_correlation)
     }
 
     /// Add a seasoning curve to the model.

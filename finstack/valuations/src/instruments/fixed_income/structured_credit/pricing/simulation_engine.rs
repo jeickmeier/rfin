@@ -6,7 +6,9 @@
 //! assumptions for each legal payment period.
 
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::fixed_income::structured_credit::types::constants::POOL_BALANCE_CLEANUP_THRESHOLD;
+use crate::instruments::fixed_income::structured_credit::assumptions::{
+    embedded_registry, StructuredCreditAssumptionRegistry,
+};
 use crate::instruments::fixed_income::structured_credit::types::{
     Pool, PoolState, RecipientType, StructuredCredit, TrancheCashflows, TrancheSeniority,
     TrancheStructure, Waterfall,
@@ -504,7 +506,8 @@ impl<'a> SimulationState<'a> {
     }
 
     fn is_pool_exhausted(&self) -> bool {
-        self.pool_outstanding.amount() <= POOL_BALANCE_CLEANUP_THRESHOLD
+        self.pool_outstanding.amount()
+            <= structured_credit_assumptions_registry().pool_balance_cleanup_threshold()
     }
 
     fn finalize(mut self) -> HashMap<String, TrancheCashflows> {
@@ -564,6 +567,11 @@ impl<'a> SimulationState<'a> {
 
         self.results
     }
+}
+
+#[allow(clippy::expect_used)]
+fn structured_credit_assumptions_registry() -> &'static StructuredCreditAssumptionRegistry {
+    embedded_registry().expect("embedded structured-credit assumptions registry should load")
 }
 
 // ============================================================================

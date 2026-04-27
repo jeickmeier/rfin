@@ -610,21 +610,24 @@ pub struct PyRuinModel {
 impl PyRuinModel {
     /// Create a ruin simulation model.
     #[new]
-    #[pyo3(signature = (horizon_periods=252, n_paths=10_000, block_size=5, seed=42, confidence_level=0.95))]
+    #[pyo3(signature = (horizon_periods=None, n_paths=None, block_size=None, seed=None, confidence_level=None))]
     fn new(
-        horizon_periods: usize,
-        n_paths: usize,
-        block_size: usize,
-        seed: u64,
-        confidence_level: f64,
+        horizon_periods: Option<usize>,
+        n_paths: Option<usize>,
+        block_size: Option<usize>,
+        seed: Option<u64>,
+        confidence_level: Option<f64>,
     ) -> Self {
+        let defaults = &fa::registry::embedded_defaults_or_panic()
+            .python_bindings
+            .ruin_model;
         Self {
             inner: fa::risk_metrics::RuinModel {
-                horizon_periods,
-                n_paths,
-                block_size,
-                seed,
-                confidence_level,
+                horizon_periods: horizon_periods.unwrap_or(defaults.horizon_periods),
+                n_paths: n_paths.unwrap_or(defaults.n_paths),
+                block_size: block_size.unwrap_or(defaults.block_size),
+                seed: seed.unwrap_or(defaults.seed),
+                confidence_level: confidence_level.unwrap_or(defaults.confidence_level),
             },
         }
     }

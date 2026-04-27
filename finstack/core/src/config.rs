@@ -163,10 +163,22 @@ impl ConfigExtensions {
         self.inner.get(key)
     }
 
+    /// Iterate over configured extension keys.
+    #[inline]
+    pub fn keys(&self) -> impl Iterator<Item = &str> {
+        self.inner.keys().map(String::as_str)
+    }
+
     /// Insert or replace a section by key.
     #[inline]
     pub fn insert(&mut self, key: impl Into<String>, value: JsonValue) -> Option<JsonValue> {
         self.inner.insert(key.into(), value)
+    }
+
+    /// Remove a section by key.
+    #[inline]
+    pub fn remove(&mut self, key: &str) -> Option<JsonValue> {
+        self.inner.remove(key)
     }
 }
 

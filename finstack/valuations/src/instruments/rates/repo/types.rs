@@ -1,6 +1,7 @@
 //! Core types for Repurchase Agreement (Repo) instruments.
 
 use crate::cashflow::traits::CashflowProvider;
+use crate::contract_specs::embedded_registry;
 use crate::instruments::common_impl::traits::{Attributes, Instrument};
 use finstack_core::dates::{adjust, BusinessDayConvention, Date, DateExt, DayCount};
 use finstack_core::market_data::context::MarketContext;
@@ -12,6 +13,8 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 use crate::impl_instrument_base;
+
+const DEFAULT_REPO_SPECS_ID: &str = "repo.usd_general_collateral";
 
 /// Type of repurchase agreement.
 #[derive(
@@ -288,6 +291,7 @@ impl Repo {
     ) -> Result<Self> {
         use finstack_core::dates::calendar::calendar_by_id;
 
+        let defaults = embedded_registry()?.repo_defaults(DEFAULT_REPO_SPECS_ID)?;
         let cal_id = calendar_id.into();
         let calendar = calendar_by_id(&cal_id).ok_or_else(|| {
             Error::Input(finstack_core::InputError::NotFound {
@@ -310,11 +314,11 @@ impl Repo {
             .repo_rate(repo_rate)
             .start_date(adj_start)
             .maturity(maturity)
-            .haircut(0.02)
+            .haircut(defaults.haircut)
             .repo_type(RepoType::Overnight)
-            .triparty(false)
-            .day_count(DayCount::Act360)
-            .bdc(BusinessDayConvention::Following)
+            .triparty(defaults.triparty)
+            .day_count(defaults.day_count)
+            .bdc(defaults.business_day_convention)
             .calendar_id_opt(Some(cal_id.into()))
             .discount_curve_id(discount_curve_id.into())
             .margin_spec_opt(None)
@@ -332,6 +336,7 @@ impl Repo {
         maturity: Date,
         discount_curve_id: impl Into<CurveId>,
     ) -> Result<Self> {
+        let defaults = embedded_registry()?.repo_defaults(DEFAULT_REPO_SPECS_ID)?;
         let repo_rate = Decimal::try_from(repo_rate)
             .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
 
@@ -342,12 +347,12 @@ impl Repo {
             .repo_rate(repo_rate)
             .start_date(start_date)
             .maturity(maturity)
-            .haircut(0.02)
+            .haircut(defaults.haircut)
             .repo_type(RepoType::Term)
-            .triparty(false)
-            .day_count(DayCount::Act360)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("usny".into()))
+            .triparty(defaults.triparty)
+            .day_count(defaults.day_count)
+            .bdc(defaults.business_day_convention)
+            .calendar_id_opt(Some(defaults.calendar_id.into()))
             .discount_curve_id(discount_curve_id.into())
             .margin_spec_opt(None)
             .attributes(Attributes::default())
@@ -364,6 +369,7 @@ impl Repo {
         initial_maturity: Date,
         discount_curve_id: impl Into<CurveId>,
     ) -> Result<Self> {
+        let defaults = embedded_registry()?.repo_defaults(DEFAULT_REPO_SPECS_ID)?;
         let repo_rate = Decimal::try_from(repo_rate)
             .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
 
@@ -374,12 +380,12 @@ impl Repo {
             .repo_rate(repo_rate)
             .start_date(start_date)
             .maturity(initial_maturity)
-            .haircut(0.02)
+            .haircut(defaults.haircut)
             .repo_type(RepoType::Open)
-            .triparty(false)
-            .day_count(DayCount::Act360)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("usny".into()))
+            .triparty(defaults.triparty)
+            .day_count(defaults.day_count)
+            .bdc(defaults.business_day_convention)
+            .calendar_id_opt(Some(defaults.calendar_id.into()))
             .discount_curve_id(discount_curve_id.into())
             .margin_spec_opt(None)
             .attributes(Attributes::default())

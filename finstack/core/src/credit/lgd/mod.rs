@@ -40,6 +40,20 @@ pub fn seniority_recovery_stats(
         .ok_or_else(|| crate::Error::Validation("seniority not in calibration".into()))
 }
 
+/// Return recovery distribution parameters from the registry default seniority calibration.
+///
+/// # Errors
+/// Returns an error if the seniority class is unknown or absent from the
+/// registry default calibration.
+pub fn seniority_recovery_stats_default(seniority: &str) -> crate::Result<BetaRecovery> {
+    let class = seniority.parse::<SeniorityClass>()?;
+    let calibration = SeniorityCalibration::moodys_historical()?;
+    calibration
+        .get(class)
+        .copied()
+        .ok_or_else(|| crate::Error::Validation("seniority not in calibration".into()))
+}
+
 /// Draw recovery rates from a Beta distribution with a deterministic seed.
 ///
 /// # Errors
@@ -141,6 +155,14 @@ mod tests {
     fn seniority_recovery_stats_accepts_binding_strings() {
         let stats = seniority_recovery_stats("senior-secured", "s&p").unwrap();
         assert!((stats.mean() - 0.53).abs() < 1e-12);
+    }
+
+    #[test]
+    fn seniority_recovery_stats_default_uses_registry_default() {
+        let stats = seniority_recovery_stats_default("senior-secured").unwrap();
+        let explicit = seniority_recovery_stats("senior-secured", "moodys").unwrap();
+        assert!((stats.mean() - explicit.mean()).abs() < 1e-12);
+        assert!((stats.std_dev() - explicit.std_dev()).abs() < 1e-12);
     }
 
     #[test]

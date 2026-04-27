@@ -657,9 +657,9 @@ class McEngine:
         self,
         num_paths: int,
         time_grid: TimeGrid,
-        seed: int = 42,
-        use_parallel: bool = False,
-        antithetic: bool = False,
+        seed: int | None = None,
+        use_parallel: bool | None = None,
+        antithetic: bool | None = None,
     ) -> None:
         """See class docstring for parameters.
 
@@ -742,9 +742,9 @@ class EuropeanPricer:
     """European-option Monte Carlo pricer under GBM (exact time-stepping).
 
     Args:
-        num_paths: Paths (default ``100_000``).
-        seed: RNG seed (default ``42``).
-        use_parallel: Parallel accumulation flag (default ``False``).
+        num_paths: Paths, or None for the registry default.
+        seed: RNG seed, or None for the registry default.
+        use_parallel: Parallel accumulation flag, or None for the registry default.
 
     Returns:
         N/A (instance type).
@@ -757,9 +757,9 @@ class EuropeanPricer:
 
     def __init__(
         self,
-        num_paths: int = 100_000,
-        seed: int = 42,
-        use_parallel: bool = False,
+        num_paths: int | None = None,
+        seed: int | None = None,
+        use_parallel: bool | None = None,
     ) -> None:
         """See class docstring for parameters.
 
@@ -829,7 +829,7 @@ class EuropeanPricer:
         div_yield: float,
         vol: float,
         expiry: float,
-        num_steps: int = 252,
+        num_steps: int | None = None,
         currency: str | None = None,
     ) -> MonteCarloResult:
         """Price a European call.
@@ -841,7 +841,7 @@ class EuropeanPricer:
             div_yield: Dividend yield.
             vol: Volatility.
             expiry: Time to maturity in years.
-            num_steps: Time steps (default ``252``).
+            num_steps: Time steps, or None for the registry default.
             currency: ISO string or None for USD.
 
         Returns:
@@ -862,7 +862,7 @@ class EuropeanPricer:
         div_yield: float,
         vol: float,
         expiry: float,
-        num_steps: int = 252,
+        num_steps: int | None = None,
         currency: str | None = None,
     ) -> MonteCarloResult:
         """Price a European put.
@@ -874,7 +874,7 @@ class EuropeanPricer:
             div_yield: Dividend yield.
             vol: Volatility.
             expiry: Time to maturity in years.
-            num_steps: Time steps (default ``252``).
+            num_steps: Time steps, or None for the registry default.
             currency: ISO string or None for USD.
 
         Returns:
@@ -891,9 +891,9 @@ class PathDependentPricer:
     """Path-dependent Monte Carlo pricer (Asian-style exotics on GBM).
 
     Args:
-        num_paths: Paths (default ``100_000``).
-        seed: RNG seed (default ``42``).
-        use_parallel: Parallel accumulation flag (default ``False``).
+        num_paths: Paths, or None for the registry default.
+        seed: RNG seed, or None for the registry default.
+        use_parallel: Parallel accumulation flag, or None for the registry default.
 
     Returns:
         N/A (instance type).
@@ -906,9 +906,9 @@ class PathDependentPricer:
 
     def __init__(
         self,
-        num_paths: int = 100_000,
-        seed: int = 42,
-        use_parallel: bool = False,
+        num_paths: int | None = None,
+        seed: int | None = None,
+        use_parallel: bool | None = None,
     ) -> None:
         """See class docstring for parameters.
 
@@ -935,7 +935,7 @@ class PathDependentPricer:
         div_yield: float,
         vol: float,
         expiry: float,
-        num_steps: int = 252,
+        num_steps: int | None = None,
         currency: str | None = None,
     ) -> MonteCarloResult:
         """Price an arithmetic Asian call (fixings at every step).
@@ -947,7 +947,7 @@ class PathDependentPricer:
             div_yield: Dividend yield.
             vol: Volatility.
             expiry: Maturity in years.
-            num_steps: Steps (default ``252``).
+            num_steps: Steps, or None for the registry default.
             currency: ISO string or None for USD.
 
         Returns:
@@ -968,7 +968,7 @@ class PathDependentPricer:
         div_yield: float,
         vol: float,
         expiry: float,
-        num_steps: int = 252,
+        num_steps: int | None = None,
         currency: str | None = None,
     ) -> MonteCarloResult:
         """Price an arithmetic Asian put (fixings at every step).
@@ -980,7 +980,7 @@ class PathDependentPricer:
             div_yield: Dividend yield.
             vol: Volatility.
             expiry: Maturity in years.
-            num_steps: Steps (default ``252``).
+            num_steps: Steps, or None for the registry default.
             currency: ISO string or None for USD.
 
         Returns:
@@ -1031,13 +1031,14 @@ class LsmcPricer:
     """Longstaff–Schwartz Monte Carlo pricer for American options under GBM.
 
     Args:
-        num_paths: Paths (default ``100_000``).
-        seed: RNG seed (default ``42``).
-        use_parallel: Parallel path generation flag (default ``False``).
-        basis: Regression basis family. One of ``"laguerre"`` (default),
+        num_paths: Paths, or None for the registry default.
+        seed: RNG seed, or None for the registry default.
+        use_parallel: Parallel path generation flag, or None for the registry default.
+        basis: Regression basis family. One of ``"laguerre"``,
             ``"polynomial"``, or ``"normalized_polynomial"``. ``None`` is
-            treated as ``"laguerre"``.
-        basis_degree: Polynomial/Laguerre degree (default ``3``). Must be
+            resolved from the registry default.
+        basis_degree: Polynomial/Laguerre degree, or None for the registry
+            default. Must be
             positive; for ``"laguerre"`` it must additionally be in ``[1, 4]``.
 
     Returns:
@@ -1051,11 +1052,11 @@ class LsmcPricer:
 
     def __init__(
         self,
-        num_paths: int = 100_000,
-        seed: int = 42,
-        use_parallel: bool = False,
+        num_paths: int | None = None,
+        seed: int | None = None,
+        use_parallel: bool | None = None,
         basis: str | None = None,
-        basis_degree: int = 3,
+        basis_degree: int | None = None,
     ) -> None:
         """See class docstring for parameters.
 
@@ -1117,7 +1118,7 @@ class LsmcPricer:
         div_yield: float,
         vol: float,
         expiry: float,
-        num_steps: int = 50,
+        num_steps: int | None = None,
         currency: str | None = None,
     ) -> MonteCarloResult:
         """Price an American put via LSMC.
@@ -1129,7 +1130,7 @@ class LsmcPricer:
             div_yield: Dividend yield.
             vol: Volatility.
             expiry: Maturity in years.
-            num_steps: Exercise grid steps (default ``50``).
+            num_steps: Exercise grid steps, or None for the registry default.
             currency: ISO string or None for USD.
 
         Returns:
@@ -1150,7 +1151,7 @@ class LsmcPricer:
         div_yield: float,
         vol: float,
         expiry: float,
-        num_steps: int = 50,
+        num_steps: int | None = None,
         currency: str | None = None,
     ) -> MonteCarloResult:
         """Price an American call via LSMC.
@@ -1162,7 +1163,7 @@ class LsmcPricer:
             div_yield: Dividend yield.
             vol: Volatility.
             expiry: Maturity in years.
-            num_steps: Exercise grid steps (default ``50``).
+            num_steps: Exercise grid steps, or None for the registry default.
             currency: ISO string or None for USD.
 
         Returns:
@@ -1184,7 +1185,7 @@ class LsmcPricer:
         vol: float,
         expiry: float,
         pricing_seed: int,
-        num_steps: int = 50,
+        num_steps: int | None = None,
         currency: str | None = None,
     ) -> MonteCarloResult:
         """Two-pass unbiased American put price.
@@ -1203,7 +1204,7 @@ class LsmcPricer:
             pricing_seed: Seed for the pricing pass; must differ from the
                 pricer's training seed (passing the same value reintroduces
                 the in-sample bias and is rejected).
-            num_steps: Exercise grid steps (default ``50``).
+            num_steps: Exercise grid steps, or None for the registry default.
             currency: ISO string or None for USD.
 
         Returns:
@@ -1220,7 +1221,7 @@ class LsmcPricer:
         vol: float,
         expiry: float,
         pricing_seed: int,
-        num_steps: int = 50,
+        num_steps: int | None = None,
         currency: str | None = None,
     ) -> MonteCarloResult:
         """Two-pass unbiased American call price.
@@ -1301,9 +1302,9 @@ def price_european_call(
     div_yield: float,
     vol: float,
     expiry: float,
-    num_paths: int = 100_000,
-    seed: int = 42,
-    num_steps: int = 252,
+    num_paths: int | None = None,
+    seed: int | None = None,
+    num_steps: int | None = None,
     currency: str | None = None,
 ) -> MonteCarloResult:
     """Monte Carlo European call under GBM (standalone convenience).
@@ -1337,9 +1338,9 @@ def price_european_put(
     div_yield: float,
     vol: float,
     expiry: float,
-    num_paths: int = 100_000,
-    seed: int = 42,
-    num_steps: int = 252,
+    num_paths: int | None = None,
+    seed: int | None = None,
+    num_steps: int | None = None,
     currency: str | None = None,
 ) -> MonteCarloResult:
     """Monte Carlo European put under GBM (standalone convenience).
@@ -1373,11 +1374,11 @@ def fd_delta(
     div_yield: float,
     vol: float,
     expiry: float,
-    num_paths: int = 10_000,
-    seed: int = 42,
-    num_steps: int = 50,
-    bump_size: float = 0.01,
-    option_type: str = "call",
+    num_paths: int | None = None,
+    seed: int | None = None,
+    num_steps: int | None = None,
+    bump_size: float | None = None,
+    option_type: str | None = None,
     currency: str | None = None,
 ) -> tuple[float, float]:
     """Finite-difference delta for a European option (independence-bound stderr).
@@ -1413,11 +1414,11 @@ def fd_delta_crn(
     div_yield: float,
     vol: float,
     expiry: float,
-    num_paths: int = 10_000,
-    seed: int = 42,
-    num_steps: int = 50,
-    bump_size: float = 0.01,
-    option_type: str = "call",
+    num_paths: int | None = None,
+    seed: int | None = None,
+    num_steps: int | None = None,
+    bump_size: float | None = None,
+    option_type: str | None = None,
     currency: str | None = None,
 ) -> tuple[float, float]:
     """Finite-difference delta with paired common-random-number stderr.
@@ -1453,11 +1454,11 @@ def fd_gamma(
     div_yield: float,
     vol: float,
     expiry: float,
-    num_paths: int = 10_000,
-    seed: int = 42,
-    num_steps: int = 50,
-    bump_size: float = 0.01,
-    option_type: str = "call",
+    num_paths: int | None = None,
+    seed: int | None = None,
+    num_steps: int | None = None,
+    bump_size: float | None = None,
+    option_type: str | None = None,
     currency: str | None = None,
 ) -> tuple[float, float]:
     """Finite-difference gamma (independence-bound stderr).
@@ -1474,11 +1475,11 @@ def fd_gamma_crn(
     div_yield: float,
     vol: float,
     expiry: float,
-    num_paths: int = 10_000,
-    seed: int = 42,
-    num_steps: int = 50,
-    bump_size: float = 0.01,
-    option_type: str = "call",
+    num_paths: int | None = None,
+    seed: int | None = None,
+    num_steps: int | None = None,
+    bump_size: float | None = None,
+    option_type: str | None = None,
     currency: str | None = None,
 ) -> tuple[float, float]:
     """Finite-difference gamma with paired common-random-number stderr.

@@ -5,7 +5,9 @@
 //! replicate their VaR/SPAN-based calculations.
 
 use crate::calculators::traits::{ImCalculator, ImResult};
-use crate::registry::{embedded_registry, margin_registry_from_config, CcpParams, MarginRegistry};
+use crate::registry::{
+    embedded_registry_or_panic, margin_registry_from_config, CcpParams, MarginRegistry,
+};
 use crate::traits::Marginable;
 use crate::types::ImMethodology;
 use finstack_core::config::FinstackConfig;
@@ -77,50 +79,30 @@ impl CcpMethodology {
         }
     }
 
-    fn default_params(&self) -> CcpParams {
-        CcpParams {
-            mpor_days: 5,
-            conservative_rate: match self {
-                CcpMethodology::LchSwapClear => 0.02,
-                CcpMethodology::LchCdsClear => 0.08,
-                CcpMethodology::Cme => 0.03,
-                CcpMethodology::IceClearCredit => 0.10,
-                CcpMethodology::IceClearUs => 0.05,
-                CcpMethodology::Jscc => 0.03,
-                CcpMethodology::Eurex => 0.03,
-                CcpMethodology::GenericVaR { .. } => 0.05,
-            },
-        }
-    }
-
     fn params_from_registry(&self, registry: &MarginRegistry) -> CcpParams {
         let key = self.registry_key();
         if let Some(params) = registry.ccp.get(key) {
             return params.clone();
         }
-        if let Some(default_key) = &registry.ccp_default {
-            if let Some(params) = registry.ccp.get(default_key) {
-                return params.clone();
-            }
-        }
-        self.default_params()
+        registry.ccp_default_params.clone()
     }
 
-    /// Choose a CCP methodology from a CCP display name.
-    ///
-    /// The mapping is heuristic and string-based. Unknown names fall back to
-    /// [`CcpMethodology::GenericVaR`] with a 99% confidence level and 250-day
-    /// lookback.
-    ///
-    /// # Arguments
-    ///
-    /// * `ccp` - Human-readable CCP name such as `"LCH"` or `"ICE Clear Credit"`
-    ///
-    /// # Returns
-    ///
-    /// The closest built-in CCP methodology.
-    #[must_use]
-    pub fn from_ccp_name(ccp: &str) -> Self {
+    fn generic_var_from_registry(registry: &MarginRegistry) -> Self {
+        let defaults = &registry.ccp_generic_var_defaults;
+        CcpMethodology::GenericVaR {
+            confidence: defaults.confidence,
+            lookback_days: defaults.lookback_days,
+        }
+    }
+
+    fn from_ccp_name_with_registry(ccp: &str, registry: &MarginRegistry) -> Self {
+        Self::from_ccp_name_with_fallback(ccp, || Self::generic_var_from_registry(registry))
+    }
+
+    fn from_ccp_name_with_fallback<F>(ccp: &str, fallback: F) -> Self
+    where
+        F: FnOnce() -> Self,
+    {
         let normalized = ccp.trim().to_ascii_lowercase();
         let is_credit = normalized.contains("credit") || normalized.contains("cds");
 
@@ -143,11 +125,25 @@ impl CcpMethodology {
         } else if normalized.contains("eurex") {
             CcpMethodology::Eurex
         } else {
-            CcpMethodology::GenericVaR {
-                confidence: 0.99,
-                lookback_days: 250,
-            }
+            fallback()
         }
+    }
+
+    /// Choose a CCP methodology from a CCP display name.
+    ///
+    /// The mapping is heuristic and string-based. Unknown names fall back to
+    /// registry-backed [`CcpMethodology::GenericVaR`] defaults.
+    ///
+    /// # Arguments
+    ///
+    /// * `ccp` - Human-readable CCP name such as `"LCH"` or `"ICE Clear Credit"`
+    ///
+    /// # Returns
+    ///
+    /// The closest built-in CCP methodology.
+    #[must_use]
+    pub fn from_ccp_name(ccp: &str) -> Self {
+        Self::from_ccp_name_with_registry(ccp, embedded_registry_or_panic())
     }
 }
 
@@ -291,7 +287,7 @@ impl ClearingHouseImCalculator {
     /// Returns an error if the margin registry cannot be loaded from `cfg`.
     pub fn for_ccp_with_config(ccp: &str, cfg: &FinstackConfig) -> Result<Self> {
         let registry = margin_registry_from_config(cfg)?;
-        let methodology = CcpMethodology::from_ccp_name(ccp);
+        let methodology = CcpMethodology::from_ccp_name_with_registry(ccp, &registry);
         let params = methodology.params_from_registry(&registry);
         Ok(Self::with_params(methodology, params))
     }
@@ -330,6 +326,14 @@ impl ClearingHouseImCalculator {
             confidence,
             lookback_days,
         })
+    }
+
+    /// Create a generic VaR-based fallback calculator from registry defaults.
+    #[must_use]
+    pub fn generic_var_default() -> Self {
+        Self::new(CcpMethodology::generic_var_from_registry(
+            embedded_registry_or_panic(),
+        ))
     }
 
     /// Attach a CCP input source that provides external VaR or SPAN outputs.
@@ -431,10 +435,8 @@ impl ClearingHouseImCalculator {
         if let Some(p) = &self.params_override {
             return p.clone();
         }
-        if let Ok(registry) = embedded_registry() {
-            return self.methodology.params_from_registry(registry);
-        }
-        self.methodology.default_params()
+        self.methodology
+            .params_from_registry(embedded_registry_or_panic())
     }
 }
 

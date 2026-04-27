@@ -10,6 +10,7 @@ use crate::cashflow::builder::{CashFlowMeta, CashFlowSchedule};
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use crate::instruments::fixed_income::mbs_passthrough::pricer::generate_cashflows;
 use crate::instruments::fixed_income::mbs_passthrough::{AgencyMbsPassthrough, PoolType};
+use crate::instruments::fixed_income::structured_credit::assumptions::embedded_registry;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
@@ -190,13 +191,14 @@ pub(crate) fn build_reference_tranche_schedule(
 
 /// Create assumed collateral for CMO valuation.
 fn create_assumed_collateral(cmo: &AgencyCmo) -> Result<AgencyMbsPassthrough> {
+    let defaults = embedded_registry()?.cmo_collateral_defaults();
     let total_face = cmo.waterfall.total_current_face();
-    let wac = cmo.collateral_wac.unwrap_or(0.045);
-    let wam = cmo.collateral_wam.unwrap_or(360);
+    let wac = cmo.collateral_wac.unwrap_or(defaults.wac);
+    let wam = cmo.collateral_wam.unwrap_or(defaults.wam_months);
 
     // Standard fee assumptions
-    let servicing_fee = 0.0025;
-    let guarantee_fee = 0.0025;
+    let servicing_fee = defaults.servicing_fee_rate;
+    let guarantee_fee = defaults.guarantee_fee_rate;
     let pass_through = wac - servicing_fee - guarantee_fee;
 
     let maturity = cmo
@@ -219,7 +221,7 @@ fn create_assumed_collateral(cmo: &AgencyCmo) -> Result<AgencyMbsPassthrough> {
         .wam(wam)
         .issue_date(cmo.issue_date)
         .maturity(maturity)
-        .prepayment_model(PrepaymentModelSpec::psa(1.0))
+        .prepayment_model(PrepaymentModelSpec::psa(defaults.psa_multiplier))
         .discount_curve_id(cmo.discount_curve_id.clone())
         .day_count(DayCount::Thirty360)
         .build()

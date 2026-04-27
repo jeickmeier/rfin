@@ -82,6 +82,8 @@ pub(super) struct AssetClassDefault {
     pub(super) asset_class: String,
     pub(super) standard_haircut: f64,
     pub(super) fx_addon: f64,
+    #[serde(default)]
+    pub(super) concentration_limit: Option<f64>,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
@@ -220,7 +222,52 @@ pub(super) struct CcpRecord {
     pub(super) mpor_days: u32,
     pub(super) conservative_rate: f64,
     #[serde(default)]
+    pub(super) generic_var_confidence: Option<f64>,
+    #[serde(default)]
+    pub(super) generic_var_lookback_days: Option<u32>,
+    #[serde(default)]
     pub(super) is_default: bool,
+}
+
+// -----------------------------------------------------------------------------//
+// XVA defaults
+// -----------------------------------------------------------------------------//
+
+#[allow(dead_code)] // Fields accessed via serde Deserialize
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct XvaDefaultsFile {
+    pub(super) schema: Option<String>,
+    pub(super) version: Option<u32>,
+    pub(super) defaults: XvaDefaultsRecord,
+}
+
+#[allow(dead_code)] // Fields accessed via serde Deserialize
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct XvaDefaultsRecord {
+    pub(super) deterministic_exposure: XvaDeterministicExposureRecord,
+    pub(super) stochastic_exposure: XvaStochasticExposureRecord,
+}
+
+#[allow(dead_code)] // Fields accessed via serde Deserialize
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct XvaDeterministicExposureRecord {
+    pub(super) time_grid_points: usize,
+    pub(super) time_grid_step_years: f64,
+    pub(super) recovery_rate: f64,
+    #[serde(default)]
+    pub(super) own_recovery_rate: Option<f64>,
+}
+
+#[allow(dead_code)] // Fields accessed via serde Deserialize
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct XvaStochasticExposureRecord {
+    pub(super) num_paths: usize,
+    pub(super) seed: u64,
+    pub(super) pfe_quantile: f64,
 }
 
 // -----------------------------------------------------------------------------//
@@ -252,6 +299,8 @@ pub(super) struct SimmRecord {
     pub(super) fx_intra_bucket_correlation: Option<f64>,
     pub(super) risk_class_correlations: Vec<RiskClassCorrelationRecord>,
     pub(super) commodity_bucket_weights: Value,
+    #[serde(default)]
+    pub(super) commodity_inter_bucket_correlations: Vec<f64>,
     #[serde(default)]
     pub(super) ir_tenor_correlations: Value,
     #[serde(default)]

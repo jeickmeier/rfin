@@ -320,7 +320,7 @@ class LookbackReturns:
 
     @property
     def fytd(self) -> list[float] | None:
-        """Fiscal-year-to-date returns (``None`` if no fiscal config)."""
+        """Fiscal-year-to-date returns when a fiscal config is provided."""
 
     def to_dataframe(self, ticker_names: list[str]) -> pd.DataFrame:
         """Convert to a pandas DataFrame with ticker names as index.
@@ -454,11 +454,11 @@ class RuinModel:
 
     def __init__(
         self,
-        horizon_periods: int = 252,
-        n_paths: int = 10_000,
-        block_size: int = 5,
-        seed: int = 42,
-        confidence_level: float = 0.95,
+        horizon_periods: int | None = None,
+        n_paths: int | None = None,
+        block_size: int | None = None,
+        seed: int | None = None,
+        confidence_level: float | None = None,
     ) -> None:
         """Create a ruin simulation model.
 
@@ -1008,6 +1008,8 @@ class Performance:
     ) -> LookbackReturns:
         """Period-to-date lookback returns.
 
+        ``None`` uses the registry default fiscal calendar.
+
         Raises:
             ValueError: If *fiscal_year_start_month* is not in ``1..=12``.
         """
@@ -1019,6 +1021,8 @@ class Performance:
         fiscal_year_start_month: int | None = None,
     ) -> PeriodStats:
         """Period statistics for one ticker at a given aggregation frequency.
+
+        ``None`` uses the registry default fiscal calendar for annual grouping.
 
         Raises:
             ValueError: If *fiscal_year_start_month* is not in ``1..=12``.
@@ -1076,8 +1080,8 @@ class Performance:
     ) -> pd.DataFrame:
         """Period-to-date lookback returns as a pandas DataFrame.
 
-        Ticker names as index, columns: mtd, qtd, ytd (and fytd when
-        a fiscal config is given).
+        Ticker names as index, columns: mtd, qtd, ytd, and fytd.
+        ``None`` uses the registry default fiscal calendar.
 
         Raises:
             ValueError: If *fiscal_year_start_month* is not in ``1..=12``.
@@ -1170,7 +1174,7 @@ def beta(portfolio: list[float], benchmark: list[float]) -> BetaResult:
 def greeks(
     returns: list[float],
     benchmark: list[float],
-    ann_factor: float = 252.0,
+    ann_factor: float | None = None,
 ) -> GreeksResult:
     """Single-index greeks (alpha, beta, R²).
 
@@ -1191,8 +1195,8 @@ def rolling_greeks(
     returns: list[float],
     benchmark: list[float],
     dates: Sequence[object],
-    window: int = 63,
-    ann_factor: float = 252.0,
+    window: int | None = None,
+    ann_factor: float | None = None,
 ) -> RollingGreeks:
     """Rolling greeks over a window.
 
@@ -1217,8 +1221,8 @@ def rolling_greeks(
 def tracking_error(
     returns: list[float],
     benchmark: list[float],
-    annualize: bool = True,
-    ann_factor: float = 252.0,
+    annualize: bool | None = None,
+    ann_factor: float | None = None,
 ) -> float:
     """Annualized tracking error.
 
@@ -1239,8 +1243,8 @@ def tracking_error(
 def information_ratio(
     returns: list[float],
     benchmark: list[float],
-    annualize: bool = True,
-    ann_factor: float = 252.0,
+    annualize: bool | None = None,
+    ann_factor: float | None = None,
 ) -> float:
     """Information ratio.
 
@@ -1336,7 +1340,7 @@ def batting_average(returns: list[float], benchmark: list[float]) -> float:
 def multi_factor_greeks(
     returns: list[float],
     factors: list[list[float]],
-    ann_factor: float = 252.0,
+    ann_factor: float | None = None,
 ) -> MultiFactorResult:
     """Multi-factor regression.
 
@@ -1741,13 +1745,17 @@ def cagr(returns: list[float], basis: CagrBasis) -> float:
         True
     """
 
-def mean_return(returns: list[float], annualize: bool = False, ann_factor: float = 1.0) -> float:
+def mean_return(
+    returns: list[float],
+    annualize: bool | None = None,
+    ann_factor: float | None = None,
+) -> float:
     """Arithmetic mean return.
 
     Args:
         returns: Simple returns.
-        annualize: Annualize when ``True``.
-        ann_factor: Annualization factor when annualizing.
+        annualize: Annualize when ``True``; None uses the registry default.
+        ann_factor: Annualization factor when annualizing; None uses the registry default.
 
     Returns:
         Mean return.
@@ -1757,13 +1765,17 @@ def mean_return(returns: list[float], annualize: bool = False, ann_factor: float
         0.02
     """
 
-def volatility(returns: list[float], annualize: bool = True, ann_factor: float = 252.0) -> float:
+def volatility(
+    returns: list[float],
+    annualize: bool | None = None,
+    ann_factor: float | None = None,
+) -> float:
     """Volatility (standard deviation of returns).
 
     Args:
         returns: Simple returns.
-        annualize: Annualize when ``True``.
-        ann_factor: Annualization factor.
+        annualize: Annualize when ``True``; None uses the registry default.
+        ann_factor: Annualization factor; None uses the registry default.
 
     Returns:
         Volatility.
@@ -1791,17 +1803,17 @@ def sharpe(ann_return: float, ann_vol: float, risk_free_rate: float = 0.0) -> fl
 
 def downside_deviation(
     returns: list[float],
-    mar: float = 0.0,
-    annualize: bool = True,
-    ann_factor: float = 252.0,
+    mar: float | None = None,
+    annualize: bool | None = None,
+    ann_factor: float | None = None,
 ) -> float:
     """Downside deviation.
 
     Args:
         returns: Simple returns.
-        mar: Minimum acceptable return.
-        annualize: Annualize when ``True``.
-        ann_factor: Annualization factor.
+        mar: Minimum acceptable return; None uses the registry default.
+        annualize: Annualize when ``True``; None uses the registry default.
+        ann_factor: Annualization factor; None uses the registry default.
 
     Returns:
         Downside deviation.
@@ -1813,17 +1825,17 @@ def downside_deviation(
 
 def sortino(
     returns: list[float],
-    annualize: bool = True,
-    ann_factor: float = 252.0,
-    mar: float = 0.0,
+    annualize: bool | None = None,
+    ann_factor: float | None = None,
+    mar: float | None = None,
 ) -> float:
     """Sortino ratio.
 
     Args:
         returns: Simple returns.
-        annualize: Annualize when ``True``.
-        ann_factor: Annualization factor.
-        mar: Minimum acceptable return per period.
+        annualize: Annualize when ``True``; None uses the registry default.
+        ann_factor: Annualization factor; None uses the registry default.
+        mar: Minimum acceptable return per period; None uses the registry default.
 
     Returns:
         Sortino ratio.
@@ -1878,17 +1890,17 @@ def gain_to_pain(returns: list[float]) -> float:
 
 def modified_sharpe(
     returns: list[float],
-    risk_free_rate: float = 0.0,
-    confidence: float = 0.95,
-    ann_factor: float = 252.0,
+    risk_free_rate: float | None = None,
+    confidence: float | None = None,
+    ann_factor: float | None = None,
 ) -> float:
     """Modified Sharpe ratio.
 
     Args:
         returns: Simple returns.
-        risk_free_rate: Risk-free rate.
-        confidence: Confidence for modified VaR.
-        ann_factor: Annualization factor.
+        risk_free_rate: Risk-free rate; None uses the registry default.
+        confidence: Confidence for modified VaR; None uses the registry default.
+        ann_factor: Annualization factor; None uses the registry default.
 
     Returns:
         Modified Sharpe.
@@ -1918,18 +1930,18 @@ def estimate_ruin(returns: list[float], definition: RuinDefinition, model: RuinM
 def rolling_sharpe(
     returns: list[float],
     dates: Sequence[object],
-    window: int = 63,
-    ann_factor: float = 252.0,
-    risk_free_rate: float = 0.0,
+    window: int | None = None,
+    ann_factor: float | None = None,
+    risk_free_rate: float | None = None,
 ) -> RollingSharpe:
     """Rolling Sharpe with date labels.
 
     Args:
         returns: Simple returns.
         dates: Observation dates.
-        window: Window length.
-        ann_factor: Annualization factor.
-        risk_free_rate: Risk-free rate.
+        window: Window length; None uses the registry default.
+        ann_factor: Annualization factor; None uses the registry default.
+        risk_free_rate: Risk-free rate; None uses the registry default.
 
     Returns:
         :class:`RollingSharpe`.
@@ -1945,16 +1957,16 @@ def rolling_sharpe(
 def rolling_sortino(
     returns: list[float],
     dates: Sequence[object],
-    window: int = 63,
-    ann_factor: float = 252.0,
+    window: int | None = None,
+    ann_factor: float | None = None,
 ) -> RollingSortino:
     """Rolling Sortino with date labels.
 
     Args:
         returns: Simple returns.
         dates: Observation dates.
-        window: Window length.
-        ann_factor: Annualization factor.
+        window: Window length; None uses the registry default.
+        ann_factor: Annualization factor; None uses the registry default.
 
     Returns:
         :class:`RollingSortino`.
@@ -1969,16 +1981,16 @@ def rolling_sortino(
 def rolling_volatility(
     returns: list[float],
     dates: Sequence[object],
-    window: int = 63,
-    ann_factor: float = 252.0,
+    window: int | None = None,
+    ann_factor: float | None = None,
 ) -> RollingVolatility:
     """Rolling volatility with date labels.
 
     Args:
         returns: Simple returns.
         dates: Observation dates.
-        window: Window length.
-        ann_factor: Annualization factor.
+        window: Window length; None uses the registry default.
+        ann_factor: Annualization factor; None uses the registry default.
 
     Returns:
         :class:`RollingVolatility`.
@@ -1990,7 +2002,7 @@ def rolling_volatility(
         True
     """
 
-def value_at_risk(returns: list[float], confidence: float = 0.95) -> float:
+def value_at_risk(returns: list[float], confidence: float | None = None) -> float:
     """Historical Value-at-Risk.
 
     Reported in the native period of ``returns``. Use ``parametric_var`` or
@@ -1999,7 +2011,7 @@ def value_at_risk(returns: list[float], confidence: float = 0.95) -> float:
 
     Args:
         returns: Simple returns.
-        confidence: Confidence level.
+        confidence: Confidence level; None uses the registry default.
 
     Returns:
         VaR (non-positive).
@@ -2009,7 +2021,7 @@ def value_at_risk(returns: list[float], confidence: float = 0.95) -> float:
         True
     """
 
-def expected_shortfall(returns: list[float], confidence: float = 0.95) -> float:
+def expected_shortfall(returns: list[float], confidence: float | None = None) -> float:
     """Expected Shortfall (CVaR).
 
     Reported in the native period of ``returns``; sqrt-T scaling is invalid
@@ -2017,7 +2029,7 @@ def expected_shortfall(returns: list[float], confidence: float = 0.95) -> float:
 
     Args:
         returns: Simple returns.
-        confidence: Confidence level.
+        confidence: Confidence level; None uses the registry default.
 
     Returns:
         Expected shortfall (non-positive).
@@ -2027,12 +2039,16 @@ def expected_shortfall(returns: list[float], confidence: float = 0.95) -> float:
         True
     """
 
-def parametric_var(returns: list[float], confidence: float = 0.95, ann_factor: float | None = None) -> float:
+def parametric_var(
+    returns: list[float],
+    confidence: float | None = None,
+    ann_factor: float | None = None,
+) -> float:
     """Parametric VaR (Gaussian).
 
     Args:
         returns: Simple returns.
-        confidence: Confidence level.
+        confidence: Confidence level; None uses the registry default.
         ann_factor: Optional annualization.
 
     Returns:
@@ -2043,12 +2059,16 @@ def parametric_var(returns: list[float], confidence: float = 0.95, ann_factor: f
         True
     """
 
-def cornish_fisher_var(returns: list[float], confidence: float = 0.95, ann_factor: float | None = None) -> float:
+def cornish_fisher_var(
+    returns: list[float],
+    confidence: float | None = None,
+    ann_factor: float | None = None,
+) -> float:
     """Cornish-Fisher VaR.
 
     Args:
         returns: Simple returns.
-        confidence: Confidence level.
+        confidence: Confidence level; None uses the registry default.
         ann_factor: Optional annualization.
 
     Returns:
@@ -2087,12 +2107,12 @@ def kurtosis(returns: list[float]) -> float:
         True
     """
 
-def tail_ratio(returns: list[float], confidence: float = 0.95) -> float:
+def tail_ratio(returns: list[float], confidence: float | None = None) -> float:
     """Tail ratio (upper quantile / |lower quantile|).
 
     Args:
         returns: Simple returns.
-        confidence: Confidence level.
+        confidence: Confidence level; None uses the registry default.
 
     Returns:
         Tail ratio.
@@ -2102,12 +2122,12 @@ def tail_ratio(returns: list[float], confidence: float = 0.95) -> float:
         True
     """
 
-def outlier_win_ratio(returns: list[float], confidence: float = 0.95) -> float:
+def outlier_win_ratio(returns: list[float], confidence: float | None = None) -> float:
     """Outlier win ratio.
 
     Args:
         returns: Simple returns.
-        confidence: Confidence level.
+        confidence: Confidence level; None uses the registry default.
 
     Returns:
         Ratio.
@@ -2117,12 +2137,12 @@ def outlier_win_ratio(returns: list[float], confidence: float = 0.95) -> float:
         True
     """
 
-def outlier_loss_ratio(returns: list[float], confidence: float = 0.95) -> float:
+def outlier_loss_ratio(returns: list[float], confidence: float | None = None) -> float:
     """Outlier loss ratio.
 
     Args:
         returns: Simple returns.
-        confidence: Confidence level.
+        confidence: Confidence level; None uses the registry default.
 
     Returns:
         Ratio.
@@ -2617,8 +2637,15 @@ def ytd_select(
 def fytd_select(
     dates: list[datetime.date],
     as_of: datetime.date,
-    fiscal_start_month: int,
-    fiscal_start_day: int = 1,
+    fiscal_start_month: int | None = None,
+    fiscal_start_day: int | None = None,
     offset_days: int = 0,
+    calendar_id: str | None = None,
+    input_kind: str = "returns",
 ) -> tuple[int, int]:
-    """Fiscal-year-to-date index range into a sorted date array."""
+    """Fiscal-year-to-date index range into a sorted date array.
+
+    ``None`` uses the registry default fiscal calendar. ``input_kind`` is
+    ``"returns"`` for return-date labels and ``"prices"`` for price-index
+    dates that need the prior business-day start value.
+    """

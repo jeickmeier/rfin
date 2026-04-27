@@ -138,6 +138,8 @@ pub mod money;
 pub mod parse;
 /// Convenient re-exports of commonly used types
 pub mod prelude;
+/// Shared credit rating-scale registry.
+pub mod rating_scales;
 /// Serializable columnar table envelope for host-language bindings.
 pub mod table;
 /// Core type definitions (phantom-typed IDs, rates, etc.)

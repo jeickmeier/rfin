@@ -12,6 +12,12 @@ use crate::errors::core_to_py;
 use finstack_analytics as fa;
 use pyo3::prelude::*;
 
+fn benchmark_defaults() -> PyResult<fa::registry::BenchmarkDefaults> {
+    fa::registry::embedded_defaults()
+        .map(|defaults| defaults.python_bindings.benchmark.clone())
+        .map_err(core_to_py)
+}
+
 /// Align benchmark returns to a target date grid.
 ///
 /// Args:
@@ -69,16 +75,22 @@ fn beta(portfolio: Vec<f64>, benchmark: Vec<f64>) -> PyBetaResult {
 ///     returns: Portfolio returns.
 ///     benchmark: Benchmark returns aligned with ``returns``.
 ///     ann_factor: Periods per year used to annualize alpha
-///         (e.g. ``252``). Defaults to ``252.0``.
+///         (e.g. ``252``). Defaults to the analytics registry value.
 ///
 /// Returns:
 ///     :class:`GreeksResult` with annualized alpha, beta, R², adjusted R².
 #[pyfunction]
-#[pyo3(signature = (returns, benchmark, ann_factor = 252.0))]
-fn greeks(returns: Vec<f64>, benchmark: Vec<f64>, ann_factor: f64) -> PyGreeksResult {
-    PyGreeksResult {
+#[pyo3(signature = (returns, benchmark, ann_factor = None))]
+fn greeks(
+    returns: Vec<f64>,
+    benchmark: Vec<f64>,
+    ann_factor: Option<f64>,
+) -> PyResult<PyGreeksResult> {
+    let defaults = benchmark_defaults()?;
+    let ann_factor = ann_factor.unwrap_or(defaults.ann_factor);
+    Ok(PyGreeksResult {
         inner: fa::benchmark::greeks(&returns, &benchmark, ann_factor),
-    }
+    })
 }
 
 /// Rolling greeks (alpha, beta) over a sliding window.
@@ -87,22 +99,27 @@ fn greeks(returns: Vec<f64>, benchmark: Vec<f64>, ann_factor: f64) -> PyGreeksRe
 ///     returns: Portfolio returns.
 ///     benchmark: Benchmark returns aligned with ``returns``.
 ///     dates: Dates aligned with ``returns``.
-///     window: Look-back window length in periods. Defaults to ``63``.
-///     ann_factor: Periods per year for annualization. Defaults to ``252.0``.
+///     window: Look-back window length in periods. Defaults to the analytics
+///         registry value.
+///     ann_factor: Periods per year for annualization. Defaults to the
+///         analytics registry value.
 ///
 /// Returns:
 ///     :class:`RollingGreeks` with parallel ``dates``, ``alphas``, and
 ///     ``betas`` arrays. Each output value is right-labeled by the last
 ///     date in its window. Output length is ``len(returns) - window + 1``.
 #[pyfunction]
-#[pyo3(signature = (returns, benchmark, dates, window = 63, ann_factor = 252.0))]
+#[pyo3(signature = (returns, benchmark, dates, window = None, ann_factor = None))]
 fn rolling_greeks(
     returns: Vec<f64>,
     benchmark: Vec<f64>,
     dates: Vec<Bound<'_, PyAny>>,
-    window: usize,
-    ann_factor: f64,
+    window: Option<usize>,
+    ann_factor: Option<f64>,
 ) -> PyResult<PyRollingGreeks> {
+    let defaults = benchmark_defaults()?;
+    let window = window.unwrap_or(defaults.rolling_window);
+    let ann_factor = ann_factor.unwrap_or(defaults.ann_factor);
     let rd: Vec<time::Date> = dates.iter().map(py_to_date).collect::<PyResult<_>>()?;
     Ok(PyRollingGreeks {
         inner: fa::benchmark::rolling_greeks(&returns, &benchmark, &rd, window, ann_factor),
@@ -114,15 +131,28 @@ fn rolling_greeks(
 /// Args:
 ///     returns: Portfolio returns.
 ///     benchmark: Benchmark returns aligned with ``returns``.
-///     annualize: If ``True``, scale by ``sqrt(ann_factor)``. Default ``True``.
-///     ann_factor: Periods per year (e.g. ``252``). Default ``252.0``.
+///     annualize: If ``True``, scale by ``sqrt(ann_factor)``. Defaults to the
+///         analytics registry value.
+///     ann_factor: Periods per year (e.g. ``252``). Defaults to the analytics
+///         registry value.
 ///
 /// Returns:
 ///     A non-negative scalar. ``0.0`` if active returns are all equal.
 #[pyfunction]
-#[pyo3(signature = (returns, benchmark, annualize = true, ann_factor = 252.0))]
-fn tracking_error(returns: Vec<f64>, benchmark: Vec<f64>, annualize: bool, ann_factor: f64) -> f64 {
-    fa::benchmark::tracking_error(&returns, &benchmark, annualize, ann_factor)
+#[pyo3(signature = (returns, benchmark, annualize = None, ann_factor = None))]
+fn tracking_error(
+    returns: Vec<f64>,
+    benchmark: Vec<f64>,
+    annualize: Option<bool>,
+    ann_factor: Option<f64>,
+) -> PyResult<f64> {
+    let defaults = benchmark_defaults()?;
+    Ok(fa::benchmark::tracking_error(
+        &returns,
+        &benchmark,
+        annualize.unwrap_or(defaults.annualize),
+        ann_factor.unwrap_or(defaults.ann_factor),
+    ))
 }
 
 /// Information ratio: mean active return divided by tracking error.
@@ -131,21 +161,27 @@ fn tracking_error(returns: Vec<f64>, benchmark: Vec<f64>, annualize: bool, ann_f
 ///     returns: Portfolio returns.
 ///     benchmark: Benchmark returns aligned with ``returns``.
 ///     annualize: If ``True``, the numerator and denominator are annualized
-///         consistently. Default ``True``.
-///     ann_factor: Periods per year. Default ``252.0``.
+///         consistently. Defaults to the analytics registry value.
+///     ann_factor: Periods per year. Defaults to the analytics registry value.
 ///
 /// Returns:
 ///     A scalar information ratio. ``+inf`` (or ``-inf``) when tracking
 ///     error is zero and the mean active return is non-zero.
 #[pyfunction]
-#[pyo3(signature = (returns, benchmark, annualize = true, ann_factor = 252.0))]
+#[pyo3(signature = (returns, benchmark, annualize = None, ann_factor = None))]
 fn information_ratio(
     returns: Vec<f64>,
     benchmark: Vec<f64>,
-    annualize: bool,
-    ann_factor: f64,
-) -> f64 {
-    fa::benchmark::information_ratio(&returns, &benchmark, annualize, ann_factor)
+    annualize: Option<bool>,
+    ann_factor: Option<f64>,
+) -> PyResult<f64> {
+    let defaults = benchmark_defaults()?;
+    Ok(fa::benchmark::information_ratio(
+        &returns,
+        &benchmark,
+        annualize.unwrap_or(defaults.annualize),
+        ann_factor.unwrap_or(defaults.ann_factor),
+    ))
 }
 
 /// Coefficient of determination of an OLS regression of ``returns`` on
@@ -226,7 +262,7 @@ fn batting_average(returns: Vec<f64>, benchmark: Vec<f64>) -> f64 {
 ///         ``returns``. All factors must have the same length as
 ///         ``returns``.
 ///     ann_factor: Periods per year for annualizing alpha and residual
-///         volatility. Default ``252.0``.
+///         volatility. Defaults to the analytics registry value.
 ///
 /// Returns:
 ///     :class:`MultiFactorResult` with annualized alpha, factor loadings,
@@ -237,12 +273,14 @@ fn batting_average(returns: Vec<f64>, benchmark: Vec<f64>) -> f64 {
 ///         non-finite, ``ann_factor`` is non-positive, or the design
 ///         matrix is singular or near-singular.
 #[pyfunction]
-#[pyo3(signature = (returns, factors, ann_factor = 252.0))]
+#[pyo3(signature = (returns, factors, ann_factor = None))]
 fn multi_factor_greeks(
     returns: Vec<f64>,
     factors: Vec<Vec<f64>>,
-    ann_factor: f64,
+    ann_factor: Option<f64>,
 ) -> PyResult<PyMultiFactorResult> {
+    let defaults = benchmark_defaults()?;
+    let ann_factor = ann_factor.unwrap_or(defaults.ann_factor);
     let refs: Vec<&[f64]> = factors.iter().map(|v| v.as_slice()).collect();
     fa::benchmark::multi_factor_greeks(&returns, &refs, ann_factor)
         .map(|r| PyMultiFactorResult { inner: r })

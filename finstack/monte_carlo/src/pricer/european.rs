@@ -32,10 +32,13 @@ pub struct EuropeanPricer {
 
 impl Default for EuropeanPricer {
     fn default() -> Self {
+        let defaults = &crate::registry::embedded_defaults_or_panic()
+            .rust
+            .european_pricer;
         Self {
-            num_paths: 100_000,
-            seed: 42,
-            use_parallel: true,
+            num_paths: defaults.num_paths,
+            seed: defaults.seed,
+            use_parallel: defaults.use_parallel,
         }
     }
 }
@@ -43,7 +46,7 @@ impl Default for EuropeanPricer {
 impl EuropeanPricer {
     /// Create a pricer with the given path count and defaults for the rest.
     ///
-    /// Defaults are seed `42` and parallel execution enabled (which quietly
+    /// Defaults are registry-backed seed and parallel settings (which quietly
     /// degrades to serial when the `parallel` feature is absent).
     pub fn new(num_paths: usize) -> Self {
         Self {

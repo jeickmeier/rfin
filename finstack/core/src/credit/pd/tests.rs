@@ -387,7 +387,7 @@ mod master_scale_tests {
 
     #[test]
     fn sp_empirical_mapping() {
-        let scale = MasterScale::sp_empirical();
+        let scale = MasterScale::sp_empirical().expect("registry scale");
         assert_eq!(scale.n_grades(), 8);
 
         // AAA: PD <= 0.0001
@@ -413,7 +413,7 @@ mod master_scale_tests {
 
     #[test]
     fn moodys_empirical_mapping() {
-        let scale = MasterScale::moodys_empirical();
+        let scale = MasterScale::moodys_empirical().expect("registry scale");
         assert_eq!(scale.n_grades(), 8);
 
         let baa = scale.map_pd(0.003);
@@ -422,7 +422,7 @@ mod master_scale_tests {
 
     #[test]
     fn pd_exceeds_all_grades() {
-        let scale = MasterScale::sp_empirical();
+        let scale = MasterScale::sp_empirical().expect("registry scale");
         let result = scale.map_pd(1.5);
         assert_eq!(result.grade, "CC/C");
         assert_eq!(result.grade_index, 7);
@@ -430,7 +430,7 @@ mod master_scale_tests {
 
     #[test]
     fn pd_at_boundary() {
-        let scale = MasterScale::sp_empirical();
+        let scale = MasterScale::sp_empirical().expect("registry scale");
         // Exactly at AAA upper boundary (0.0001)
         let result = scale.map_pd(0.0001);
         assert_eq!(result.grade, "AAA");
@@ -506,7 +506,7 @@ mod master_scale_tests {
             sales_to_total_assets: 1.80,
         };
         let scoring_result = altman_z_score(&input).unwrap();
-        let scale = MasterScale::sp_empirical();
+        let scale = MasterScale::sp_empirical().expect("registry scale");
         let mapped = scale.map_score(&scoring_result);
         // The implied PD from a safe Z-score (Z~3.595) maps based on the
         // empirical PD mapping. Verify that map_score actually uses implied_pd.
@@ -521,7 +521,7 @@ mod master_scale_tests {
 
     #[test]
     fn grades_accessor() {
-        let scale = MasterScale::sp_empirical();
+        let scale = MasterScale::sp_empirical().expect("registry scale");
         let grades = scale.grades();
         assert_eq!(grades.len(), 8);
         assert_eq!(grades[0].label, "AAA");

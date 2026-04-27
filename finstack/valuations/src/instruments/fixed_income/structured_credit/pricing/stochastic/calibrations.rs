@@ -16,7 +16,10 @@
 //! - PSA Standard Prepayment Model assumptions
 //! - Basel IRB correlation formulas
 
-#![allow(dead_code)]
+use crate::instruments::fixed_income::structured_credit::assumptions::{
+    embedded_registry, StructuredCreditAssumptionRegistry,
+};
+use finstack_core::Result;
 
 /// RMBS standard calibration parameters.
 ///
@@ -52,18 +55,12 @@ pub(crate) struct RmbsCalibration {
 /// - Low correlation (5%) due to pool diversification
 /// - Moderate prepayment (6% CPR base)
 /// - Standard PSA-style seasoning
-pub(crate) const RMBS_STANDARD: RmbsCalibration = RmbsCalibration {
-    base_cdr: 0.02,
-    default_correlation: 0.05,
-    base_cpr: 0.06,
-    prepay_factor_loading: 0.4,
-    cpr_volatility: 0.20,
-    default_factor_sensitivity: 0.5,
-    default_mean_reversion: 0.5,
-    default_volatility: 0.30,
-    refi_sensitivity: 2.0,
-    burnout_rate: 0.10,
-};
+pub(crate) fn rmbs_standard() -> RmbsCalibration {
+    required_assumption(
+        assumptions_registry().rmbs_stochastic_calibration("rmbs_standard"),
+        "standard RMBS stochastic calibration",
+    )
+}
 
 /// CLO standard calibration parameters.
 ///
@@ -94,16 +91,12 @@ pub(crate) struct CloCalibration {
 /// - Higher default rates (3% annual CDR)
 /// - Higher correlation (20-25%) for corporate exposures
 /// - Higher prepayment (15% CPR) due to refinancing
-pub(crate) const CLO_STANDARD: CloCalibration = CloCalibration {
-    base_cdr: 0.03,
-    default_correlation: 0.20,
-    base_cpr: 0.15,
-    prepay_factor_loading: 0.25,
-    cpr_volatility: 0.15,
-    default_factor_sensitivity: 0.8,
-    default_mean_reversion: 0.3,
-    default_volatility: 0.40,
-};
+pub(crate) fn clo_standard() -> CloCalibration {
+    required_assumption(
+        assumptions_registry().clo_stochastic_calibration("clo_standard"),
+        "standard CLO stochastic calibration",
+    )
+}
 
 /// CMBS standard calibration parameters.
 ///
@@ -128,13 +121,22 @@ pub(crate) struct CmbsCalibration {
 /// - Moderate default rates (2.5% annual CDR)
 /// - Moderate correlation (15%)
 /// - Low prepayment due to lockouts/defeasance (3% CPR)
-pub(crate) const CMBS_STANDARD: CmbsCalibration = CmbsCalibration {
-    base_cdr: 0.025,
-    default_correlation: 0.15,
-    base_cpr: 0.03,
-    prepay_factor_loading: 0.20,
-    cpr_volatility: 0.10,
-};
+pub(crate) fn cmbs_standard() -> CmbsCalibration {
+    required_assumption(
+        assumptions_registry().cmbs_stochastic_calibration("cmbs_standard"),
+        "standard CMBS stochastic calibration",
+    )
+}
+
+#[allow(clippy::expect_used)]
+fn assumptions_registry() -> &'static StructuredCreditAssumptionRegistry {
+    embedded_registry().expect("embedded structured-credit assumptions registry should load")
+}
+
+#[allow(clippy::expect_used)]
+fn required_assumption<T>(result: Result<T>, _label: &str) -> T {
+    result.expect("embedded structured-credit assumptions registry value should exist")
+}
 
 #[cfg(test)]
 mod tests {
@@ -142,29 +144,32 @@ mod tests {
 
     #[test]
     fn test_rmbs_standard_values() {
-        assert!((RMBS_STANDARD.base_cdr - 0.02).abs() < 1e-10);
-        assert!((RMBS_STANDARD.default_correlation - 0.05).abs() < 1e-10);
-        assert!((RMBS_STANDARD.base_cpr - 0.06).abs() < 1e-10);
+        let calibration = rmbs_standard();
+        assert!((calibration.base_cdr - 0.02).abs() < 1e-10);
+        assert!((calibration.default_correlation - 0.05).abs() < 1e-10);
+        assert!((calibration.base_cpr - 0.06).abs() < 1e-10);
     }
 
     #[test]
     fn test_clo_standard_values() {
-        assert!((CLO_STANDARD.base_cdr - 0.03).abs() < 1e-10);
-        assert!((CLO_STANDARD.default_correlation - 0.20).abs() < 1e-10);
-        assert!((CLO_STANDARD.base_cpr - 0.15).abs() < 1e-10);
+        let calibration = clo_standard();
+        assert!((calibration.base_cdr - 0.03).abs() < 1e-10);
+        assert!((calibration.default_correlation - 0.20).abs() < 1e-10);
+        assert!((calibration.base_cpr - 0.15).abs() < 1e-10);
     }
 
     #[test]
     fn test_cmbs_standard_values() {
-        assert!((CMBS_STANDARD.base_cdr - 0.025).abs() < 1e-10);
-        assert!((CMBS_STANDARD.default_correlation - 0.15).abs() < 1e-10);
+        let calibration = cmbs_standard();
+        assert!((calibration.base_cdr - 0.025).abs() < 1e-10);
+        assert!((calibration.default_correlation - 0.15).abs() < 1e-10);
     }
 
     #[test]
     fn test_clo_higher_correlation_than_rmbs() {
         // Corporate loans have higher correlation than mortgages
-        let clo_corr = CLO_STANDARD.default_correlation;
-        let rmbs_corr = RMBS_STANDARD.default_correlation;
+        let clo_corr = clo_standard().default_correlation;
+        let rmbs_corr = rmbs_standard().default_correlation;
         assert!(
             clo_corr > rmbs_corr,
             "CLO correlation ({}) should exceed RMBS ({})",
@@ -176,8 +181,8 @@ mod tests {
     #[test]
     fn test_cmbs_lower_prepayment_than_rmbs() {
         // Commercial mortgages have lockouts limiting prepayment
-        let cmbs_cpr = CMBS_STANDARD.base_cpr;
-        let rmbs_cpr = RMBS_STANDARD.base_cpr;
+        let cmbs_cpr = cmbs_standard().base_cpr;
+        let rmbs_cpr = rmbs_standard().base_cpr;
         assert!(
             cmbs_cpr < rmbs_cpr,
             "CMBS CPR ({}) should be less than RMBS ({})",

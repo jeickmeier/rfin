@@ -83,91 +83,26 @@
 //! # }
 //! ```
 
+pub use finstack_core::rating_scales::{RatingLevel, RatingScale};
 use finstack_statements::evaluator::StatementResult;
 use finstack_statements::types::FinancialModelSpec;
 use finstack_statements::Result;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use std::sync::OnceLock;
-
-/// Rating level for credit rating scales.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RatingLevel {
-    /// Rating name (e.g., "AAA", "Aaa")
-    pub name: String,
-    /// Numeric score (0-100 scale)
-    pub score: f64,
-    /// Minimum score threshold for this rating
-    pub min_score: f64,
-}
-
-/// Rating scale definition (for JSON deserialization).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RatingScale {
-    /// Scale name (e.g., "S&P", "Moody's")
-    pub scale_name: String,
-    /// Human-readable description
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    /// Ordered list of rating levels (best to worst)
-    pub ratings: Vec<RatingLevel>,
-}
-
-/// Lazy-loaded S&P rating scale.
-static SP_SCALE: OnceLock<RatingScale> = OnceLock::new();
-
-/// Lazy-loaded Moody's rating scale.
-static MOODYS_SCALE: OnceLock<RatingScale> = OnceLock::new();
-
-/// Get the S&P rating scale (loads from embedded JSON on first access).
-#[allow(clippy::expect_used)] // Embedded JSON validated at compile time; parse failure is a build bug
-fn get_sp_scale() -> &'static RatingScale {
-    SP_SCALE.get_or_init(|| {
-        let json = include_str!("../../../data/rating_scales/sp.json");
-        serde_json::from_str(json).expect("Failed to parse embedded S&P rating scale")
-    })
-}
-
-/// Get the Moody's rating scale (loads from embedded JSON on first access).
-#[allow(clippy::expect_used)] // Embedded JSON validated at compile time; parse failure is a build bug
-fn get_moodys_scale() -> &'static RatingScale {
-    MOODYS_SCALE.get_or_init(|| {
-        let json = include_str!("../../../data/rating_scales/moodys.json");
-        serde_json::from_str(json).expect("Failed to parse embedded Moody's rating scale")
-    })
-}
-
-/// Default score when no threshold matches.
-///
-/// A mid-scale fallback keeps scorecard execution usable for partially specified
-/// threshold grids, but the extension emits a warning so callers can fix the
-/// configuration rather than silently relying on this value.
-const DEFAULT_SCORECARD_SCORE: f64 = 50.0;
 
 /// Get the appropriate rating scale based on name.
-fn get_rating_scale(scale_name: &str) -> &'static RatingScale {
-    match scale_name {
-        "Moody's" | "MOODYS" | "Moodys" => get_moodys_scale(),
-        "Fitch" | "FITCH" => get_sp_scale(), // Fitch uses same notation as S&P
-        "S&P" | "S&P Global" | "SP" | "sp" | "s&p" => get_sp_scale(),
-        _ => get_sp_scale(),
-    }
+fn get_rating_scale(scale_name: &str) -> Result<&'static RatingScale> {
+    Ok(finstack_core::rating_scales::embedded_registry()?.rating_scale(scale_name)?)
 }
 
 fn is_supported_rating_scale(scale_name: &str) -> bool {
-    matches!(
-        scale_name,
-        "S&P"
-            | "S&P Global"
-            | "SP"
-            | "sp"
-            | "s&p"
-            | "Moody's"
-            | "MOODYS"
-            | "Moodys"
-            | "Fitch"
-            | "FITCH"
-    )
+    finstack_core::rating_scales::embedded_registry()
+        .map(|registry| registry.is_known_rating_scale(scale_name))
+        .unwrap_or(false)
+}
+
+fn default_scorecard_score() -> Result<f64> {
+    Ok(finstack_core::rating_scales::embedded_registry()?.default_scorecard_score())
 }
 
 /// Credit scorecard analysis extension for rating and stress testing.
@@ -363,11 +298,11 @@ impl CreditScorecardExtension {
         let total_score = self.calculate_weighted_score(&scores);
 
         // Determine rating based on scale
-        let rating = self.determine_rating(total_score, &config.rating_scale);
+        let rating = self.determine_rating(total_score, &config.rating_scale)?;
 
         // Check minimum rating requirement
         if let Some(min_rating) = &config.min_rating {
-            if !self.meets_minimum_rating(&rating, min_rating, &config.rating_scale) {
+            if !self.meets_minimum_rating(&rating, min_rating, &config.rating_scale)? {
                 warnings.push(format!(
                     "Credit rating {} is below minimum required {}",
                     rating, min_rating
@@ -489,14 +424,14 @@ impl CreditScorecardExtension {
         )?;
 
         // Calculate score based on thresholds
-        let score = self.calculate_metric_score(value, &metric.thresholds, &config.rating_scale);
+        let score = self.calculate_metric_score(value, &metric.thresholds, &config.rating_scale)?;
         let warning = if self
-            .matching_threshold_score(value, &metric.thresholds, &config.rating_scale)
+            .matching_threshold_score(value, &metric.thresholds, &config.rating_scale)?
             .is_none()
         {
             Some(format!(
                 "Credit scorecard metric '{}' thresholds did not match value {} for {}; using fallback score {}",
-                metric.name, value, config.rating_scale, DEFAULT_SCORECARD_SCORE
+                metric.name, value, config.rating_scale, default_scorecard_score()?
             ))
         } else {
             None
@@ -518,8 +453,8 @@ impl CreditScorecardExtension {
         value: f64,
         thresholds: &indexmap::IndexMap<String, (f64, f64)>,
         rating_scale: &str,
-    ) -> Option<f64> {
-        let scale = get_rating_scale(rating_scale);
+    ) -> Result<Option<f64>> {
+        let scale = get_rating_scale(rating_scale)?;
 
         // Boundary convention: the best (first-iterated) rating uses
         // closed-on-both-ends `[min, max]` so a value at the scale
@@ -528,7 +463,7 @@ impl CreditScorecardExtension {
         // buckets lands in the **better** of the two — matching the
         // published S&P / Moody's conventions which define strict
         // upper bounds on non-top buckets.
-        scale.ratings.iter().enumerate().find_map(|(idx, level)| {
+        Ok(scale.ratings.iter().enumerate().find_map(|(idx, level)| {
             thresholds.get(&level.name).and_then(|(min, max)| {
                 let is_best_rating = idx == 0;
                 let lower_ok = value >= *min;
@@ -543,7 +478,7 @@ impl CreditScorecardExtension {
                     None
                 }
             })
-        })
+        }))
     }
 
     /// Calculate score based on thresholds.
@@ -555,19 +490,20 @@ impl CreditScorecardExtension {
         value: f64,
         thresholds: &indexmap::IndexMap<String, (f64, f64)>,
         rating_scale: &str,
-    ) -> f64 {
-        if let Some(score) = self.matching_threshold_score(value, thresholds, rating_scale) {
-            return score;
+    ) -> Result<f64> {
+        if let Some(score) = self.matching_threshold_score(value, thresholds, rating_scale)? {
+            return Ok(score);
         }
 
         // Default score if no threshold matches
+        let default_score = default_scorecard_score()?;
         tracing::warn!(
             rating_scale,
             value,
-            default_score = DEFAULT_SCORECARD_SCORE,
+            default_score,
             "credit scorecard thresholds did not match metric value; using fallback score"
         );
-        DEFAULT_SCORECARD_SCORE
+        Ok(default_score)
     }
 
     /// Calculate weighted average score.
@@ -588,30 +524,35 @@ impl CreditScorecardExtension {
     ///
     /// Uses the configured rating scale to map a numeric score to a credit rating.
     /// Supports S&P, Moody's, and Fitch scales.
-    fn determine_rating(&self, score: f64, rating_scale: &str) -> String {
-        let scale = get_rating_scale(rating_scale);
+    fn determine_rating(&self, score: f64, rating_scale: &str) -> Result<String> {
+        let scale = get_rating_scale(rating_scale)?;
 
         // Find the rating by checking score thresholds
         for level in &scale.ratings {
             if score >= level.min_score {
-                return level.name.clone();
+                return Ok(level.name.clone());
             }
         }
 
         // Fallback to lowest rating
-        scale
+        Ok(scale
             .ratings
             .last()
             .map(|l| l.name.clone())
-            .unwrap_or_else(|| "D".to_string())
+            .unwrap_or_default())
     }
 
     /// Check if rating meets minimum requirement.
     ///
     /// Compares ratings using the configured rating scale with exact matching.
     /// Returns true if the rating is equal to or better than the minimum.
-    fn meets_minimum_rating(&self, rating: &str, min_rating: &str, rating_scale: &str) -> bool {
-        let scale = get_rating_scale(rating_scale);
+    fn meets_minimum_rating(
+        &self,
+        rating: &str,
+        min_rating: &str,
+        rating_scale: &str,
+    ) -> Result<bool> {
+        let scale = get_rating_scale(rating_scale)?;
 
         // Find positions in the rating scale (lower index = better rating).
         // Use exact string matching to avoid false matches (e.g., "AA" matching "A").
@@ -619,8 +560,8 @@ impl CreditScorecardExtension {
         let min_pos = scale.ratings.iter().position(|l| l.name == min_rating);
 
         match (rating_pos, min_pos) {
-            (Some(r), Some(m)) => r <= m, // Lower index = better rating
-            _ => false,
+            (Some(r), Some(m)) => Ok(r <= m), // Lower index = better rating
+            _ => Ok(false),
         }
     }
 }
@@ -654,9 +595,11 @@ mod tests {
         let mut thresholds = indexmap::IndexMap::new();
         thresholds.insert("AAA".to_string(), (0.0, 1.0));
 
-        let score = extension.calculate_metric_score(2.5, &thresholds, "S&P");
+        let score = extension
+            .calculate_metric_score(2.5, &thresholds, "S&P")
+            .expect("registry score");
 
-        assert_eq!(score, DEFAULT_SCORECARD_SCORE);
+        assert_eq!(score, default_scorecard_score().expect("registry score"));
     }
 
     #[test]
@@ -699,13 +642,17 @@ mod tests {
         // Value 95 is the boundary between AAA and AA+. Top bucket
         // gets [min, max] — so 95 is AAA.
         assert_eq!(
-            extension.matching_threshold_score(95.0, &thresholds, "S&P"),
+            extension
+                .matching_threshold_score(95.0, &thresholds, "S&P")
+                .expect("registry score"),
             Some(100.0),
             "top-bucket upper bound is inclusive"
         );
         // Value 100 is the absolute max → still AAA (top-bucket-closed).
         assert_eq!(
-            extension.matching_threshold_score(100.0, &thresholds, "S&P"),
+            extension
+                .matching_threshold_score(100.0, &thresholds, "S&P")
+                .expect("registry score"),
             Some(100.0)
         );
     }
@@ -732,14 +679,18 @@ mod tests {
 
         // 90.0 — boundary between AA+ and AA → AA+ (better).
         assert_eq!(
-            extension.matching_threshold_score(90.0, &thresholds, "S&P"),
+            extension
+                .matching_threshold_score(90.0, &thresholds, "S&P")
+                .expect("registry score"),
             Some(95.0),
             "shared boundary 90.0 between AA+ and AA must resolve to AA+ (better)"
         );
         // 85.0 — lower bound of AA, upper bound of (nothing defined below).
         // Since AA is not top, AA's range is [85, 90), which INCLUDES 85.
         assert_eq!(
-            extension.matching_threshold_score(85.0, &thresholds, "S&P"),
+            extension
+                .matching_threshold_score(85.0, &thresholds, "S&P")
+                .expect("registry score"),
             Some(90.0),
             "lower-bound value must land in the bucket it bounds"
         );

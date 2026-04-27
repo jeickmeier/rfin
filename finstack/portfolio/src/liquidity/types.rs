@@ -293,19 +293,16 @@ pub struct LiquidityConfig {
 }
 
 fn default_endogenous_spread_coef() -> f64 {
-    0.1
+    crate::registry::embedded_liquidity_defaults_or_panic()
+        .default_config
+        .endogenous_spread_coef
 }
 
 impl Default for LiquidityConfig {
     fn default() -> Self {
-        Self {
-            participation_rate: 0.10,
-            tier_thresholds: [1.0, 5.0, 20.0, 60.0],
-            risk_aversion: 1e-6,
-            holding_period: 1.0,
-            confidence_level: 0.99,
-            endogenous_spread_coef: default_endogenous_spread_coef(),
-        }
+        crate::registry::embedded_liquidity_defaults_or_panic()
+            .default_config
+            .clone()
     }
 }
 

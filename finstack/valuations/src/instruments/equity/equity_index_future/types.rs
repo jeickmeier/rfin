@@ -32,6 +32,7 @@
 
 use super::pricer;
 use crate::cashflow::traits::CashflowProvider;
+use crate::contract_specs::{embedded_registry, ContractSpecRegistry};
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::rates::ir_future::Position;
@@ -79,6 +80,18 @@ impl Default for EquityFutureSpecs {
     }
 }
 
+#[allow(clippy::expect_used)]
+fn contract_spec_registry() -> &'static ContractSpecRegistry {
+    embedded_registry().expect("embedded contract-spec registry should load")
+}
+
+#[allow(clippy::expect_used)]
+fn equity_future_specs_from_registry(id: &str) -> EquityFutureSpecs {
+    contract_spec_registry()
+        .equity_index_future_specs(id)
+        .expect("embedded equity index future contract spec should exist")
+}
+
 impl EquityFutureSpecs {
     /// Create specs for E-mini S&P 500 futures (ES).
     ///
@@ -88,12 +101,7 @@ impl EquityFutureSpecs {
     /// - Tick value: $12.50 per tick
     /// - Settlement: Cash settled to Special Opening Quotation (SOQ)
     pub fn sp500_emini() -> Self {
-        Self {
-            multiplier: 50.0,
-            tick_size: 0.25,
-            tick_value: 12.50,
-            settlement_method: "Cash settled to Special Opening Quotation".to_string(),
-        }
+        equity_future_specs_from_registry("cme.es")
     }
 
     /// Create specs for E-mini Nasdaq-100 futures (NQ).
@@ -104,12 +112,7 @@ impl EquityFutureSpecs {
     /// - Tick value: $5.00 per tick
     /// - Settlement: Cash settled to Special Opening Quotation (SOQ)
     pub fn nasdaq100_emini() -> Self {
-        Self {
-            multiplier: 20.0,
-            tick_size: 0.25,
-            tick_value: 5.00,
-            settlement_method: "Cash settled to Special Opening Quotation".to_string(),
-        }
+        equity_future_specs_from_registry("cme.nq")
     }
 
     /// Create specs for Micro E-mini S&P 500 futures (MES).
@@ -119,12 +122,7 @@ impl EquityFutureSpecs {
     /// - Tick size: 0.25 index points
     /// - Tick value: $1.25 per tick
     pub fn sp500_micro_emini() -> Self {
-        Self {
-            multiplier: 5.0,
-            tick_size: 0.25,
-            tick_value: 1.25,
-            settlement_method: "Cash settled to Special Opening Quotation".to_string(),
-        }
+        equity_future_specs_from_registry("cme.mes")
     }
 
     /// Create specs for Euro Stoxx 50 futures (FESX).
@@ -134,12 +132,7 @@ impl EquityFutureSpecs {
     /// - Tick size: 1.0 index point
     /// - Tick value: €10.00 per tick
     pub fn euro_stoxx_50() -> Self {
-        Self {
-            multiplier: 10.0,
-            tick_size: 1.0,
-            tick_value: 10.0,
-            settlement_method: "Cash settled to final settlement price".to_string(),
-        }
+        equity_future_specs_from_registry("eurex.fesx")
     }
 
     /// Create specs for DAX futures (FDAX).
@@ -149,12 +142,7 @@ impl EquityFutureSpecs {
     /// - Tick size: 0.5 index points
     /// - Tick value: €12.50 per tick
     pub fn dax() -> Self {
-        Self {
-            multiplier: 25.0,
-            tick_size: 0.5,
-            tick_value: 12.5,
-            settlement_method: "Cash settled to final settlement price".to_string(),
-        }
+        equity_future_specs_from_registry("eurex.fdax")
     }
 
     /// Create specs for FTSE 100 futures (Z).
@@ -164,12 +152,7 @@ impl EquityFutureSpecs {
     /// - Tick size: 0.5 index points
     /// - Tick value: £5.00 per tick
     pub fn ftse_100() -> Self {
-        Self {
-            multiplier: 10.0,
-            tick_size: 0.5,
-            tick_value: 5.0,
-            settlement_method: "Cash settled to Exchange Delivery Settlement Price".to_string(),
-        }
+        equity_future_specs_from_registry("ice.ftse_100")
     }
 
     /// Create specs for Nikkei 225 futures (NK).
@@ -179,12 +162,7 @@ impl EquityFutureSpecs {
     /// - Tick size: 5.0 index points
     /// - Tick value: ¥2,500 per tick
     pub fn nikkei_225() -> Self {
-        Self {
-            multiplier: 500.0,
-            tick_size: 5.0,
-            tick_value: 2500.0,
-            settlement_method: "Cash settled to Special Quotation".to_string(),
-        }
+        equity_future_specs_from_registry("ose.nikkei_225")
     }
 }
 

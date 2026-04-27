@@ -6,8 +6,8 @@
 
 use std::fmt;
 
-use crate::registry::embedded_registry;
 use crate::registry::margin_registry_from_config;
+use crate::registry::{embedded_registry, embedded_registry_or_panic, AssetClassDefault};
 use finstack_core::config::FinstackConfig;
 use serde::de::Error as DeError;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -40,6 +40,10 @@ pub enum CollateralAssetClass {
 }
 
 impl CollateralAssetClass {
+    fn defaults_or_panic(&self) -> AssetClassDefault {
+        embedded_registry_or_panic().collateral_asset_class_defaults[self].clone()
+    }
+
     fn normalize(raw: &str) -> String {
         raw.trim().to_ascii_lowercase().replace([' ', '-'], "_")
     }
@@ -256,12 +260,13 @@ impl CollateralEligibility {
     /// Create a cash eligibility entry.
     #[must_use]
     pub fn cash() -> Self {
+        let defaults = CollateralAssetClass::Cash.defaults_or_panic();
         Self {
             asset_class: CollateralAssetClass::Cash,
             min_rating: None,
             maturity_constraints: None,
-            haircut: 0.0,
-            fx_haircut_addon: CollateralAssetClass::Cash.fx_addon().unwrap_or(0.08),
+            haircut: defaults.standard_haircut,
+            fx_haircut_addon: defaults.fx_addon,
             concentration_limit: None,
         }
     }
@@ -269,14 +274,13 @@ impl CollateralEligibility {
     /// Create a government bonds eligibility entry with standard BCBS haircuts.
     #[must_use]
     pub fn government_bonds(haircut: f64) -> Self {
+        let defaults = CollateralAssetClass::GovernmentBonds.defaults_or_panic();
         Self {
             asset_class: CollateralAssetClass::GovernmentBonds,
             min_rating: Some("A-".to_string()),
             maturity_constraints: None,
             haircut,
-            fx_haircut_addon: CollateralAssetClass::GovernmentBonds
-                .fx_addon()
-                .unwrap_or(0.08),
+            fx_haircut_addon: defaults.fx_addon,
             concentration_limit: None,
         }
     }
@@ -284,15 +288,14 @@ impl CollateralEligibility {
     /// Create a corporate bonds eligibility entry.
     #[must_use]
     pub fn corporate_bonds(haircut: f64, min_rating: &str) -> Self {
+        let defaults = CollateralAssetClass::CorporateBonds.defaults_or_panic();
         Self {
             asset_class: CollateralAssetClass::CorporateBonds,
             min_rating: Some(min_rating.to_string()),
             maturity_constraints: None,
             haircut,
-            fx_haircut_addon: CollateralAssetClass::CorporateBonds
-                .fx_addon()
-                .unwrap_or(0.08),
-            concentration_limit: Some(0.30), // 30% concentration limit typical
+            fx_haircut_addon: defaults.fx_addon,
+            concentration_limit: defaults.concentration_limit,
         }
     }
 

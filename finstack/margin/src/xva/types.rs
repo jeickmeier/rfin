@@ -3,6 +3,8 @@
 //! Defines configuration, result containers, netting set specifications,
 //! and CSA (Credit Support Annex) terms used across all XVA calculations.
 
+use crate::registry::embedded_registry_or_panic;
+
 /// Funding cost/benefit configuration for FVA calculation.
 ///
 /// Models the asymmetric funding costs that arise from uncollateralized
@@ -90,14 +92,16 @@ pub struct XvaConfig {
 }
 
 impl Default for XvaConfig {
-    /// Creates a standard quarterly grid to 30Y with 40% recovery.
+    /// Creates the registry-backed default XVA configuration.
     fn default() -> Self {
-        // Quarterly grid out to 30 years: 0.25, 0.50, ..., 30.0
-        let time_grid: Vec<f64> = (1..=120).map(|i| i as f64 * 0.25).collect();
+        let defaults = &embedded_registry_or_panic().xva.deterministic_exposure;
+        let time_grid: Vec<f64> = (1..=defaults.time_grid_points)
+            .map(|i| i as f64 * defaults.time_grid_step_years)
+            .collect();
         Self {
             time_grid,
-            recovery_rate: 0.40,
-            own_recovery_rate: None,
+            recovery_rate: defaults.recovery_rate,
+            own_recovery_rate: defaults.own_recovery_rate,
             funding: None,
         }
     }
@@ -416,13 +420,12 @@ pub struct StochasticExposureConfig {
 
 impl Default for StochasticExposureConfig {
     /// Create the default stochastic exposure configuration.
-    ///
-    /// Uses 10,000 paths, seed `42`, and a 97.5% PFE quantile.
     fn default() -> Self {
+        let defaults = &embedded_registry_or_panic().xva.stochastic_exposure;
         Self {
-            num_paths: 10_000,
-            seed: 42,
-            pfe_quantile: 0.975,
+            num_paths: defaults.num_paths,
+            seed: defaults.seed,
+            pfe_quantile: defaults.pfe_quantile,
         }
     }
 }

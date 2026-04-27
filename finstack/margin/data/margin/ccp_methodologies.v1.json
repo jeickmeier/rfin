@@ -32,7 +32,13 @@
     },
     {
       "ids": ["generic_var", "default"],
-      "record": { "mpor_days": 5, "conservative_rate": 0.05, "is_default": true }
+      "record": {
+        "mpor_days": 5,
+        "conservative_rate": 0.05,
+        "generic_var_confidence": 0.99,
+        "generic_var_lookback_days": 250,
+        "is_default": true
+      }
     }
   ]
 }

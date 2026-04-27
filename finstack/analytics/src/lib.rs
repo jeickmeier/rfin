@@ -58,6 +58,7 @@ pub mod benchmark;
 pub mod drawdown;
 pub mod lookback;
 pub mod performance;
+pub mod registry;
 pub mod returns;
 pub mod risk_metrics;
 pub mod timeseries;

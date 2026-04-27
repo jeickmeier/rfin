@@ -76,18 +76,19 @@ impl McEngineConfig {
     ///
     /// # Returns
     ///
-    /// A configuration using seed `42`, adaptive parallel defaults, disabled
+    /// A configuration using registry-backed seed and parallel defaults, disabled
     /// path capture, and no antithetic pairing.
     pub fn new(num_paths: usize, time_grid: TimeGrid) -> Self {
+        let defaults = &crate::registry::embedded_defaults_or_panic().rust.engine;
         Self {
             num_paths,
-            seed: 42,
+            seed: defaults.seed,
             time_grid,
             target_ci_half_width: None,
-            use_parallel: true,
-            chunk_size: 1000,
+            use_parallel: defaults.use_parallel,
+            chunk_size: defaults.chunk_size,
             path_capture: PathCaptureConfig::default(),
-            antithetic: false,
+            antithetic: defaults.antithetic,
         }
     }
 
@@ -166,19 +167,22 @@ pub struct McEngineBuilder {
 impl McEngineBuilder {
     /// Create a builder with default settings.
     ///
-    /// The builder defaults to `100_000` paths, seed `42`, the crate's parallel
+    /// The builder uses registry-backed path count, seed, and parallel
     /// default, and no time grid. You must provide a valid grid via
     /// [`Self::time_grid`] or [`Self::uniform_grid`] before calling [`Self::build`].
     pub fn new() -> Self {
+        let defaults = &crate::registry::embedded_defaults_or_panic()
+            .rust
+            .engine_builder;
         Self {
-            num_paths: 100_000,
-            seed: 42,
+            num_paths: defaults.num_paths,
+            seed: defaults.seed,
             time_grid: None,
             target_ci: None,
-            parallel: true,
-            chunk_size: 1000,
+            parallel: defaults.use_parallel,
+            chunk_size: defaults.chunk_size,
             path_capture: PathCaptureConfig::default(),
-            antithetic: false,
+            antithetic: defaults.antithetic,
         }
     }
 

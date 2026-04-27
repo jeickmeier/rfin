@@ -104,16 +104,7 @@ pub struct EclConfig {
 
 impl Default for EclConfig {
     fn default() -> Self {
-        Self {
-            bucket_width_years: 0.25,
-            scenarios: vec![MacroScenario {
-                id: "base".into(),
-                weight: 1.0,
-                lgd_override: None,
-            }],
-            staging: StagingConfig::default(),
-            lgd_type: LgdType::PointInTime,
-        }
+        super::policy::default_ecl_config()
     }
 }
 

@@ -54,6 +54,10 @@ depends = ["rust-lint", "python-lint", "wasm-lint"]
 description = "Run security audits on Rust + Python"
 depends = ["rust-audit", "python-audit"]
 
+[tasks.assumptions-audit]
+description = "Report hard-coded external assumptions that should move to registries"
+run = "python3 scripts/audit_hardcoded_assumptions.py"
+
 [tasks.all-update]
 description = "Update Rust + Python dependencies"
 depends = ["rust-update", "python-update"]

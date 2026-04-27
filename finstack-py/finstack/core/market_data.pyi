@@ -309,7 +309,7 @@ class HazardCurve:
     knots : list[tuple[float, float]]
         ``(time_years, hazard_rate)`` pairs.
     recovery_rate : float
-        Recovery rate (default ``0.4``).
+        Recovery rate. Defaults to the credit assumptions registry value.
     day_count : str
         Day-count convention (default ``"act_365f"``).
 
@@ -324,7 +324,7 @@ class HazardCurve:
         id: str,
         base_date: datetime.date,
         knots: list[tuple[float, float]],
-        recovery_rate: float = 0.4,
+        recovery_rate: float | None = None,
         day_count: str = "act_365f",
     ) -> None:
         """Construct a hazard curve from knot points.

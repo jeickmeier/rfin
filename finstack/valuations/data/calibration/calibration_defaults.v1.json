@@ -1,0 +1,23 @@
+{
+  "schema": "finstack.valuations.calibration_defaults.v1",
+  "version": 1,
+  "validation": {
+    "recovery_rate_abs_tolerance": 1e-12,
+    "minimum_lgd_for_hazard_guess": 1e-6
+  },
+  "lmm_calibration": {
+    "num_factors": 2,
+    "beta_init": 0.15,
+    "calibrate_beta": true,
+    "tolerance": 1e-10,
+    "max_iterations": 200,
+    "strict_mode": false,
+    "pca_variance_loss_tolerance": 0.01,
+    "mc_validation": null,
+    "mc_validation_defaults": {
+      "num_paths": 10000,
+      "num_steps_per_year": 20,
+      "seed": 20260421
+    }
+  }
+}

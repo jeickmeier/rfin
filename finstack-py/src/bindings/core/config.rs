@@ -5,8 +5,10 @@ use finstack_core::config::{FinstackConfig, RoundingMode, ToleranceConfig};
 use finstack_core::currency::Currency;
 use finstack_core::Error;
 use finstack_core::InputError;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
+use serde_json::Value as JsonValue;
 
 /// Wrapper for [`RoundingMode`].
 #[pyclass(
@@ -213,9 +215,96 @@ impl PyFinstackConfig {
         Ok(self.inner.ingest_scale(ccy))
     }
 
+    /// Set a versioned registry/config extension from a Python dict/list or JSON string.
+    #[pyo3(text_signature = "(self, key, value)")]
+    fn set_extension(
+        &mut self,
+        py: Python<'_>,
+        key: &str,
+        value: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let value = py_to_json_value(py, value, "config extension")?;
+        self.inner.extensions.insert(key, value);
+        Ok(())
+    }
+
+    /// Remove a versioned registry/config extension.
+    #[pyo3(text_signature = "(self, key)")]
+    fn remove_extension(&mut self, key: &str) -> bool {
+        self.inner.extensions.remove(key).is_some()
+    }
+
+    /// Return configured extension keys.
+    #[pyo3(text_signature = "(self)")]
+    fn extension_keys(&self) -> Vec<String> {
+        self.inner.extensions.keys().map(str::to_string).collect()
+    }
+
+    /// Return one extension as a JSON string, or `None` if absent.
+    #[pyo3(text_signature = "(self, key)")]
+    fn get_extension_json(&self, key: &str) -> PyResult<Option<String>> {
+        self.inner
+            .extensions
+            .get(key)
+            .map(|value| {
+                serde_json::to_string(value)
+                    .map_err(|err| PyValueError::new_err(format!("invalid extension JSON: {err}")))
+            })
+            .transpose()
+    }
+
+    /// Return one extension as native Python data, or `None` if absent.
+    #[pyo3(text_signature = "(self, key)")]
+    fn get_extension<'py>(
+        &self,
+        py: Python<'py>,
+        key: &str,
+    ) -> PyResult<Option<Bound<'py, PyAny>>> {
+        let Some(json) = self.get_extension_json(key)? else {
+            return Ok(None);
+        };
+        let json_mod = py.import("json")?;
+        json_mod.call_method1("loads", (json,)).map(Some)
+    }
+
+    /// Serialize this config, including extensions, to JSON.
+    #[pyo3(text_signature = "(self)")]
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner)
+            .map_err(|err| PyValueError::new_err(format!("failed to serialize config: {err}")))
+    }
+
+    /// Deserialize a config from JSON.
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, json)")]
+    fn from_json(_cls: &Bound<'_, PyType>, json: &str) -> PyResult<Self> {
+        serde_json::from_str(json)
+            .map(Self::from_inner)
+            .map_err(|err| PyValueError::new_err(format!("invalid FinstackConfig JSON: {err}")))
+    }
+
     fn __repr__(&self) -> String {
         "FinstackConfig(...)".to_string()
     }
+}
+
+fn py_to_json_value<'py>(
+    py: Python<'py>,
+    obj: &Bound<'py, PyAny>,
+    label: &str,
+) -> PyResult<JsonValue> {
+    if let Ok(json) = obj.extract::<String>() {
+        return serde_json::from_str(&json)
+            .map_err(|err| PyValueError::new_err(format!("invalid {label} JSON: {err}")));
+    }
+
+    let json_mod = py.import("json")?;
+    let json: String = json_mod
+        .call_method1("dumps", (obj,))
+        .and_then(|value| value.extract())
+        .map_err(|err| PyValueError::new_err(format!("invalid {label}: {err}")))?;
+    serde_json::from_str(&json)
+        .map_err(|err| PyValueError::new_err(format!("invalid {label} JSON: {err}")))
 }
 
 /// Register the `finstack.core.config` submodule.

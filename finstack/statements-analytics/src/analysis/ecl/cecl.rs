@@ -74,18 +74,7 @@ pub struct CeclConfig {
 
 impl Default for CeclConfig {
     fn default() -> Self {
-        Self {
-            bucket_width_years: 0.25,
-            forecast_horizon_years: 2.0,
-            reversion_method: ReversionMethod::Immediate,
-            historical_annual_pd: 0.02,
-            scenarios: vec![MacroScenario {
-                id: "base".into(),
-                weight: 1.0,
-                lgd_override: None,
-            }],
-            methodology: CeclMethodology::PdLgdEad,
-        }
+        super::policy::default_cecl_config()
     }
 }
 

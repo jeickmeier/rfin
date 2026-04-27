@@ -194,7 +194,7 @@ impl InitialMarginMetric {
                 let calc = self.clearing_calculator.clone().unwrap_or_else(|| {
                     spec.ccp()
                         .map(ClearingHouseImCalculator::for_ccp)
-                        .unwrap_or_else(|| ClearingHouseImCalculator::generic_var(0.99, 250))
+                        .unwrap_or_else(ClearingHouseImCalculator::generic_var_default)
                 });
                 calc.calculate(instrument, market, as_of)
             }

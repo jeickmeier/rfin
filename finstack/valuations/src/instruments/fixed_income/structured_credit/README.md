@@ -221,9 +221,9 @@ let mdr = cdr_to_mdr(0.02);       // 2% annual CDR → monthly MDR
 
 ## Configuration
 
-### Constants (`types/constants.rs`)
+### Registry-backed assumptions (`data/assumptions/structured_credit_assumptions.v1.json`)
 
-- Fee defaults (CLO_SENIOR_MGMT_FEE_BPS, etc.)
+- Fee defaults
 - PSA/SDA model parameters
 - Concentration limits
 

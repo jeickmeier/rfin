@@ -23,20 +23,25 @@ use crate::errors::display_to_py;
 /// Arguments:
 ///     seniority: One of "senior_secured", "senior_unsecured",
 ///         "subordinated", "junior_subordinated".
-///     rating_agency: "moodys" (default) or "sp".
+///     rating_agency: Optional agency id such as "moodys" or "sp". If omitted,
+///         the Rust credit-assumptions registry default is used.
 ///
 /// Returns a dict with keys ``{"mean", "std", "alpha", "beta"}`` where
 /// ``alpha``/``beta`` are the Beta-distribution shape parameters derived
 /// from the (mean, std) moment-matching parameterization.
 #[pyfunction]
-#[pyo3(signature = (seniority, rating_agency = "moodys"))]
-#[pyo3(text_signature = "(seniority, rating_agency='moodys')")]
+#[pyo3(signature = (seniority, rating_agency = None))]
+#[pyo3(text_signature = "(seniority, rating_agency=None)")]
 fn seniority_recovery_stats<'py>(
     py: Python<'py>,
     seniority: &str,
-    rating_agency: &str,
+    rating_agency: Option<&str>,
 ) -> PyResult<Bound<'py, PyDict>> {
-    let br = lgd::seniority_recovery_stats(seniority, rating_agency).map_err(display_to_py)?;
+    let br = match rating_agency {
+        Some(agency) => lgd::seniority_recovery_stats(seniority, agency),
+        None => lgd::seniority_recovery_stats_default(seniority),
+    }
+    .map_err(display_to_py)?;
 
     let d = PyDict::new(py);
     d.set_item("mean", br.mean())?;

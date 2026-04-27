@@ -174,11 +174,12 @@ impl LsmcConfig {
                  must satisfy 0 < date <= num_steps"
             )));
         }
+        let defaults = &crate::registry::embedded_defaults_or_panic().rust.lsmc;
         Ok(Self {
             num_paths,
-            seed: 42,
+            seed: defaults.seed,
             exercise_dates,
-            use_parallel: false,
+            use_parallel: defaults.use_parallel,
         })
     }
 

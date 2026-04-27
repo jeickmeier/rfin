@@ -20,6 +20,10 @@
 //! - Asset correlation: 15-25% (concentrated property types)
 //! - Prepay-default correlation: -10% to -20%
 
+use crate::instruments::fixed_income::structured_credit::pricing::stochastic::calibrations::{
+    clo_standard, cmbs_standard, rmbs_standard,
+};
+
 /// Correlation structure specification.
 ///
 /// Captures the various correlation parameters needed for
@@ -138,8 +142,9 @@ impl CorrelationStructure {
     /// Low asset correlation (diversified pool), moderate negative
     /// prepay-default correlation (refi vs credit).
     pub fn rmbs_standard() -> Self {
+        let calibration = rmbs_standard();
         CorrelationStructure::Flat {
-            asset_correlation: 0.05,
+            asset_correlation: calibration.default_correlation,
             prepay_default_correlation: -0.30,
         }
     }
@@ -148,8 +153,9 @@ impl CorrelationStructure {
     ///
     /// Sectored structure with higher intra-sector correlation.
     pub fn clo_standard() -> Self {
+        let calibration = clo_standard();
         CorrelationStructure::Sectored {
-            intra_sector: 0.30,
+            intra_sector: calibration.default_correlation + 0.10,
             inter_sector: 0.10,
             prepay_default: -0.20,
         }
@@ -159,8 +165,9 @@ impl CorrelationStructure {
     ///
     /// Moderate correlation (concentrated property types).
     pub fn cmbs_standard() -> Self {
+        let calibration = cmbs_standard();
         CorrelationStructure::Flat {
-            asset_correlation: 0.20,
+            asset_correlation: calibration.default_correlation + 0.05,
             prepay_default_correlation: -0.15,
         }
     }

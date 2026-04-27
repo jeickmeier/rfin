@@ -6,6 +6,7 @@
 use crate::cashflow::builder::{CashFlowSchedule, Notional};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::CashflowProvider;
+use crate::contract_specs::{embedded_registry, ContractSpecRegistry};
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::dependencies::MarketDependencies;
 use crate::instruments::common_impl::traits::Attributes;
@@ -130,6 +131,18 @@ fn default_repo_day_count_basis() -> RepoDayCountBasis {
     RepoDayCountBasis::Act360
 }
 
+#[allow(clippy::expect_used)]
+fn contract_spec_registry() -> &'static ContractSpecRegistry {
+    embedded_registry().expect("embedded contract-spec registry should load")
+}
+
+#[allow(clippy::expect_used)]
+fn bond_future_specs_from_registry(id: &str) -> BondFutureSpecs {
+    contract_spec_registry()
+        .bond_future_specs(id)
+        .expect("embedded bond future contract spec should exist")
+}
+
 impl Default for BondFutureSpecs {
     /// Default specifications for UST 10-year futures.
     ///
@@ -142,16 +155,7 @@ impl Default for BondFutureSpecs {
     /// - Settlement: 2 business days
     /// - Calendar: NYSE (New York Stock Exchange)
     fn default() -> Self {
-        Self {
-            contract_size: 100_000.0,
-            tick_size: 1.0 / 64.0, // 1/2 of 1/32 (half-32nd)
-            tick_value: 15.625,    // $100,000 × 1/64 × 1% = $15.625
-            standard_coupon: 0.06, // 6%
-            standard_maturity_years: 10.0,
-            settlement_days: 2,
-            calendar_id: "nyse".to_string(),
-            repo_day_count_basis: RepoDayCountBasis::Act360,
-        }
+        Self::ust_10y()
     }
 }
 
@@ -183,7 +187,7 @@ impl BondFutureSpecs {
     /// assert_eq!(specs.standard_coupon, 0.06);
     /// ```
     pub fn ust_10y() -> Self {
-        Self::default()
+        bond_future_specs_from_registry("cme.ust_10y")
     }
 
     /// UST 5-year futures contract specifications.
@@ -214,16 +218,7 @@ impl BondFutureSpecs {
     /// assert_eq!(specs.standard_maturity_years, 5.0);
     /// ```
     pub fn ust_5y() -> Self {
-        Self {
-            contract_size: 100_000.0,
-            tick_size: 1.0 / 128.0, // 1/4 of 1/32 = 1/128
-            tick_value: 7.8125,     // $100,000 × 1/128 × 1% = $7.8125
-            standard_coupon: 0.06,  // 6%
-            standard_maturity_years: 5.0,
-            settlement_days: 2,
-            calendar_id: "nyse".to_string(),
-            repo_day_count_basis: RepoDayCountBasis::Act360,
-        }
+        bond_future_specs_from_registry("cme.ust_5y")
     }
 
     /// UST 2-year futures contract specifications.
@@ -254,16 +249,7 @@ impl BondFutureSpecs {
     /// assert_eq!(specs.standard_maturity_years, 2.0);
     /// ```
     pub fn ust_2y() -> Self {
-        Self {
-            contract_size: 200_000.0, // 2Y contracts are $200k (double 5Y/10Y)
-            tick_size: 1.0 / 256.0,   // 1/8 of 1/32 = 1/256
-            tick_value: 7.8125,       // $200,000 × 1/256 × 1% = $7.8125
-            standard_coupon: 0.06,    // 6%
-            standard_maturity_years: 2.0,
-            settlement_days: 2,
-            calendar_id: "nyse".to_string(),
-            repo_day_count_basis: RepoDayCountBasis::Act360,
-        }
+        bond_future_specs_from_registry("cme.ust_2y")
     }
 
     /// German Bund futures contract specifications.
@@ -300,16 +286,7 @@ impl BondFutureSpecs {
     /// assert_eq!(specs.tick_value, 10.0);
     /// ```
     pub fn bund() -> Self {
-        Self {
-            contract_size: 100_000.0,
-            tick_size: 0.01,       // 1 basis point
-            tick_value: 10.0,      // €100,000 × 0.01% = €10
-            standard_coupon: 0.06, // 6%
-            standard_maturity_years: 10.0,
-            settlement_days: 2,
-            calendar_id: "target2".to_string(), // European settlement calendar
-            repo_day_count_basis: RepoDayCountBasis::Act360,
-        }
+        bond_future_specs_from_registry("eurex.bund")
     }
 
     /// UK Gilt futures contract specifications.
@@ -347,16 +324,7 @@ impl BondFutureSpecs {
     /// assert_eq!(specs.standard_coupon, 0.04);  // 4%, not 6%
     /// ```
     pub fn gilt() -> Self {
-        Self {
-            contract_size: 100_000.0,
-            tick_size: 0.01,       // 1 basis point
-            tick_value: 10.0,      // £100,000 × 0.01% = £10
-            standard_coupon: 0.04, // 4% (different from UST/Bund)
-            standard_maturity_years: 10.0,
-            settlement_days: 2,
-            calendar_id: "gblo".to_string(), // London settlement calendar
-            repo_day_count_basis: RepoDayCountBasis::Act365,
-        }
+        bond_future_specs_from_registry("ice.gilt")
     }
 }
 
@@ -766,7 +734,8 @@ impl BondFuture {
 
         // Convert from percentage to actual money amount for contract size
         // Contract size is typically $100,000, so invoice_pct is per $100 face
-        let invoice_per_contract = (invoice_pct / 100.0) * self.contract_specs.contract_size;
+        let invoice_per_contract = (invoice_pct / crate::constants::DECIMAL_TO_PERCENT)
+            * self.contract_specs.contract_size;
 
         // Scale by number of contracts (notional / contract_size)
         let num_contracts = self.notional.amount() / self.contract_specs.contract_size;

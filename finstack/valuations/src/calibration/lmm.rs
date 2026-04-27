@@ -125,25 +125,36 @@ pub struct LmmMcValidationConfig {
 
 impl Default for LmmMcValidationConfig {
     fn default() -> Self {
+        let defaults = &crate::calibration::defaults::embedded_defaults_or_panic()
+            .lmm_calibration
+            .mc_validation_defaults;
         Self {
-            num_paths: 10_000,
-            num_steps_per_year: 20,
-            seed: 20_260_421,
+            num_paths: defaults.num_paths,
+            num_steps_per_year: defaults.num_steps_per_year,
+            seed: defaults.seed,
         }
     }
 }
 
 impl Default for LmmCalibrationConfig {
     fn default() -> Self {
+        let defaults = &crate::calibration::defaults::embedded_defaults_or_panic().lmm_calibration;
         Self {
-            num_factors: 2,
-            beta_init: 0.15,
-            calibrate_beta: true,
-            tolerance: 1e-10,
-            max_iterations: 200,
-            strict_mode: false,
-            pca_variance_loss_tolerance: 0.01,
-            mc_validation: None,
+            num_factors: defaults.num_factors,
+            beta_init: defaults.beta_init,
+            calibrate_beta: defaults.calibrate_beta,
+            tolerance: defaults.tolerance,
+            max_iterations: defaults.max_iterations,
+            strict_mode: defaults.strict_mode,
+            pca_variance_loss_tolerance: defaults.pca_variance_loss_tolerance,
+            mc_validation: defaults
+                .mc_validation
+                .as_ref()
+                .map(|mc| LmmMcValidationConfig {
+                    num_paths: mc.num_paths,
+                    num_steps_per_year: mc.num_steps_per_year,
+                    seed: mc.seed,
+                }),
         }
     }
 }

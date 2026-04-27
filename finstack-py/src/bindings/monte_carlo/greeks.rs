@@ -14,6 +14,7 @@ use finstack_monte_carlo::greeks::finite_diff::{
 };
 use finstack_monte_carlo::payoff::vanilla::{EuropeanCall, EuropeanPut};
 use finstack_monte_carlo::process::gbm::GbmProcess;
+use finstack_monte_carlo::registry;
 use finstack_monte_carlo::rng::philox::PhiloxRng;
 use finstack_monte_carlo::time_grid::TimeGrid;
 use pyo3::prelude::*;
@@ -36,16 +37,25 @@ fn parse_option(name: &str) -> PyResult<OptionType> {
 
 fn build_engine(num_paths: usize, seed: u64, expiry: f64, num_steps: usize) -> PyResult<McEngine> {
     let time_grid = TimeGrid::uniform(expiry, num_steps).map_err(core_to_py)?;
+    let defaults = &registry::embedded_defaults_or_panic()
+        .python_bindings
+        .greeks;
     Ok(McEngine::new(McEngineConfig {
         num_paths,
         seed,
         time_grid,
         target_ci_half_width: None,
-        use_parallel: false,
-        chunk_size: 1000,
+        use_parallel: defaults.use_parallel,
+        chunk_size: defaults.chunk_size,
         path_capture: finstack_monte_carlo::engine::PathCaptureConfig::default(),
-        antithetic: false,
+        antithetic: defaults.antithetic,
     }))
+}
+
+fn greek_defaults() -> &'static registry::PythonGreekDefaults {
+    &registry::embedded_defaults_or_panic()
+        .python_bindings
+        .greeks
 }
 
 /// Finite-difference delta for a vanilla European option under GBM.
@@ -58,8 +68,8 @@ fn build_engine(num_paths: usize, seed: u64, expiry: f64, num_steps: usize) -> P
 #[allow(clippy::too_many_arguments)]
 #[pyo3(signature = (
     spot, strike, rate, div_yield, vol, expiry,
-    num_paths=10_000, seed=42, num_steps=50,
-    bump_size=0.01, option_type="call", currency=None,
+    num_paths=None, seed=None, num_steps=None,
+    bump_size=None, option_type=None, currency=None,
 ))]
 fn fd_delta(
     py: Python<'_>,
@@ -69,13 +79,19 @@ fn fd_delta(
     div_yield: f64,
     vol: f64,
     expiry: f64,
-    num_paths: usize,
-    seed: u64,
-    num_steps: usize,
-    bump_size: f64,
-    option_type: &str,
+    num_paths: Option<usize>,
+    seed: Option<u64>,
+    num_steps: Option<usize>,
+    bump_size: Option<f64>,
+    option_type: Option<&str>,
     currency: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<(f64, f64)> {
+    let defaults = greek_defaults();
+    let num_paths = num_paths.unwrap_or(defaults.num_paths);
+    let seed = seed.unwrap_or(defaults.seed);
+    let num_steps = num_steps.unwrap_or(defaults.num_steps);
+    let bump_size = bump_size.unwrap_or(defaults.bump_size);
+    let option_type = option_type.unwrap_or(&defaults.option_type);
     let ccy = resolve_currency(currency)?;
     let kind = parse_option(option_type)?;
     let engine = build_engine(num_paths, seed, expiry, num_steps)?;
@@ -107,8 +123,8 @@ fn fd_delta(
 #[allow(clippy::too_many_arguments)]
 #[pyo3(signature = (
     spot, strike, rate, div_yield, vol, expiry,
-    num_paths=10_000, seed=42, num_steps=50,
-    bump_size=0.01, option_type="call", currency=None,
+    num_paths=None, seed=None, num_steps=None,
+    bump_size=None, option_type=None, currency=None,
 ))]
 fn fd_delta_crn(
     py: Python<'_>,
@@ -118,13 +134,19 @@ fn fd_delta_crn(
     div_yield: f64,
     vol: f64,
     expiry: f64,
-    num_paths: usize,
-    seed: u64,
-    num_steps: usize,
-    bump_size: f64,
-    option_type: &str,
+    num_paths: Option<usize>,
+    seed: Option<u64>,
+    num_steps: Option<usize>,
+    bump_size: Option<f64>,
+    option_type: Option<&str>,
     currency: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<(f64, f64)> {
+    let defaults = greek_defaults();
+    let num_paths = num_paths.unwrap_or(defaults.num_paths);
+    let seed = seed.unwrap_or(defaults.seed);
+    let num_steps = num_steps.unwrap_or(defaults.num_steps);
+    let bump_size = bump_size.unwrap_or(defaults.bump_size);
+    let option_type = option_type.unwrap_or(&defaults.option_type);
     let ccy = resolve_currency(currency)?;
     let kind = parse_option(option_type)?;
     let engine = build_engine(num_paths, seed, expiry, num_steps)?;
@@ -156,8 +178,8 @@ fn fd_delta_crn(
 #[allow(clippy::too_many_arguments)]
 #[pyo3(signature = (
     spot, strike, rate, div_yield, vol, expiry,
-    num_paths=10_000, seed=42, num_steps=50,
-    bump_size=0.01, option_type="call", currency=None,
+    num_paths=None, seed=None, num_steps=None,
+    bump_size=None, option_type=None, currency=None,
 ))]
 fn fd_gamma(
     py: Python<'_>,
@@ -167,13 +189,19 @@ fn fd_gamma(
     div_yield: f64,
     vol: f64,
     expiry: f64,
-    num_paths: usize,
-    seed: u64,
-    num_steps: usize,
-    bump_size: f64,
-    option_type: &str,
+    num_paths: Option<usize>,
+    seed: Option<u64>,
+    num_steps: Option<usize>,
+    bump_size: Option<f64>,
+    option_type: Option<&str>,
     currency: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<(f64, f64)> {
+    let defaults = greek_defaults();
+    let num_paths = num_paths.unwrap_or(defaults.num_paths);
+    let seed = seed.unwrap_or(defaults.seed);
+    let num_steps = num_steps.unwrap_or(defaults.num_steps);
+    let bump_size = bump_size.unwrap_or(defaults.bump_size);
+    let option_type = option_type.unwrap_or(&defaults.option_type);
     let ccy = resolve_currency(currency)?;
     let kind = parse_option(option_type)?;
     let engine = build_engine(num_paths, seed, expiry, num_steps)?;
@@ -205,8 +233,8 @@ fn fd_gamma(
 #[allow(clippy::too_many_arguments)]
 #[pyo3(signature = (
     spot, strike, rate, div_yield, vol, expiry,
-    num_paths=10_000, seed=42, num_steps=50,
-    bump_size=0.01, option_type="call", currency=None,
+    num_paths=None, seed=None, num_steps=None,
+    bump_size=None, option_type=None, currency=None,
 ))]
 fn fd_gamma_crn(
     py: Python<'_>,
@@ -216,13 +244,19 @@ fn fd_gamma_crn(
     div_yield: f64,
     vol: f64,
     expiry: f64,
-    num_paths: usize,
-    seed: u64,
-    num_steps: usize,
-    bump_size: f64,
-    option_type: &str,
+    num_paths: Option<usize>,
+    seed: Option<u64>,
+    num_steps: Option<usize>,
+    bump_size: Option<f64>,
+    option_type: Option<&str>,
     currency: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<(f64, f64)> {
+    let defaults = greek_defaults();
+    let num_paths = num_paths.unwrap_or(defaults.num_paths);
+    let seed = seed.unwrap_or(defaults.seed);
+    let num_steps = num_steps.unwrap_or(defaults.num_steps);
+    let bump_size = bump_size.unwrap_or(defaults.bump_size);
+    let option_type = option_type.unwrap_or(&defaults.option_type);
     let ccy = resolve_currency(currency)?;
     let kind = parse_option(option_type)?;
     let engine = build_engine(num_paths, seed, expiry, num_steps)?;

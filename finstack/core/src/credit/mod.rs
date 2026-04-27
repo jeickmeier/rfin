@@ -15,4 +15,5 @@ pub mod lgd;
 
 pub mod migration;
 pub mod pd;
+pub mod registry;
 pub mod scoring;

@@ -175,17 +175,7 @@ pub struct StagingConfig {
 
 impl Default for StagingConfig {
     fn default() -> Self {
-        Self {
-            pd_delta_absolute: 0.01, // 1 pp
-            pd_delta_relative: 2.0,  // PD doubled
-            rating_downgrade_notches: 3,
-            dpd_stage2_threshold: 30,
-            dpd_stage3_threshold: 90,
-            qualitative_triggers_enabled: true,
-            stage3_qualitative_triggers_enabled: true,
-            cure_periods_stage2_to_1: 3,
-            cure_periods_stage3_to_2: 12,
-        }
+        super::policy::default_staging_config()
     }
 }
 

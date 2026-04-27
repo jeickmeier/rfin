@@ -85,11 +85,14 @@ pub struct SwaptionLsmcConfig {
 
 impl Default for SwaptionLsmcConfig {
     fn default() -> Self {
+        let defaults = &finstack_monte_carlo::registry::embedded_defaults_or_panic()
+            .rust
+            .swaption_lsmc;
         Self {
-            num_paths: 50_000,
-            seed: 42,
-            basis_degree: 3,
-            antithetic: true,
+            num_paths: defaults.num_paths,
+            seed: defaults.seed,
+            basis_degree: defaults.basis_degree,
+            antithetic: defaults.antithetic,
         }
     }
 }

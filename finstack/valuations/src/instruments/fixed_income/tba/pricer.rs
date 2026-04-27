@@ -8,6 +8,7 @@ use crate::cashflow::builder::specs::PrepaymentModelSpec;
 use crate::instruments::fixed_income::mbs_passthrough::{
     pricer::price_mbs, AgencyMbsPassthrough, AgencyProgram, PoolType,
 };
+use crate::instruments::fixed_income::tba::allocation::assumed_pool_assumptions_or_panic;
 use finstack_core::dates::{Date, DateExt, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -21,16 +22,19 @@ use finstack_core::Result;
 pub(crate) fn create_assumed_pool(tba: &AgencyTba, _as_of: Date) -> Result<AgencyMbsPassthrough> {
     let settlement_date = tba.get_settlement_date()?;
     let term_months = tba.term.months();
+    let defaults = assumed_pool_assumptions_or_panic();
 
     // Use provided pool factor or default to 1.0 (newly issued)
-    let factor = tba.pool_factor.unwrap_or(1.0);
+    let factor = tba.pool_factor.unwrap_or(defaults.default_pool_factor);
     let maturity = settlement_date.add_months(term_months as i32);
 
     // Standard servicing and g-fee assumptions
-    let servicing_fee = 0.0025; // 25 bps
+    let servicing_fee = defaults.servicing_fee_rate;
     let guarantee_fee = match tba.agency {
-        AgencyProgram::Gnma | AgencyProgram::GnmaI | AgencyProgram::GnmaII => 0.0006, // 6 bps for GNMA
-        _ => 0.0025, // 25 bps for FNMA/FHLMC
+        AgencyProgram::Gnma | AgencyProgram::GnmaI | AgencyProgram::GnmaII => {
+            defaults.gnma_guarantee_fee_rate
+        }
+        _ => defaults.agency_guarantee_fee_rate,
     };
 
     // WAC = pass-through + fees
@@ -54,7 +58,7 @@ pub(crate) fn create_assumed_pool(tba: &AgencyTba, _as_of: Date) -> Result<Agenc
         .wam(term_months)
         .issue_date(settlement_date)
         .maturity(maturity)
-        .prepayment_model(PrepaymentModelSpec::psa(1.0))
+        .prepayment_model(PrepaymentModelSpec::psa(defaults.psa_multiplier))
         .discount_curve_id(tba.discount_curve_id.clone())
         .day_count(DayCount::Thirty360)
         .build()

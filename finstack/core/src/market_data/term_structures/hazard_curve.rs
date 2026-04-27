@@ -226,7 +226,7 @@ impl HazardCurve {
             id: id.into(),
             base,
             points: Vec::new(),
-            recovery_rate: 0.4,
+            recovery_rate: crate::credit::registry::default_market_recovery_rate_or_panic(),
             issuer: None,
             seniority: None,
             currency: None,

@@ -3,9 +3,64 @@
 //! This module provides simplified CTD allocation using on-the-run
 //! pool characteristics rather than full SIFMA good delivery rules.
 
+use std::sync::OnceLock;
+
 use super::AgencyTba;
 use crate::instruments::fixed_income::mbs_passthrough::AgencyMbsPassthrough;
-use finstack_core::Result;
+use finstack_core::config::FinstackConfig;
+use finstack_core::{Error, Result};
+use serde::Deserialize;
+
+const TBA_ASSUMPTIONS: &str = include_str!("../../../../data/assumptions/tba_assumptions.v1.json");
+
+static TBA_DEFAULTS: OnceLock<Result<TbaAssumptions>> = OnceLock::new();
+
+#[allow(dead_code)]
+pub(crate) const TBA_ASSUMPTIONS_EXTENSION_KEY: &str = "valuations.tba_assumptions.v1";
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TbaAssumptions {
+    schema: Option<String>,
+    version: Option<u32>,
+    pool_characteristics: PoolCharacteristicAssumptions,
+    assumed_pool: AssumedPoolAssumptions,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PoolCharacteristicAssumptions {
+    base_psa_multiplier: f64,
+    seasoned_wala_months: u32,
+    seasoned_wala_multiplier: f64,
+    low_pool_factor_threshold: f64,
+    low_pool_factor_multiplier: f64,
+    small_loan_threshold: f64,
+    small_loan_multiplier: f64,
+    large_loan_threshold: f64,
+    large_loan_multiplier: f64,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AssumedPoolAssumptions {
+    pub(crate) default_pool_factor: f64,
+    pub(crate) servicing_fee_rate: f64,
+    pub(crate) agency_guarantee_fee_rate: f64,
+    pub(crate) gnma_guarantee_fee_rate: f64,
+    pub(crate) psa_multiplier: f64,
+}
+
+pub(crate) fn assumed_pool_assumptions_or_panic() -> AssumedPoolAssumptions {
+    tba_assumptions_or_panic().assumed_pool
+}
+
+#[allow(dead_code)]
+pub(crate) fn assumed_pool_assumptions_from_config(
+    config: &FinstackConfig,
+) -> Result<AssumedPoolAssumptions> {
+    Ok(tba_assumptions_from_config(config)?.assumed_pool)
+}
 
 /// Pool allocation result.
 #[derive(Debug, Clone)]
@@ -77,28 +132,30 @@ impl PoolCharacteristics {
     ///
     /// Returns a PSA multiplier (1.0 = baseline).
     pub fn estimated_psa_multiplier(&self) -> f64 {
-        let mut multiplier = 1.0;
+        let assumptions = tba_assumptions_or_panic();
+        let pool = &assumptions.pool_characteristics;
+        let mut multiplier = pool.base_psa_multiplier;
 
         // Higher WAC relative to market tends to prepay faster
         // (This would need market rate context for proper calculation)
 
         // Seasoned pools (high WALA) may have different prepayment patterns
-        if self.wala > 24 {
+        if self.wala > pool.seasoned_wala_months {
             // Post-ramp, use burnout adjustment
-            multiplier *= 0.95;
+            multiplier *= pool.seasoned_wala_multiplier;
         }
 
         // Lower factors indicate pool has already experienced prepayments
-        if self.factor < 0.9 {
-            multiplier *= 0.90; // Burnout effect
+        if self.factor < pool.low_pool_factor_threshold {
+            multiplier *= pool.low_pool_factor_multiplier;
         }
 
         // Smaller loans tend to prepay faster (can't refi as easily)
         if let Some(avg_size) = self.avg_loan_size {
-            if avg_size < 200_000.0 {
-                multiplier *= 0.95;
-            } else if avg_size > 500_000.0 {
-                multiplier *= 1.05;
+            if avg_size < pool.small_loan_threshold {
+                multiplier *= pool.small_loan_multiplier;
+            } else if avg_size > pool.large_loan_threshold {
+                multiplier *= pool.large_loan_multiplier;
             }
         }
 
@@ -144,6 +201,87 @@ impl PoolCharacteristics {
         }
 
         true
+    }
+}
+
+#[allow(clippy::expect_used)]
+fn tba_assumptions_or_panic() -> &'static TbaAssumptions {
+    embedded_tba_assumptions().expect("embedded TBA assumptions should load")
+}
+
+fn embedded_tba_assumptions() -> Result<&'static TbaAssumptions> {
+    match TBA_DEFAULTS.get_or_init(parse_tba_assumptions) {
+        Ok(defaults) => Ok(defaults),
+        Err(err) => Err(err.clone()),
+    }
+}
+
+#[allow(dead_code)]
+fn tba_assumptions_from_config(config: &FinstackConfig) -> Result<TbaAssumptions> {
+    if let Some(value) = config.extensions.get(TBA_ASSUMPTIONS_EXTENSION_KEY) {
+        let defaults: TbaAssumptions = serde_json::from_value(value.clone()).map_err(|err| {
+            Error::Validation(format!("failed to parse TBA assumptions extension: {err}"))
+        })?;
+        validate_tba_assumptions(&defaults)?;
+        Ok(defaults)
+    } else {
+        Ok(embedded_tba_assumptions()?.clone())
+    }
+}
+
+fn parse_tba_assumptions() -> Result<TbaAssumptions> {
+    let defaults: TbaAssumptions = serde_json::from_str(TBA_ASSUMPTIONS)
+        .map_err(|err| Error::Validation(format!("failed to parse TBA assumptions: {err}")))?;
+    let _schema = &defaults.schema;
+    let _version = defaults.version;
+    validate_tba_assumptions(&defaults)?;
+    Ok(defaults)
+}
+
+fn validate_tba_assumptions(defaults: &TbaAssumptions) -> Result<()> {
+    let pool = &defaults.pool_characteristics;
+    validate_positive("tba.base_psa_multiplier", pool.base_psa_multiplier)?;
+    validate_positive(
+        "tba.seasoned_wala_multiplier",
+        pool.seasoned_wala_multiplier,
+    )?;
+    validate_positive(
+        "tba.low_pool_factor_threshold",
+        pool.low_pool_factor_threshold,
+    )?;
+    validate_positive(
+        "tba.low_pool_factor_multiplier",
+        pool.low_pool_factor_multiplier,
+    )?;
+    validate_positive("tba.small_loan_threshold", pool.small_loan_threshold)?;
+    validate_positive("tba.small_loan_multiplier", pool.small_loan_multiplier)?;
+    validate_positive("tba.large_loan_threshold", pool.large_loan_threshold)?;
+    validate_positive("tba.large_loan_multiplier", pool.large_loan_multiplier)?;
+    let assumed = defaults.assumed_pool;
+    validate_positive(
+        "tba.assumed_pool.default_pool_factor",
+        assumed.default_pool_factor,
+    )?;
+    validate_positive(
+        "tba.assumed_pool.servicing_fee_rate",
+        assumed.servicing_fee_rate,
+    )?;
+    validate_positive(
+        "tba.assumed_pool.agency_guarantee_fee_rate",
+        assumed.agency_guarantee_fee_rate,
+    )?;
+    validate_positive(
+        "tba.assumed_pool.gnma_guarantee_fee_rate",
+        assumed.gnma_guarantee_fee_rate,
+    )?;
+    validate_positive("tba.assumed_pool.psa_multiplier", assumed.psa_multiplier)
+}
+
+fn validate_positive(label: &str, value: f64) -> Result<()> {
+    if value.is_finite() && value > 0.0 {
+        Ok(())
+    } else {
+        Err(Error::Validation(format!("{label} must be positive")))
     }
 }
 

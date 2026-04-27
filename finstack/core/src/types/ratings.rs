@@ -28,6 +28,7 @@
 //! ```
 
 use crate::collections::HashMap;
+use crate::credit::registry::{embedded_registry, RatingFactorTableParts};
 use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
@@ -497,7 +498,7 @@ fn parse_credit_rating(value: &str) -> Result<CreditRating, crate::Error> {
 /// ```rust
 /// use finstack_core::types::{CreditRating, RatingFactorTable};
 ///
-/// let table = RatingFactorTable::moodys_standard();
+/// let table = RatingFactorTable::moodys_standard().unwrap();
 /// let factor = table.get_factor(CreditRating::B).unwrap();
 /// assert_eq!(factor, 2720.0);
 /// ```
@@ -526,42 +527,27 @@ impl RatingFactorTable {
     /// ```rust
     /// use finstack_core::types::{CreditRating, RatingFactorTable};
     ///
-    /// let table = RatingFactorTable::moodys_standard();
+    /// let table = RatingFactorTable::moodys_standard().unwrap();
     /// assert_eq!(table.get_factor(CreditRating::AAA).unwrap(), 1.0);
     /// assert_eq!(table.get_factor(CreditRating::B).unwrap(), 2720.0);
     /// ```
-    pub fn moodys_standard() -> Self {
-        let factors = HashMap::from_iter([
-            (CreditRating::AAA, 1.0),
-            (CreditRating::AAPlus, 10.0),
-            (CreditRating::AA, 20.0),
-            (CreditRating::AAMinus, 40.0),
-            (CreditRating::APlus, 70.0),
-            (CreditRating::A, 120.0),
-            (CreditRating::AMinus, 180.0),
-            (CreditRating::BBBPlus, 260.0),
-            (CreditRating::BBB, 360.0),
-            (CreditRating::BBBMinus, 610.0),
-            (CreditRating::BBPlus, 940.0),
-            (CreditRating::BB, 1350.0),
-            (CreditRating::BBMinus, 1760.0),
-            (CreditRating::BPlus, 2220.0),
-            (CreditRating::B, 2720.0),
-            (CreditRating::BMinus, 3490.0),
-            (CreditRating::CCCPlus, 4770.0),
-            (CreditRating::CCC, 6500.0),
-            (CreditRating::CCCMinus, 8070.0),
-            (CreditRating::CC, 9550.0),
-            (CreditRating::C, 10000.0),
-            (CreditRating::D, 10000.0),
-            (CreditRating::NR, 3650.0), // B-/CCC+ equivalent
-        ]);
+    pub fn moodys_standard() -> crate::Result<Self> {
+        Self::from_registry_id(embedded_registry()?.default_rating_factor_table_id())
+    }
 
+    /// Load a rating factor table from the credit assumptions registry.
+    pub fn from_registry_id(id: &str) -> crate::Result<Self> {
+        Ok(Self::from_registry_parts(
+            embedded_registry()?.rating_factor_table(id)?,
+        ))
+    }
+
+    fn from_registry_parts(parts: RatingFactorTableParts) -> Self {
         Self {
-            factors,
-            agency: "Moody's".to_string(),
-            methodology: "IDEALIZED DEFAULT RATES".to_string(),
-            default_factor: 3650.0,
+            factors: parts.factors,
+            agency: parts.agency,
+            methodology: parts.methodology,
+            default_factor: parts.default_factor,
         }
     }
 
@@ -603,7 +589,7 @@ impl RatingFactorTable {
 // ============================================================================
 
 /// Lazily initialized Moody's WARF rating factor table
-static MOODYS_WARF_TABLE: OnceLock<RatingFactorTable> = OnceLock::new();
+static MOODYS_WARF_TABLE: OnceLock<crate::Result<RatingFactorTable>> = OnceLock::new();
 
 /// Get Moody's WARF factor for a rating (convenience function).
 ///
@@ -620,9 +606,10 @@ static MOODYS_WARF_TABLE: OnceLock<RatingFactorTable> = OnceLock::new();
 /// assert_eq!(moodys_warf_factor(CreditRating::BBBPlus).unwrap(), 260.0);
 /// ```
 pub fn moodys_warf_factor(rating: CreditRating) -> crate::Result<f64> {
-    MOODYS_WARF_TABLE
-        .get_or_init(RatingFactorTable::moodys_standard)
-        .get_factor(rating)
+    match MOODYS_WARF_TABLE.get_or_init(RatingFactorTable::moodys_standard) {
+        Ok(table) => table.get_factor(rating),
+        Err(err) => Err(err.clone()),
+    }
 }
 
 // ============================================================================
@@ -757,7 +744,7 @@ mod tests {
 
     #[test]
     fn test_moodys_warf_factors() {
-        let table = RatingFactorTable::moodys_standard();
+        let table = RatingFactorTable::moodys_standard().expect("registry table");
 
         assert_eq!(table.get_factor(CreditRating::AAA).expect("AAA"), 1.0);
         assert_eq!(table.get_factor(CreditRating::AAPlus).expect("AA+"), 10.0);
@@ -781,7 +768,7 @@ mod tests {
 
     #[test]
     fn test_convenience_function_matches_table() {
-        let table = RatingFactorTable::moodys_standard();
+        let table = RatingFactorTable::moodys_standard().expect("registry table");
 
         assert_eq!(
             moodys_warf_factor(CreditRating::AAA).expect("AAA convenience"),
@@ -803,7 +790,7 @@ mod tests {
 
     #[test]
     fn test_rating_factor_table_metadata() {
-        let table = RatingFactorTable::moodys_standard();
+        let table = RatingFactorTable::moodys_standard().expect("registry table");
         assert_eq!(table.agency(), "Moody's");
         assert_eq!(table.methodology(), "IDEALIZED DEFAULT RATES");
         assert_eq!(table.default_factor(), 3650.0);

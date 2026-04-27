@@ -28,7 +28,7 @@ pub(crate) mod tree;
 // Re-export main types (may be used by external bindings or tests)
 #[allow(unused_imports)]
 pub(crate) use calibrations::{
-    CloCalibration, CmbsCalibration, RmbsCalibration, CLO_STANDARD, CMBS_STANDARD, RMBS_STANDARD,
+    clo_standard, cmbs_standard, rmbs_standard, CloCalibration, CmbsCalibration, RmbsCalibration,
 };
 pub use correlation::CorrelationStructure;
 pub use default::StochasticDefaultSpec;

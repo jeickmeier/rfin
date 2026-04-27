@@ -12,6 +12,7 @@ description = "Monte Carlo simulation engine for quantitative finance"
 finstack-core = { path = "../core" }
 smallvec = { version = "1.15", default-features = false, features = ["serde"] }
 serde = { workspace = true }
+serde_json = { workspace = true }
 tracing = { version = "0.1", default-features = false, features = ["attributes"] }
 rayon = "1.11"
 nalgebra = { version = "0.34" }
@@ -26,7 +27,6 @@ vr-experimental = []
 
 [dev-dependencies]
 criterion = { workspace = true }
-serde_json = { workspace = true }
 
 [[bench]]
 name = "mc_hot_paths"

@@ -117,7 +117,7 @@ pub struct PyExposure {
 #[pymethods]
 impl PyExposure {
     #[new]
-    #[pyo3(signature = (id, ead, lgd, eir, remaining_maturity, current_pd, origination_pd, dpd=0))]
+    #[pyo3(signature = (id, ead, lgd, eir, remaining_maturity, current_pd, origination_pd, dpd=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         id: String,
@@ -127,7 +127,7 @@ impl PyExposure {
         remaining_maturity: f64,
         current_pd: f64,
         origination_pd: f64,
-        dpd: u32,
+        dpd: Option<u32>,
     ) -> Self {
         Self {
             id,
@@ -137,7 +137,7 @@ impl PyExposure {
             remaining_maturity,
             current_pd,
             origination_pd,
-            dpd,
+            dpd: dpd.unwrap_or_else(rust_ecl::binding_default_exposure_dpd),
         }
     }
 
@@ -226,30 +226,44 @@ impl rust_ecl::PdTermStructure for FlatPdSource {
 ///     ``"Stage 2"``, ``"Stage 3"``. The trigger reason describes the first
 ///     trigger that fired (or ``"no_trigger"`` for a clean Stage 1).
 #[pyfunction]
-#[pyo3(signature = (exposure, pd_delta_stage2=0.01, dpd_30_trigger=true, dpd_90_trigger=true))]
+#[pyo3(signature = (exposure, pd_delta_stage2=None, dpd_30_trigger=None, dpd_90_trigger=None))]
 fn classify_stage(
     exposure: &PyExposure,
-    pd_delta_stage2: f64,
-    dpd_30_trigger: bool,
-    dpd_90_trigger: bool,
+    pd_delta_stage2: Option<f64>,
+    dpd_30_trigger: Option<bool>,
+    dpd_90_trigger: Option<bool>,
 ) -> PyResult<(String, String)> {
     let rust_exp = exposure.to_rust();
     let pd_source = FlatPdSource {
         current_pd: exposure.current_pd,
         origination_pd: exposure.origination_pd,
     };
+    let dpd_30_trigger =
+        dpd_30_trigger.unwrap_or_else(rust_ecl::binding_default_classify_stage_dpd_30_trigger);
+    let dpd_90_trigger =
+        dpd_90_trigger.unwrap_or_else(rust_ecl::binding_default_classify_stage_dpd_90_trigger);
+    let default_staging = rust_ecl::default_staging_config();
 
     let staging_config = rust_ecl::StagingConfig {
-        pd_delta_absolute: pd_delta_stage2,
+        pd_delta_absolute: pd_delta_stage2
+            .unwrap_or_else(rust_ecl::binding_default_classify_stage_pd_delta_absolute),
         // Disable relative PD trigger by setting ratio threshold effectively out of reach.
         pd_delta_relative: f64::INFINITY,
         rating_downgrade_notches: u32::MAX,
-        dpd_stage2_threshold: if dpd_30_trigger { 30 } else { u32::MAX },
-        dpd_stage3_threshold: if dpd_90_trigger { 90 } else { u32::MAX },
+        dpd_stage2_threshold: if dpd_30_trigger {
+            default_staging.dpd_stage2_threshold
+        } else {
+            u32::MAX
+        },
+        dpd_stage3_threshold: if dpd_90_trigger {
+            default_staging.dpd_stage3_threshold
+        } else {
+            u32::MAX
+        },
         qualitative_triggers_enabled: false,
         stage3_qualitative_triggers_enabled: false,
-        cure_periods_stage2_to_1: 3,
-        cure_periods_stage3_to_2: 6,
+        cure_periods_stage2_to_1: rust_ecl::binding_default_cure_periods_stage2_to_1(),
+        cure_periods_stage3_to_2: rust_ecl::binding_default_cure_periods_stage3_to_2(),
     };
 
     let result =
@@ -319,19 +333,21 @@ fn cap_maturity(exposure: &rust_ecl::Exposure, max_horizon_years: f64) -> rust_e
 /// float
 ///     ECL amount in the exposure's base currency.
 #[pyfunction]
-#[pyo3(signature = (ead, pd_schedule, lgd, eir, max_horizon_years, bucket_width_years=0.25, stage="stage1"))]
+#[pyo3(signature = (ead, pd_schedule, lgd, eir, max_horizon_years, bucket_width_years=None, stage="stage1"))]
 fn compute_ecl(
     ead: f64,
     pd_schedule: Vec<(f64, f64)>,
     lgd: f64,
     eir: f64,
     max_horizon_years: f64,
-    bucket_width_years: f64,
+    bucket_width_years: Option<f64>,
     stage: &str,
 ) -> PyResult<f64> {
     let stage = parse_stage(stage)?;
     let curve = build_pd_curve(&pd_schedule)?;
-    let config = build_ecl_config(bucket_width_years)?;
+    let config = build_ecl_config(
+        bucket_width_years.unwrap_or_else(rust_ecl::binding_default_compute_ecl_bucket_width_years),
+    )?;
 
     let exposure = rust_ecl::Exposure {
         id: "single".to_string(),
@@ -395,7 +411,7 @@ fn compute_ecl_weighted(
     // Build each scenario's curve and weighted-average ECL explicitly.
     // We avoid the engine's lifetime-bound scenario binding by calling
     // compute_ecl_single per scenario.
-    let config = build_ecl_config(0.25)?;
+    let config = build_ecl_config(rust_ecl::binding_default_compute_ecl_bucket_width_years())?;
     let exposure = rust_ecl::Exposure {
         id: "weighted".to_string(),
         segments: vec![],

@@ -21,7 +21,7 @@ use super::error::PdCalibrationError;
 /// ```
 /// use finstack_core::credit::pd::MasterScale;
 ///
-/// let scale = MasterScale::sp_empirical();
+/// let scale = MasterScale::sp_empirical().unwrap();
 /// let result = scale.map_pd(0.0015);
 /// assert_eq!(result.grade, "BBB");
 /// ```
@@ -151,52 +151,10 @@ impl MasterScale {
     /// | B     | 0.07      | 0.04       |
     /// | CCC   | 0.25      | 0.12       |
     /// | CC/C  | 1.0       | 0.40       |
-    #[must_use]
-    pub fn sp_empirical() -> Self {
-        Self {
-            grades: vec![
-                MasterScaleGrade {
-                    label: "AAA".to_owned(),
-                    upper_pd: 0.0001,
-                    central_pd: 0.00004,
-                },
-                MasterScaleGrade {
-                    label: "AA".to_owned(),
-                    upper_pd: 0.0005,
-                    central_pd: 0.0002,
-                },
-                MasterScaleGrade {
-                    label: "A".to_owned(),
-                    upper_pd: 0.001,
-                    central_pd: 0.0007,
-                },
-                MasterScaleGrade {
-                    label: "BBB".to_owned(),
-                    upper_pd: 0.005,
-                    central_pd: 0.002,
-                },
-                MasterScaleGrade {
-                    label: "BB".to_owned(),
-                    upper_pd: 0.02,
-                    central_pd: 0.01,
-                },
-                MasterScaleGrade {
-                    label: "B".to_owned(),
-                    upper_pd: 0.07,
-                    central_pd: 0.04,
-                },
-                MasterScaleGrade {
-                    label: "CCC".to_owned(),
-                    upper_pd: 0.25,
-                    central_pd: 0.12,
-                },
-                MasterScaleGrade {
-                    label: "CC/C".to_owned(),
-                    upper_pd: 1.0,
-                    central_pd: 0.40,
-                },
-            ],
-        }
+    pub fn sp_empirical() -> crate::Result<Self> {
+        Self::from_registry_id(
+            crate::credit::registry::embedded_registry()?.default_pd_master_scale_id(),
+        )
     }
 
     /// Moody's empirical PD master scale.
@@ -214,52 +172,16 @@ impl MasterScale {
     /// | B     | 0.08      | 0.04       |
     /// | Caa   | 0.25      | 0.13       |
     /// | Ca/C  | 1.0       | 0.45       |
-    #[must_use]
-    pub fn moodys_empirical() -> Self {
-        Self {
-            grades: vec![
-                MasterScaleGrade {
-                    label: "Aaa".to_owned(),
-                    upper_pd: 0.0001,
-                    central_pd: 0.00003,
-                },
-                MasterScaleGrade {
-                    label: "Aa".to_owned(),
-                    upper_pd: 0.0005,
-                    central_pd: 0.0002,
-                },
-                MasterScaleGrade {
-                    label: "A".to_owned(),
-                    upper_pd: 0.001,
-                    central_pd: 0.0007,
-                },
-                MasterScaleGrade {
-                    label: "Baa".to_owned(),
-                    upper_pd: 0.005,
-                    central_pd: 0.002,
-                },
-                MasterScaleGrade {
-                    label: "Ba".to_owned(),
-                    upper_pd: 0.02,
-                    central_pd: 0.01,
-                },
-                MasterScaleGrade {
-                    label: "B".to_owned(),
-                    upper_pd: 0.08,
-                    central_pd: 0.04,
-                },
-                MasterScaleGrade {
-                    label: "Caa".to_owned(),
-                    upper_pd: 0.25,
-                    central_pd: 0.13,
-                },
-                MasterScaleGrade {
-                    label: "Ca/C".to_owned(),
-                    upper_pd: 1.0,
-                    central_pd: 0.45,
-                },
-            ],
-        }
+    pub fn moodys_empirical() -> crate::Result<Self> {
+        Self::from_registry_id("moodys_empirical")
+    }
+
+    /// Load a PD master scale from the credit assumptions registry.
+    pub fn from_registry_id(id: &str) -> crate::Result<Self> {
+        let grades = crate::credit::registry::embedded_registry()?.pd_master_scale_grades(id)?;
+        Self::new(grades).map_err(|err| {
+            crate::Error::Validation(format!("invalid PD master scale '{id}': {err}"))
+        })
     }
 
     /// Number of grades in the scale.

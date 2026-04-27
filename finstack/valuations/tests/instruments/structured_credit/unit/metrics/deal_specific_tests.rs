@@ -13,7 +13,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{Percentage, Rate};
-use finstack_valuations::instruments::fixed_income::structured_credit::config::constants::STANDARD_PSA_SPEEDS;
+use finstack_valuations::instruments::fixed_income::structured_credit::config::constants::standard_psa_speeds;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     AbsChargeOffCalculator, AbsCreditEnhancementCalculator, AbsDelinquencyCalculator,
     AbsExcessSpreadCalculator, AbsSpeedCalculator, CmbsDscrCalculator, DealType, Pool, PoolAsset,
@@ -332,11 +332,11 @@ fn test_cmbs_dscr_requires_typed_inputs_and_matching_currency() {
 fn test_rmbs_metrics_adjust_for_psa_speed() {
     // RMBS metrics should consider PSA speeds above and below par
     assert!(
-        STANDARD_PSA_SPEEDS.iter().any(|&speed| speed > 1.0),
+        standard_psa_speeds().iter().any(|&speed| speed > 1.0),
         "PSA speed grid should include stressed scenarios above 100%"
     );
     assert!(
-        STANDARD_PSA_SPEEDS.iter().any(|&speed| speed < 1.0),
+        standard_psa_speeds().iter().any(|&speed| speed < 1.0),
         "PSA speed grid should include benign scenarios below 100%"
     );
 }

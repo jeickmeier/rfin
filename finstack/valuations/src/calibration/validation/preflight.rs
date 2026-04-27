@@ -217,6 +217,9 @@ fn validate_hazard_step(
     quotes: &[MarketQuote],
     context: &MarketContext,
 ) -> Result<()> {
+    let recovery_rate_abs_tolerance = crate::calibration::defaults::embedded_defaults()?
+        .validation
+        .recovery_rate_abs_tolerance;
     // Ensure referenced discount curve exists.
     let _ = context.get_discount(&p.discount_curve_id)?;
 
@@ -262,7 +265,7 @@ fn validate_hazard_step(
                         p.currency, convention.currency
                     )));
                 }
-                if (recovery_rate - p.recovery_rate).abs() > 1e-12 {
+                if (recovery_rate - p.recovery_rate).abs() > recovery_rate_abs_tolerance {
                     return Err(finstack_core::Error::Validation(format!(
                         "Hazard step recovery mismatch: params.recovery_rate={} but quote.recovery_rate={}",
                         p.recovery_rate, recovery_rate
@@ -294,7 +297,7 @@ fn validate_hazard_step(
                         p.currency, convention.currency
                     )));
                 }
-                if (recovery_rate - p.recovery_rate).abs() > 1e-12 {
+                if (recovery_rate - p.recovery_rate).abs() > recovery_rate_abs_tolerance {
                     return Err(finstack_core::Error::Validation(format!(
                         "Hazard step recovery mismatch: params.recovery_rate={} but quote.recovery_rate={}",
                         p.recovery_rate, recovery_rate
@@ -461,6 +464,9 @@ fn validate_base_correlation_step(
     quotes: &[MarketQuote],
     context: &MarketContext,
 ) -> Result<()> {
+    let recovery_rate_abs_tolerance = crate::calibration::defaults::embedded_defaults()?
+        .validation
+        .recovery_rate_abs_tolerance;
     if !p.notional.is_finite() || p.notional <= 0.0 {
         return Err(finstack_core::Error::Validation(format!(
             "BaseCorrelation calibration notional must be positive; got {}",
@@ -529,7 +535,7 @@ fn validate_base_correlation_step(
     }
 
     if let Some(r) = tranche_recovery {
-        if (r - index_data.recovery_rate).abs() > 1e-12 {
+        if (r - index_data.recovery_rate).abs() > recovery_rate_abs_tolerance {
             return Err(finstack_core::Error::Validation(format!(
                 "Tranche quote recovery_rate={} does not match credit index recovery_rate={}",
                 r, index_data.recovery_rate

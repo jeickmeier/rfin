@@ -496,35 +496,39 @@ fn test_recovery_rate_golden_industry_standards() {
     // These are the standard assumptions used in modeling:
 
     use finstack_valuations::instruments::fixed_income::structured_credit::config::constants::{
-        ABS_AUTO_STANDARD_RECOVERY, CLO_STANDARD_RECOVERY, CMBS_STANDARD_RECOVERY,
-        RMBS_STANDARD_RECOVERY,
+        abs_auto_standard_recovery, clo_standard_recovery, cmbs_standard_recovery,
+        rmbs_standard_recovery,
     };
 
     // CLO (Senior Secured Loans): ~40% recovery
     // Source: Moody's "Annual Default Study"
     assert_eq!(
-        CLO_STANDARD_RECOVERY, 0.40,
+        clo_standard_recovery(),
+        0.40,
         "CLO standard recovery should be 40%"
     );
 
     // RMBS (Residential Mortgages): ~60% recovery
     // Source: S&P RMBS methodology
     assert_eq!(
-        RMBS_STANDARD_RECOVERY, 0.60,
+        rmbs_standard_recovery(),
+        0.60,
         "RMBS standard recovery should be 60%"
     );
 
     // Auto ABS: ~45% recovery
     // Source: S&P Auto ABS methodology
     assert_eq!(
-        ABS_AUTO_STANDARD_RECOVERY, 0.45,
+        abs_auto_standard_recovery(),
+        0.45,
         "Auto ABS standard recovery should be 45%"
     );
 
     // CMBS (Commercial Mortgages): ~65% recovery
     // Source: Moody's CMBS methodology
     assert_eq!(
-        CMBS_STANDARD_RECOVERY, 0.65,
+        cmbs_standard_recovery(),
+        0.65,
         "CMBS standard recovery should be 65%"
     );
 }

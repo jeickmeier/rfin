@@ -169,14 +169,19 @@ impl WorkoutCosts {
             indirect_cost_rate: 0.0,
         }
     }
+
+    /// Standard workout costs from the credit assumptions registry.
+    pub fn standard() -> Result<Self> {
+        let defaults = crate::credit::registry::embedded_registry()?.workout_lgd_defaults(
+            crate::credit::registry::embedded_registry()?.default_workout_lgd_id(),
+        )?;
+        Self::new(defaults.direct_cost_rate, defaults.indirect_cost_rate)
+    }
 }
 
 impl Default for WorkoutCosts {
     fn default() -> Self {
-        Self {
-            direct_cost_rate: 0.05,
-            indirect_cost_rate: 0.03,
-        }
+        Self::standard().unwrap_or_else(|_| Self::zero())
     }
 }
 
@@ -313,8 +318,11 @@ impl WorkoutLgdBuilder {
     ///
     /// Returns an error if workout_years or discount_rate is non-finite or negative.
     pub fn build(self) -> Result<WorkoutLgd> {
-        let workout_years = self.workout_years.unwrap_or(2.0);
-        let discount_rate = self.discount_rate.unwrap_or(0.05);
+        let defaults = crate::credit::registry::embedded_registry()?.workout_lgd_defaults(
+            crate::credit::registry::embedded_registry()?.default_workout_lgd_id(),
+        )?;
+        let workout_years = self.workout_years.unwrap_or(defaults.workout_years);
+        let discount_rate = self.discount_rate.unwrap_or(defaults.discount_rate);
 
         validate_finite(workout_years)?;
         validate_finite(discount_rate)?;
@@ -329,7 +337,10 @@ impl WorkoutLgdBuilder {
             collateral: self.collateral,
             workout_years,
             discount_rate,
-            costs: self.costs.unwrap_or_default(),
+            costs: match self.costs {
+                Some(costs) => costs,
+                None => WorkoutCosts::new(defaults.direct_cost_rate, defaults.indirect_cost_rate)?,
+            },
         })
     }
 }
@@ -357,7 +368,7 @@ mod tests {
 
     #[test]
     fn workout_costs_default() {
-        let costs = WorkoutCosts::default();
+        let costs = WorkoutCosts::standard().expect("registry costs");
         assert!((costs.direct_cost_rate - 0.05).abs() < 1e-12);
         assert!((costs.indirect_cost_rate - 0.03).abs() < 1e-12);
         assert!((costs.total_rate() - 0.08).abs() < 1e-12);

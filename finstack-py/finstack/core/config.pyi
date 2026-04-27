@@ -7,7 +7,7 @@ numerical tolerance thresholds across the library.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 __all__ = [
     "RoundingMode",
@@ -172,6 +172,38 @@ class FinstackConfig:
         ValueError
             If *currency* is not recognised.
         """
+        ...
+
+    def set_extension(self, key: str, value: Any) -> None:
+        """Set a versioned registry/config extension from Python data or a JSON string."""
+        ...
+
+    def remove_extension(self, key: str) -> bool:
+        """Remove a versioned registry/config extension.
+
+        Returns ``True`` when an extension was present.
+        """
+        ...
+
+    def extension_keys(self) -> list[str]:
+        """Return configured extension keys."""
+        ...
+
+    def get_extension_json(self, key: str) -> Optional[str]:
+        """Return one extension as a JSON string, or ``None`` if absent."""
+        ...
+
+    def get_extension(self, key: str) -> Optional[Any]:
+        """Return one extension as native Python data, or ``None`` if absent."""
+        ...
+
+    def to_json(self) -> str:
+        """Serialize this config, including extensions, to JSON."""
+        ...
+
+    @classmethod
+    def from_json(cls, json: str) -> FinstackConfig:
+        """Deserialize a config from JSON."""
         ...
 
     def __repr__(self) -> str: ...

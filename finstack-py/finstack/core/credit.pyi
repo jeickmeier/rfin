@@ -112,9 +112,12 @@ class lgd:
     @staticmethod
     def seniority_recovery_stats(
         seniority: str,
-        rating_agency: str = "moodys",
+        rating_agency: str | None = None,
     ) -> dict[str, float]:
         """Historical recovery moments for a seniority class.
+
+        If ``rating_agency`` is omitted, the Rust credit-assumptions registry
+        default seniority calibration is used.
 
         Returns a dict with keys ``{"mean", "std", "alpha", "beta"}``.
         """

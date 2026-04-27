@@ -13,11 +13,59 @@ use crate::errors::core_to_py;
 use finstack_analytics::backtesting as bt;
 use finstack_analytics::backtesting::Breach;
 use finstack_analytics::lookback as lb;
+use finstack_analytics::lookback::LookbackDateAlignment;
+use finstack_analytics::registry;
+use finstack_core::dates::CalendarRegistry;
 use pyo3::prelude::*;
 use pyo3::types::PyAny;
 
 fn parse_var_method(method: &str) -> PyResult<bt::VarMethod> {
     bt::VarMethod::from_str(method).map_err(pyo3::exceptions::PyValueError::new_err)
+}
+
+fn resolve_fiscal_config(
+    fiscal_start_month: Option<u8>,
+    fiscal_start_day: Option<u8>,
+) -> PyResult<finstack_core::dates::FiscalConfig> {
+    let default = &registry::embedded_defaults()
+        .map_err(core_to_py)?
+        .python_bindings
+        .lookback
+        .default_fiscal_calendar;
+    finstack_core::dates::FiscalConfig::new(
+        fiscal_start_month.unwrap_or(default.start_month),
+        fiscal_start_day.unwrap_or(default.start_day),
+    )
+    .map_err(core_to_py)
+}
+
+fn resolve_fiscal_calendar(
+    calendar_id: Option<&str>,
+) -> PyResult<&'static dyn finstack_core::dates::HolidayCalendar> {
+    let default = &registry::embedded_defaults()
+        .map_err(core_to_py)?
+        .python_bindings
+        .lookback
+        .default_fiscal_calendar;
+    let calendar_id = calendar_id.unwrap_or(default.calendar_id.as_str());
+    CalendarRegistry::global()
+        .resolve_str(calendar_id)
+        .ok_or_else(|| {
+            core_to_py(finstack_core::Error::calendar_not_found_with_suggestions(
+                calendar_id,
+                finstack_core::dates::available_calendars(),
+            ))
+        })
+}
+
+fn parse_lookback_alignment(input_kind: &str) -> PyResult<LookbackDateAlignment> {
+    match input_kind {
+        "returns" | "return_series" => Ok(LookbackDateAlignment::ReturnSeries),
+        "prices" | "price_index" => Ok(LookbackDateAlignment::PriceIndex),
+        other => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "unknown input_kind {other:?}; expected 'returns' or 'prices'"
+        ))),
+    }
 }
 
 // -------------------------------------------------------------------
@@ -268,23 +316,38 @@ fn ytd_select(
 
 /// Fiscal-year-to-date index range into a sorted date array.
 #[pyfunction]
-#[pyo3(signature = (dates, as_of, fiscal_start_month, fiscal_start_day = 1, offset_days = 0))]
+#[allow(clippy::too_many_arguments)]
+#[pyo3(signature = (
+    dates, as_of, fiscal_start_month = None, fiscal_start_day = None,
+    offset_days = 0, calendar_id = None, input_kind = "returns",
+))]
 fn fytd_select(
     py: Python<'_>,
     dates: Vec<Py<PyAny>>,
     as_of: Py<PyAny>,
-    fiscal_start_month: u8,
-    fiscal_start_day: u8,
+    fiscal_start_month: Option<u8>,
+    fiscal_start_day: Option<u8>,
     offset_days: i64,
+    calendar_id: Option<&str>,
+    input_kind: &str,
 ) -> PyResult<(usize, usize)> {
     let parsed_dates = dates
         .into_iter()
         .map(|date| py_to_date(date.bind(py)))
         .collect::<PyResult<Vec<_>>>()?;
     let as_of = py_to_date(as_of.bind(py))?;
-    let config = finstack_core::dates::FiscalConfig::new(fiscal_start_month, fiscal_start_day)
-        .map_err(core_to_py)?;
-    let range = lb::fytd_select(&parsed_dates, as_of, config, offset_days);
+    let config = resolve_fiscal_config(fiscal_start_month, fiscal_start_day)?;
+    let calendar = resolve_fiscal_calendar(calendar_id)?;
+    let alignment = parse_lookback_alignment(input_kind)?;
+    let range = lb::fytd_select_aligned(
+        &parsed_dates,
+        as_of,
+        config,
+        calendar,
+        alignment,
+        offset_days,
+    )
+    .map_err(core_to_py)?;
     Ok((range.start, range.end))
 }
 

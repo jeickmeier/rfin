@@ -27,6 +27,7 @@ use crate::instruments::models::credit::{
     AssetDynamics, BarrierType, CreditState, DynamicRecoverySpec, EndogenousHazardSpec,
     MertonModel, ToggleExerciseModel,
 };
+use finstack_core::credit::registry::default_market_recovery_rate_or_panic;
 use finstack_core::math::random::{Pcg64Rng, RandomNumberGenerator};
 use finstack_core::{InputError, Result};
 
@@ -225,10 +226,12 @@ pub struct MertonMcConfig {
 impl MertonMcConfig {
     /// Create a new configuration with default simulation parameters.
     ///
-    /// Defaults: cash PIK schedule, 10,000 paths, seed 42, antithetic on,
-    /// 12 steps/year, 40% recovery rate.
+    /// Defaults are sourced from the embedded Monte Carlo and credit assumptions registries.
     #[must_use]
     pub fn new(merton: MertonModel) -> Self {
+        let defaults = &finstack_monte_carlo::registry::embedded_defaults_or_panic()
+            .rust
+            .merton_pik_bond;
         let barrier_crossing = match merton.barrier_type() {
             BarrierType::FirstPassage { .. } => BarrierCrossing::BrownianBridge,
             BarrierType::Terminal => BarrierCrossing::Discrete,
@@ -239,12 +242,12 @@ impl MertonMcConfig {
             endogenous_hazard: None,
             dynamic_recovery: None,
             toggle_model: None,
-            num_paths: 10_000,
-            seed: 42,
-            antithetic: true,
-            time_steps_per_year: 12,
+            num_paths: defaults.num_paths,
+            seed: defaults.seed,
+            antithetic: defaults.antithetic,
+            time_steps_per_year: defaults.time_steps_per_year,
             barrier_crossing,
-            default_recovery_rate: 0.40,
+            default_recovery_rate: default_market_recovery_rate_or_panic(),
             calibration: None,
             cashflow_dfs: None,
         }

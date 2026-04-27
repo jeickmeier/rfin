@@ -51,10 +51,13 @@ pub struct CheyetteRoughConfig {
 
 impl Default for CheyetteRoughConfig {
     fn default() -> Self {
+        let defaults = &finstack_monte_carlo::registry::embedded_defaults_or_panic()
+            .rust
+            .cheyette_rough;
         Self {
-            num_paths: 50_000,
-            num_steps: 100,
-            basis_degree: 3,
+            num_paths: defaults.num_paths,
+            num_steps: defaults.num_steps,
+            basis_degree: defaults.basis_degree,
         }
     }
 }

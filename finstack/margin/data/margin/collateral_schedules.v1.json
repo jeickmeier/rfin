@@ -6,7 +6,12 @@
     { "asset_class": "government_bonds", "standard_haircut": 0.02, "fx_addon": 0.08 },
     { "asset_class": "agency_bonds", "standard_haircut": 0.03, "fx_addon": 0.08 },
     { "asset_class": "covered_bonds", "standard_haircut": 0.04, "fx_addon": 0.08 },
-    { "asset_class": "corporate_bonds", "standard_haircut": 0.05, "fx_addon": 0.08 },
+    {
+      "asset_class": "corporate_bonds",
+      "standard_haircut": 0.05,
+      "fx_addon": 0.08,
+      "concentration_limit": 0.30
+    },
     { "asset_class": "equity", "standard_haircut": 0.15, "fx_addon": 0.08 },
     { "asset_class": "gold", "standard_haircut": 0.15, "fx_addon": 0.08 },
     { "asset_class": "mutual_funds", "standard_haircut": 0.15, "fx_addon": 0.08 }

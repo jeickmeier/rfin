@@ -59,6 +59,7 @@
 
 pub mod cecl;
 pub mod engine;
+pub(crate) mod policy;
 pub mod portfolio;
 pub mod staging;
 pub mod types;
@@ -77,6 +78,16 @@ pub use engine::{
 
 // Re-export CECL API.
 pub use cecl::{CeclConfig, CeclEngine, CeclMethodology, CeclResult, ReversionMethod};
+
+// Re-export policy-backed defaults for bindings and downstream default construction.
+pub use policy::{
+    binding_default_classify_stage_dpd_30_trigger, binding_default_classify_stage_dpd_90_trigger,
+    binding_default_classify_stage_pd_delta_absolute,
+    binding_default_compute_ecl_bucket_width_years, binding_default_cure_periods_stage2_to_1,
+    binding_default_cure_periods_stage3_to_2, binding_default_exposure_dpd, default_cecl_config,
+    default_cecl_config_from_config, default_ecl_config, default_ecl_config_from_config,
+    default_staging_config, default_staging_config_from_config, ECL_POLICY_EXTENSION_KEY,
+};
 
 // Re-export portfolio aggregation.
 pub use portfolio::{compute_waterfall, PortfolioEclResult, ProvisionWaterfall};

@@ -5,6 +5,9 @@
 //! (factor-correlated, Richard-Roll) prepayment models.
 
 use crate::cashflow::builder::specs::PrepaymentModelSpec;
+use crate::instruments::fixed_income::structured_credit::assumptions::{
+    embedded_registry, StructuredCreditAssumptionRegistry,
+};
 use crate::instruments::fixed_income::structured_credit::pricing::stochastic::prepayment::{
     RichardRollPrepay, StochasticPrepayment,
 };
@@ -103,8 +106,7 @@ impl AgencyPrepaymentModel {
     /// * `pool_coupon` - Pool weighted average coupon (WAC)
     /// * `refi_sensitivity` - Refinancing sensitivity parameter (typically 2.0-3.0)
     pub fn richard_roll(pool_coupon: f64, refi_sensitivity: f64) -> Self {
-        let base_cpr = 0.06; // Standard base CPR
-        let burnout_rate = 0.10;
+        let (base_cpr, burnout_rate) = standard_rmbs_prepayment_defaults();
         let rr = RichardRollPrepay::new(base_cpr, refi_sensitivity, pool_coupon, burnout_rate);
 
         Self {
@@ -180,6 +182,19 @@ impl AgencyPrepaymentModel {
             self.smm(seasoning_months)
         }
     }
+}
+
+#[allow(clippy::expect_used)]
+fn structured_credit_assumptions_registry() -> &'static StructuredCreditAssumptionRegistry {
+    embedded_registry().expect("embedded structured-credit assumptions registry should load")
+}
+
+#[allow(clippy::expect_used)]
+fn standard_rmbs_prepayment_defaults() -> (f64, f64) {
+    let calibration = structured_credit_assumptions_registry()
+        .rmbs_stochastic_calibration("rmbs_standard")
+        .expect("embedded RMBS stochastic calibration should load");
+    (calibration.base_cpr, calibration.burnout_rate)
 }
 
 /// Convert CPR (constant prepayment rate) to SMM (single monthly mortality).

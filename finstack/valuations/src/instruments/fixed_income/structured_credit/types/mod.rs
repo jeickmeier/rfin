@@ -93,6 +93,9 @@ use crate::cashflow::traits::{schedule_from_classified_flows, ScheduleBuildOpts}
 use crate::constants::DECIMAL_TO_PERCENT;
 use crate::correlation::RecoverySpec as StochasticRecoverySpec;
 use crate::instruments::common_impl::traits::{Attributes, Instrument};
+use crate::instruments::fixed_income::structured_credit::assumptions::{
+    embedded_registry, StructuredCreditAssumptionRegistry,
+};
 use crate::instruments::fixed_income::structured_credit::pricing::stochastic::pricer::{
     PricingMode, StochasticPricer, StochasticPricerConfig, StochasticPricingResult,
 };
@@ -138,12 +141,14 @@ pub struct MarketConditions {
 
 impl Default for MarketConditions {
     fn default() -> Self {
+        let (refi_rate, seasonal_factor) =
+            structured_credit_assumptions_registry().market_conditions();
         Self {
-            refi_rate: 0.04,
+            refi_rate,
             original_rate: None,
             hpa: None,
             unemployment: None,
-            seasonal_factor: Some(1.0),
+            seasonal_factor,
             custom_factors: HashMap::default(),
         }
     }
@@ -263,16 +268,21 @@ impl Default for CreditModelConfig {
 
 impl CreditModelConfig {
     fn default_prepayment_spec() -> PrepaymentModelSpec {
-        PrepaymentModelSpec::constant_cpr(0.10)
+        structured_credit_assumptions_registry().default_prepayment_spec()
     }
 
     fn default_default_spec() -> DefaultModelSpec {
-        DefaultModelSpec::constant_cdr(0.02)
+        structured_credit_assumptions_registry().default_default_spec()
     }
 
     fn default_recovery_spec() -> RecoveryModelSpec {
-        RecoveryModelSpec::with_lag(0.40, 12)
+        structured_credit_assumptions_registry().default_recovery_spec()
     }
+}
+
+#[allow(clippy::expect_used)]
+fn structured_credit_assumptions_registry() -> &'static StructuredCreditAssumptionRegistry {
+    embedded_registry().expect("embedded structured-credit assumptions registry should load")
 }
 
 // ============================================================================
@@ -790,10 +800,11 @@ impl StructuredCredit {
         }
 
         if let Some(psa_mult) = self.behavior_overrides.psa_speed_multiplier {
-            let base_cpr = if seasoning <= constants::PSA_RAMP_MONTHS {
-                (seasoning as f64 / constants::PSA_RAMP_MONTHS as f64) * constants::PSA_TERMINAL_CPR
+            let psa_curve = structured_credit_assumptions_registry().psa_curve();
+            let base_cpr = if seasoning <= psa_curve.ramp_months {
+                (seasoning as f64 / psa_curve.ramp_months as f64) * psa_curve.terminal_cpr
             } else {
-                constants::PSA_TERMINAL_CPR
+                psa_curve.terminal_cpr
             };
             let cpr = base_cpr * psa_mult;
             return Some(cpr_to_smm(cpr));
@@ -808,17 +819,18 @@ impl StructuredCredit {
         }
 
         if let Some(sda_mult) = self.behavior_overrides.sda_speed_multiplier {
-            let decline_period = (constants::SDA_PEAK_MONTH * 2 - constants::SDA_PEAK_MONTH) as f64;
+            let sda_curve = structured_credit_assumptions_registry().sda_curve();
+            let decline_period = sda_curve.peak_month as f64;
 
-            let cdr = if seasoning <= constants::SDA_PEAK_MONTH {
-                (seasoning as f64 / constants::SDA_PEAK_MONTH as f64) * constants::SDA_PEAK_CDR
-            } else if seasoning <= constants::SDA_PEAK_MONTH * 2 {
-                let months_past_peak = (seasoning - constants::SDA_PEAK_MONTH) as f64;
-                constants::SDA_PEAK_CDR
+            let cdr = if seasoning <= sda_curve.peak_month {
+                (seasoning as f64 / sda_curve.peak_month as f64) * sda_curve.peak_cdr
+            } else if seasoning <= sda_curve.peak_month * 2 {
+                let months_past_peak = (seasoning - sda_curve.peak_month) as f64;
+                sda_curve.peak_cdr
                     - (months_past_peak / decline_period)
-                        * (constants::SDA_PEAK_CDR - constants::SDA_TERMINAL_CDR)
+                        * (sda_curve.peak_cdr - sda_curve.terminal_cdr)
             } else {
-                constants::SDA_TERMINAL_CDR
+                sda_curve.terminal_cdr
             } * sda_mult;
 
             return Some(1.0 - (1.0 - cdr).powf(1.0 / 12.0));

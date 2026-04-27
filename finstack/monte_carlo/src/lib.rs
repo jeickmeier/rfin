@@ -129,6 +129,7 @@ pub mod engine_fractional;
 pub mod greeks;
 pub mod payoff;
 pub mod pricer;
+pub mod registry;
 pub mod results;
 pub mod seed;
 pub mod variance_reduction;

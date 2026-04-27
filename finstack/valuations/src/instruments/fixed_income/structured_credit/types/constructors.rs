@@ -8,15 +8,14 @@ use super::{
     Metadata, Overrides, PrepaymentModelSpec, RecoveryModelSpec, StructuredCredit, Tranche,
     TrancheCoupon, TrancheSeniority, TrancheStructure,
 };
-use crate::instruments::fixed_income::structured_credit::types::constants::{
-    ABS_AUTO_STANDARD_CDR, ABS_AUTO_STANDARD_RECOVERY, ABS_AUTO_STANDARD_SPEED, CLO_STANDARD_CDR,
-    CLO_STANDARD_CPR, CLO_STANDARD_RECOVERY, CMBS_STANDARD_CDR, CMBS_STANDARD_CPR,
-    CMBS_STANDARD_RECOVERY, RMBS_STANDARD_CDR, RMBS_STANDARD_RECOVERY,
+use crate::instruments::fixed_income::structured_credit::assumptions::{
+    embedded_registry, StructuredCreditAssumptionRegistry,
 };
 use crate::instruments::fixed_income::structured_credit::types::setup::DefaultAssumptions;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::Result;
 
 use crate::instruments::common_impl::traits::Attributes;
 
@@ -220,17 +219,7 @@ impl StructuredCredit {
                 maturity,
                 discount_curve_id: &disc_id_str,
             },
-            DealConfig {
-                first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
-                    .expect("Valid example date"),
-                frequency: Tenor::monthly(),
-                prepayment_spec: PrepaymentModelSpec::constant_cpr(ABS_AUTO_STANDARD_SPEED * 12.0), // Annualized from monthly speed
-                default_spec: DefaultModelSpec::constant_cdr(ABS_AUTO_STANDARD_CDR),
-                recovery_spec: RecoveryModelSpec::with_lag(ABS_AUTO_STANDARD_RECOVERY, 12),
-                credit_factors: CreditFactors::default(),
-                deal_metadata: Metadata::default(),
-                behavior_overrides: Overrides::default(),
-            },
+            deal_config_from_registry("abs_auto_standard"),
             closing_date,
         );
         inst.default_assumptions = DefaultAssumptions::abs_auto_standard();
@@ -258,17 +247,7 @@ impl StructuredCredit {
                 maturity,
                 discount_curve_id: &disc_id_str,
             },
-            DealConfig {
-                first_payment_date: Date::from_calendar_date(2025, time::Month::April, 1)
-                    .expect("Valid example date"),
-                frequency: Tenor::quarterly(),
-                prepayment_spec: PrepaymentModelSpec::constant_cpr(CLO_STANDARD_CPR),
-                default_spec: DefaultModelSpec::constant_cdr(CLO_STANDARD_CDR),
-                recovery_spec: RecoveryModelSpec::with_lag(CLO_STANDARD_RECOVERY, 18),
-                credit_factors: CreditFactors::default(),
-                deal_metadata: Metadata::default(),
-                behavior_overrides: Overrides::default(),
-            },
+            deal_config_from_registry("clo_standard"),
             closing_date,
         );
         inst.default_assumptions = DefaultAssumptions::clo_standard();
@@ -296,17 +275,7 @@ impl StructuredCredit {
                 maturity,
                 discount_curve_id: &disc_id_str,
             },
-            DealConfig {
-                first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
-                    .expect("Valid example date"),
-                frequency: Tenor::monthly(),
-                prepayment_spec: PrepaymentModelSpec::cmbs_with_lockout(60, CMBS_STANDARD_CPR), // 5yr lockout
-                default_spec: DefaultModelSpec::constant_cdr(CMBS_STANDARD_CDR),
-                recovery_spec: RecoveryModelSpec::with_lag(CMBS_STANDARD_RECOVERY, 24),
-                credit_factors: CreditFactors::default(),
-                deal_metadata: Metadata::default(),
-                behavior_overrides: Overrides::default(),
-            },
+            deal_config_from_registry("cmbs_standard"),
             closing_date,
         );
         inst.default_assumptions = DefaultAssumptions::cmbs_standard();
@@ -334,23 +303,41 @@ impl StructuredCredit {
                 maturity,
                 discount_curve_id: &disc_id_str,
             },
-            DealConfig {
-                first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
-                    .expect("Valid example date"),
-                frequency: Tenor::monthly(),
-                prepayment_spec: PrepaymentModelSpec::psa(1.0), // 100% PSA
-                default_spec: DefaultModelSpec::constant_cdr(RMBS_STANDARD_CDR),
-                recovery_spec: RecoveryModelSpec::with_lag(RMBS_STANDARD_RECOVERY, 18),
-                credit_factors: CreditFactors {
-                    ltv: Some(0.80),
-                    ..Default::default()
-                },
-                deal_metadata: Metadata::default(),
-                behavior_overrides: Overrides::default(),
-            },
+            deal_config_from_registry("rmbs_standard"),
             closing_date,
         );
         inst.default_assumptions = DefaultAssumptions::rmbs_standard();
         inst
     }
+}
+
+#[allow(clippy::expect_used)]
+fn deal_config_from_registry(profile_id: &str) -> DealConfig {
+    let defaults = required_assumption(
+        assumptions_registry().constructor_defaults(profile_id),
+        "constructor defaults",
+    );
+    let month =
+        time::Month::try_from(defaults.first_payment_month).expect("validated first payment month");
+    DealConfig {
+        first_payment_date: Date::from_calendar_date(2025, month, 1)
+            .expect("valid structured-credit first payment date"),
+        frequency: defaults.frequency,
+        prepayment_spec: defaults.prepayment_spec,
+        default_spec: defaults.default_spec,
+        recovery_spec: defaults.recovery_spec,
+        credit_factors: defaults.credit_factors,
+        deal_metadata: Metadata::default(),
+        behavior_overrides: Overrides::default(),
+    }
+}
+
+#[allow(clippy::expect_used)]
+fn assumptions_registry() -> &'static StructuredCreditAssumptionRegistry {
+    embedded_registry().expect("embedded structured-credit assumptions registry should load")
+}
+
+#[allow(clippy::expect_used)]
+fn required_assumption<T>(result: Result<T>, _label: &str) -> T {
+    result.expect("embedded structured-credit assumptions registry value should exist")
 }

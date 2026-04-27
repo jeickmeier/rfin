@@ -5,20 +5,35 @@ use crate::bindings::core::dates::utils::{date_to_py, py_to_date};
 use crate::bindings::pandas_utils::{dates_to_pylist, dict_to_dataframe};
 use crate::errors::core_to_py;
 use finstack_analytics as fa;
-use finstack_core::dates::PeriodKind;
+use finstack_core::dates::{CalendarRegistry, FiscalConfig, HolidayCalendar, PeriodKind};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
-/// Convert an optional fiscal-year-start month into a FiscalConfig,
-/// propagating validation errors instead of silently swallowing them.
-fn make_fiscal_config(month: Option<u8>) -> PyResult<Option<finstack_core::dates::FiscalConfig>> {
-    match month {
-        None => Ok(None),
-        Some(m) => finstack_core::dates::FiscalConfig::new(m, 1)
-            .map(Some)
-            .map_err(core_to_py),
-    }
+/// Resolve an optional fiscal-year-start month against the analytics registry.
+fn make_fiscal_config(month: Option<u8>) -> PyResult<FiscalConfig> {
+    let default = &fa::registry::embedded_defaults()
+        .map_err(core_to_py)?
+        .python_bindings
+        .lookback
+        .default_fiscal_calendar;
+    FiscalConfig::new(month.unwrap_or(default.start_month), default.start_day).map_err(core_to_py)
+}
+
+fn resolve_fiscal_calendar() -> PyResult<&'static dyn HolidayCalendar> {
+    let default = &fa::registry::embedded_defaults()
+        .map_err(core_to_py)?
+        .python_bindings
+        .lookback
+        .default_fiscal_calendar;
+    CalendarRegistry::global()
+        .resolve_str(&default.calendar_id)
+        .ok_or_else(|| {
+            core_to_py(finstack_core::Error::calendar_not_found_with_suggestions(
+                default.calendar_id.clone(),
+                finstack_core::dates::available_calendars(),
+            ))
+        })
 }
 
 /// Parse a frequency string into a [`PeriodKind`].
@@ -532,8 +547,12 @@ impl PyPerformance {
     ) -> PyResult<PyLookbackReturns> {
         let d = py_to_date(&ref_date)?;
         let fc = make_fiscal_config(fiscal_year_start_month)?;
+        let calendar = resolve_fiscal_calendar()?;
         Ok(PyLookbackReturns {
-            inner: self.inner.lookback_returns(d, fc),
+            inner: self
+                .inner
+                .lookback_returns_with_calendar(d, fc, calendar)
+                .map_err(core_to_py)?,
         })
     }
 
@@ -548,7 +567,7 @@ impl PyPerformance {
         let pk = parse_freq(agg_freq)?;
         let fc = make_fiscal_config(fiscal_year_start_month)?;
         Ok(PyPeriodStats {
-            inner: self.inner.period_stats(ticker_idx, pk, fc),
+            inner: self.inner.period_stats(ticker_idx, pk, Some(fc)),
         })
     }
 
@@ -699,7 +718,7 @@ impl PyPerformance {
     /// Period-to-date lookback returns as a pandas ``DataFrame``.
     ///
     /// Returns a DataFrame with ticker names as index and columns:
-    /// mtd, qtd, ytd (and fytd when a fiscal config is given).
+    /// mtd, qtd, ytd, and fytd.
     #[pyo3(signature = (ref_date, fiscal_year_start_month = None))]
     fn lookback_returns_to_dataframe<'py>(
         &self,
@@ -709,7 +728,11 @@ impl PyPerformance {
     ) -> PyResult<Bound<'py, PyAny>> {
         let d = py_to_date(&ref_date)?;
         let fc = make_fiscal_config(fiscal_year_start_month)?;
-        let lb = self.inner.lookback_returns(d, fc);
+        let calendar = resolve_fiscal_calendar()?;
+        let lb = self
+            .inner
+            .lookback_returns_with_calendar(d, fc, calendar)
+            .map_err(core_to_py)?;
 
         let data = PyDict::new(py);
         data.set_item("mtd", &lb.mtd)?;

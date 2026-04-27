@@ -5,7 +5,14 @@ use super::results::PyMonteCarloResult;
 use crate::errors::core_to_py;
 use finstack_monte_carlo::pricer::european::EuropeanPricer;
 use finstack_monte_carlo::process::gbm::GbmProcess;
+use finstack_monte_carlo::registry::{embedded_defaults, PythonBindingDefaults};
 use pyo3::prelude::*;
+
+fn py_mc_defaults() -> PyResult<&'static PythonBindingDefaults> {
+    embedded_defaults()
+        .map(|defaults| &defaults.python_bindings)
+        .map_err(core_to_py)
+}
 
 /// Convenience pricer for European options under GBM dynamics.
 #[pyclass(name = "EuropeanPricer", module = "finstack.monte_carlo", frozen)]
@@ -18,13 +25,18 @@ pub struct PyEuropeanPricer {
 #[pymethods]
 impl PyEuropeanPricer {
     #[new]
-    #[pyo3(signature = (num_paths=100_000, seed=42, use_parallel=false))]
-    fn new(num_paths: usize, seed: u64, use_parallel: bool) -> Self {
-        Self {
-            num_paths,
-            seed,
-            use_parallel,
-        }
+    #[pyo3(signature = (num_paths=None, seed=None, use_parallel=None))]
+    fn new(
+        num_paths: Option<usize>,
+        seed: Option<u64>,
+        use_parallel: Option<bool>,
+    ) -> PyResult<Self> {
+        let defaults = &py_mc_defaults()?.european_pricer;
+        Ok(Self {
+            num_paths: num_paths.unwrap_or(defaults.num_paths),
+            seed: seed.unwrap_or(defaults.seed),
+            use_parallel: use_parallel.unwrap_or(defaults.use_parallel),
+        })
     }
 
     #[getter]
@@ -45,7 +57,7 @@ impl PyEuropeanPricer {
     /// Releases the GIL during the Monte Carlo run so other Python threads
     /// can make progress.
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=252, currency=None))]
+    #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=None, currency=None))]
     fn price_call(
         &self,
         py: Python<'_>,
@@ -55,10 +67,11 @@ impl PyEuropeanPricer {
         div_yield: f64,
         vol: f64,
         expiry: f64,
-        num_steps: usize,
+        num_steps: Option<usize>,
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
         let ccy = resolve_currency(currency)?;
+        let num_steps = num_steps.unwrap_or(py_mc_defaults()?.european_pricer.num_steps);
         let pricer = self.build_pricer();
         py.detach(|| {
             pricer.price_gbm_call(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy)
@@ -72,7 +85,7 @@ impl PyEuropeanPricer {
     /// Releases the GIL during the Monte Carlo run so other Python threads
     /// can make progress.
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=252, currency=None))]
+    #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=None, currency=None))]
     fn price_put(
         &self,
         py: Python<'_>,
@@ -82,10 +95,11 @@ impl PyEuropeanPricer {
         div_yield: f64,
         vol: f64,
         expiry: f64,
-        num_steps: usize,
+        num_steps: Option<usize>,
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
         let ccy = resolve_currency(currency)?;
+        let num_steps = num_steps.unwrap_or(py_mc_defaults()?.european_pricer.num_steps);
         let pricer = self.build_pricer();
         py.detach(|| {
             pricer.price_gbm_put(spot, strike, rate, div_yield, vol, expiry, num_steps, ccy)
@@ -125,20 +139,25 @@ pub struct PyPathDependentPricer {
 #[pymethods]
 impl PyPathDependentPricer {
     #[new]
-    #[pyo3(signature = (num_paths=100_000, seed=42, use_parallel=false))]
-    fn new(num_paths: usize, seed: u64, use_parallel: bool) -> Self {
-        Self {
-            num_paths,
-            seed,
-            use_parallel,
-        }
+    #[pyo3(signature = (num_paths=None, seed=None, use_parallel=None))]
+    fn new(
+        num_paths: Option<usize>,
+        seed: Option<u64>,
+        use_parallel: Option<bool>,
+    ) -> PyResult<Self> {
+        let defaults = &py_mc_defaults()?.path_dependent_pricer;
+        Ok(Self {
+            num_paths: num_paths.unwrap_or(defaults.num_paths),
+            seed: seed.unwrap_or(defaults.seed),
+            use_parallel: use_parallel.unwrap_or(defaults.use_parallel),
+        })
     }
 
     /// Price an Asian call under GBM dynamics.
     ///
     /// Releases the GIL during the Monte Carlo run.
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=252, currency=None))]
+    #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=None, currency=None))]
     fn price_asian_call(
         &self,
         py: Python<'_>,
@@ -148,11 +167,12 @@ impl PyPathDependentPricer {
         div_yield: f64,
         vol: f64,
         expiry: f64,
-        num_steps: usize,
+        num_steps: Option<usize>,
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
         use finstack_monte_carlo::payoff::asian::{AsianCall, AveragingMethod};
         let ccy = resolve_currency(currency)?;
+        let num_steps = num_steps.unwrap_or(py_mc_defaults()?.path_dependent_pricer.num_steps);
         let fixing_steps: Vec<usize> = (1..=num_steps).collect();
         let payoff = AsianCall::new(strike, 1.0, AveragingMethod::Arithmetic, fixing_steps);
         let df = (-rate * expiry).exp();
@@ -165,7 +185,7 @@ impl PyPathDependentPricer {
     ///
     /// Releases the GIL during the Monte Carlo run.
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=252, currency=None))]
+    #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=None, currency=None))]
     fn price_asian_put(
         &self,
         py: Python<'_>,
@@ -175,11 +195,12 @@ impl PyPathDependentPricer {
         div_yield: f64,
         vol: f64,
         expiry: f64,
-        num_steps: usize,
+        num_steps: Option<usize>,
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
         use finstack_monte_carlo::payoff::asian::{AsianPut, AveragingMethod};
         let ccy = resolve_currency(currency)?;
+        let num_steps = num_steps.unwrap_or(py_mc_defaults()?.path_dependent_pricer.num_steps);
         let fixing_steps: Vec<usize> = (1..=num_steps).collect();
         let payoff = AsianPut::new(strike, 1.0, AveragingMethod::Arithmetic, fixing_steps);
         let df = (-rate * expiry).exp();
@@ -267,8 +288,8 @@ enum LsmcBasisKind {
 }
 
 impl LsmcBasisKind {
-    fn parse(name: Option<&str>) -> PyResult<Self> {
-        match name.unwrap_or("laguerre").to_ascii_lowercase().as_str() {
+    fn parse(name: &str) -> PyResult<Self> {
+        match name.to_ascii_lowercase().as_str() {
             "laguerre" => Ok(Self::Laguerre),
             "polynomial" | "poly" => Ok(Self::Polynomial),
             "normalized_polynomial" | "normalized" | "centered_polynomial" => {
@@ -350,29 +371,31 @@ impl PyLsmcPricer {
 impl PyLsmcPricer {
     #[new]
     #[pyo3(signature = (
-        num_paths=100_000,
-        seed=42,
-        use_parallel=false,
+        num_paths=None,
+        seed=None,
+        use_parallel=None,
         basis=None,
-        basis_degree=3,
+        basis_degree=None,
     ))]
     fn new(
-        num_paths: usize,
-        seed: u64,
-        use_parallel: bool,
+        num_paths: Option<usize>,
+        seed: Option<u64>,
+        use_parallel: Option<bool>,
         basis: Option<&str>,
-        basis_degree: usize,
+        basis_degree: Option<usize>,
     ) -> PyResult<Self> {
-        let basis = LsmcBasisKind::parse(basis)?;
+        let defaults = &py_mc_defaults()?.lsmc;
+        let basis = LsmcBasisKind::parse(basis.unwrap_or(defaults.basis.as_str()))?;
+        let basis_degree = basis_degree.unwrap_or(defaults.basis_degree);
         if basis_degree == 0 {
             return Err(pyo3::exceptions::PyValueError::new_err(
                 "basis_degree must be a positive integer",
             ));
         }
         Ok(Self {
-            num_paths,
-            seed,
-            use_parallel,
+            num_paths: num_paths.unwrap_or(defaults.num_paths),
+            seed: seed.unwrap_or(defaults.seed),
+            use_parallel: use_parallel.unwrap_or(defaults.use_parallel),
             basis,
             basis_degree,
         })
@@ -403,7 +426,7 @@ impl PyLsmcPricer {
     ///
     /// Releases the GIL during the Monte Carlo run.
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=50, currency=None))]
+    #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=None, currency=None))]
     fn price_american_put(
         &self,
         py: Python<'_>,
@@ -413,12 +436,13 @@ impl PyLsmcPricer {
         div_yield: f64,
         vol: f64,
         expiry: f64,
-        num_steps: usize,
+        num_steps: Option<usize>,
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
         use finstack_monte_carlo::pricer::lsmc::{AmericanPut, LsmcConfig, LsmcPricer};
 
         let ccy = resolve_currency(currency)?;
+        let num_steps = num_steps.unwrap_or(py_mc_defaults()?.lsmc.num_steps);
         let exercise = AmericanPut::new(strike).map_err(core_to_py)?;
         let exercise_dates: Vec<usize> = (1..=num_steps).collect();
         let config = LsmcConfig::new(self.num_paths, exercise_dates, num_steps)
@@ -442,7 +466,7 @@ impl PyLsmcPricer {
     ///
     /// Releases the GIL during the Monte Carlo run.
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=50, currency=None))]
+    #[pyo3(signature = (spot, strike, rate, div_yield, vol, expiry, num_steps=None, currency=None))]
     fn price_american_call(
         &self,
         py: Python<'_>,
@@ -452,12 +476,13 @@ impl PyLsmcPricer {
         div_yield: f64,
         vol: f64,
         expiry: f64,
-        num_steps: usize,
+        num_steps: Option<usize>,
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
         use finstack_monte_carlo::pricer::lsmc::{AmericanCall, LsmcConfig, LsmcPricer};
 
         let ccy = resolve_currency(currency)?;
+        let num_steps = num_steps.unwrap_or(py_mc_defaults()?.lsmc.num_steps);
         let exercise = AmericanCall::new(strike).map_err(core_to_py)?;
         let exercise_dates: Vec<usize> = (1..=num_steps).collect();
         let config = LsmcConfig::new(self.num_paths, exercise_dates, num_steps)
@@ -489,7 +514,7 @@ impl PyLsmcPricer {
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (
         spot, strike, rate, div_yield, vol, expiry, pricing_seed,
-        num_steps=50, currency=None,
+        num_steps=None, currency=None,
     ))]
     fn price_american_put_unbiased(
         &self,
@@ -501,12 +526,13 @@ impl PyLsmcPricer {
         vol: f64,
         expiry: f64,
         pricing_seed: u64,
-        num_steps: usize,
+        num_steps: Option<usize>,
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
         use finstack_monte_carlo::pricer::lsmc::{AmericanPut, LsmcConfig, LsmcPricer};
 
         let ccy = resolve_currency(currency)?;
+        let num_steps = num_steps.unwrap_or(py_mc_defaults()?.lsmc.num_steps);
         let exercise = AmericanPut::new(strike).map_err(core_to_py)?;
         let exercise_dates: Vec<usize> = (1..=num_steps).collect();
         let config = LsmcConfig::new(self.num_paths, exercise_dates, num_steps)
@@ -541,7 +567,7 @@ impl PyLsmcPricer {
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (
         spot, strike, rate, div_yield, vol, expiry, pricing_seed,
-        num_steps=50, currency=None,
+        num_steps=None, currency=None,
     ))]
     fn price_american_call_unbiased(
         &self,
@@ -553,12 +579,13 @@ impl PyLsmcPricer {
         vol: f64,
         expiry: f64,
         pricing_seed: u64,
-        num_steps: usize,
+        num_steps: Option<usize>,
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
         use finstack_monte_carlo::pricer::lsmc::{AmericanCall, LsmcConfig, LsmcPricer};
 
         let ccy = resolve_currency(currency)?;
+        let num_steps = num_steps.unwrap_or(py_mc_defaults()?.lsmc.num_steps);
         let exercise = AmericanCall::new(strike).map_err(core_to_py)?;
         let exercise_dates: Vec<usize> = (1..=num_steps).collect();
         let config = LsmcConfig::new(self.num_paths, exercise_dates, num_steps)

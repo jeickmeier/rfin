@@ -9,6 +9,9 @@ use super::{
 };
 use crate::cashflow::builder::specs::DefaultModelSpec;
 use crate::instruments::common_impl::models::correlation::copula::CopulaSpec;
+use crate::instruments::fixed_income::structured_credit::pricing::stochastic::calibrations::{
+    clo_standard, rmbs_standard,
+};
 use finstack_core::market_data::term_structures::HazardCurve;
 
 /// Stochastic default model specification.
@@ -246,19 +249,21 @@ impl StochasticDefaultSpec {
 
     /// RMBS standard calibration.
     pub fn rmbs_standard() -> Self {
+        let calibration = rmbs_standard();
         StochasticDefaultSpec::Copula {
-            base_cdr: 0.02,
+            base_cdr: calibration.base_cdr,
             copula_spec: CopulaSpec::Gaussian,
-            correlation: 0.05,
+            correlation: calibration.default_correlation,
         }
     }
 
     /// CLO standard calibration.
     pub fn clo_standard() -> Self {
+        let calibration = clo_standard();
         StochasticDefaultSpec::Copula {
-            base_cdr: 0.03,
+            base_cdr: calibration.base_cdr,
             copula_spec: CopulaSpec::Gaussian,
-            correlation: 0.20,
+            correlation: calibration.default_correlation,
         }
     }
 

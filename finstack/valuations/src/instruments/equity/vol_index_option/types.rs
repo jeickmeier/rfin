@@ -42,6 +42,7 @@
 
 use super::pricer;
 use crate::cashflow::traits::CashflowProvider;
+use crate::contract_specs::{embedded_registry, ContractSpecRegistry};
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::{ExerciseStyle, OptionType};
@@ -146,25 +147,31 @@ pub struct VolIndexOptionSpecs {
 
 impl Default for VolIndexOptionSpecs {
     fn default() -> Self {
-        Self {
-            multiplier: 100.0,
-            index_id: "VIX".to_string(),
-        }
+        Self::vix()
     }
+}
+
+#[allow(clippy::expect_used)]
+fn contract_spec_registry() -> &'static ContractSpecRegistry {
+    embedded_registry().expect("embedded contract-spec registry should load")
+}
+
+#[allow(clippy::expect_used)]
+fn vol_index_option_specs_from_registry(id: &str) -> VolIndexOptionSpecs {
+    contract_spec_registry()
+        .vol_index_option_specs(id)
+        .expect("embedded volatility index option contract spec should exist")
 }
 
 impl VolIndexOptionSpecs {
     /// Create specs for standard VIX options.
     pub fn vix() -> Self {
-        Self::default()
+        vol_index_option_specs_from_registry("cboe.vix_option")
     }
 
     /// Create specs for VSTOXX options.
     pub fn vstoxx() -> Self {
-        Self {
-            multiplier: 100.0,
-            index_id: "VSTOXX".to_string(),
-        }
+        vol_index_option_specs_from_registry("eurex.vstoxx_option")
     }
 }
 
@@ -262,9 +269,11 @@ impl VolatilityIndexOption {
                 "VolatilityIndexOption notional amount must be finite".into(),
             ));
         }
-        if !self.contract_specs.multiplier.is_finite() || self.contract_specs.multiplier <= 0.0 {
+        if !self.contract_specs.multiplier.is_finite()
+            || self.contract_specs.multiplier <= f64::MIN_POSITIVE
+        {
             return Err(finstack_core::Error::Validation(format!(
-                "VolatilityIndexOption contract_specs.multiplier must be finite and positive, got {}",
+                "VolatilityIndexOption contract spec value must be finite and positive, got {}",
                 self.contract_specs.multiplier
             )));
         }

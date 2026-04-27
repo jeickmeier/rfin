@@ -22,7 +22,9 @@ use serde_json::Value;
 use tracing::{debug, info};
 
 mod validation;
-use validation::{to_validation, validate_haircut, validate_non_negative, validate_rate};
+use validation::{
+    to_validation, validate_haircut, validate_non_negative, validate_probability, validate_rate,
+};
 
 use crate::calculators::im::schedule::{MaturityBucket, ScheduleAssetClass};
 use crate::calculators::im::simm::SimmVersion;
@@ -57,6 +59,12 @@ pub struct MarginRegistry {
     pub ccp: HashMap<String, CcpParams>,
     /// Optional default key into [`Self::ccp`].
     pub ccp_default: Option<String>,
+    /// Resolved default CCP conservative fallback parameters.
+    pub ccp_default_params: CcpParams,
+    /// Resolved generic VaR fallback metadata for unknown CCP names.
+    pub ccp_generic_var_defaults: GenericVarDefaults,
+    /// XVA default configuration assumptions.
+    pub xva: XvaDefaults,
     /// SIMM parameter sets keyed by registry id such as `"v2_6"`.
     pub simm: HashMap<String, SimmParams>,
     /// Optional default key into [`Self::simm`].
@@ -172,6 +180,8 @@ pub struct AssetClassDefault {
     pub standard_haircut: f64,
     /// Additional FX haircut as a decimal fraction when collateral currency differs.
     pub fx_addon: f64,
+    /// Optional concentration limit as a fraction of total collateral.
+    pub concentration_limit: Option<f64>,
 }
 
 /// Conservative fallback CCP parameters.
@@ -181,6 +191,55 @@ pub struct CcpParams {
     pub mpor_days: u32,
     /// Conservative fallback margin rate as a decimal fraction.
     pub conservative_rate: f64,
+}
+
+/// Generic VaR metadata used for unknown CCP-name fallbacks.
+#[derive(Debug, Clone)]
+pub struct GenericVarDefaults {
+    /// VaR confidence level as a decimal probability.
+    pub confidence: f64,
+    /// Historical lookback window in calendar days.
+    pub lookback_days: u32,
+}
+
+struct ParsedCcpRegistry {
+    ccp: HashMap<String, CcpParams>,
+    ccp_default: Option<String>,
+    ccp_default_params: CcpParams,
+    ccp_generic_var_defaults: GenericVarDefaults,
+}
+
+/// Registry-backed XVA defaults.
+#[derive(Debug, Clone)]
+pub struct XvaDefaults {
+    /// Defaults for deterministic exposure profile generation and CVA inputs.
+    pub deterministic_exposure: XvaDeterministicExposureDefaults,
+    /// Defaults for stochastic exposure profile generation.
+    pub stochastic_exposure: XvaStochasticExposureDefaults,
+}
+
+/// Registry-backed deterministic XVA exposure defaults.
+#[derive(Debug, Clone)]
+pub struct XvaDeterministicExposureDefaults {
+    /// Number of points in the default exposure time grid.
+    pub time_grid_points: usize,
+    /// Step between default exposure time-grid points, in years.
+    pub time_grid_step_years: f64,
+    /// Counterparty recovery rate as a decimal probability.
+    pub recovery_rate: f64,
+    /// Optional own recovery rate as a decimal probability.
+    pub own_recovery_rate: Option<f64>,
+}
+
+/// Registry-backed stochastic XVA exposure defaults.
+#[derive(Debug, Clone)]
+pub struct XvaStochasticExposureDefaults {
+    /// Number of Monte Carlo paths to simulate.
+    pub num_paths: usize,
+    /// Deterministic RNG seed for reproducible exposure profiles.
+    pub seed: u64,
+    /// Tail quantile used for PFE.
+    pub pfe_quantile: f64,
 }
 
 /// Registry-backed SIMM parameter set.
@@ -318,13 +377,14 @@ pub fn build_registry(overlay: Option<&Value>) -> Result<MarginRegistry> {
     let (collateral_defaults, collateral_schedules) =
         parse_collateral_schedules(root.get("collateral_schedules"))?;
     let defaults = parse_defaults(root.get("defaults"))?;
-    let (ccp, ccp_default) = parse_ccp(root.get("ccp"))?;
+    let parsed_ccp = parse_ccp(root.get("ccp"))?;
+    let xva = parse_xva_defaults(root.get("xva_defaults"))?;
     let (simm, simm_default) = parse_simm(root.get("simm"))?;
 
     info!(
         schedules = schedule_im.len(),
         collateral_schedules = collateral_schedules.len(),
-        ccps = ccp.len(),
+        ccps = parsed_ccp.ccp.len(),
         simm_versions = simm.len(),
         has_overlay = overlay.is_some(),
         "Margin registry loaded"
@@ -335,8 +395,11 @@ pub fn build_registry(overlay: Option<&Value>) -> Result<MarginRegistry> {
         schedule_im,
         collateral_asset_class_defaults: collateral_defaults,
         collateral_schedules,
-        ccp,
-        ccp_default,
+        ccp: parsed_ccp.ccp,
+        ccp_default: parsed_ccp.ccp_default,
+        ccp_default_params: parsed_ccp.ccp_default_params,
+        ccp_generic_var_defaults: parsed_ccp.ccp_generic_var_defaults,
+        xva,
         simm,
         simm_default,
     })
@@ -428,11 +491,15 @@ fn parse_collateral_schedules(
         let asset = parse_collateral_asset_class(&def.asset_class)?;
         validate_haircut("standard_haircut", def.standard_haircut)?;
         validate_haircut("fx_addon", def.fx_addon)?;
+        if let Some(concentration_limit) = def.concentration_limit {
+            validate_haircut("concentration_limit", concentration_limit)?;
+        }
         defaults.insert(
             asset,
             AssetClassDefault {
                 standard_haircut: def.standard_haircut,
                 fx_addon: def.fx_addon,
+                concentration_limit: def.concentration_limit,
             },
         );
     }
@@ -520,29 +587,146 @@ fn parse_defaults(value: Option<&Value>) -> Result<MarginDefaults> {
     })
 }
 
-fn parse_ccp(value: Option<&Value>) -> Result<(HashMap<String, CcpParams>, Option<String>)> {
+fn parse_ccp(value: Option<&Value>) -> Result<ParsedCcpRegistry> {
     let Some(val) = value else {
         return Err(Error::Validation("ccp section missing".to_string()));
     };
     let file: wire::CcpFile = serde_json::from_value(val.clone()).map_err(to_validation)?;
     let mut map = HashMap::default();
     let mut default: Option<String> = None;
+    let mut default_params: Option<CcpParams> = None;
+    let mut generic_var_defaults: Option<GenericVarDefaults> = None;
     for entry in file.entries {
         validate_rate("ccp.conservative_rate", entry.record.conservative_rate)?;
+        let generic_confidence = entry.record.generic_var_confidence;
+        let generic_lookback_days = entry.record.generic_var_lookback_days;
+        match (generic_confidence, generic_lookback_days) {
+            (Some(confidence), Some(lookback_days)) => {
+                validate_probability("ccp.generic_var_confidence", confidence)?;
+                if lookback_days == 0 {
+                    return Err(Error::Validation(
+                        "ccp.generic_var_lookback_days must be positive".to_string(),
+                    ));
+                }
+                if generic_var_defaults
+                    .replace(GenericVarDefaults {
+                        confidence,
+                        lookback_days,
+                    })
+                    .is_some()
+                {
+                    return Err(Error::Validation(
+                        "duplicate ccp generic_var defaults".to_string(),
+                    ));
+                }
+            }
+            (None, None) => {}
+            _ => {
+                return Err(Error::Validation(
+                    "ccp generic_var defaults require both confidence and lookback_days"
+                        .to_string(),
+                ));
+            }
+        }
         let record = CcpParams {
             mpor_days: entry.record.mpor_days,
             conservative_rate: entry.record.conservative_rate,
         };
+        if entry.record.is_default {
+            if default_params.is_some() {
+                return Err(Error::Validation("duplicate ccp default entry".to_string()));
+            }
+            let Some(default_id) = entry.ids.first() else {
+                return Err(Error::Validation(
+                    "ccp default entry requires at least one id".to_string(),
+                ));
+            };
+            default = Some(default_id.clone());
+            default_params = Some(record.clone());
+        }
         for id in entry.ids {
             if map.insert(id.clone(), record.clone()).is_some() {
                 return Err(Error::Validation(format!("duplicate ccp id '{id}'")));
             }
-            if entry.record.is_default {
-                default.get_or_insert(id.clone());
-            }
         }
     }
-    Ok((map, default))
+    let Some(default_params) = default_params else {
+        return Err(Error::Validation("ccp default entry missing".to_string()));
+    };
+    let Some(generic_var_defaults) = generic_var_defaults else {
+        return Err(Error::Validation(
+            "ccp generic_var defaults missing".to_string(),
+        ));
+    };
+    Ok(ParsedCcpRegistry {
+        ccp: map,
+        ccp_default: default,
+        ccp_default_params: default_params,
+        ccp_generic_var_defaults: generic_var_defaults,
+    })
+}
+
+fn parse_xva_defaults(value: Option<&Value>) -> Result<XvaDefaults> {
+    let Some(val) = value else {
+        return Err(Error::Validation(
+            "xva_defaults section missing".to_string(),
+        ));
+    };
+    let file: wire::XvaDefaultsFile = serde_json::from_value(val.clone()).map_err(to_validation)?;
+    let deterministic = file.defaults.deterministic_exposure;
+    let stochastic = file.defaults.stochastic_exposure;
+
+    if deterministic.time_grid_points == 0 {
+        return Err(Error::Validation(
+            "xva_defaults deterministic_exposure.time_grid_points must be positive".to_string(),
+        ));
+    }
+    validate_non_negative(
+        "xva_defaults.deterministic_exposure.time_grid_step_years",
+        deterministic.time_grid_step_years,
+    )?;
+    if deterministic.time_grid_step_years == 0.0 {
+        return Err(Error::Validation(
+            "xva_defaults deterministic_exposure.time_grid_step_years must be positive".to_string(),
+        ));
+    }
+    validate_probability(
+        "xva_defaults.deterministic_exposure.recovery_rate",
+        deterministic.recovery_rate,
+    )?;
+    if let Some(own_recovery_rate) = deterministic.own_recovery_rate {
+        validate_probability(
+            "xva_defaults.deterministic_exposure.own_recovery_rate",
+            own_recovery_rate,
+        )?;
+    }
+    if stochastic.num_paths == 0 {
+        return Err(Error::Validation(
+            "xva_defaults stochastic_exposure.num_paths must be positive".to_string(),
+        ));
+    }
+    if !stochastic.pfe_quantile.is_finite()
+        || stochastic.pfe_quantile <= 0.0
+        || stochastic.pfe_quantile >= 1.0
+    {
+        return Err(Error::Validation(
+            "xva_defaults stochastic_exposure.pfe_quantile must be in (0,1)".to_string(),
+        ));
+    }
+
+    Ok(XvaDefaults {
+        deterministic_exposure: XvaDeterministicExposureDefaults {
+            time_grid_points: deterministic.time_grid_points,
+            time_grid_step_years: deterministic.time_grid_step_years,
+            recovery_rate: deterministic.recovery_rate,
+            own_recovery_rate: deterministic.own_recovery_rate,
+        },
+        stochastic_exposure: XvaStochasticExposureDefaults {
+            num_paths: stochastic.num_paths,
+            seed: stochastic.seed,
+            pfe_quantile: stochastic.pfe_quantile,
+        },
+    })
 }
 
 fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Option<String>)> {
@@ -643,8 +827,13 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
                     .unwrap_or(9_500_000.0),
             )
         });
-        let commodity_inter_bucket_correlations =
-            crate::calculators::im::simm::default_commodity_inter_bucket_correlations_flat();
+        let commodity_inter_bucket_correlations = record.commodity_inter_bucket_correlations;
+        if commodity_inter_bucket_correlations.is_empty() {
+            return Err(Error::Validation(format!(
+                "SIMM registry {:?}: commodity_inter_bucket_correlations missing",
+                version
+            )));
+        }
 
         let params = SimmParams {
             version,
@@ -1249,9 +1438,8 @@ fn validate_simm_correlations_psd(p: &SimmParams) -> Result<()> {
     )?;
 
     // 4. Commodity inter-bucket correlations (17x17). Already dense in
-    //    row-major form — validate directly without densification. The matrix
-    //    is loaded from DEFAULT_COMMODITY_INTER_BUCKET_CORR unless an overlay
-    //    supplied a replacement (future work once the schema exposes this).
+    //    row-major form, loaded from the SIMM registry, and validated directly
+    //    without densification.
     let n = crate::calculators::im::simm::COMMODITY_BUCKET_COUNT;
     let expected_len = n * n;
     if p.commodity_inter_bucket_correlations.len() != expected_len {
@@ -1415,6 +1603,26 @@ mod tests {
         );
 
         assert!(!registry.ccp.is_empty(), "ccp should have entries");
+        assert!(
+            registry.ccp_default_params.mpor_days > 0,
+            "ccp default params should be resolved"
+        );
+        assert!(
+            registry.ccp_generic_var_defaults.confidence > 0.0,
+            "generic VaR confidence should be resolved"
+        );
+        assert!(
+            registry.ccp_generic_var_defaults.lookback_days > 0,
+            "generic VaR lookback should be resolved"
+        );
+        assert!(
+            registry.xva.deterministic_exposure.time_grid_points > 0,
+            "xva time-grid points should be resolved"
+        );
+        assert!(
+            registry.xva.stochastic_exposure.num_paths > 0,
+            "xva stochastic path count should be resolved"
+        );
 
         assert!(
             registry.defaults.im.simm.mpor_days > 0,
@@ -1559,9 +1767,9 @@ mod tests {
     }
 
     #[test]
-    fn psd_check_accepts_embedded_commodity_matrix() {
-        // Regression guard: the ISDA SIMM v2.6 Table 11 commodity matrix must
-        // continue to pass PSD validation after any future edit to the default.
+    fn psd_check_accepts_registry_commodity_matrix() {
+        // Regression guard: the ISDA SIMM commodity matrix loaded from the
+        // registry must continue to pass PSD validation after future edits.
         let params = base_simm_params();
         validate_simm_correlations_psd(&params)
             .expect("embedded commodity 17x17 matrix must be PSD");

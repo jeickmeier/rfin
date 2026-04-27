@@ -31,6 +31,12 @@ use crate::Result;
     schemars::JsonSchema,
 )]
 pub enum SeniorityClass {
+    /// First-lien secured debt with explicit collateral priority.
+    #[serde(rename = "1st_lien_secured", alias = "first_lien_secured")]
+    FirstLienSecured,
+    /// Second-lien secured debt, junior to first-lien secured claims.
+    #[serde(rename = "2nd_lien_secured", alias = "second_lien_secured")]
+    SecondLienSecured,
     /// First-lien secured debt (bank loans, secured bonds).
     SeniorSecured,
     /// Senior unsecured bonds and loans.
@@ -47,6 +53,12 @@ impl std::str::FromStr for SeniorityClass {
     fn from_str(s: &str) -> Result<Self> {
         let norm = s.trim().to_ascii_lowercase().replace(['-', ' '], "_");
         match norm.as_str() {
+            "1st_lien_secured" | "first_lien_secured" | "firstliensecured" => {
+                Ok(Self::FirstLienSecured)
+            }
+            "2nd_lien_secured" | "second_lien_secured" | "secondliensecured" => {
+                Ok(Self::SecondLienSecured)
+            }
             "senior_secured" | "seniorsecured" => Ok(Self::SeniorSecured),
             "senior_unsecured" | "seniorunsecured" => Ok(Self::SeniorUnsecured),
             "subordinated" | "sub" => Ok(Self::Subordinated),
@@ -54,7 +66,7 @@ impl std::str::FromStr for SeniorityClass {
                 Ok(Self::JuniorSubordinated)
             }
             _ => Err(crate::Error::Validation(format!(
-                "unknown seniority class: '{s}' (expected senior_secured, senior_unsecured, subordinated, junior_subordinated)"
+                "unknown seniority class: '{s}' (expected first_lien_secured, second_lien_secured, senior_secured, senior_unsecured, subordinated, junior_subordinated)"
             ))),
         }
     }
@@ -233,6 +245,11 @@ impl SeniorityCalibration {
         }
     }
 
+    /// Load a seniority recovery calibration from the credit assumptions registry.
+    pub fn from_registry_id(id: &str) -> Result<Self> {
+        crate::credit::registry::embedded_registry()?.seniority_calibration(id)
+    }
+
     /// Moody's historical average recovery rates (1982-2023, issuer-weighted).
     ///
     /// Approximate long-run averages:
@@ -241,24 +258,9 @@ impl SeniorityCalibration {
     /// - Subordinated:         ~28%, std_dev ~20%
     /// - Junior Subordinated:  ~17%, std_dev ~15%
     pub fn moodys_historical() -> Result<Self> {
-        Ok(Self {
-            source: "Moody's 1982-2023 (approximate)".to_string(),
-            classes: vec![
-                (
-                    SeniorityClass::SeniorSecured,
-                    BetaRecovery::new(0.52, 0.25)?,
-                ),
-                (
-                    SeniorityClass::SeniorUnsecured,
-                    BetaRecovery::new(0.37, 0.24)?,
-                ),
-                (SeniorityClass::Subordinated, BetaRecovery::new(0.28, 0.20)?),
-                (
-                    SeniorityClass::JuniorSubordinated,
-                    BetaRecovery::new(0.17, 0.15)?,
-                ),
-            ],
-        })
+        Self::from_registry_id(
+            crate::credit::registry::embedded_registry()?.default_seniority_calibration_id(),
+        )
     }
 
     /// S&P historical average recovery rates (approximate long-run).
@@ -269,24 +271,7 @@ impl SeniorityCalibration {
     /// - Subordinated:         ~27%, std_dev ~20%
     /// - Junior Subordinated:  ~15%, std_dev ~13%
     pub fn sp_historical() -> Result<Self> {
-        Ok(Self {
-            source: "S&P Historical (approximate)".to_string(),
-            classes: vec![
-                (
-                    SeniorityClass::SeniorSecured,
-                    BetaRecovery::new(0.53, 0.24)?,
-                ),
-                (
-                    SeniorityClass::SeniorUnsecured,
-                    BetaRecovery::new(0.36, 0.23)?,
-                ),
-                (SeniorityClass::Subordinated, BetaRecovery::new(0.27, 0.20)?),
-                (
-                    SeniorityClass::JuniorSubordinated,
-                    BetaRecovery::new(0.15, 0.13)?,
-                ),
-            ],
-        })
+        Self::from_registry_id("sp")
     }
 
     /// Look up the BetaRecovery for a given seniority class.
@@ -486,7 +471,9 @@ mod tests {
     #[test]
     fn seniority_calibration_moodys_constructs() {
         let cal = SeniorityCalibration::moodys_historical().expect("valid calibration");
-        assert_eq!(cal.classes.len(), 4);
+        assert_eq!(cal.classes.len(), 6);
+        assert!(cal.get(SeniorityClass::FirstLienSecured).is_some());
+        assert!(cal.get(SeniorityClass::SecondLienSecured).is_some());
         assert!(cal.get(SeniorityClass::SeniorSecured).is_some());
         assert!(cal.get(SeniorityClass::JuniorSubordinated).is_some());
     }

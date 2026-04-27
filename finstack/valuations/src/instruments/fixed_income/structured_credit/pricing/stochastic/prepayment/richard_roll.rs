@@ -35,6 +35,7 @@
 
 #![allow(dead_code)]
 
+use super::super::calibrations::rmbs_standard;
 use super::traits::StochasticPrepayment;
 use crate::instruments::fixed_income::structured_credit::utils::rates::cpr_to_smm;
 use finstack_core::types::{Percentage, Rate};
@@ -171,22 +172,23 @@ impl RichardRollPrepay {
     /// - Refi sensitivity: 2.0
     /// - Burnout rate: 0.10
     pub(crate) fn agency_standard(pool_coupon: f64) -> Self {
-        Self::new(0.06, 2.0, pool_coupon, 0.10)
+        let calibration = rmbs_standard();
+        Self::with_all_params(
+            calibration.base_cpr,
+            calibration.refi_sensitivity,
+            20.0,
+            pool_coupon,
+            calibration.burnout_rate,
+            0.0,
+            calibration.prepay_factor_loading,
+            calibration.cpr_volatility,
+            30,
+        )
     }
 
     /// RMBS agency standard calibration using a typed pool coupon.
     pub(crate) fn agency_standard_rate(pool_coupon: Rate) -> Self {
-        Self {
-            base_cpr: 0.06,
-            refi_sensitivity: 2.0,
-            refi_slope: 20.0,
-            pool_coupon: pool_coupon.as_decimal(),
-            burnout_rate: 0.10,
-            seasonality_amplitude: 0.0,
-            factor_loading: 0.4,
-            cpr_volatility: 0.20,
-            ramp_months: 30,
-        }
+        Self::agency_standard(pool_coupon.as_decimal())
     }
 
     /// RMBS non-agency calibration (higher voluntary prepay).

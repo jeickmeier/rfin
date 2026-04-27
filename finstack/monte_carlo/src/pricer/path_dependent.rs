@@ -46,17 +46,20 @@ pub struct PathDependentPricerConfig {
 
 impl Default for PathDependentPricerConfig {
     fn default() -> Self {
+        let defaults = &crate::registry::embedded_defaults_or_panic()
+            .rust
+            .path_dependent_pricer;
         Self {
-            num_paths: 100_000,
-            seed: 42,
-            use_parallel: true,
-            chunk_size: 1000,
+            num_paths: defaults.num_paths,
+            seed: defaults.seed,
+            use_parallel: defaults.use_parallel,
+            chunk_size: defaults.chunk_size,
             path_capture: PathCaptureConfig::default(),
-            steps_per_year: 252.0,
-            min_steps: 8,
-            use_sobol: false,
-            antithetic: false,
-            use_brownian_bridge: false,
+            steps_per_year: defaults.steps_per_year,
+            min_steps: defaults.min_steps,
+            use_sobol: defaults.use_sobol,
+            antithetic: defaults.antithetic,
+            use_brownian_bridge: defaults.use_brownian_bridge,
         }
     }
 }

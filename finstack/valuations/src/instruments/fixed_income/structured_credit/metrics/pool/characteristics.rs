@@ -1,6 +1,8 @@
 //! Pool characteristic metrics for structured credit.
 
-use crate::instruments::fixed_income::structured_credit::types::constants;
+use crate::instruments::fixed_income::structured_credit::assumptions::{
+    embedded_registry, StructuredCreditAssumptionRegistry,
+};
 use crate::instruments::fixed_income::structured_credit::utils::rates::psa_to_cpr;
 use crate::instruments::fixed_income::structured_credit::StructuredCredit;
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -85,14 +87,16 @@ impl MetricCalculator for CprCalculator {
                 ));
             }
 
-            // Fall back to deal type defaults
             use super::super::super::types::DealType;
+            let registry = structured_credit_assumptions_registry();
+            let assumptions =
+                registry.default_assumptions(registry.profile_id_for_deal_type(sc.deal_type))?;
             return Ok(match sc.deal_type {
-                DealType::RMBS => psa_to_cpr(1.0, deal_seasoning_month(sc, context.as_of)),
-                DealType::ABS | DealType::Auto => 0.15, // 15% CPR
-                DealType::CMBS => 0.10,                 // 10% CPR (open period)
-                DealType::CLO => 0.15,                  // 15% CPR typical
-                _ => 0.10,
+                DealType::RMBS => psa_to_cpr(
+                    assumptions.psa_speed.unwrap_or(1.0),
+                    deal_seasoning_month(sc, context.as_of),
+                ),
+                _ => assumptions.base_cpr_annual,
             });
         }
 
@@ -139,14 +143,16 @@ impl MetricCalculator for CdrCalculator {
                 ));
             }
 
-            // Fall back to deal type defaults
             use super::super::super::types::DealType;
+            let registry = structured_credit_assumptions_registry();
+            let assumptions =
+                registry.default_assumptions(registry.profile_id_for_deal_type(sc.deal_type))?;
             return Ok(match sc.deal_type {
-                DealType::ABS | DealType::Auto => 0.01, // 1% default for ABS
-                DealType::RMBS => sda_to_cdr(1.0, deal_seasoning_month(sc, context.as_of)),
-                DealType::CMBS => 0.01, // 1% default for CMBS
-                DealType::CLO => 0.02,  // 2% CDR base case
-                _ => 0.01,
+                DealType::RMBS => sda_to_cdr(
+                    assumptions.sda_speed.unwrap_or(1.0),
+                    deal_seasoning_month(sc, context.as_of),
+                ),
+                _ => assumptions.base_cdr_annual,
             });
         }
 
@@ -168,17 +174,22 @@ fn sda_to_cdr(speed_multiplier: f64, month: u32) -> f64 {
         return 0.0;
     }
 
-    let cdr = if month <= constants::SDA_PEAK_MONTH {
-        (month as f64 / constants::SDA_PEAK_MONTH as f64) * constants::SDA_PEAK_CDR
-    } else if month <= constants::SDA_PEAK_MONTH * 2 {
-        let months_past_peak = (month - constants::SDA_PEAK_MONTH) as f64;
-        let decline_period = constants::SDA_PEAK_MONTH as f64;
-        constants::SDA_PEAK_CDR
-            - (months_past_peak / decline_period)
-                * (constants::SDA_PEAK_CDR - constants::SDA_TERMINAL_CDR)
+    let sda_curve = structured_credit_assumptions_registry().sda_curve();
+    let cdr = if month <= sda_curve.peak_month {
+        (month as f64 / sda_curve.peak_month as f64) * sda_curve.peak_cdr
+    } else if month <= sda_curve.peak_month * 2 {
+        let months_past_peak = (month - sda_curve.peak_month) as f64;
+        let decline_period = sda_curve.peak_month as f64;
+        sda_curve.peak_cdr
+            - (months_past_peak / decline_period) * (sda_curve.peak_cdr - sda_curve.terminal_cdr)
     } else {
-        constants::SDA_TERMINAL_CDR
+        sda_curve.terminal_cdr
     };
 
     (cdr * speed_multiplier).clamp(0.0, 1.0)
+}
+
+#[allow(clippy::expect_used)]
+fn structured_credit_assumptions_registry() -> &'static StructuredCreditAssumptionRegistry {
+    embedded_registry().expect("embedded structured-credit assumptions registry should load")
 }

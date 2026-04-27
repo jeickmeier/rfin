@@ -4,8 +4,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::structured_credit::config::constants::{
-    ABS_AUTO_STANDARD_CDR, CLO_STANDARD_CDR, CMBS_STANDARD_CDR, PSA_RAMP_MONTHS, PSA_TERMINAL_CPR,
-    RMBS_STANDARD_CDR, SDA_PEAK_CDR, SDA_PEAK_MONTH, SDA_TERMINAL_CDR,
+    abs_auto_standard_cdr, clo_standard_cdr, cmbs_standard_cdr, psa_ramp_months, psa_terminal_cpr,
+    rmbs_standard_cdr, sda_peak_cdr, sda_peak_month, sda_terminal_cdr,
 };
 use finstack_valuations::instruments::fixed_income::structured_credit::{cdr_to_mdr, cpr_to_smm};
 use finstack_valuations::instruments::fixed_income::structured_credit::{
@@ -59,10 +59,10 @@ fn test_apply_deal_defaults_sets_expected_assumptions() {
     let legal = maturity_date();
 
     let cases = [
-        (DealType::ABS, Tenor::monthly(), ABS_AUTO_STANDARD_CDR),
-        (DealType::CLO, Tenor::quarterly(), CLO_STANDARD_CDR),
-        (DealType::CMBS, Tenor::monthly(), CMBS_STANDARD_CDR),
-        (DealType::RMBS, Tenor::monthly(), RMBS_STANDARD_CDR),
+        (DealType::ABS, Tenor::monthly(), abs_auto_standard_cdr()),
+        (DealType::CLO, Tenor::quarterly(), clo_standard_cdr()),
+        (DealType::CMBS, Tenor::monthly(), cmbs_standard_cdr()),
+        (DealType::RMBS, Tenor::monthly(), rmbs_standard_cdr()),
     ];
 
     for (deal_type, expected_frequency, expected_cdr) in cases {
@@ -117,7 +117,7 @@ fn test_prepayment_overrides_use_expected_priority() {
     sc.behavior_overrides.cpr_annual = None;
     sc.behavior_overrides.psa_speed_multiplier = Some(2.0);
     let seasoning = 3;
-    let base_cpr = (seasoning as f64 / PSA_RAMP_MONTHS as f64) * PSA_TERMINAL_CPR;
+    let base_cpr = (seasoning as f64 / psa_ramp_months() as f64) * psa_terminal_cpr();
     let expected = cpr_to_smm(base_cpr * 2.0);
     let psa_rate = sc
         .calculate_prepayment_rate(test_date(), seasoning)
@@ -144,11 +144,11 @@ fn test_default_overrides_use_expected_priority() {
 
     sc.behavior_overrides.cdr_annual = None;
     sc.behavior_overrides.sda_speed_multiplier = Some(1.5);
-    let seasoning = SDA_PEAK_MONTH + 1;
-    let decline_period = (SDA_PEAK_MONTH * 2 - SDA_PEAK_MONTH) as f64;
-    let months_past_peak = (seasoning - SDA_PEAK_MONTH) as f64;
-    let cdr = (SDA_PEAK_CDR
-        - (months_past_peak / decline_period) * (SDA_PEAK_CDR - SDA_TERMINAL_CDR))
+    let seasoning = sda_peak_month() + 1;
+    let decline_period = (sda_peak_month() * 2 - sda_peak_month()) as f64;
+    let months_past_peak = (seasoning - sda_peak_month()) as f64;
+    let cdr = (sda_peak_cdr()
+        - (months_past_peak / decline_period) * (sda_peak_cdr() - sda_terminal_cdr()))
         * 1.5;
     let expected = 1.0 - (1.0 - cdr).powf(1.0 / 12.0);
     let sda_rate = sc.calculate_default_rate(test_date(), seasoning).unwrap();

@@ -7,6 +7,8 @@
 
 use std::fmt;
 
+use crate::instruments::fixed_income::structured_credit::assumptions::embedded_registry_or_panic;
+
 /// Unique identifier for a scenario node.
 #[derive(
     Debug,
@@ -115,6 +117,7 @@ pub(crate) struct ScenarioNode {
 impl ScenarioNode {
     /// Create a new root node.
     pub(crate) fn root(initial_balance: f64, initial_seasoning: u32) -> Self {
+        let recovery_rate = embedded_registry_or_panic().default_recovery_rate();
         Self {
             id: ScenarioNodeId(0),
             period: 0,
@@ -126,7 +129,7 @@ impl ScenarioNode {
             factor_realizations: vec![0.0],
             smm: 0.0,
             mdr: 0.0,
-            recovery_rate: 0.40,
+            recovery_rate,
             pool_balance: initial_balance,
             burnout_factor: 1.0,
             seasoning: initial_seasoning,

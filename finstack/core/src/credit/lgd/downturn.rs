@@ -104,14 +104,29 @@ impl DownturnLgd {
         })
     }
 
+    /// Load a downturn LGD preset from the credit assumptions registry.
+    pub fn from_registry_id(id: &str) -> Result<Self> {
+        let preset = crate::credit::registry::embedded_registry()?.downturn_lgd_preset(id)?;
+        if preset.method == "regulatory_floor" {
+            Self::regulatory_floor(preset.add_on, preset.floor)
+        } else {
+            Err(crate::Error::Validation(format!(
+                "unsupported downturn LGD preset method '{}'",
+                preset.method
+            )))
+        }
+    }
+
     /// Basel III secured asset floor (10% LGD floor, 8% add-on).
     pub fn basel_secured() -> Result<Self> {
-        Self::regulatory_floor(0.08, 0.10)
+        Self::from_registry_id(
+            crate::credit::registry::embedded_registry()?.default_downturn_lgd_id(),
+        )
     }
 
     /// Basel III unsecured floor (25% LGD floor, 5% add-on).
     pub fn basel_unsecured() -> Result<Self> {
-        Self::regulatory_floor(0.05, 0.25)
+        Self::from_registry_id("basel_unsecured")
     }
 
     /// Apply downturn adjustment to a base LGD.

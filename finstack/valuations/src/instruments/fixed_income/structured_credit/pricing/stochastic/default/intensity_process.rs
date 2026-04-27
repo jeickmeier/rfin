@@ -27,7 +27,7 @@
 
 #![allow(dead_code)]
 
-use super::super::calibrations::{CLO_STANDARD, RMBS_STANDARD};
+use super::super::calibrations::{clo_standard, rmbs_standard};
 use super::traits::{MacroCreditFactors, StochasticDefault};
 use crate::instruments::fixed_income::structured_credit::utils::rates::cdr_to_mdr;
 use finstack_core::math::distributions::binomial_distribution;
@@ -81,33 +81,35 @@ impl IntensityProcessDefault {
 
     /// Standard RMBS calibration.
     ///
-    /// Uses shared calibration constants from `RMBS_STANDARD`:
+    /// Uses the registry-backed `rmbs_standard` calibration profile:
     /// - Base hazard: 2% annual
     /// - Factor sensitivity: 0.5
     /// - Mean reversion: 0.5 (2-year half-life)
     /// - Volatility: 0.30
     pub(crate) fn rmbs_standard() -> Self {
+        let calibration = rmbs_standard();
         Self::new(
-            RMBS_STANDARD.base_cdr,
-            RMBS_STANDARD.default_factor_sensitivity,
-            RMBS_STANDARD.default_mean_reversion,
-            RMBS_STANDARD.default_volatility,
+            calibration.base_cdr,
+            calibration.default_factor_sensitivity,
+            calibration.default_mean_reversion,
+            calibration.default_volatility,
         )
-        .with_correlation(RMBS_STANDARD.default_correlation)
+        .with_correlation(calibration.default_correlation)
     }
 
     /// Standard CLO calibration.
     ///
-    /// Uses shared calibration constants from `CLO_STANDARD`:
+    /// Uses the registry-backed `clo_standard` calibration profile:
     /// Higher base hazard and factor sensitivity for corporate loans.
     pub(crate) fn clo_standard() -> Self {
+        let calibration = clo_standard();
         Self::new(
-            CLO_STANDARD.base_cdr,
-            CLO_STANDARD.default_factor_sensitivity,
-            CLO_STANDARD.default_mean_reversion,
-            CLO_STANDARD.default_volatility,
+            calibration.base_cdr,
+            calibration.default_factor_sensitivity,
+            calibration.default_mean_reversion,
+            calibration.default_volatility,
         )
-        .with_correlation(CLO_STANDARD.default_correlation)
+        .with_correlation(calibration.default_correlation)
     }
 
     /// Get the base hazard rate.

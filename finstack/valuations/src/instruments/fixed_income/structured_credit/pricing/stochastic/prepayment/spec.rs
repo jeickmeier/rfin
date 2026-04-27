@@ -3,7 +3,7 @@
 //! Provides a serializable specification enum for stochastic prepayment models,
 //! enabling configuration and deferred construction.
 
-use super::super::calibrations::{CLO_STANDARD, RMBS_STANDARD};
+use super::super::calibrations::{clo_standard, rmbs_standard};
 use super::{
     FactorCorrelatedPrepay, RegimeSwitchingPrepay, RichardRollPrepay, StochasticPrepayment,
 };
@@ -144,26 +144,28 @@ impl StochasticPrepaySpec {
 
     /// RMBS agency standard calibration.
     ///
-    /// Uses shared calibration constants from `RMBS_STANDARD`.
+    /// Uses the registry-backed `rmbs_standard` calibration profile.
     pub fn rmbs_agency(pool_coupon: f64) -> Self {
+        let calibration = rmbs_standard();
         StochasticPrepaySpec::RichardRoll {
-            base_cpr: RMBS_STANDARD.base_cpr,
-            refi_sensitivity: RMBS_STANDARD.refi_sensitivity,
+            base_cpr: calibration.base_cpr,
+            refi_sensitivity: calibration.refi_sensitivity,
             pool_coupon,
-            burnout_rate: RMBS_STANDARD.burnout_rate,
-            factor_loading: RMBS_STANDARD.prepay_factor_loading,
-            cpr_volatility: RMBS_STANDARD.cpr_volatility,
+            burnout_rate: calibration.burnout_rate,
+            factor_loading: calibration.prepay_factor_loading,
+            cpr_volatility: calibration.cpr_volatility,
         }
     }
 
     /// CLO standard calibration.
     ///
-    /// Uses shared calibration constants from `CLO_STANDARD`.
+    /// Uses the registry-backed `clo_standard` calibration profile.
     pub fn clo_standard() -> Self {
+        let calibration = clo_standard();
         StochasticPrepaySpec::FactorCorrelated {
-            base_spec: PrepaymentModelSpec::constant_cpr(CLO_STANDARD.base_cpr),
-            factor_loading: CLO_STANDARD.prepay_factor_loading,
-            cpr_volatility: CLO_STANDARD.cpr_volatility,
+            base_spec: PrepaymentModelSpec::constant_cpr(calibration.base_cpr),
+            factor_loading: calibration.prepay_factor_loading,
+            cpr_volatility: calibration.cpr_volatility,
         }
     }
 

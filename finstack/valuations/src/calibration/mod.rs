@@ -74,6 +74,8 @@
 
 /// Plan-driven calibration API (schema + execution engine).
 pub mod api;
+/// Embedded calibration defaults.
+pub mod defaults;
 /// Hull-White one-factor model calibration to European swaptions.
 pub mod hull_white;
 /// LMM/BGM co-terminal swaption calibration.

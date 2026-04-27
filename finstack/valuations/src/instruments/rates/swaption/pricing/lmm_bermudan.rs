@@ -46,12 +46,15 @@ pub struct LmmBermudanConfig {
 
 impl Default for LmmBermudanConfig {
     fn default() -> Self {
+        let defaults = &finstack_monte_carlo::registry::embedded_defaults_or_panic()
+            .rust
+            .lmm_bermudan;
         Self {
-            num_paths: 50_000,
-            seed: 42,
-            basis_degree: 3,
-            antithetic: true,
-            min_steps_between_exercises: 4,
+            num_paths: defaults.num_paths,
+            seed: defaults.seed,
+            basis_degree: defaults.basis_degree,
+            antithetic: defaults.antithetic,
+            min_steps_between_exercises: defaults.min_steps_between_exercises,
         }
     }
 }

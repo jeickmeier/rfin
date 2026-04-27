@@ -5,8 +5,21 @@
 //!
 //! Delegates to `dates::DateExt` for calendar math.
 
-use crate::dates::{Date, DateExt, Duration, FiscalConfig, Month};
+use crate::dates::{
+    adjust, BusinessDayConvention, Date, DateExt, Duration, FiscalConfig, HolidayCalendar, Month,
+};
 use core::ops::Range;
+
+/// Input-date convention for calendar-aware lookback selectors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LookbackDateAlignment {
+    /// Dates represent price observations, so the start index should include
+    /// the business day before the fiscal period starts.
+    PriceIndex,
+    /// Dates represent returns labeled by the ending observation date, so the
+    /// start index should use the fiscal start date or the next business day.
+    ReturnSeries,
+}
 
 /// Index of the first date on or after `target` via binary search.
 fn lower_bound(dates: &[Date], target: Date) -> usize {
@@ -184,6 +197,43 @@ pub fn fytd_select(
     fiscal_config: FiscalConfig,
     offset_days: i64,
 ) -> Range<usize> {
+    let fy_start = fiscal_year_start_date(ref_date, fiscal_config);
+    select_range(dates, fy_start, ref_date, offset_days)
+}
+
+/// Fiscal-year-to-date index range using a holiday calendar to align the
+/// fiscal start date to the supplied date series convention.
+///
+/// Price-index series include the prior business-day close before the fiscal
+/// start. Return series include the fiscal start date itself when it is a
+/// business day, or the next business day when it is not.
+///
+/// # Errors
+/// Returns an error when business-day adjustment fails for the supplied
+/// calendar.
+pub fn fytd_select_aligned(
+    dates: &[Date],
+    ref_date: Date,
+    fiscal_config: FiscalConfig,
+    calendar: &dyn HolidayCalendar,
+    alignment: LookbackDateAlignment,
+    offset_days: i64,
+) -> crate::Result<Range<usize>> {
+    let fy_start = fiscal_year_start_date(ref_date, fiscal_config);
+    let aligned_start = match alignment {
+        LookbackDateAlignment::PriceIndex => adjust(
+            fy_start - Duration::days(1),
+            BusinessDayConvention::Preceding,
+            calendar,
+        )?,
+        LookbackDateAlignment::ReturnSeries => {
+            adjust(fy_start, BusinessDayConvention::Following, calendar)?
+        }
+    };
+    Ok(select_range(dates, aligned_start, ref_date, offset_days))
+}
+
+fn fiscal_year_start_date(ref_date: Date, fiscal_config: FiscalConfig) -> Date {
     let fy = ref_date.fiscal_year(fiscal_config);
     let fy_start_month = Month::try_from(fiscal_config.start_month).unwrap_or(Month::January);
     let calendar_year = if fiscal_config.start_month == 1 && fiscal_config.start_day <= 1 {
@@ -191,10 +241,8 @@ pub fn fytd_select(
     } else {
         fy - 1
     };
-    let fy_start =
-        crate::dates::create_date(calendar_year, fy_start_month, fiscal_config.start_day)
-            .unwrap_or(ref_date);
-    select_range(dates, fy_start, ref_date, offset_days)
+    crate::dates::create_date(calendar_year, fy_start_month, fiscal_config.start_day)
+        .unwrap_or(ref_date)
 }
 
 #[cfg(test)]
@@ -246,5 +294,41 @@ mod tests {
         let range = fytd_select(&dates, d(2025, 1, 20), config, 0);
         assert_eq!(range.start, 14);
         assert_eq!(range.end, 20);
+    }
+
+    #[test]
+    fn fytd_select_aligned_uses_prior_business_day_for_price_index() {
+        let dates = daily_dates(d(2024, 12, 30), 10);
+        let calendar = crate::dates::CalendarRegistry::global()
+            .resolve_str("nyse")
+            .expect("nyse calendar");
+        let range = fytd_select_aligned(
+            &dates,
+            d(2025, 1, 6),
+            FiscalConfig::calendar_year(),
+            calendar,
+            LookbackDateAlignment::PriceIndex,
+            0,
+        )
+        .expect("calendar-adjusted FYTD range");
+        assert_eq!(dates[range.start], d(2024, 12, 31));
+    }
+
+    #[test]
+    fn fytd_select_aligned_uses_next_business_day_for_return_series() {
+        let dates = daily_dates(d(2024, 12, 30), 10);
+        let calendar = crate::dates::CalendarRegistry::global()
+            .resolve_str("nyse")
+            .expect("nyse calendar");
+        let range = fytd_select_aligned(
+            &dates,
+            d(2025, 1, 6),
+            FiscalConfig::calendar_year(),
+            calendar,
+            LookbackDateAlignment::ReturnSeries,
+            0,
+        )
+        .expect("calendar-adjusted FYTD range");
+        assert_eq!(dates[range.start], d(2025, 1, 2));
     }
 }

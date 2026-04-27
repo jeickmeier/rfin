@@ -107,6 +107,8 @@ pub mod performance;
 pub mod portfolio;
 /// Position primitives and units.
 pub mod position;
+/// Embedded portfolio defaults registries.
+pub mod registry;
 /// Result envelopes for portfolio operations.
 pub mod results;
 /// Core portfolio entity and ID types.

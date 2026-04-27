@@ -260,6 +260,7 @@ impl IrFutureOption {
     /// Create a canonical example 3M SOFR futures option.
     pub fn example() -> finstack_core::Result<Self> {
         use time::macros::date;
+        let futures_specs = crate::instruments::rates::ir_future::FutureContractSpecs::default();
         IrFutureOption::builder()
             .id(InstrumentId::new("IRFO-SOFR-3M-CALL-9550"))
             .futures_price(95.50)
@@ -267,8 +268,8 @@ impl IrFutureOption {
             .expiry(date!(2025 - 06 - 16))
             .option_type(OptionType::Call)
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .tick_size(0.0025)
-            .tick_value(6.25)
+            .tick_size(futures_specs.tick_size)
+            .tick_value(futures_specs.tick_value)
             .volatility(0.20)
             .discount_curve_id(CurveId::new("USD-OIS"))
             .build()
