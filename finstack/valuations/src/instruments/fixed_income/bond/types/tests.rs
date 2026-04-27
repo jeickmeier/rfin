@@ -37,8 +37,11 @@ fn test_bond_with_custom_cashflows() {
 
     let custom_schedule = CashFlowSchedule::builder()
         .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
-        .fixed_stepup(
-            &[(step1_date, 0.03), (maturity, 0.05)],
+        .fixed_stepup_decimal(
+            &[
+                (step1_date, Decimal::new(3, 2)),
+                (maturity, Decimal::new(5, 2)),
+            ],
             schedule_params,
             CouponType::Cash,
         )

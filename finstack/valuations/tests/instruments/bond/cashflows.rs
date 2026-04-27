@@ -20,6 +20,7 @@ use finstack_valuations::cashflow::builder::{
 use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::fixed_income::bond::{Bond, CashflowSpec};
 use finstack_valuations::instruments::PricingOverrides;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 fn create_test_curves(base_date: Date) -> MarketContext {
@@ -221,7 +222,11 @@ fn test_custom_cashflows_from_schedule() {
 
     let custom_schedule = CashFlowSchedule::builder()
         .principal(Money::new(1000.0, Currency::USD), issue, maturity)
-        .fixed_stepup(&[(step1, 0.04), (maturity, 0.06)], params, CouponType::Cash)
+        .fixed_stepup_decimal(
+            &[(step1, Decimal::new(4, 2)), (maturity, Decimal::new(6, 2))],
+            params,
+            CouponType::Cash,
+        )
         .build_with_curves(None)
         .unwrap();
 

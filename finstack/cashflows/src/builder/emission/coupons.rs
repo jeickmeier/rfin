@@ -14,6 +14,7 @@ use finstack_core::dates::{Date, DateExt, Tenor};
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
 use finstack_core::InputError;
+use rust_decimal::Decimal;
 use tracing::{info, warn};
 
 use crate::builder::rate_helpers::{ResolvedFloatingRateFallback, ResolvedFloatingRateSpec};
@@ -155,8 +156,8 @@ fn rate_when_projection_fails(
 pub(crate) fn emit_fixed_coupons_on(
     d: Date,
     fixed_schedules: &[FixedSchedule],
-    outstanding_after: &finstack_core::HashMap<Date, f64>,
-    outstanding_fallback: f64,
+    outstanding_after: &finstack_core::HashMap<Date, Decimal>,
+    outstanding_fallback: Decimal,
     ccy: Currency,
     out_flows: &mut Vec<CashFlow>,
 ) -> finstack_core::Result<f64> {
@@ -192,11 +193,8 @@ pub(crate) fn emit_fixed_coupons_on(
                 },
             )?;
 
-            // Convert f64 values to Decimal with proper error handling for NaN/Infinity.
-            // This prevents silent masking of invalid values as zero.
-            let base_out_dec = f64_to_decimal(base_out)?;
             let yf_dec = f64_to_decimal(yf)?;
-            let coupon_total_dec = base_out_dec * spec.rate * yf_dec;
+            let coupon_total_dec = base_out * spec.rate * yf_dec;
             let coupon_total = decimal_to_f64(coupon_total_dec)?;
 
             let (cash_pct, pik_pct) = spec.coupon_type.split_parts()?;
@@ -457,8 +455,8 @@ fn sample_overnight_rates(
 pub(crate) fn emit_float_coupons_on(
     d: Date,
     float_schedules: &[FloatSchedule],
-    outstanding_after: &finstack_core::HashMap<Date, f64>,
-    outstanding_fallback: f64,
+    outstanding_after: &finstack_core::HashMap<Date, Decimal>,
+    outstanding_fallback: Decimal,
     ccy: Currency,
     resolved_curves: &[Option<std::sync::Arc<ForwardCurve>>],
     out_flows: &mut Vec<CashFlow>,
@@ -637,10 +635,9 @@ pub(crate) fn emit_float_coupons_on(
 
             // Convert f64 values to Decimal with proper error handling for NaN/Infinity.
             // This prevents silent masking of invalid values as zero.
-            let base_out_dec = f64_to_decimal(base_out)?;
             let total_rate_dec = f64_to_decimal(total_rate)?;
             let yf_dec = f64_to_decimal(yf)?;
-            let coupon_total_dec = base_out_dec * total_rate_dec * yf_dec;
+            let coupon_total_dec = base_out * total_rate_dec * yf_dec;
             let coupon_total = decimal_to_f64(coupon_total_dec)?;
 
             let (cash_pct, pik_pct) = spec.coupon_type.split_parts()?;

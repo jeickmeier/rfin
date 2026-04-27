@@ -7,7 +7,7 @@
 use crate::accrual::{accrued_interest_amount, AccrualConfig};
 use crate::builder::{CashFlowSchedule, FeeSpec, FixedCouponSpec, FloatingCouponSpec, Notional};
 use crate::primitives::CFKind;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DateExt};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::{Error, Result};
@@ -248,6 +248,7 @@ pub fn build_cashflow_schedule_json(spec_json: &str, market_json: Option<&str>) 
 /// ```
 pub fn validate_cashflow_schedule_json(schedule_json: &str) -> Result<String> {
     let schedule = parse_schedule(schedule_json)?;
+    validate_schedule_economic_invariants(&schedule)?;
     serialize_json(&schedule, "cashflow schedule")
 }
 
@@ -374,6 +375,55 @@ pub fn accrued_interest_json(
 fn parse_schedule(schedule_json: &str) -> Result<CashFlowSchedule> {
     serde_json::from_str(schedule_json)
         .map_err(|err| Error::Validation(format!("invalid cashflow schedule JSON: {err}")))
+}
+
+fn validate_schedule_economic_invariants(schedule: &CashFlowSchedule) -> Result<()> {
+    let initial = schedule.notional.initial;
+    let expected_currency = initial.currency();
+    let initial_amount = initial.amount().abs();
+    let epsilon = (initial_amount * 1e-8).max(1e-6);
+    let mut total_amortization = 0.0_f64;
+
+    for flow in &schedule.flows {
+        if flow.kind == CFKind::Amortization {
+            if flow.amount.currency() != expected_currency {
+                return Err(Error::Validation(format!(
+                    "amortization flow currency ({}) must match initial notional currency ({})",
+                    flow.amount.currency(),
+                    expected_currency
+                )));
+            }
+            total_amortization += flow.amount.amount().max(0.0);
+        }
+    }
+
+    if total_amortization > initial_amount + epsilon {
+        return Err(Error::Validation(format!(
+            "total amortization ({total_amortization:.6}) exceeds initial notional ({initial_amount:.6})"
+        )));
+    }
+
+    if let Some(issue_date) = schedule.meta.issue_date {
+        let long_horizon = issue_date.add_months(1200);
+        for flow in &schedule.flows {
+            if flow.date < issue_date {
+                return Err(Error::Validation(format!(
+                    "cashflow date {} is before issue date {}",
+                    flow.date, issue_date
+                )));
+            }
+            if flow.date > long_horizon {
+                tracing::warn!(
+                    flow_date = %flow.date,
+                    issue_date = %issue_date,
+                    horizon_date = %long_horizon,
+                    "cashflow schedule contains a flow more than 100 years after issue date"
+                );
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn parse_optional_market(market_json: Option<&str>) -> Result<Option<MarketContext>> {

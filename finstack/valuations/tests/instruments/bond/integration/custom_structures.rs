@@ -10,6 +10,7 @@ use finstack_valuations::cashflow::builder::{
 };
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::Instrument;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 fn create_curve() -> MarketContext {
@@ -70,8 +71,12 @@ fn test_step_up_bond() {
 
     let schedule = CashFlowSchedule::builder()
         .principal(Money::new(1000.0, Currency::USD), issue, maturity)
-        .fixed_stepup(
-            &[(step1, 0.04), (step2, 0.05), (maturity, 0.06)],
+        .fixed_stepup_decimal(
+            &[
+                (step1, Decimal::new(4, 2)),
+                (step2, Decimal::new(5, 2)),
+                (maturity, Decimal::new(6, 2)),
+            ],
             params,
             CouponType::Cash,
         )

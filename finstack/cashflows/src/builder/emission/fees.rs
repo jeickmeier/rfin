@@ -5,7 +5,6 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::InputError;
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 use super::super::compiler::PeriodicFee;
@@ -60,13 +59,13 @@ fn emit_fee_generic(
     }
 
     // Use Decimal for consistent precision with emit_fees_on
-    let base_dec = Decimal::try_from(base_amount).unwrap_or(Decimal::ZERO);
-    let fee_bp_dec = Decimal::try_from(fee_bp).unwrap_or(Decimal::ZERO);
-    let yf_dec = Decimal::try_from(year_fraction).unwrap_or(Decimal::ZERO);
+    let base_dec = Decimal::try_from(base_amount).ok()?;
+    let fee_bp_dec = Decimal::try_from(fee_bp).ok()?;
+    let yf_dec = Decimal::try_from(year_fraction).ok()?;
 
     let fee_amt_dec = base_dec * fee_bp_dec * BP_TO_RATE * yf_dec;
-    let fee_amt = fee_amt_dec.to_f64().unwrap_or(0.0);
-    let rate = (fee_bp_dec * BP_TO_RATE).to_f64().unwrap_or(0.0);
+    let fee_amt = decimal_to_f64(fee_amt_dec).ok()?;
+    let rate = decimal_to_f64(fee_bp_dec * BP_TO_RATE).ok()?;
 
     if fee_amt > 0.0 {
         Some(CashFlow {
@@ -195,12 +194,12 @@ pub(crate) fn emit_facility_fee_on(
 ///
 /// If no history entries exist for the period, returns the `fallback` value.
 fn compute_time_weighted_average(
-    outstanding_history: &finstack_core::HashMap<Date, f64>,
+    outstanding_history: &finstack_core::HashMap<Date, Decimal>,
     accrual_start: Date,
     accrual_end: Date,
-    fallback: f64,
-    entries_buf: &mut Vec<(Date, f64)>,
-) -> f64 {
+    fallback: Decimal,
+    entries_buf: &mut Vec<(Date, Decimal)>,
+) -> Decimal {
     // Collect entries that are relevant to the accrual period:
     // any date < accrual_end (we need entries before start to carry forward).
     entries_buf.clear();
@@ -237,7 +236,7 @@ fn compute_time_weighted_average(
     };
 
     // Compute TWA from start_idx onward, clamped to [accrual_start, accrual_end)
-    let mut weighted_sum = 0.0_f64;
+    let mut weighted_sum = Decimal::ZERO;
     let mut total_days = 0i64;
 
     for i in start_idx..entries.len() {
@@ -253,13 +252,13 @@ fn compute_time_weighted_average(
         };
         let days = (next_date - date_i).whole_days();
         if days > 0 {
-            weighted_sum += val_i * (days as f64);
+            weighted_sum += val_i * Decimal::from(days);
             total_days += days;
         }
     }
 
     if total_days > 0 {
-        weighted_sum / (total_days as f64)
+        weighted_sum / Decimal::from(total_days)
     } else {
         fallback
     }
@@ -281,14 +280,14 @@ pub(in crate::builder) fn emit_fees_on(
     d: Date,
     periodic_fees: &[PeriodicFee],
     fixed_fees: &[(Date, Money)],
-    outstanding: f64,
-    outstanding_history: &finstack_core::HashMap<Date, f64>,
+    outstanding: Decimal,
+    outstanding_history: &finstack_core::HashMap<Date, Decimal>,
     ccy: Currency,
     new_flows: &mut Vec<CashFlow>,
 ) -> finstack_core::Result<()> {
     // Conversion factor from basis points to rate (1 bp = 0.0001)
     let bp_to_rate = Decimal::new(1, 4); // 0.0001
-    let mut twa_buf: Vec<(Date, f64)> = Vec::new();
+    let mut twa_buf: Vec<(Date, Decimal)> = Vec::new();
 
     for pf in periodic_fees {
         if let Some(period) = pf.prev.get(&d) {
@@ -324,16 +323,18 @@ pub(in crate::builder) fn emit_fees_on(
                     if facility_limit.currency() != ccy {
                         return Err(InputError::Invalid.into());
                     }
-                    (facility_limit.amount() - effective_outstanding).max(0.0)
+                    let facility_limit_dec = f64_to_decimal(facility_limit.amount())?;
+                    let undrawn = facility_limit_dec - effective_outstanding;
+                    if undrawn > Decimal::ZERO {
+                        undrawn
+                    } else {
+                        Decimal::ZERO
+                    }
                 }
             };
 
-            // Use Decimal for fee calculation.
-            // Propagate errors on NaN/Inf inputs rather than silently producing
-            // zero fees, which would create plausible-looking but incorrect valuations.
-            let base_amt_dec = f64_to_decimal(base_amt)?;
             let yf_dec = f64_to_decimal(yf)?;
-            let fee_amt_dec = base_amt_dec * pf.bps * bp_to_rate * yf_dec;
+            let fee_amt_dec = base_amt * pf.bps * bp_to_rate * yf_dec;
             let fee_amt = decimal_to_f64(fee_amt_dec)?;
 
             // Convert rate from bps to decimal for storage
@@ -483,7 +484,7 @@ mod tests {
             FeeBase::Drawn,
         );
 
-        let outstanding = 1_000_000.0;
+        let outstanding = dec!(1000000);
         let history = finstack_core::HashMap::default();
         let mut flows = Vec::new();
 
@@ -508,7 +509,7 @@ mod tests {
         let start = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
         let end = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
         let payment = end;
-        let outstanding = 1_000_000.0;
+        let outstanding = dec!(1000000);
 
         let mut history = finstack_core::HashMap::default();
         history.insert(start, outstanding);
@@ -571,8 +572,8 @@ mod tests {
         let payment = end;
 
         let mut history = finstack_core::HashMap::default();
-        history.insert(start, 1_000_000.0);
-        history.insert(mid, 500_000.0);
+        history.insert(start, dec!(1000000));
+        history.insert(mid, dec!(500000));
 
         let pf = make_periodic_fee(
             start,
@@ -588,7 +589,7 @@ mod tests {
             payment,
             &[pf],
             &[],
-            500_000.0,
+            dec!(500000),
             &history,
             Currency::USD,
             &mut flows,
@@ -616,8 +617,8 @@ mod tests {
         let facility_limit = 2_000_000.0;
 
         let mut history = finstack_core::HashMap::default();
-        history.insert(start, 1_000_000.0);
-        history.insert(mid, 500_000.0);
+        history.insert(start, dec!(1000000));
+        history.insert(mid, dec!(500000));
 
         let pf = make_periodic_fee(
             start,
@@ -635,7 +636,7 @@ mod tests {
             payment,
             &[pf],
             &[],
-            500_000.0,
+            dec!(500000),
             &history,
             Currency::USD,
             &mut flows,
@@ -661,8 +662,8 @@ mod tests {
         let end = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
         let history = finstack_core::HashMap::default();
         let mut buf = Vec::new();
-        let result = compute_time_weighted_average(&history, start, end, 42.0, &mut buf);
-        assert!((result - 42.0).abs() < 1e-10);
+        let result = compute_time_weighted_average(&history, start, end, dec!(42), &mut buf);
+        assert_eq!(result, dec!(42));
     }
 
     #[test]
@@ -670,14 +671,10 @@ mod tests {
         let start = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
         let end = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
         let mut history = finstack_core::HashMap::default();
-        history.insert(start, 1_000_000.0);
+        history.insert(start, dec!(1000000));
         let mut buf = Vec::new();
-        let result = compute_time_weighted_average(&history, start, end, 0.0, &mut buf);
-        assert!(
-            (result - 1_000_000.0).abs() < 1e-10,
-            "Expected 1M, got {}",
-            result
-        );
+        let result = compute_time_weighted_average(&history, start, end, dec!(0), &mut buf);
+        assert_eq!(result, dec!(1000000), "Expected 1M, got {}", result);
     }
 
     #[test]
@@ -686,14 +683,10 @@ mod tests {
         let start = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
         let end = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
         let mut history = finstack_core::HashMap::default();
-        history.insert(before, 1_000_000.0);
+        history.insert(before, dec!(1000000));
         let mut buf = Vec::new();
-        let result = compute_time_weighted_average(&history, start, end, 0.0, &mut buf);
-        assert!(
-            (result - 1_000_000.0).abs() < 1e-10,
-            "Expected 1M, got {}",
-            result
-        );
+        let result = compute_time_weighted_average(&history, start, end, dec!(0), &mut buf);
+        assert_eq!(result, dec!(1000000), "Expected 1M, got {}", result);
     }
 
     #[test]

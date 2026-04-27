@@ -51,7 +51,7 @@ mod accrual_context_tests {
 
         let schedule: FixedSchedule = (spec, dates, prev_map, first_last);
         let outstanding_after = finstack_core::HashMap::default();
-        let outstanding_fallback = 1_000_000.0;
+        let outstanding_fallback = Decimal::new(1_000_000, 0);
 
         let mut flows = Vec::new();
         let pik = emit_fixed_coupons_on(
@@ -129,7 +129,7 @@ mod accrual_context_tests {
 
         let schedule: FloatSchedule = (spec, dates, prev_map);
         let outstanding_after = finstack_core::HashMap::default();
-        let outstanding_fallback = 1_000_000.0;
+        let outstanding_fallback = Decimal::new(1_000_000, 0);
 
         let mut flows = Vec::new();
         let resolved: [Option<std::sync::Arc<ForwardCurve>>; 1] = [None];
@@ -194,7 +194,7 @@ mod accrual_context_tests {
 
         let schedule: FixedSchedule = (spec, dates, prev_map, first_last);
         let outstanding_after = finstack_core::HashMap::default();
-        let outstanding_fallback = 1_000_000.0;
+        let outstanding_fallback = Decimal::new(1_000_000, 0);
 
         let mut flows = Vec::new();
         let result = emit_fixed_coupons_on(
@@ -309,7 +309,7 @@ mod credit_emission_tests {
         .expect("schedule should build");
 
         let mut outstanding_after = finstack_core::HashMap::default();
-        outstanding_after.insert(issue, 1_000_000.0);
+        outstanding_after.insert(issue, Decimal::new(1_000_000, 0));
 
         // Apply default on July 1: 400K defaults, 40% recovery
         let default_event = DefaultEvent {
@@ -334,7 +334,10 @@ mod credit_emission_tests {
         .expect("should emit default");
 
         // Outstanding now 600K (1M - 400K). Recovery is future inflow, not outstanding increase.
-        outstanding_after.insert(default_date, outstanding);
+        outstanding_after.insert(
+            default_date,
+            Decimal::try_from(outstanding).expect("outstanding converts to Decimal"),
+        );
 
         // Generate coupon on Oct 1 using reduced outstanding
         let mut period_map = finstack_core::HashMap::default();
@@ -353,7 +356,7 @@ mod credit_emission_tests {
             coupon_date,
             &[schedule],
             &outstanding_after,
-            1_000_000.0,
+            Decimal::new(1_000_000, 0),
             Currency::USD,
             &mut coupons,
         )

@@ -335,14 +335,6 @@ pub(crate) fn generate_cashflows(
             let _ = builder.fixed_cf(spec);
         }
         super::types::RateSpec::Floating(spec) => {
-            let spread_bp_f64 = spec.spread_bp.to_f64().ok_or_else(|| {
-                finstack_core::Error::Validation(format!(
-                    "Term loan {}: floating spread {} bp cannot be represented as f64",
-                    loan.id.as_str(),
-                    spec.spread_bp
-                ))
-            })?;
-
             // Build margin step-up schedule for `float_margin_stepup`.
             //
             // Convention: each entry `(date, margin_bp)` defines the END of a window
@@ -353,21 +345,21 @@ pub(crate) fn generate_cashflows(
             // Covenant step-ups and pricing overrides are deltas added at their
             // effective dates.  We push a breakpoint BEFORE applying the delta so
             // that the preceding window has the pre-step-up margin.
-            let mut step_ups: Vec<(Date, f64)> = Vec::new();
+            let mut step_ups: Vec<(Date, Decimal)> = Vec::new();
             if let Some(cov) = &loan.covenants {
                 for step in &cov.margin_stepups {
-                    step_ups.push((step.date, f64::from(step.delta_bp)));
+                    step_ups.push((step.date, Decimal::from(step.delta_bp)));
                 }
             }
             if let Some(ov) = &loan.pricing_overrides.term_loan {
                 for (dt, bp) in &ov.margin_add_bp_by_date {
-                    step_ups.push((*dt, f64::from(*bp)));
+                    step_ups.push((*dt, Decimal::from(*bp)));
                 }
             }
             step_ups.sort_by_key(|(d, _)| *d);
 
-            let mut steps: Vec<(Date, f64)> = Vec::new();
-            let mut running = spread_bp_f64;
+            let mut steps: Vec<(Date, Decimal)> = Vec::new();
+            let mut running = spec.spread_bp;
             for (d, delta) in &step_ups {
                 // Close the preceding window at the step-up date with the
                 // current running margin (before the step-up takes effect).
@@ -411,7 +403,7 @@ pub(crate) fn generate_cashflows(
                 freq: loan.frequency,
                 stub: loan.stub,
             };
-            let _ = builder.float_margin_stepup(&steps, base_spec);
+            let _ = builder.float_margin_stepup_decimal(&steps, base_spec);
         }
     }
 
