@@ -713,6 +713,118 @@ export interface AnalyticsNamespace {
 
 export declare const analytics: AnalyticsNamespace;
 
+// --- valuations.creditFactorHierarchy ----------------------------------------
+
+/**
+ * Calibrated credit factor hierarchy artifact.
+ *
+ * Produced by `CreditCalibrator` or deserialized from JSON via `fromJson`.
+ * Immutable once constructed.
+ */
+export declare class CreditFactorModel {
+  private constructor();
+  /** Deserialize and validate a `CreditFactorModel` from JSON. */
+  static fromJson(s: string): CreditFactorModel;
+  /** Serialize to pretty-printed JSON. */
+  toJson(): string;
+  free(): void;
+}
+
+/**
+ * Deterministic calibrator that produces a `CreditFactorModel`.
+ *
+ * Configuration and inputs are passed as JSON strings.
+ */
+export declare class CreditCalibrator {
+  /** Construct a calibrator from a JSON-serialized `CreditCalibrationConfig`. */
+  constructor(configJson: string);
+  /** Run the calibration pipeline and return a `CreditFactorModel`. */
+  calibrate(inputsJson: string): CreditFactorModel;
+  free(): void;
+}
+
+/**
+ * Snapshot of all hierarchy-level factor values at a single date.
+ *
+ * Produced by `decomposeLevels`. Pass to `decomposePeriod` to compute
+ * period-over-period changes.
+ */
+export declare class LevelsAtDate {
+  private constructor();
+  /** Serialize the snapshot to pretty-printed JSON. */
+  toJson(): string;
+  free(): void;
+}
+
+/**
+ * Component-wise difference between two `LevelsAtDate` snapshots.
+ *
+ * Produced by `decomposePeriod`.
+ */
+export declare class PeriodDecomposition {
+  private constructor();
+  /** Serialize the decomposition to pretty-printed JSON. */
+  toJson(): string;
+  free(): void;
+}
+
+/**
+ * Vol-forecast view over a calibrated `CreditFactorModel`.
+ *
+ * `VolHorizon::Custom` is intentionally **not** exposed.
+ *
+ * Horizon strings accepted by `covarianceAt`, `idiosyncraticVol`, and
+ * `factorModelAt`:
+ * - `"one_step"` — calibrated annualized variance unchanged.
+ * - `"unconditional"` — long-run.
+ * - `'{"n_steps": N}'` — variance scaled by `N`.
+ */
+export declare class FactorCovarianceForecast {
+  constructor(model: CreditFactorModel);
+  /**
+   * Build the factor covariance matrix at the requested horizon.
+   * Returns pretty-printed JSON of a `FactorCovarianceMatrix`.
+   */
+  covarianceAt(horizonJson: string): string;
+  /** Idiosyncratic vol (std dev) for a specific issuer at the requested horizon. */
+  idiosyncraticVol(issuerId: string, horizonJson: string): number;
+  /**
+   * Build a portfolio-level `FactorModelConfig` JSON at the given horizon and
+   * risk measure.
+   */
+  factorModelAt(horizonJson: string, riskMeasureJson: string): string;
+  free(): void;
+}
+
+/**
+ * Decompose observed issuer spreads at a point in time into per-level factor
+ * values and per-issuer residual adders.
+ *
+ * @param model                Calibrated `CreditFactorModel`.
+ * @param observedSpreadsJson  JSON `{issuer_id: spread}` map.
+ * @param observedGeneric      Generic (PC) factor value at `asOf`.
+ * @param asOf                 ISO 8601 date string.
+ * @param runtimeTagsJson      Optional JSON `{issuer_id: {dim_key: tag}}` for
+ *                             issuers not present in the model artifact.
+ */
+export declare function decomposeLevels(
+  model: CreditFactorModel,
+  observedSpreadsJson: string,
+  observedGeneric: number,
+  asOf: string,
+  runtimeTagsJson?: string
+): LevelsAtDate;
+
+/**
+ * Difference two `LevelsAtDate` snapshots component-wise.
+ *
+ * Output is restricted to buckets and issuers present in **both** snapshots.
+ */
+export declare function decomposePeriod(
+  fromLevels: LevelsAtDate,
+  toLevels: LevelsAtDate
+): PeriodDecomposition;
+
 // --- valuations.correlation -------------------------------------------------
 
 export interface Copula {
@@ -1188,6 +1300,27 @@ export interface ValuationsNamespace {
   fx: FxNamespace;
   /** Instrument JSON validation and pricing helpers. */
   instruments: ValuationInstrumentsNamespace;
+  // --- Credit factor hierarchy ---
+  /** Calibrated credit factor hierarchy artifact class. */
+  CreditFactorModel: typeof CreditFactorModel;
+  /** Deterministic credit factor calibrator class. */
+  CreditCalibrator: typeof CreditCalibrator;
+  /** Snapshot of hierarchy factor values at a date class (opaque handle). */
+  LevelsAtDate: typeof LevelsAtDate;
+  /** Period-over-period decomposition class (opaque handle). */
+  PeriodDecomposition: typeof PeriodDecomposition;
+  /** Vol-forecast view over a calibrated `CreditFactorModel` class. */
+  FactorCovarianceForecast: typeof FactorCovarianceForecast;
+  /** Decompose spreads at a point in time into per-level factor values. */
+  decomposeLevels(
+    model: CreditFactorModel,
+    observedSpreadsJson: string,
+    observedGeneric: number,
+    asOf: string,
+    runtimeTagsJson?: string
+  ): LevelsAtDate;
+  /** Difference two `LevelsAtDate` snapshots component-wise. */
+  decomposePeriod(fromLevels: LevelsAtDate, toLevels: LevelsAtDate): PeriodDecomposition;
   validateValuationResultJson(json: string): string;
   validateInstrumentJson(json: string): string;
   priceInstrument(instrumentJson: string, marketJson: string, asOf: string, model: string): string;
