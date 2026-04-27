@@ -96,3 +96,41 @@ fn test_factor_model_report_types_roundtrip() {
         optimized_quantities: vec![(PositionId::new("POS_1"), 1.25)],
     });
 }
+
+// ---------------------------------------------------------------------------
+// PR-12 backward compat: pre-PR-6 RiskDecomposition JSON round-trip
+// ---------------------------------------------------------------------------
+
+/// Old `RiskDecomposition` JSON that lacks the `position_residual_contributions`
+/// field (added in PR-6) must still deserialize and the field defaults to empty.
+#[test]
+fn pre_pr6_risk_decomposition_json_deserializes_residual_defaults_empty() {
+    let legacy_json = r#"{
+        "total_risk": 0.025,
+        "measure": "volatility",
+        "factor_contributions": [
+            {
+                "factor_id": "credit.generic",
+                "absolute_risk": 0.020,
+                "marginal_risk": 0.018,
+                "relative_risk": 0.80
+            }
+        ],
+        "residual_risk": 0.005,
+        "position_factor_contributions": []
+    }"#;
+
+    let decomp: RiskDecomposition = serde_json::from_str(legacy_json)
+        .expect("pre-PR-6 RiskDecomposition JSON should deserialize");
+    assert!(
+        decomp.position_residual_contributions.is_empty(),
+        "position_residual_contributions should default to empty for old payloads"
+    );
+    assert!((decomp.total_risk - 0.025).abs() < 1e-12);
+    assert!((decomp.residual_risk - 0.005).abs() < 1e-12);
+    assert_eq!(decomp.factor_contributions.len(), 1);
+    assert_eq!(
+        decomp.factor_contributions[0].factor_id,
+        FactorId::new("credit.generic")
+    );
+}

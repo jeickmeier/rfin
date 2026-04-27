@@ -20,6 +20,7 @@ mod fx_attribution;
 mod invariants;
 mod metrics_based_convexity;
 mod model_params_attribution;
+mod no_model_compatibility;
 mod quantlib_parity;
 mod scalars_attribution;
 mod serialization_roundtrip;

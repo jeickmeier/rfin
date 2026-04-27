@@ -87,3 +87,12 @@ def test_liquidity_notebook_runs_successfully(module: ModuleType) -> None:
     ok, message, _elapsed = module.run_notebook(notebook, timeout=60)
 
     assert ok is True, message
+
+
+def test_credit_factor_hierarchy_notebook_runs_successfully(module: ModuleType) -> None:
+    """The credit factor hierarchy notebook should execute end-to-end."""
+    notebook = NOTEBOOKS_DIR / "05_portfolio_and_scenarios" / "credit_factor_hierarchy.ipynb"
+
+    ok, message, _elapsed = module.run_notebook(notebook, timeout=60)
+
+    assert ok is True, message
