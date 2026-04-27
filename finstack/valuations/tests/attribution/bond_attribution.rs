@@ -239,9 +239,9 @@ fn test_metrics_based_bond_attribution_populates_carry_decomposition() {
     assert!(detail.roll_down.is_some());
     assert!(detail.funding_cost.is_some());
 
-    let coupon_income = detail.coupon_income.unwrap().amount();
+    let coupon_income = detail.coupon_income.unwrap().total.amount();
     let pull_to_par = detail.pull_to_par.unwrap().amount();
-    let roll_down = detail.roll_down.unwrap().amount();
+    let roll_down = detail.roll_down.unwrap().total.amount();
     let funding_cost = detail.funding_cost.unwrap().amount();
     let total = detail.total.amount();
     assert!((total - (coupon_income + pull_to_par + roll_down - funding_cost)).abs() < 1e-6);

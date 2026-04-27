@@ -56,6 +56,7 @@
 //! ```
 
 pub use crate::correlation::Error as CorrelationError;
+pub use crate::factor_model::DecompositionError;
 pub use crate::instruments::fixed_income::structured_credit::utils::validation::ValidationError;
 pub use crate::pricer::{PricingError, PricingErrorContext, PricingResult};
 
@@ -88,6 +89,10 @@ pub enum Error {
     /// Structured credit waterfall validation error.
     #[error(transparent)]
     WaterfallValidation(#[from] ValidationError),
+
+    /// Credit hierarchy decomposition error.
+    #[error(transparent)]
+    Decomposition(#[from] DecompositionError),
 }
 
 /// Convenience result type used throughout the valuations crate.
@@ -108,6 +113,7 @@ impl From<Error> for finstack_core::Error {
             Error::Pricing(e) => e.into(),
             Error::Correlation(e) => finstack_core::Error::Validation(e.to_string()),
             Error::WaterfallValidation(e) => finstack_core::Error::Validation(e.to_string()),
+            Error::Decomposition(e) => finstack_core::Error::Validation(e.to_string()),
         }
     }
 }

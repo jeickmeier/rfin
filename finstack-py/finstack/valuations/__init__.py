@@ -61,6 +61,13 @@ SabrModel = _valuations.SabrModel
 SabrSmile = _valuations.SabrSmile
 SabrCalibrator = _valuations.SabrCalibrator
 instrument_cashflows_json = _valuations.instrument_cashflows_json
+CreditFactorModel = _valuations.CreditFactorModel
+CreditCalibrator = _valuations.CreditCalibrator
+LevelsAtDate = _valuations.LevelsAtDate
+PeriodDecomposition = _valuations.PeriodDecomposition
+FactorCovarianceForecast = _valuations.FactorCovarianceForecast
+decompose_levels = _valuations.decompose_levels
+decompose_period = _valuations.decompose_period
 
 
 def instrument_cashflows(
@@ -107,7 +114,12 @@ def instrument_cashflows(
 
 __all__: list[str] = [
     "CalibrationResult",
+    "CreditCalibrator",
+    "CreditFactorModel",
+    "FactorCovarianceForecast",
     "FactorPnlProfile",
+    "LevelsAtDate",
+    "PeriodDecomposition",
     "PnlAttribution",
     "RiskDecomposition",
     "SabrCalibrator",
@@ -134,6 +146,8 @@ __all__: list[str] = [
     "credit",
     "credit_derivatives",
     "decompose_factor_risk",
+    "decompose_levels",
+    "decompose_period",
     "default_attribution_metrics",
     "default_waterfall_order",
     "fx",

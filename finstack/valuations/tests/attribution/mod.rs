@@ -12,11 +12,15 @@
 //! - `serialization_roundtrip`: JSON serialization tests
 
 mod bond_attribution;
+mod carry_credit_factor;
+mod credit_factor_linear;
+mod credit_factor_waterfall_parallel;
 mod factors_snapshot;
 mod fx_attribution;
 mod invariants;
 mod metrics_based_convexity;
 mod model_params_attribution;
+mod no_model_compatibility;
 mod quantlib_parity;
 mod scalars_attribution;
 mod serialization_roundtrip;

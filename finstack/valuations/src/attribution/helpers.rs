@@ -4,7 +4,7 @@
 //! and common `PnlAttribution` assembly. Currency conversion itself lives on
 //! [`MarketContext::convert_money`] — call sites here use it directly.
 
-use super::types::{AttributionMethod, CarryDetail, PnlAttribution};
+use super::types::{AttributionMethod, CarryDetail, PnlAttribution, SourceLine};
 use crate::instruments::common_impl::traits::Instrument;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
@@ -153,6 +153,13 @@ pub(crate) fn init_attribution(
     }
 }
 
+/// Populate carry and `carry_detail` for the Taylor (total-return) path.
+///
+/// `roll_down` is intentionally `None` for the Taylor path: Taylor's
+/// first-order approximation does not separately track time-decay vs
+/// spread-shift contributions, so roll-down is rolled into the bond's total
+/// return. PR-8b's carry credit decomposition handles `coupon_income.split`
+/// but skips `roll_down.split` when this field is `None`.
 pub(crate) fn apply_total_return_carry(
     attribution: &mut PnlAttribution,
     theta: Money,
@@ -164,7 +171,7 @@ pub(crate) fn apply_total_return_carry(
     }
     attribution.carry_detail = Some(CarryDetail {
         total: attribution.carry,
-        coupon_income: Some(coupon_income),
+        coupon_income: Some(SourceLine::scalar(coupon_income)),
         pull_to_par: None,
         roll_down: None,
         funding_cost: None,

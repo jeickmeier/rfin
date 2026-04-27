@@ -1,8 +1,10 @@
+use super::credit::{CreditHierarchicalConfig, CreditHierarchicalMatcher};
 use super::filter::DependencyFilter;
 use super::matchers::{
     CascadeMatcher, FactorMatcher, FactorNode, HierarchicalMatcher, MappingRule,
     MappingTableMatcher,
 };
+use crate::factor_model::types::FactorId;
 use serde::{Deserialize, Serialize};
 
 /// Declarative configuration for a dependency-scoped hierarchical matcher.
@@ -17,7 +19,7 @@ pub struct HierarchicalConfig {
 }
 
 /// Declarative matcher configuration that can be serialized and rebuilt.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub enum MatchingConfig {
     /// Flat mapping table with first-match-wins semantics.
@@ -26,6 +28,13 @@ pub enum MatchingConfig {
     Cascade(Vec<MatchingConfig>),
     /// Hierarchical attribute-based tree matcher.
     Hierarchical(HierarchicalConfig),
+    /// Calibrated credit hierarchy matcher.
+    ///
+    /// Emits `(credit::generic, β_pc)` plus
+    /// `(credit::level{idx}::{dim_path}::{val_path}, β_level{idx})` entries
+    /// using calibrated betas from
+    /// [`crate::factor_model::credit_hierarchy::CreditFactorModel`].
+    CreditHierarchical(CreditHierarchicalConfig),
 }
 
 impl MatchingConfig {
@@ -41,7 +50,54 @@ impl MatchingConfig {
                 config.dependency_filter.clone(),
                 config.root.clone(),
             )),
+            Self::CreditHierarchical(config) => {
+                Box::new(CreditHierarchicalMatcher::new(config.clone()))
+            }
         }
+    }
+
+    /// Returns every factor identifier this matcher config can emit.
+    ///
+    /// Used by [`FactorModelConfig`] validation to verify that every factor
+    /// the matcher can name is also defined in `factors`.
+    #[must_use]
+    pub fn enumerate_factor_ids(&self) -> Vec<FactorId> {
+        use std::collections::BTreeSet;
+        let mut ids: BTreeSet<FactorId> = BTreeSet::new();
+        self.collect_factor_ids(&mut ids);
+        ids.into_iter().collect()
+    }
+
+    fn collect_factor_ids(&self, ids: &mut std::collections::BTreeSet<FactorId>) {
+        match self {
+            Self::MappingTable(rules) => {
+                for rule in rules {
+                    ids.insert(rule.factor_id.clone());
+                }
+            }
+            Self::Cascade(configs) => {
+                for cfg in configs {
+                    cfg.collect_factor_ids(ids);
+                }
+            }
+            Self::Hierarchical(config) => {
+                collect_node_factor_ids(&config.root, ids);
+            }
+            Self::CreditHierarchical(config) => {
+                for fid in config.enumerate_factor_ids() {
+                    ids.insert(fid);
+                }
+            }
+        }
+    }
+}
+
+fn collect_node_factor_ids(node: &FactorNode, ids: &mut std::collections::BTreeSet<FactorId>) {
+    if let Some(fid) = &node.factor_id {
+        ids.insert(fid.clone());
+    }
+    for child in &node.children {
+        collect_node_factor_ids(child, ids);
     }
 }
 

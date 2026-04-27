@@ -11,6 +11,49 @@ stability contract and schema-version policy.
 
 ## [Unreleased]
 
+### Added — Credit factor hierarchy decomposition (opt-in, non-breaking)
+
+A hierarchical credit factor model that decomposes every issuer's spread into a sequence of common factors (user-designated generic + configurable bucket levels) plus an issuer-specific adder residual. All consumers take `Option<&CreditFactorModel>` and fall back to today's behavior when absent.
+
+**New types:** `CreditFactorModel`, `CreditCalibrator`, `CreditCalibrationInputs`, `CreditCalibrationConfig`, `CreditHierarchySpec`, `HierarchyDimension`, `IssuerTags`, `IssuerBetaPolicy`, `IssuerBetaMode`, `IssuerBetaRow`, `LevelsAtAnchor`, `VolState`, `FactorHistories`, `CalibrationDiagnostics`, `FactorCovarianceForecast`, `VolHorizon`, `CreditVolReport`, `CreditFactorAttribution`, `LevelPnl`, `CreditCarryDecomposition`, `LevelCarry`, `SourceLine`.
+
+**New free functions:** `decompose_levels`, `decompose_period`.
+
+**Extended types:**
+- `PnlAttribution`: adds `credit_factor_detail`, `credit_carry_decomposition` (both `Option`, default `None`).
+- `CarryDetail`: `coupon_income` and `roll_down` are now `Option<SourceLine>` (custom Deserialize accepts both legacy `Money` and new `SourceLine` shapes).
+- `RiskDecomposition`: adds `position_residual_contributions` (default empty).
+- `MarketMapping`: new `CreditHierarchical` matcher variant.
+- `AttributionSpec`: adds `credit_factor_model`, `credit_factor_detail_options`.
+
+**New schemas:** `factor_model/credit_factor_model.schema.json` (`finstack.credit_factor_model/1`), `factor_model/credit_calibration_inputs.schema.json`, `factor_model/credit_calibration_config.schema.json`. Attribution schemas extended additively — old payloads still validate.
+
+**`CreditFactorModelRef` semantics:** Currently only the `Inline(Box<CreditFactorModel>)` variant is implemented. A path-based variant (`FilePath(PathBuf)`) is documented as a future v2 enhancement; callers that need to avoid embedding large artifacts in the spec should pre-load and pass the inline form.
+
+**Deferred to v2:** term-structure level factors, PCA-derived generic, multivariate / DCC GARCH, online covariance updating, Ledoit-Wolf shrinkage, FRTB regulatory adapters, `CreditFactorModelRef::FilePath` variant.
+
+**PR-12 final hardening (this entry):**
+- Jupyter notebook `05_portfolio_and_scenarios/credit_factor_hierarchy.ipynb`: end-to-end synthetic demo covering calibration, artifact save/reload, period decomposition, portfolio attribution, and vol forecast.
+- Benchmarks: `finstack/valuations/benches/credit_factor_calibration.rs` (500 issuers × 60 months × 3 levels); `attribution_scale.rs` extended with a 200-position parallel-attribution-with-credit-model group.
+- Compatibility sweep: `no_model_compatibility.rs` tests that (1) pre-PR-7 `AttributionEnvelope` JSON deserializes with `credit_factor_model = None`, (2) pre-PR-7 `PnlAttribution` JSON deserializes with new fields defaulting to `None`, and (3) all four attribution methods (MetricsBased, Taylor, Parallel, Waterfall) produce finite, non-NaN totals when no credit model is supplied. `factor_model_serialization.rs` in `finstack-portfolio` adds a test confirming pre-PR-6 `RiskDecomposition` JSON (no `position_residual_contributions` key) deserializes with the field defaulting to empty.
+
+**v1 shipped API surface:**
+- `CreditFactorModel` / `CreditCalibrator` — artifact type and offline calibration pipeline.
+- `decompose_levels` / `decompose_period` — snapshot and period-over-period factor decomposition.
+- `FactorCovarianceForecast` — horizon-scaled covariance and idiosyncratic vol forecasting.
+- `compute_credit_factor_attribution` — P&L attribution with credit hierarchy detail.
+- `CreditCarryDecomposition` / `LevelCarry` — carry split by generic + level + adder.
+- Python bindings: `finstack.valuations.{CreditCalibrator, CreditFactorModel, FactorCovarianceForecast, decompose_levels, decompose_period}`.
+
+**v2 deferred items:**
+- Term-structure level factors (separate beta per tenor bucket).
+- PCA-derived generic factor (data-driven, not user-supplied series).
+- Multivariate GARCH / DCC GARCH for time-varying factor covariances.
+- Online covariance updating (incremental calibration on streaming data).
+- Ledoit-Wolf shrinkage estimator for large factor cross-correlation matrices.
+- FRTB P&L attribution regulatory adapter.
+- `CreditFactorModelRef::FilePath` variant for artifact-path-based dispatch.
+
 ### `finstack_scenarios` — production-readiness audit follow-ups
 
 **Breaking changes:**

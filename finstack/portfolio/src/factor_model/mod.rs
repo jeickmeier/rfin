@@ -36,6 +36,7 @@
 //!   `docs/REFERENCES.md#artzner1999CoherentRisk`
 
 mod assignment;
+mod credit_vol_forecast;
 mod math;
 mod model;
 mod optimization;
@@ -48,6 +49,10 @@ mod types;
 mod whatif;
 
 pub use assignment::{FactorAssignmentReport, PositionAssignment, UnmatchedEntry};
+pub use credit_vol_forecast::{
+    build_credit_vol_report, CreditVolReport, FactorCovarianceForecast, LevelVolContribution,
+    PositionVolContribution, VolHorizon,
+};
 pub use model::{FactorModel, FactorModelBuilder};
 pub use optimization::{FactorConstraint, FactorOptimizationResult};
 pub use parametric::ParametricDecomposer;
@@ -59,7 +64,10 @@ pub use position_risk::{
 pub use risk_budget::{PositionBudgetEntry, RiskBudget, RiskBudgetResult};
 pub use simulation::SimulationDecomposer;
 pub use traits::RiskDecomposer;
-pub use types::{FactorContribution, PositionFactorContribution, RiskDecomposition};
+pub use types::{
+    FactorContribution, PositionFactorContribution, PositionResidualContribution,
+    ResidualContributionSource, RiskDecomposition,
+};
 pub use whatif::{
     FactorContributionDelta, PositionChange, StressResult, WhatIfEngine, WhatIfResult,
 };

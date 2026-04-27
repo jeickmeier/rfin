@@ -581,6 +581,7 @@ mod tests {
             factor_contributions: vec![],
             residual_risk: 0.0,
             position_factor_contributions: vec![],
+            position_residual_contributions: vec![],
         };
 
         let model_result = FactorModelBuilder::new()
@@ -658,6 +659,7 @@ mod tests {
                 factor_contributions: vec![],
                 residual_risk: 0.0,
                 position_factor_contributions: vec![],
+                position_residual_contributions: vec![],
             }))
             .build();
         assert!(model_result.is_ok());

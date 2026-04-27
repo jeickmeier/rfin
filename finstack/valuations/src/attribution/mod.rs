@@ -294,6 +294,8 @@
 //! - Fixed-income sensitivity intuition: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
 //! - Risk decomposition and factor attribution: `docs/REFERENCES.md#meucci-risk-and-asset-allocation`
 
+pub(crate) mod credit_cascade;
+pub(crate) mod credit_factor;
 pub(crate) mod factors;
 pub(crate) mod helpers;
 pub(crate) mod metrics_based;
@@ -305,10 +307,15 @@ pub(crate) mod types;
 pub(crate) mod waterfall;
 
 // Re-export core types
+pub use credit_factor::{
+    compute_credit_factor_attribution, credit_factor_model_id, CreditAttributionInput,
+    CreditFactorDetailOptions, CreditFactorModelRef,
+};
 pub use types::{
     AttributionFactor, AttributionMeta, AttributionMethod, CarryDetail, CorrelationsAttribution,
-    CreditCurvesAttribution, CrossFactorDetail, FxAttribution, InflationCurvesAttribution,
-    ModelParamsAttribution, PnlAttribution, RatesCurvesAttribution, ScalarsAttribution,
+    CreditCarryByLevel, CreditCarryDecomposition, CreditCurvesAttribution, CreditFactorAttribution,
+    CrossFactorDetail, FxAttribution, InflationCurvesAttribution, LevelCarry, LevelPnl,
+    ModelParamsAttribution, PnlAttribution, RatesCurvesAttribution, ScalarsAttribution, SourceLine,
     VolAttribution,
 };
 

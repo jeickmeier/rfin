@@ -67,6 +67,7 @@ corresponding `const` lives in the same module and is the source of truth.
 | `StatementResult` | `finstack_statements::evaluator::results` | `STATEMENT_RESULT_SCHEMA_VERSION` | 1 |
 | `PortfolioResult` | `finstack_portfolio::results` | `PORTFOLIO_RESULT_SCHEMA_VERSION` | 1 |
 | `PortfolioOptimizationResult` | `finstack_portfolio::optimization::result` | `PORTFOLIO_OPTIMIZATION_RESULT_SCHEMA_VERSION` | 1 |
+| `CreditFactorModel` | `finstack_valuations::factor_model::credit` | `"finstack.credit_factor_model/1"` (string tag, not a `u32` const) | 1 |
 
 ### When to bump `schema_version`
 
@@ -133,6 +134,27 @@ Notable in this category:
 - All `*Spec`, `*Config`, `*Envelope` types used as inputs to pricing,
   calibration, scenarios, and statements. These are user-authored payloads;
   the workspace treats added fields as additive only.
+
+### Credit factor hierarchy types (additive, no schema-version constant)
+
+The following types were introduced with the credit factor hierarchy feature.
+They follow the additive-only rule; new `Option<T>` fields may be added between
+minor versions without a schema-version bump.
+
+- `CreditFactorAttribution` (`finstack_valuations::attribution::credit_factor`) —
+  additive, opt-in field on `PnlAttribution`; deserializing an older payload
+  (missing field) produces `None`.
+- `CreditCarryDecomposition` (`finstack_valuations::attribution::credit_factor`) —
+  additive, opt-in field on `PnlAttribution`; same rule as above.
+- `SourceLine` (`finstack_valuations::attribution::credit_factor`) — custom
+  `Deserialize`: accepts both legacy `Money` shape and new tagged shape for
+  backward compatibility.
+- `PositionResidualContribution` (`finstack_valuations::factor_model::credit`) —
+  additive, opt-in field on `RiskDecomposition`.
+- `CreditCalibrationInputs`, `CreditCalibrationConfig`
+  (`finstack_valuations::factor_model::credit_calibration`) — versioned serde
+  (round-trippable) but carry no `schema_version` constant yet; safe to
+  persist when the workspace version is pinned.
 
 Bumping any of these to a versioned shape is a planned follow-up.
 

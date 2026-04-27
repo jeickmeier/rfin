@@ -10,6 +10,7 @@ mod calibration;
 pub mod correlation;
 mod credit;
 mod credit_derivatives;
+mod credit_factor_model;
 mod exotic_rates;
 mod factor_model;
 mod fourier;
@@ -150,6 +151,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     sabr::register(py, &m)?;
     attribution::register(py, &m)?;
     factor_model::register(py, &m)?;
+    credit_factor_model::register(py, &m)?;
     calibration::register(py, &m)?;
     fourier::register(py, &m)?;
     exotic_rates::register(py, &m)?;
@@ -202,6 +204,13 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "SabrModel",
             "SabrSmile",
             "SabrCalibrator",
+            "CreditFactorModel",
+            "CreditCalibrator",
+            "LevelsAtDate",
+            "PeriodDecomposition",
+            "FactorCovarianceForecast",
+            "decompose_levels",
+            "decompose_period",
             "correlation",
             "credit",
             "credit_derivatives",

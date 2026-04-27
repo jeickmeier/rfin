@@ -12,10 +12,74 @@ fn benchmark_script() -> String {
         .expect("read finstack-wasm/benchmarks/bench.mjs")
 }
 
+fn contains_signature(dts: &str, sig: &str) -> bool {
+    contains_ignoring_ws(dts, sig)
+}
+
 fn contains_ignoring_ws(haystack: &str, needle: &str) -> bool {
     let compact_haystack: String = haystack.chars().filter(|c| !c.is_whitespace()).collect();
     let compact_needle: String = needle.chars().filter(|c| !c.is_whitespace()).collect();
     compact_haystack.contains(&compact_needle)
+}
+
+#[test]
+fn credit_factor_hierarchy_dts_exposes_public_surface() {
+    let dts = index_dts();
+
+    // Classes
+    assert!(dts.contains("export declare class CreditFactorModel {"));
+    assert!(contains_signature(
+        &dts,
+        "static fromJson(s: string): CreditFactorModel;"
+    ));
+    assert!(contains_signature(&dts, "toJson(): string;"));
+
+    assert!(dts.contains("export declare class CreditCalibrator {"));
+    assert!(contains_signature(&dts, "constructor(configJson: string);"));
+    assert!(contains_signature(
+        &dts,
+        "calibrate(inputsJson: string): CreditFactorModel;"
+    ));
+
+    assert!(dts.contains("export declare class LevelsAtDate {"));
+    assert!(dts.contains("export declare class PeriodDecomposition {"));
+
+    assert!(dts.contains("export declare class FactorCovarianceForecast {"));
+    assert!(contains_signature(
+        &dts,
+        "constructor(model: CreditFactorModel);"
+    ));
+    assert!(contains_signature(
+        &dts,
+        "covarianceAt(horizonJson: string): string;"
+    ));
+    assert!(contains_signature(
+        &dts,
+        "idiosyncraticVol(issuerId: string, horizonJson: string): number;"
+    ));
+    assert!(contains_signature(
+        &dts,
+        "factorModelAt(horizonJson: string, riskMeasureJson: string): string;"
+    ));
+
+    // Free functions
+    assert!(contains_signature(
+        &dts,
+        "export declare function decomposeLevels(",
+    ));
+    assert!(contains_signature(
+        &dts,
+        "export declare function decomposePeriod(",
+    ));
+
+    // ValuationsNamespace entries
+    assert!(dts.contains("CreditFactorModel: typeof CreditFactorModel;"));
+    assert!(dts.contains("CreditCalibrator: typeof CreditCalibrator;"));
+    assert!(dts.contains("FactorCovarianceForecast: typeof FactorCovarianceForecast;"));
+    assert!(dts.contains("decomposeLevels("));
+    assert!(dts.contains(
+        "decomposePeriod(fromLevels: LevelsAtDate, toLevels: LevelsAtDate): PeriodDecomposition;"
+    ));
 }
 
 #[test]

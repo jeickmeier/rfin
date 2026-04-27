@@ -22,6 +22,10 @@
 //! - Factors are isolated independently, so cross-effects appear in residual
 //! - Model parameters attribution requires instrument-specific support (see model_params.rs)
 
+use super::credit_cascade::{
+    build_credit_factor_attribution, plan_credit_cascade, shift_hazard_curves,
+};
+use super::credit_factor::CreditFactorDetailOptions;
 use super::factors::*;
 use super::helpers::*;
 use super::model_params;
@@ -30,6 +34,7 @@ use crate::instruments::common_impl::traits::Instrument;
 use crate::metrics::sensitivities::theta::collect_cashflows_in_period;
 use finstack_core::config::FinstackConfig;
 use finstack_core::dates::Date;
+use finstack_core::factor_model::credit_hierarchy::CreditFactorModel;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -210,8 +215,59 @@ pub fn attribute_pnl_parallel(
     market_t1: &MarketContext,
     as_of_t0: Date,
     as_of_t1: Date,
+    config: &FinstackConfig,
+    model_params_t0: Option<&model_params::ModelParamsSnapshot>,
+) -> Result<PnlAttribution> {
+    attribute_pnl_parallel_with_credit_model(
+        instrument,
+        market_t0,
+        market_t1,
+        as_of_t0,
+        as_of_t1,
+        config,
+        model_params_t0,
+        None,
+        &CreditFactorDetailOptions::default(),
+    )
+}
+
+/// Parallel attribution with optional `CreditFactorModel`.
+///
+/// When `credit_factor_model` is `Some(_)` and the instrument has a
+/// resolvable issuer + hazard exposure, each cascade step (`generic`, level_k,
+/// adder) is isolated as its own parallel factor: starting from T1 markets,
+/// hazard curves are reverted to T0 and then bumped by the step's per-issuer
+/// `β·ΔF` (or `Δadder`) bp; the reprice differential is the step's parallel
+/// P&L. Step P&Ls populate `credit_factor_detail`; the deviation between
+/// `Σ step_pnl` and `credit_curves_pnl` is the parallel method's intrinsic
+/// cross-effect for credit and is added into the existing `cross_factor_pnl`
+/// bucket under the pair label `"CreditCascadeResidual"`.
+///
+/// See `credit_cascade::plan_credit_cascade` for the multi-curve issuer averaging caveat.
+///
+/// # Performance
+///
+/// When a `CreditFactorModel` is supplied with `L` hierarchy levels, the credit
+/// cascade performs `L + 2` additional repricings (PC, one per level, and
+/// Adder) compared to the single-step credit reprice without a model. For
+/// typical L = 1–3 and portfolios of thousands of instruments this is
+/// acceptable; consider `MetricsBased` or `Taylor` for cost-sensitive use cases
+/// (they remain linear, no reprice).
+#[allow(clippy::too_many_arguments)]
+#[tracing::instrument(
+    skip_all,
+    fields(instrument_id = %instrument.id(), method = "parallel")
+)]
+pub fn attribute_pnl_parallel_with_credit_model(
+    instrument: &Arc<dyn Instrument>,
+    market_t0: &MarketContext,
+    market_t1: &MarketContext,
+    as_of_t0: Date,
+    as_of_t1: Date,
     _config: &FinstackConfig,
     model_params_t0: Option<&model_params::ModelParamsSnapshot>,
+    credit_factor_model: Option<&CreditFactorModel>,
+    credit_factor_detail_options: &CreditFactorDetailOptions,
 ) -> Result<PnlAttribution> {
     let mut num_repricings = 0;
 
@@ -565,6 +621,67 @@ pub fn attribute_pnl_parallel(
             &mut num_repricings,
         )?;
         record_cross_pair(pair, pnl, &mut cross_total, &mut cross_by_pair);
+    }
+
+    // Step 10c: Credit-factor hierarchy detail. Each cascade step is isolated
+    // independently against T1 (T0 hazard restored, then bumped up by the
+    // step's per-issuer bp shift). Cross-effects between steps appear in the
+    // residual; we account for the full Σ(step) vs. credit_curves_pnl gap as a
+    // single "Credit×Hierarchy" entry under cross_factor_pnl.
+    if let Some(model) = credit_factor_model {
+        if let Some(cascade) =
+            plan_credit_cascade(model, instrument, market_t0, market_t1, as_of_t0, as_of_t1)?
+        {
+            // Build a T1-base market with T0 hazard for the issuer's curves.
+            // Re-use the credit snapshot extracted in Step 4.
+            let market_t0_credit = MarketSnapshot::restore_market(
+                market_t1,
+                &credit_snapshot,
+                CurveRestoreFlags::CREDIT,
+            );
+
+            let mut step_pnls: Vec<Money> = Vec::with_capacity(cascade.steps.len());
+            let mut step_sum = 0.0_f64;
+            for step in &cascade.steps {
+                // Each step bumps the T0 hazard curves by exactly that step's bp.
+                // Adder step in parallel decomposition uses its bp like the
+                // others (no snap-to-T1) so cross-effects net out cleanly in
+                // the residual; the running market is not chained between
+                // steps.
+                let market_step = shift_hazard_curves(
+                    &market_t0_credit,
+                    &cascade.hazard_curve_ids,
+                    step.delta_bp,
+                )?;
+                let reprice = reprice_instrument(instrument, &market_step, as_of_t1)?;
+                num_repricings += 1;
+                let pnl = compute_pnl(reprice, val_t1, val_t1.currency(), market_t1, as_of_t1)?;
+                step_pnls.push(pnl);
+                step_sum += pnl.amount();
+            }
+
+            // Cross-effect for credit hierarchy: gap between Σ(step) and
+            // credit_curves_pnl. Captured as a single pair so existing
+            // cross_factor_pnl semantics are preserved.
+            let gap = attribution.credit_curves_pnl.amount() - step_sum;
+            if gap.abs() > CROSS_FACTOR_TOLERANCE {
+                let pnl = Money::new(gap, val_t1.currency());
+                record_cross_pair(
+                    "CreditCascadeResidual",
+                    pnl,
+                    &mut cross_total,
+                    &mut cross_by_pair,
+                );
+            }
+
+            let detail = build_credit_factor_attribution(
+                model,
+                &cascade,
+                credit_factor_detail_options,
+                &step_pnls,
+            );
+            attribution.credit_factor_detail = Some(detail);
+        }
     }
 
     if !cross_by_pair.is_empty() {

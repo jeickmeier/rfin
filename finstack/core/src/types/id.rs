@@ -430,6 +430,13 @@ pub struct PoolTag;
 #[derive(Debug, Clone, Copy, Default, JsonSchema)]
 pub struct DealTag;
 
+/// Marker type for credit issuer identifiers.
+///
+/// Used by the credit factor model hierarchy to key per-issuer beta rows,
+/// adder-vol state, and idiosyncratic volatility models.
+#[derive(Debug, Clone, Copy, Default, JsonSchema)]
+pub struct IssuerTag;
+
 /// Type aliases for common ID types
 /// Type-safe identifier for market data curves
 pub type CurveId = Id<CurveTag>;
@@ -450,6 +457,12 @@ pub type CalendarId = Id<CalendarTag>;
 pub type PoolId = Id<PoolTag>;
 /// Type-safe identifier for structured deals
 pub type DealId = Id<DealTag>;
+/// Type-safe identifier for a credit issuer.
+///
+/// This is the canonical key used throughout the credit factor model hierarchy:
+/// in [`crate::factor_model::credit_hierarchy::IssuerBetaRow`], in
+/// `VolState::idiosyncratic`, and anywhere a per-issuer lookup is required.
+pub type IssuerId = Id<IssuerTag>;
 
 #[cfg(test)]
 mod tests {
