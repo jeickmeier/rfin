@@ -130,20 +130,30 @@ impl WasmCreditCalibrator {
 // Serialization helpers for types that don't implement serde::Serialize
 // ---------------------------------------------------------------------------
 
+/// Convert a [`HierarchyDimension`] to the `serde_json::Value` that serde
+/// would produce for it given `#[serde(rename_all = "snake_case")]`:
+///
+/// - `Rating`          → `"rating"`
+/// - `Region`          → `"region"`
+/// - `Sector`          → `"sector"`
+/// - `Custom("Foo")`   → `{"custom": "Foo"}`
+fn dim_to_value(
+    dim: &finstack_core::factor_model::credit_hierarchy::HierarchyDimension,
+) -> serde_json::Value {
+    use finstack_core::factor_model::credit_hierarchy::{dimension_key, HierarchyDimension};
+    match dim {
+        HierarchyDimension::Custom(n) => serde_json::json!({"custom": n}),
+        _ => serde_json::Value::String(dimension_key(dim)),
+    }
+}
+
 fn levels_at_date_to_value(
     snap: &finstack_valuations::factor_model::LevelsAtDate,
 ) -> serde_json::Value {
-    use finstack_core::factor_model::credit_hierarchy::HierarchyDimension;
     let by_level: Vec<serde_json::Value> = snap
         .by_level
         .iter()
         .map(|lev| {
-            let dim_name = match &lev.dimension {
-                HierarchyDimension::Rating => "Rating".to_owned(),
-                HierarchyDimension::Region => "Region".to_owned(),
-                HierarchyDimension::Sector => "Sector".to_owned(),
-                HierarchyDimension::Custom(n) => n.clone(),
-            };
             let values: serde_json::Map<String, serde_json::Value> = lev
                 .values
                 .iter()
@@ -151,7 +161,7 @@ fn levels_at_date_to_value(
                 .collect();
             serde_json::json!({
                 "level_index": lev.level_index,
-                "dimension": dim_name,
+                "dimension": dim_to_value(&lev.dimension),
                 "values": values,
             })
         })
@@ -174,17 +184,10 @@ fn levels_at_date_to_value(
 fn period_decomposition_to_value(
     pd: &finstack_valuations::factor_model::PeriodDecomposition,
 ) -> serde_json::Value {
-    use finstack_core::factor_model::credit_hierarchy::HierarchyDimension;
     let by_level: Vec<serde_json::Value> = pd
         .by_level
         .iter()
         .map(|lev| {
-            let dim_name = match &lev.dimension {
-                HierarchyDimension::Rating => "Rating".to_owned(),
-                HierarchyDimension::Region => "Region".to_owned(),
-                HierarchyDimension::Sector => "Sector".to_owned(),
-                HierarchyDimension::Custom(n) => n.clone(),
-            };
             let deltas: serde_json::Map<String, serde_json::Value> = lev
                 .deltas
                 .iter()
@@ -192,7 +195,7 @@ fn period_decomposition_to_value(
                 .collect();
             serde_json::json!({
                 "level_index": lev.level_index,
-                "dimension": dim_name,
+                "dimension": dim_to_value(&lev.dimension),
                 "deltas": deltas,
             })
         })
@@ -631,6 +634,95 @@ mod tests {
         let cov_json = serde_json::to_string_pretty(&cov).expect("serialize");
         let cov_val: serde_json::Value = serde_json::from_str(&cov_json).expect("valid json");
         assert!(cov_val.is_object());
+    }
+
+    /// `dim_to_value` must produce output identical to what serde would emit
+    /// for `HierarchyDimension` with `#[serde(rename_all = "snake_case")]`.
+    ///
+    /// Reference values:
+    /// - `Rating`           → `"rating"`
+    /// - `Region`           → `"region"`
+    /// - `Sector`           → `"sector"`
+    /// - `Custom("Currency")` → `{"custom": "Currency"}`
+    #[test]
+    fn levels_at_date_dimension_matches_serde_convention() {
+        use finstack_core::factor_model::credit_hierarchy::HierarchyDimension;
+        use serde_json::json;
+
+        // Unit-level checks against serde round-trip.
+        let cases: &[(HierarchyDimension, serde_json::Value)] = &[
+            (HierarchyDimension::Rating, json!("rating")),
+            (HierarchyDimension::Region, json!("region")),
+            (HierarchyDimension::Sector, json!("sector")),
+            (
+                HierarchyDimension::Custom("Currency".to_owned()),
+                json!({"custom": "Currency"}),
+            ),
+        ];
+
+        for (dim, expected) in cases {
+            // Check our helper.
+            let got = super::dim_to_value(dim);
+            assert_eq!(
+                got, *expected,
+                "dim_to_value({dim:?}) mismatch: got {got}, want {expected}"
+            );
+
+            // Cross-check: serde must also produce the same value.
+            let serde_got = serde_json::to_value(dim).expect("serde serializes HierarchyDimension");
+            assert_eq!(
+                serde_got, *expected,
+                "serde({dim:?}) mismatch: got {serde_got}, want {expected}"
+            );
+        }
+    }
+
+    /// Full integration: `decompose_levels` → `levels_at_date_to_value` emits
+    /// dimension keys that match serde convention in a real calibrated model.
+    #[test]
+    fn decompose_levels_dimension_keys_match_serde() {
+        let cal = CreditCalibrator::new(fixture_config());
+        let model = cal.calibrate(fixture_inputs()).expect("calibrate");
+
+        let spreads: std::collections::BTreeMap<IssuerId, f64> = [
+            (IssuerId::new("ISSUER-A"), 150.0_f64),
+            (IssuerId::new("ISSUER-B"), 175.0_f64),
+        ]
+        .into_iter()
+        .collect();
+
+        let levels = finstack_valuations::factor_model::decompose_levels(
+            &model,
+            &spreads,
+            100.0,
+            d(2024, Month::March, 28),
+            None,
+        )
+        .expect("decompose_levels");
+
+        let val = super::levels_at_date_to_value(&levels);
+        let by_level = val["by_level"].as_array().expect("by_level is array");
+        for entry in by_level {
+            let dim = &entry["dimension"];
+            // Must be a lowercase string (Rating/Region/Sector) or an object
+            // with a single "custom" key — never a PascalCase string.
+            match dim {
+                serde_json::Value::String(s) => {
+                    assert_eq!(
+                        *s,
+                        s.to_lowercase(),
+                        "dimension string must be lowercase, got {s:?}"
+                    );
+                }
+                serde_json::Value::Object(obj) => {
+                    assert!(
+                        obj.contains_key("custom"),
+                        "object dimension must have 'custom' key, got {obj:?}"
+                    );
+                }
+                other => panic!("unexpected dimension JSON: {other:?}"),
+            }
+        }
     }
 
     /// Verify parse_vol_horizon recognizes valid forms without triggering
