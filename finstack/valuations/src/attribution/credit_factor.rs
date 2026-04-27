@@ -130,10 +130,11 @@ pub struct CreditAttributionInput {
 ///
 /// FNV-1a is used to avoid a new external crypto dependency; the id is for
 /// traceability, not security.
+#[allow(clippy::expect_used)] // CreditFactorModel has no non-serializable fields
 pub fn credit_factor_model_id(model: &CreditFactorModel) -> String {
     const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
     const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
-    let json = serde_json::to_string(model).unwrap_or_default();
+    let json = serde_json::to_string(model).expect("CreditFactorModel is always serializable");
     let mut hash: u64 = FNV_OFFSET;
     for b in json.as_bytes() {
         hash ^= u64::from(*b);

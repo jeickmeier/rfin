@@ -992,6 +992,10 @@ fn ols_slope_owned(y: &[Option<f64>], x: &[Option<f64>]) -> Option<f64> {
 }
 
 /// R², residual std, and n_obs for the PC fit (used as the regression diagnostic).
+///
+/// `residual_std` is a population std dev (sum of squared residuals divided by `n`).
+/// Population variance is acceptable because calibration windows are required to be
+/// ≥ 24 observations (`min_history` default = 24), keeping the bias negligible.
 fn compute_fit_quality(y: &[Option<f64>], x: &[f64], beta: f64) -> Option<FitQuality> {
     let mut xs = Vec::new();
     let mut ys = Vec::new();
@@ -1033,6 +1037,11 @@ fn compute_fit_quality(y: &[Option<f64>], x: &[f64], beta: f64) -> Option<FitQua
 /// for each `IssuerBeta` issuer that has at least 2 valid residual observations.
 /// `BucketOnly` issuers are excluded — they receive their vol via the cascade in
 /// [`assign_adder_vol`].
+///
+/// Variance is computed as the population variance (sums squared deviations from
+/// the sample mean and divides by `n`). Population variance is acceptable here
+/// because calibration windows are required to be ≥ 24 observations
+/// (`min_history` default = 24), keeping the bias negligible.
 fn issuer_beta_adder_vols(
     adder_series: &BTreeMap<IssuerId, Vec<Option<f64>>>,
     modes: &BTreeMap<IssuerId, IssuerBetaMode>,
@@ -1299,9 +1308,11 @@ fn anchor_levels(
 /// take a square root before inserting into the covariance matrix.
 ///
 /// Each series may contain `None` entries for dates where all bucket members
-/// were absent (empty-bucket). Such entries are skipped so that the variance
-/// is computed only over observed dates, keeping the estimate unbiased when
-/// the panel is sparse.
+/// were absent (empty-bucket). Such entries are skipped so that variance is
+/// computed only over observed dates. The estimator is the population variance
+/// (sums squared deviations from the sample mean and divides by `n`). Population
+/// variance is acceptable here because calibration windows are required to be
+/// ≥ 24 observations (`min_history` default = 24), keeping the bias negligible.
 fn factor_variances(
     factor_returns: &BTreeMap<FactorId, Vec<Option<f64>>>,
     annualization_factor: f64,
