@@ -372,14 +372,21 @@ fn build_coupon_periods(
     schedule: &CashFlowSchedule,
     cfg: &AccrualConfig,
 ) -> finstack_core::Result<Vec<CouponPeriod>> {
+    // Same-date coupon merging depends on date-ordered input.
+    let mut coupon_idx: Vec<usize> = schedule
+        .flows
+        .iter()
+        .enumerate()
+        .filter(|(_, cf)| is_coupon_kind(cf.kind, cfg.include_pik))
+        .map(|(i, _)| i)
+        .collect();
+    coupon_idx.sort_by_key(|&i| schedule.flows[i].date);
+
     let mut buckets: Vec<CouponBucket> = Vec::new();
 
     // Cash and PIK coupon flows are grouped by payment date.
-    for cf in &schedule.flows {
-        // Skip non-coupon flows
-        if !is_coupon_kind(cf.kind, cfg.include_pik) {
-            continue;
-        }
+    for &i in &coupon_idx {
+        let cf = &schedule.flows[i];
 
         let cf_af = accrual_factor_from_builder(cf.accrual_factor);
 
@@ -422,9 +429,6 @@ fn build_coupon_periods(
     if buckets.is_empty() {
         return Ok(Vec::new());
     }
-
-    // Sort buckets by date to ensure deterministic period boundaries.
-    buckets.sort_by_key(|b| b.date);
 
     let dc = schedule.day_count;
 

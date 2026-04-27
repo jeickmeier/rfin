@@ -318,7 +318,7 @@ pub(super) fn collect_dates(
 }
 
 pub(super) fn compute_coupon_schedules(
-    builder: &crate::builder::builder::CashFlowBuilder,
+    builder: &crate::builder::orchestrator::CashFlowBuilder,
     issue: Date,
     maturity: Date,
 ) -> finstack_core::Result<CompiledSchedules> {

@@ -21,9 +21,15 @@ use pyo3::types::{PyList, PyModule};
     signature = (spec_json, market_json = None),
     text_signature = "(spec_json, market_json=None)"
 )]
-fn build_cashflow_schedule(spec_json: &str, market_json: Option<&str>) -> PyResult<String> {
-    finstack_cashflows::build_cashflow_schedule_json(spec_json, market_json)
-        .map_err(crate::errors::core_to_py)
+fn build_cashflow_schedule(
+    py: Python<'_>,
+    spec_json: &str,
+    market_json: Option<&str>,
+) -> PyResult<String> {
+    py.detach(|| {
+        finstack_cashflows::build_cashflow_schedule_json(spec_json, market_json)
+            .map_err(crate::errors::core_to_py)
+    })
 }
 
 /// Validate a cashflow schedule JSON string and return it canonicalized.
@@ -39,9 +45,11 @@ fn build_cashflow_schedule(spec_json: &str, market_json: Option<&str>) -> PyResu
 ///     Canonicalized JSON-encoded `CashFlowSchedule`.
 #[pyfunction]
 #[pyo3(text_signature = "(schedule_json)")]
-fn validate_cashflow_schedule(schedule_json: &str) -> PyResult<String> {
-    finstack_cashflows::validate_cashflow_schedule_json(schedule_json)
-        .map_err(crate::errors::core_to_py)
+fn validate_cashflow_schedule(py: Python<'_>, schedule_json: &str) -> PyResult<String> {
+    py.detach(|| {
+        finstack_cashflows::validate_cashflow_schedule_json(schedule_json)
+            .map_err(crate::errors::core_to_py)
+    })
 }
 
 /// Extract dated flows from a cashflow schedule.
@@ -59,8 +67,10 @@ fn validate_cashflow_schedule(schedule_json: &str) -> PyResult<String> {
 ///     omitted; parse the full schedule JSON if you need flow classification.
 #[pyfunction]
 #[pyo3(text_signature = "(schedule_json)")]
-fn dated_flows(schedule_json: &str) -> PyResult<String> {
-    finstack_cashflows::dated_flows_json(schedule_json).map_err(crate::errors::core_to_py)
+fn dated_flows(py: Python<'_>, schedule_json: &str) -> PyResult<String> {
+    py.detach(|| {
+        finstack_cashflows::dated_flows_json(schedule_json).map_err(crate::errors::core_to_py)
+    })
 }
 
 /// Compute accrued interest for a schedule as of a given date.
@@ -83,9 +93,16 @@ fn dated_flows(schedule_json: &str) -> PyResult<String> {
     signature = (schedule_json, as_of, config_json = None),
     text_signature = "(schedule_json, as_of, config_json=None)"
 )]
-fn accrued_interest(schedule_json: &str, as_of: &str, config_json: Option<&str>) -> PyResult<f64> {
-    finstack_cashflows::accrued_interest_json(schedule_json, as_of, config_json)
-        .map_err(crate::errors::core_to_py)
+fn accrued_interest(
+    py: Python<'_>,
+    schedule_json: &str,
+    as_of: &str,
+    config_json: Option<&str>,
+) -> PyResult<f64> {
+    py.detach(|| {
+        finstack_cashflows::accrued_interest_json(schedule_json, as_of, config_json)
+            .map_err(crate::errors::core_to_py)
+    })
 }
 
 /// Construct a tagged Bond instrument JSON from a cashflow schedule.
@@ -115,22 +132,25 @@ fn accrued_interest(schedule_json: &str, as_of: &str, config_json: Option<&str>)
     text_signature = "(instrument_id, schedule_json, discount_curve_id, quoted_clean=None)"
 )]
 fn bond_from_cashflows(
+    py: Python<'_>,
     instrument_id: &str,
     schedule_json: &str,
     discount_curve_id: &str,
     quoted_clean: Option<f64>,
 ) -> PyResult<String> {
-    let schedule: finstack_cashflows::builder::CashFlowSchedule =
-        serde_json::from_str(schedule_json).map_err(crate::errors::display_to_py)?;
-    let bond = finstack_valuations::instruments::fixed_income::bond::Bond::from_cashflows(
-        instrument_id,
-        schedule,
-        discount_curve_id,
-        quoted_clean,
-    )
-    .map_err(crate::errors::core_to_py)?;
-    let instrument = finstack_valuations::instruments::InstrumentJson::Bond(bond);
-    serde_json::to_string(&instrument).map_err(crate::errors::display_to_py)
+    py.detach(|| {
+        let schedule: finstack_cashflows::builder::CashFlowSchedule =
+            serde_json::from_str(schedule_json).map_err(crate::errors::display_to_py)?;
+        let bond = finstack_valuations::instruments::fixed_income::bond::Bond::from_cashflows(
+            instrument_id,
+            schedule,
+            discount_curve_id,
+            quoted_clean,
+        )
+        .map_err(crate::errors::core_to_py)?;
+        let instrument = finstack_valuations::instruments::InstrumentJson::Bond(bond);
+        serde_json::to_string(&instrument).map_err(crate::errors::display_to_py)
+    })
 }
 
 /// Register the `finstack.cashflows` Python namespace.

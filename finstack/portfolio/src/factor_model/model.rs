@@ -1034,7 +1034,7 @@ mod tests {
                 pricing_mode: PricingMode::DeltaBased,
                 risk_measure: RiskMeasure::Variance,
                 bump_size: None,
-                unmatched_policy: Some(UnmatchedPolicy::Residual),
+                unmatched_policy: Some(UnmatchedPolicy::Strict),
             })
             .with_custom_sensitivity_engine(FixedSensitivityEngine)
             .with_custom_decomposer(FixedDecomposer(RiskDecomposition {

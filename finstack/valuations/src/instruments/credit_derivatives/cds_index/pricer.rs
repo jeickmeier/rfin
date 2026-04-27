@@ -371,11 +371,11 @@ impl CDSIndexPricer {
                         )
                     })
                     .collect::<Vec<_>>();
-                Ok(merge_cashflow_schedules(
+                merge_cashflow_schedules(
                     schedules,
                     Notional::par(index.notional.amount(), index.notional.currency()),
                     index.premium.day_count,
-                ))
+                )
             }
         }
     }

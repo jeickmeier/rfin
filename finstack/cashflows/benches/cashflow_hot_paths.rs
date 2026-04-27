@@ -541,6 +541,7 @@ fn bench_merge_schedules(c: &mut Criterion) {
                     Notional::par(black_box(1_000_000.0 * k as f64), Currency::USD),
                     DayCount::Act365F,
                 )
+                .expect("matched currencies should merge")
             });
         });
     }

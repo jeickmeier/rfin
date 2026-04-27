@@ -107,13 +107,12 @@ pub(in crate::builder) fn emit_amortization_on(
             }
         }
         AmortizationSpec::CustomPrincipal { items } => {
+            // Honor the configured `amt` on every date, including maturity.
+            // Any residual outstanding at maturity is redeemed by
+            // `handle_maturity` as `CFKind::Notional`.
             for (dd, amt) in items {
                 if *dd == d {
-                    let pay = if is_maturity {
-                        *outstanding
-                    } else {
-                        amt.amount().max(0.0).min(*outstanding)
-                    };
+                    let pay = amt.amount().max(0.0).min(*outstanding);
                     emit_principal_repayment(d, params.ccy, outstanding, pay, new_flows);
                 }
             }

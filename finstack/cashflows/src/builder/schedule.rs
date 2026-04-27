@@ -563,10 +563,11 @@ pub fn merge_cashflow_schedules<I>(
     schedules: I,
     notional: Notional,
     day_count: DayCount,
-) -> CashFlowSchedule
+) -> finstack_core::Result<CashFlowSchedule>
 where
     I: IntoIterator<Item = CashFlowSchedule>,
 {
+    let expected_ccy = notional.initial.currency();
     let mut flows = Vec::new();
     let mut calendar_ids = Vec::new();
     let mut facility_limit: Option<Option<Money>> = None;
@@ -574,6 +575,17 @@ where
     let mut representation: Option<CashflowRepresentation> = None;
 
     for schedule in schedules {
+        // Reject any flow whose currency does not match the merged-notional
+        // currency. Silent stamping of a wrong notional currency on
+        // mismatched flows would corrupt downstream PV/aggregation.
+        for cf in &schedule.flows {
+            if cf.amount.currency() != expected_ccy {
+                return Err(finstack_core::Error::CurrencyMismatch {
+                    expected: expected_ccy,
+                    actual: cf.amount.currency(),
+                });
+            }
+        }
         representation = Some(match representation {
             None => schedule.meta.representation,
             Some(existing) if existing == schedule.meta.representation => existing,
@@ -596,7 +608,7 @@ where
     calendar_ids.sort_unstable();
     calendar_ids.dedup();
 
-    CashFlowSchedule::from_parts(
+    Ok(CashFlowSchedule::from_parts(
         flows,
         notional,
         day_count,
@@ -606,7 +618,7 @@ where
             facility_limit: facility_limit.unwrap_or(None),
             issue_date: issue_date.unwrap_or(None),
         },
-    )
+    ))
 }
 
 /// Compare two amounts using relative epsilon for floating-point tolerance.
@@ -1017,7 +1029,8 @@ mod tests {
             vec![left, right],
             Notional::par(100.0, Currency::USD),
             DayCount::Act365F,
-        );
+        )
+        .expect("matched currencies should merge");
 
         assert_eq!(merged.flows.len(), 2);
         assert_eq!(merged.flows[0].date, d1);

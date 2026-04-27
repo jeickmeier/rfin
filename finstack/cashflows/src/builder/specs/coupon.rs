@@ -46,18 +46,15 @@ impl CouponType {
                 {
                     return Err(InputError::Invalid.into());
                 }
-                // Sum must be ~ 1.0; normalize within tolerance
                 let sum = cash_pct + pik_pct;
-                let tol = Decimal::new(1, 6); // 1e-6
+                let tol = Decimal::new(1, 9); // 1e-9
                 let diff = if sum >= Decimal::ONE {
                     sum - Decimal::ONE
                 } else {
                     Decimal::ONE - sum
                 };
                 if diff <= tol {
-                    let norm_cash = cash_pct / sum;
-                    let norm_pik = pik_pct / sum;
-                    Ok((norm_cash, norm_pik))
+                    Ok((cash_pct, pik_pct))
                 } else {
                     Err(InputError::Invalid.into())
                 }
@@ -513,6 +510,13 @@ pub struct StepUpCouponSpec {
     pub initial_rate: Decimal,
     /// Step schedule: (effective_date, new_rate). Must be sorted by date.
     /// Each entry sets the rate from that date forward until the next step.
+    ///
+    /// **Date convention:** `effective_date` is compared against each
+    /// accrual period's *unadjusted* `accrual_start`. Specify dates as
+    /// unadjusted accrual-period boundaries (typically the issue date plus
+    /// integer multiples of `freq`); business-day adjustment is not
+    /// applied here. The rate is set at accrual start (per market
+    /// convention for step-up bonds).
     #[schemars(with = "Vec<(String, Decimal)>")]
     pub step_schedule: Vec<(Date, Decimal)>,
     /// Payment frequency.

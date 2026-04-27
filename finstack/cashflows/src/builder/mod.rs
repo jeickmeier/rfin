@@ -60,10 +60,9 @@
 //! ```
 
 // Internal modules
-#[allow(clippy::module_inception)]
-mod builder;
 pub(crate) mod compiler;
 pub mod emission;
+mod orchestrator;
 
 // Public modules
 pub mod calendar;
@@ -76,7 +75,7 @@ pub mod schedule;
 pub mod specs;
 
 // Export the builder as CashFlowBuilder
-pub use builder::{CashFlowBuilder, PreparedCashFlow, PrincipalEvent};
+pub use orchestrator::{CashFlowBuilder, PreparedCashFlow, PrincipalEvent};
 
 // Re-export common types
 pub use dataframe::{PeriodDataFrame, PeriodDataFrameOptions};
