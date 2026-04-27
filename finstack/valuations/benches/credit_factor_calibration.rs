@@ -13,7 +13,7 @@
 
 #![allow(clippy::unwrap_used)]
 
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput};
 use finstack_core::factor_model::credit_hierarchy::{
     CreditHierarchySpec, HierarchyDimension, IssuerBetaPolicy,
 };
@@ -24,7 +24,6 @@ use finstack_valuations::factor_model::{
     CreditCalibrationConfig, CreditCalibrationInputs, CreditCalibrator,
 };
 use serde_json::{json, Value};
-use std::hint::black_box;
 use time::{Date, Month};
 
 // ---------------------------------------------------------------------------
@@ -177,9 +176,11 @@ fn bench_credit_factor_calibration(c: &mut Criterion) {
 
         let bench_id = BenchmarkId::new("n_issuers", n_issuers);
         group.bench_with_input(bench_id, &(calibrator, inputs), |b, (cal, inp)| {
-            b.iter(|| {
-                black_box(cal.calibrate(inp.clone()).unwrap());
-            });
+            b.iter_batched(
+                || inp.clone(),
+                |inp| cal.calibrate(inp).unwrap(),
+                BatchSize::SmallInput,
+            );
         });
     }
 
