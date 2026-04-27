@@ -295,6 +295,9 @@ impl CreditCalibrator {
         }
         // All CovarianceStrategy variants are now supported (PR-5b).
 
+        validate_calibration_config(&self.config)?;
+        validate_calibration_inputs(&inputs)?;
+
         // -- Structural validation of inputs. -------------------------------
         let dates = &inputs.history_panel.dates;
         if dates.is_empty() {
@@ -506,6 +509,100 @@ impl CreditCalibrator {
 
 fn validation_err(msg: impl Into<String>) -> Error {
     Error::Core(finstack_core::Error::Validation(msg.into()))
+}
+
+fn validate_finite(label: impl std::fmt::Display, value: f64) -> Result<()> {
+    if value.is_finite() {
+        Ok(())
+    } else {
+        Err(validation_err(format!(
+            "{label} must be finite, got {value}"
+        )))
+    }
+}
+
+fn validate_non_negative_finite(label: impl std::fmt::Display, value: f64) -> Result<()> {
+    validate_finite(&label, value)?;
+    if value >= 0.0 {
+        Ok(())
+    } else {
+        Err(validation_err(format!(
+            "{label} must be non-negative, got {value}"
+        )))
+    }
+}
+
+fn validate_calibration_config(config: &CreditCalibrationConfig) -> Result<()> {
+    validate_finite(
+        "CreditCalibrator: annualization_factor",
+        config.annualization_factor,
+    )?;
+    if config.annualization_factor <= 0.0 {
+        return Err(validation_err(format!(
+            "CreditCalibrator: annualization_factor must be > 0.0, got {}",
+            config.annualization_factor
+        )));
+    }
+
+    if let BetaShrinkage::TowardOne { alpha } = config.beta_shrinkage {
+        validate_finite("CreditCalibrator: beta_shrinkage alpha", alpha)?;
+        if !(0.0..=1.0).contains(&alpha) {
+            return Err(validation_err(format!(
+                "CreditCalibrator: beta_shrinkage alpha must be in [0, 1], got {alpha}"
+            )));
+        }
+    }
+
+    if let CovarianceStrategy::Ridge { alpha } = config.covariance_strategy {
+        validate_non_negative_finite("CreditCalibrator: ridge alpha", alpha)?;
+    }
+
+    Ok(())
+}
+
+fn validate_calibration_inputs(inputs: &CreditCalibrationInputs) -> Result<()> {
+    for (idx, value) in inputs.generic_factor.values.iter().copied().enumerate() {
+        validate_finite(
+            format!("CreditCalibrator: generic_factor.values[{idx}]"),
+            value,
+        )?;
+    }
+
+    for (issuer, series) in &inputs.history_panel.spreads {
+        for (idx, value) in series.iter().copied().enumerate() {
+            if let Some(spread) = value {
+                validate_finite(
+                    format!(
+                        "CreditCalibrator: spread series for issuer {:?} at index {idx}",
+                        issuer.as_str()
+                    ),
+                    spread,
+                )?;
+            }
+        }
+    }
+
+    for (issuer, spread) in &inputs.asof_spreads {
+        validate_finite(
+            format!(
+                "CreditCalibrator: asof_spreads for issuer {:?}",
+                issuer.as_str()
+            ),
+            *spread,
+        )?;
+    }
+
+    for (issuer, vol) in &inputs.idiosyncratic_overrides {
+        validate_non_negative_finite(
+            format!(
+                "CreditCalibrator: idiosyncratic override for issuer {:?}",
+                issuer.as_str()
+            ),
+            *vol,
+        )?;
+    }
+
+    Ok(())
 }
 
 /// `IssuerBetas` with all loadings = 1.0 (BucketOnly default).

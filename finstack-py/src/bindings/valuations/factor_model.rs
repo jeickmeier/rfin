@@ -354,8 +354,11 @@ fn compute_pnl_profiles(
         None => finstack_core::factor_model::BumpSizeConfig::default(),
     };
 
-    let engine =
-        finstack_valuations::factor_model::FullRepricingEngine::new(bump_config, n_scenario_points);
+    let engine = finstack_valuations::factor_model::FullRepricingEngine::try_new(
+        bump_config,
+        n_scenario_points,
+    )
+    .map_err(display_to_py)?;
     let profiles = engine
         .compute_pnl_profiles(&positions, &factors, &market, date)
         .map_err(display_to_py)?;

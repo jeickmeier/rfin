@@ -21,7 +21,7 @@
 //! All keyed maps are [`BTreeMap`] so the output is byte-stable for byte-stable
 //! input. The function performs no I/O and reads no global state.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use finstack_core::dates::Date;
 use finstack_core::factor_model::credit_hierarchy::{
@@ -237,6 +237,19 @@ pub fn decompose_levels(
             });
         }
     }
+    let mut folded_pairs: BTreeSet<(IssuerId, usize)> = BTreeSet::new();
+    for record in &model.diagnostics.fold_ups {
+        if record.level_index >= num_levels {
+            return Err(DecompositionError::ModelInconsistent {
+                reason: format!(
+                    "fold-up record for issuer {:?} has level_index {}, expected < {num_levels}",
+                    record.issuer_id.as_str(),
+                    record.level_index
+                ),
+            });
+        }
+        folded_pairs.insert((record.issuer_id.clone(), record.level_index));
+    }
 
     // Pre-resolve, for every issuer in the input spread map, the
     // (betas, tags) pair we need. Either the model row supplies both, or
@@ -319,6 +332,9 @@ pub fn decompose_levels(
         // Aggregate: bucket → (sum, count) over the current residuals.
         let mut sums: BTreeMap<String, (f64, usize)> = BTreeMap::new();
         for issuer in observed_spreads.keys() {
+            if folded_pairs.contains(&(issuer.clone(), k)) {
+                continue;
+            }
             let path = &bucket_paths[issuer][k];
             let r_k = residuals[issuer];
             let entry = sums.entry(path.clone()).or_insert((0.0, 0));
@@ -337,6 +353,9 @@ pub fn decompose_levels(
 
         // Subtract β_i^level_k · L_k(g_i^k) from each issuer's residual.
         for issuer in observed_spreads.keys() {
+            if folded_pairs.contains(&(issuer.clone(), k)) {
+                continue;
+            }
             let r = &resolved[issuer];
             let path = &bucket_paths[issuer][k];
             let level_value = values[path];

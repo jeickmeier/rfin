@@ -385,8 +385,8 @@ impl PyPeriodDecomposition {
 #[pymethods]
 impl PyPeriodDecomposition {
     /// Earlier snapshot date (ISO 8601).
-    #[getter]
-    fn from_date(&self) -> String {
+    #[getter(from_date)]
+    fn get_from_date(&self) -> String {
         self.inner.from.to_string()
     }
 

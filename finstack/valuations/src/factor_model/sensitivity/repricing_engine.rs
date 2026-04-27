@@ -5,7 +5,7 @@ use crate::instruments::Instrument;
 use finstack_core::dates::Date;
 use finstack_core::factor_model::{BumpSizeConfig, FactorDefinition, FactorId};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::Result;
+use finstack_core::{Error, Result};
 
 /// P&L profile for one factor across a scenario grid.
 #[derive(Debug, Clone, PartialEq)]
@@ -33,8 +33,8 @@ impl ScenarioGrid {
     ///
     /// # Panics
     ///
-    /// Panics when `n_points < 3` because the repricing engine requires
-    /// shifts at -1 and +1 for central-difference delta extraction.
+    /// Panics when `n_points` is invalid. Use [`Self::try_new`] when the value
+    /// comes from a user-controlled boundary.
     #[must_use]
     pub fn new(n_points: usize) -> Self {
         assert!(
@@ -42,9 +42,37 @@ impl ScenarioGrid {
             "ScenarioGrid requires at least {} points for central-difference delta extraction, got {n_points}",
             Self::MIN_POINTS,
         );
+        assert!(
+            !n_points.is_multiple_of(2),
+            "ScenarioGrid requires an odd number of points for a symmetric grid, got {n_points}"
+        );
         let half = (n_points / 2) as f64;
         let shifts = (0..n_points).map(|idx| idx as f64 - half).collect();
         Self { shifts }
+    }
+
+    /// Try to create a symmetric grid centered on zero.
+    ///
+    /// # Errors
+    ///
+    /// Returns a validation error when `n_points < 3` or when `n_points` is
+    /// even, because an even number of points cannot include a center point and
+    /// symmetric `-1` / `+1` shocks.
+    pub fn try_new(n_points: usize) -> Result<Self> {
+        if n_points < Self::MIN_POINTS {
+            return Err(Error::Validation(format!(
+                "ScenarioGrid requires at least {} points for central-difference delta extraction, got {n_points}",
+                Self::MIN_POINTS,
+            )));
+        }
+        if n_points.is_multiple_of(2) {
+            return Err(Error::Validation(format!(
+                "ScenarioGrid requires an odd number of points for a symmetric grid, got {n_points}"
+            )));
+        }
+        let half = (n_points / 2) as f64;
+        let shifts = (0..n_points).map(|idx| idx as f64 - half).collect();
+        Ok(Self { shifts })
     }
 
     /// Return the ordered shift coordinates.
@@ -71,6 +99,30 @@ impl FullRepricingEngine {
         }
     }
 
+    /// Try to create a repricing engine using `n_scenario_points` around the base market.
+    ///
+    /// # Errors
+    ///
+    /// Returns a validation error when the scenario grid cannot support
+    /// central-difference delta extraction.
+    pub fn try_new(bump_config: BumpSizeConfig, n_scenario_points: usize) -> Result<Self> {
+        Ok(Self {
+            bump_config,
+            scenario_grid: ScenarioGrid::try_new(n_scenario_points)?,
+        })
+    }
+
+    fn validate_bump_size(factor: &FactorDefinition, bump_size: f64) -> Result<()> {
+        if bump_size.is_finite() && bump_size.abs() >= f64::EPSILON {
+            Ok(())
+        } else {
+            Err(Error::Validation(format!(
+                "FullRepricingEngine: factor {:?} has invalid bump size {bump_size}; bump size must be finite and non-zero",
+                factor.id.as_str()
+            )))
+        }
+    }
+
     /// Compute the full scenario P&L profile for each factor.
     pub fn compute_pnl_profiles(
         &self,
@@ -89,6 +141,7 @@ impl FullRepricingEngine {
             let (bump_size, bump_unit) = self
                 .bump_config
                 .bump_size_with_unit_for_factor(&factor.id, &factor.factor_type);
+            Self::validate_bump_size(factor, bump_size)?;
             let mut position_pnls = Vec::with_capacity(self.scenario_grid.shifts().len());
 
             for &shift in self.scenario_grid.shifts() {
@@ -134,7 +187,7 @@ impl FactorSensitivityEngine for FullRepricingEngine {
         let factor_ids = factors.iter().map(|factor| factor.id.clone()).collect();
         let mut matrix = SensitivityMatrix::zeros(position_ids, factor_ids);
 
-        for (factor_idx, profile) in profiles.iter().enumerate() {
+        for (factor_idx, (profile, factor)) in profiles.iter().zip(factors).enumerate() {
             let down_idx = profile
                 .shifts
                 .iter()
@@ -145,10 +198,9 @@ impl FactorSensitivityEngine for FullRepricingEngine {
                 .position(|shift| (*shift - 1.0).abs() < 1e-12);
 
             if let (Some(down_idx), Some(up_idx)) = (down_idx, up_idx) {
-                let bump_size = self.bump_config.bump_size_for_factor(
-                    &factors[factor_idx].id,
-                    &factors[factor_idx].factor_type,
-                );
+                let bump_size = self
+                    .bump_config
+                    .bump_size_for_factor(&factor.id, &factor.factor_type);
                 for position_idx in 0..positions.len() {
                     let delta = (profile.position_pnls[up_idx][position_idx]
                         - profile.position_pnls[down_idx][position_idx])
@@ -277,6 +329,24 @@ mod tests {
     }
 
     #[test]
+    fn scenario_grid_try_new_rejects_even_point_counts() {
+        let result = ScenarioGrid::try_new(4);
+        assert!(
+            result.is_err(),
+            "scenario grid must reject even point counts"
+        );
+    }
+
+    #[test]
+    fn full_repricing_try_new_rejects_too_few_points() {
+        let result = FullRepricingEngine::try_new(BumpSizeConfig::default(), 2);
+        assert!(
+            result.is_err(),
+            "full repricing engine must return a validation error instead of panicking"
+        );
+    }
+
+    #[test]
     fn test_full_repricing_engine_extracts_delta_from_profile() -> Result<()> {
         let as_of = date!(2025 - 01 - 01);
         let market = test_market(as_of)?;
@@ -300,7 +370,7 @@ mod tests {
     }
 
     #[test]
-    fn full_repricing_delta_is_normalized_by_bump_size_override() -> Result<()> {
+    fn test_full_repricing_delta_normalizes_bump_size_override() -> Result<()> {
         let as_of = date!(2025 - 01 - 01);
         let market = test_market(as_of)?;
         let instrument = MockInstrument::new("curve-inst", "USD-OIS", 5.0, 10_000.0);
@@ -324,6 +394,35 @@ mod tests {
         assert!(
             (matrix.delta(0, 0) - 1.0).abs() < 1e-3,
             "linear delta should be per bp, not scaled by the 5 bp override"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_full_repricing_rejects_zero_bump_size() -> Result<()> {
+        let as_of = date!(2025 - 01 - 01);
+        let market = test_market(as_of)?;
+        let instrument = MockInstrument::new("curve-inst", "USD-OIS", 5.0, 10_000.0);
+        let positions = vec![("curve-pos".to_string(), &instrument as &dyn Instrument, 1.0)];
+        let factor_id = FactorId::new("rates");
+        let factors = vec![FactorDefinition {
+            id: factor_id.clone(),
+            factor_type: FactorType::Rates,
+            market_mapping: MarketMapping::CurveParallel {
+                curve_ids: vec![CurveId::new("USD-OIS")],
+                units: BumpUnits::RateBp,
+            },
+            description: None,
+        }];
+
+        let mut bump_config = BumpSizeConfig::default();
+        bump_config.overrides.insert(factor_id, 0.0);
+        let result = FullRepricingEngine::new(bump_config, 5)
+            .compute_sensitivities(&positions, &factors, &market, as_of);
+
+        assert!(
+            result.is_err(),
+            "zero bump size must return an error instead of a NaN delta"
         );
         Ok(())
     }

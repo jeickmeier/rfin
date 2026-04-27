@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use finstack_core::dates::create_date;
 use finstack_core::factor_model::credit_hierarchy::{
     AdderVolSource, CalibrationDiagnostics, CreditFactorModel, CreditHierarchySpec, DateRange,
-    FactorCorrelationMatrix, GenericFactorSpec, HierarchyDimension, IssuerBetaMode,
+    FactorCorrelationMatrix, FoldUpRecord, GenericFactorSpec, HierarchyDimension, IssuerBetaMode,
     IssuerBetaPolicy, IssuerBetaRow, IssuerBetas, IssuerTags, LevelsAtAnchor, VolState,
 };
 use finstack_core::factor_model::{
@@ -607,4 +607,48 @@ fn decompose_period_rejects_shape_mismatch() {
         err,
         DecompositionError::SnapshotShapeMismatch { .. }
     ));
+}
+
+#[test]
+fn decompose_levels_excludes_folded_issuers_from_bucket_means() {
+    let mut model = base_model(vec![HierarchyDimension::Rating]);
+    model.issuer_betas = vec![
+        issuer_row(
+            "ISSUER-FOLDED",
+            tags_3d("IG", "EU", "FIN"),
+            betas(1.0, vec![0.0]),
+        ),
+        issuer_row(
+            "ISSUER-ACTIVE",
+            tags_3d("IG", "EU", "FIN"),
+            betas(1.0, vec![1.0]),
+        ),
+    ];
+    model.diagnostics.fold_ups = vec![FoldUpRecord {
+        issuer_id: IssuerId::new("ISSUER-FOLDED"),
+        level_index: 0,
+        original_bucket: "IG".to_owned(),
+        folded_to: "<root>".to_owned(),
+        reason: "test fold-up".to_owned(),
+    }];
+
+    let spreads = spread_map(&[("ISSUER-FOLDED", 100.0), ("ISSUER-ACTIVE", 10.0)]);
+    let snap = decompose_levels(
+        &model,
+        &spreads,
+        0.0,
+        create_date(2024, Month::April, 30).unwrap(),
+        None,
+    )
+    .unwrap();
+
+    assert_eq!(snap.by_level[0].values.get("IG").copied(), Some(10.0));
+    assert_eq!(
+        snap.adder.get(&IssuerId::new("ISSUER-FOLDED")).copied(),
+        Some(100.0)
+    );
+    assert_eq!(
+        snap.adder.get(&IssuerId::new("ISSUER-ACTIVE")).copied(),
+        Some(0.0)
+    );
 }

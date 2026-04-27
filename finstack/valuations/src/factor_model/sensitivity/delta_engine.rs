@@ -35,7 +35,7 @@ impl DeltaBasedEngine {
         let (bump_size, bump_unit) = self
             .bump_config
             .bump_size_with_unit_for_factor(&factor.id, &factor.factor_type);
-        if bump_size.abs() < f64::EPSILON {
+        if !bump_size.is_finite() || bump_size.abs() < f64::EPSILON {
             return Err(InputError::Invalid.into());
         }
 

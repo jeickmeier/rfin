@@ -662,6 +662,59 @@ fn ridge_covariance_rejects_negative_alpha() {
     );
 }
 
+#[test]
+fn calibration_rejects_non_finite_generic_values() {
+    let cfg = config_with(
+        IssuerBetaPolicy::GloballyOff,
+        vec![HierarchyDimension::Rating],
+    );
+    let mut inputs = fixture_panel().into_inputs();
+    inputs.generic_factor.values[0] = f64::NAN;
+
+    assert!(
+        CreditCalibrator::new(cfg).calibrate(inputs).is_err(),
+        "calibration must reject NaN generic factor inputs"
+    );
+}
+
+#[test]
+fn calibration_rejects_non_finite_spread_values() {
+    let cfg = config_with(
+        IssuerBetaPolicy::GloballyOff,
+        vec![HierarchyDimension::Rating],
+    );
+    let mut inputs = fixture_panel().into_inputs();
+    let series = inputs
+        .history_panel
+        .spreads
+        .get_mut(&IssuerId::new("ISSUER-A"))
+        .expect("fixture issuer exists");
+    series[0] = Some(f64::INFINITY);
+
+    assert!(
+        CreditCalibrator::new(cfg).calibrate(inputs).is_err(),
+        "calibration must reject infinite issuer spread inputs"
+    );
+}
+
+#[test]
+fn calibration_rejects_invalid_numeric_config_values() {
+    let cfg = CreditCalibrationConfig {
+        annualization_factor: 0.0,
+        ..config_with(
+            IssuerBetaPolicy::GloballyOff,
+            vec![HierarchyDimension::Rating],
+        )
+    };
+
+    assert!(
+        CreditCalibrator::new(cfg)
+            .calibrate(fixture_panel().into_inputs())
+            .is_err(),
+        "annualization_factor must be positive and finite"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // PR-5a Test 1: caller override wins over IssuerBeta history
 // ---------------------------------------------------------------------------
