@@ -145,10 +145,14 @@ impl FactorSensitivityEngine for FullRepricingEngine {
                 .position(|shift| (*shift - 1.0).abs() < 1e-12);
 
             if let (Some(down_idx), Some(up_idx)) = (down_idx, up_idx) {
+                let bump_size = self.bump_config.bump_size_for_factor(
+                    &factors[factor_idx].id,
+                    &factors[factor_idx].factor_type,
+                );
                 for position_idx in 0..positions.len() {
                     let delta = (profile.position_pnls[up_idx][position_idx]
                         - profile.position_pnls[down_idx][position_idx])
-                        / 2.0;
+                        / (2.0 * bump_size);
                     matrix.set_delta(position_idx, factor_idx, delta);
                 }
             }
@@ -292,6 +296,35 @@ mod tests {
         let matrix = engine.compute_sensitivities(&positions, &factors, &market, as_of)?;
 
         assert!((matrix.delta(0, 0) - 1.0).abs() < 1e-3);
+        Ok(())
+    }
+
+    #[test]
+    fn full_repricing_delta_is_normalized_by_bump_size_override() -> Result<()> {
+        let as_of = date!(2025 - 01 - 01);
+        let market = test_market(as_of)?;
+        let instrument = MockInstrument::new("curve-inst", "USD-OIS", 5.0, 10_000.0);
+        let positions = vec![("curve-pos".to_string(), &instrument as &dyn Instrument, 1.0)];
+        let factor_id = FactorId::new("rates");
+        let factors = vec![FactorDefinition {
+            id: factor_id.clone(),
+            factor_type: FactorType::Rates,
+            market_mapping: MarketMapping::CurveParallel {
+                curve_ids: vec![CurveId::new("USD-OIS")],
+                units: BumpUnits::RateBp,
+            },
+            description: None,
+        }];
+
+        let mut bump_config = BumpSizeConfig::default();
+        bump_config.overrides.insert(factor_id, 5.0);
+        let matrix = FullRepricingEngine::new(bump_config, 5)
+            .compute_sensitivities(&positions, &factors, &market, as_of)?;
+
+        assert!(
+            (matrix.delta(0, 0) - 1.0).abs() < 1e-3,
+            "linear delta should be per bp, not scaled by the 5 bp override"
+        );
         Ok(())
     }
 

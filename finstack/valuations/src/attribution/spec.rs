@@ -3,14 +3,13 @@
 //! Provides serializable specs for defining complete attribution runs in JSON,
 //! with stable schemas and deterministic round-trip serialization.
 
+use super::credit_cascade::{build_credit_factor_attribution, plan_credit_cascade};
 use super::parallel::attribute_pnl_parallel_with_credit_model;
 use super::waterfall::attribute_pnl_waterfall_with_credit_model;
 use super::{
-    attribute_pnl_metrics_based, attribute_pnl_taylor_standard, compute_credit_factor_attribution,
-    AttributionMethod, CreditAttributionInput, CreditFactorDetailOptions, CreditFactorModelRef,
-    ModelParamsSnapshot, PnlAttribution,
+    attribute_pnl_metrics_based, attribute_pnl_taylor_standard, AttributionMethod,
+    CreditFactorDetailOptions, CreditFactorModelRef, ModelParamsSnapshot, PnlAttribution,
 };
-use crate::factor_model::{decompose_levels, decompose_period};
 use crate::instruments::{DynInstrument, InstrumentJson};
 use crate::metrics::MetricId;
 use finstack_core::{
@@ -394,10 +393,9 @@ impl AttributionSpec {
         attribution: &PnlAttribution,
         notes: &mut Vec<String>,
     ) -> Result<Option<super::CreditFactorAttribution>> {
-        use finstack_core::factor_model::credit_hierarchy::IssuerTags;
         use finstack_core::market_data::diff::{measure_hazard_curve_shift, TenorSamplingMethod};
+        use finstack_core::money::Money;
         use finstack_core::types::IssuerId;
-        use std::collections::BTreeMap;
 
         let model = model_ref.resolve()?;
 
@@ -417,18 +415,14 @@ impl AttributionSpec {
         // 3. Look up tags for this issuer; if the issuer is not in the model
         //    return Ok(None) with a diagnostic note rather than silently routing
         //    the entire credit move into adder_pnl_total.
-        let issuer_row = match issuer_row {
-            Some(row) => row,
-            None => {
-                notes.push(format!(
-                    "credit_factor_detail unavailable: issuer {} not present in \
-                     CreditFactorModel.issuer_betas",
-                    issuer_id
-                ));
-                return Ok(None);
-            }
-        };
-        let tags = issuer_row.tags.clone();
+        if issuer_row.is_none() {
+            notes.push(format!(
+                "credit_factor_detail unavailable: issuer {} not present in \
+                 CreditFactorModel.issuer_betas",
+                issuer_id
+            ));
+            return Ok(None);
+        }
 
         // 4. Measure per-credit-curve shifts on the instrument's dependencies.
         let market_deps = instrument.market_dependencies()?;
@@ -459,40 +453,7 @@ impl AttributionSpec {
             return Ok(None);
         }
 
-        // 5. Synthesize a single ΔS (in spread units consistent with the
-        //    factor model's time series). The decomposition routines treat
-        //    spreads in the same units as the model history; we use bp here
-        //    consistently for both sides of the reconciliation.
         let ds_i = avg_shift_bp;
-
-        // Synthesize spread snapshots so decompose_levels can run. For a
-        // single issuer the level decomposition is trivial:
-        //   - PC peel: r1 = ΔS - β_PC * Δgeneric (we use Δgeneric = 0 since
-        //     we have no calibrated runtime generic factor at this layer).
-        //   - With only one issuer per bucket the bucket mean equals r1.
-        // To satisfy the linear identity exactly we set Δgeneric = ΔS_i so
-        // the level/adder pieces are exactly zero except generic — but that
-        // collapses to a generic-only attribution. Better: feed both
-        // snapshots with the issuer at S_t0=0, S_t1=ΔS, generic=0 — this
-        // makes the level-0 bucket carry the full ΔS and reconciles.
-        let mut s_t0: BTreeMap<IssuerId, f64> = BTreeMap::new();
-        let mut s_t1: BTreeMap<IssuerId, f64> = BTreeMap::new();
-        s_t0.insert(issuer_id.clone(), 0.0);
-        s_t1.insert(issuer_id.clone(), ds_i);
-
-        let mut runtime_tags: BTreeMap<IssuerId, IssuerTags> = BTreeMap::new();
-        runtime_tags.insert(issuer_id.clone(), tags);
-
-        let from = decompose_levels(model, &s_t0, 0.0, self.as_of_t0, Some(&runtime_tags))
-            .map_err(|e| {
-                finstack_core::Error::Validation(format!("decompose_levels(t0) failed: {e}"))
-            })?;
-        let to = decompose_levels(model, &s_t1, 0.0, self.as_of_t1, Some(&runtime_tags)).map_err(
-            |e| finstack_core::Error::Validation(format!("decompose_levels(t1) failed: {e}")),
-        )?;
-        let period = decompose_period(&from, &to).map_err(|e| {
-            finstack_core::Error::Validation(format!("decompose_period failed: {e}"))
-        })?;
 
         // 6. Back-solve the effective CS01 from the existing credit_curves_pnl
         //    so the reconciliation `generic + Σlevels + adder ≡
@@ -501,22 +462,34 @@ impl AttributionSpec {
         //        credit_curves_pnl = -CS01 × ΔS_i  →  CS01 = -credit_pnl / ΔS_i
         let credit_pnl_amt = attribution.credit_curves_pnl.amount();
         let cs01_amt = -credit_pnl_amt / ds_i;
-        let cs01_money =
-            finstack_core::money::Money::new(cs01_amt, attribution.credit_curves_pnl.currency());
 
-        let inputs = vec![CreditAttributionInput {
-            position_id: instrument.id().to_string(),
-            issuer_id,
-            cs01: cs01_money,
-            delta_spread: ds_i,
-        }];
-
-        let detail = compute_credit_factor_attribution(
+        let Some(cascade) = plan_credit_cascade(
             model,
+            instrument,
+            market_t0,
+            market_t1,
+            self.as_of_t0,
+            self.as_of_t1,
+        )?
+        else {
+            return Ok(None);
+        };
+        let step_pnls: Vec<Money> = cascade
+            .steps
+            .iter()
+            .map(|step| {
+                Money::new(
+                    -cs01_amt * step.delta_bp,
+                    attribution.credit_curves_pnl.currency(),
+                )
+            })
+            .collect();
+        let detail = build_credit_factor_attribution(
+            model,
+            &cascade,
             &self.credit_factor_detail_options,
-            &inputs,
-            &period,
-        )?;
+            &step_pnls,
+        );
         Ok(Some(detail))
     }
 }

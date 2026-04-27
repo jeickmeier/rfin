@@ -28,9 +28,12 @@ use finstack_core::dates::Date;
 use finstack_core::factor_model::credit_hierarchy::{
     dimension_key, CreditFactorModel, HierarchyDimension, IssuerTags,
 };
-use finstack_core::factor_model::matching::ISSUER_ID_META_KEY;
+use finstack_core::factor_model::matching::{
+    bucket_factor_id, CREDIT_GENERIC_FACTOR_ID, ISSUER_ID_META_KEY,
+};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::diff::{measure_hazard_curve_shift, TenorSamplingMethod};
+use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::types::{CurveId, IssuerId};
 use finstack_core::Result;
 
@@ -143,6 +146,80 @@ pub(crate) fn plan_credit_cascade(
     }
     let ds_i = total_shift_bp / count as f64;
 
+    let mut level_names: Vec<String> = Vec::with_capacity(model.hierarchy.levels.len());
+    let mut scalar_level_moves: Vec<(String, Option<f64>)> =
+        Vec::with_capacity(model.hierarchy.levels.len());
+    for (k, dim) in model.hierarchy.levels.iter().enumerate() {
+        let level_name = match dim {
+            HierarchyDimension::Custom(s) => s.clone(),
+            _ => dimension_key(dim),
+        };
+        let factor_id = bucket_factor_id(&model.hierarchy, &issuer_row.tags, k)
+            .map(|factor_id| factor_id.to_string())
+            .unwrap_or_default();
+        let move_bp = factor_move_bp(&factor_id, market_t0, market_t1);
+        level_names.push(level_name);
+        scalar_level_moves.push((factor_id, move_bp));
+    }
+
+    let generic_move = factor_move_bp(&model.generic_factor.series_id, market_t0, market_t1)
+        .or_else(|| factor_move_bp(CREDIT_GENERIC_FACTOR_ID, market_t0, market_t1));
+    let has_scalar_factor_moves =
+        generic_move.is_some() || scalar_level_moves.iter().any(|(_, m)| m.is_some());
+    if has_scalar_factor_moves {
+        let mut steps: Vec<CreditCascadeStep> =
+            Vec::with_capacity(model.hierarchy.levels.len() + 2);
+        let mut explained_bp = 0.0;
+        let mut append_factor = |factor_id: &str, steps: &mut Vec<CreditCascadeStep>| {
+            if factor_id == model.generic_factor.series_id || factor_id == CREDIT_GENERIC_FACTOR_ID
+            {
+                let generic_bp = generic_move.unwrap_or(0.0);
+                explained_bp += generic_bp;
+                steps.push(CreditCascadeStep {
+                    kind: CreditStepKind::Generic,
+                    label: "credit::generic".to_string(),
+                    delta_bp: generic_bp,
+                });
+                return true;
+            }
+            for (k, (level_factor_id, move_bp)) in scalar_level_moves.iter().enumerate() {
+                if factor_id == level_factor_id {
+                    let level_bp = move_bp.unwrap_or(0.0);
+                    explained_bp += level_bp;
+                    steps.push(CreditCascadeStep {
+                        kind: CreditStepKind::Level(k),
+                        label: format!("credit::{}", level_names[k]),
+                        delta_bp: level_bp,
+                    });
+                    return true;
+                }
+            }
+            false
+        };
+
+        let mut matched_config_factor = false;
+        for factor in &model.config.factors {
+            matched_config_factor |= append_factor(factor.id.as_str(), &mut steps);
+        }
+        if !matched_config_factor {
+            append_factor(CREDIT_GENERIC_FACTOR_ID, &mut steps);
+            for (factor_id, _) in &scalar_level_moves {
+                append_factor(factor_id, &mut steps);
+            }
+        }
+        steps.push(CreditCascadeStep {
+            kind: CreditStepKind::Adder,
+            label: "credit::adder".to_string(),
+            delta_bp: ds_i - explained_bp,
+        });
+        return Ok(Some(CreditCascade {
+            issuer_id,
+            hazard_curve_ids: credit_curves,
+            steps,
+            level_names,
+        }));
+    }
+
     // Synthesize a single-issuer period decomposition: feed S_t0=0, S_t1=ΔS_i,
     // generic=0 to mirror the PR-7 linear wire. Δgeneric will be 0; the level-0
     // bucket carries ΔS_i; remaining levels and the adder are zero (modulo
@@ -166,7 +243,6 @@ pub(crate) fn plan_credit_cascade(
     let beta_pc = issuer_row.betas.pc;
     let generic_bp = beta_pc * period.d_generic;
 
-    let mut level_names: Vec<String> = Vec::with_capacity(model.hierarchy.levels.len());
     let mut steps: Vec<CreditCascadeStep> = Vec::with_capacity(model.hierarchy.levels.len() + 2);
 
     steps.push(CreditCascadeStep {
@@ -196,7 +272,6 @@ pub(crate) fn plan_credit_cascade(
             label: format!("credit::{}", level_name),
             delta_bp: level_bp,
         });
-        level_names.push(level_name);
     }
 
     let adder_bp = period.d_adder.get(&issuer_id).copied().unwrap_or(0.0);
@@ -212,6 +287,23 @@ pub(crate) fn plan_credit_cascade(
         steps,
         level_names,
     }))
+}
+
+fn scalar_to_bp(scalar: &MarketScalar) -> f64 {
+    match scalar {
+        MarketScalar::Unitless(value) => *value,
+        MarketScalar::Price(money) => money.amount(),
+    }
+}
+
+fn factor_move_bp(
+    factor_id: &str,
+    market_t0: &MarketContext,
+    market_t1: &MarketContext,
+) -> Option<f64> {
+    let t0 = market_t0.get_price(factor_id).ok().map(scalar_to_bp)?;
+    let t1 = market_t1.get_price(factor_id).ok().map(scalar_to_bp)?;
+    Some(t1 - t0)
 }
 
 /// Apply an additive parallel bp-shift to every hazard curve in `curve_ids`
@@ -329,5 +421,241 @@ pub(crate) fn build_credit_factor_attribution(
         levels,
         adder_pnl_total: adder_pnl,
         adder_pnl_by_issuer,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::instruments::common_impl::traits::Instrument;
+    use crate::instruments::{Attributes, Bond};
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::create_date;
+    use finstack_core::factor_model::credit_hierarchy::{
+        AdderVolSource, CalibrationDiagnostics, CreditFactorModel, CreditHierarchySpec, DateRange,
+        FactorCorrelationMatrix, GenericFactorSpec, HierarchyDimension, IssuerBetaMode,
+        IssuerBetaPolicy, IssuerBetaRow, IssuerBetas, IssuerTags, LevelsAtAnchor, VolState,
+    };
+    use finstack_core::factor_model::{
+        FactorCovarianceMatrix, FactorDefinition, FactorId, FactorModelConfig, FactorType,
+        MarketMapping, MatchingConfig, PricingMode,
+    };
+    use finstack_core::market_data::bumps::BumpUnits;
+    use finstack_core::market_data::scalars::MarketScalar;
+    use finstack_core::market_data::term_structures::HazardCurve;
+    use finstack_core::money::Money;
+    use time::Month;
+
+    fn empty_factor_config() -> FactorModelConfig {
+        FactorModelConfig {
+            factors: vec![],
+            covariance: FactorCovarianceMatrix::new(vec![], vec![]).unwrap(),
+            matching: MatchingConfig::MappingTable(vec![]),
+            pricing_mode: PricingMode::DeltaBased,
+            risk_measure: Default::default(),
+            bump_size: None,
+            unmatched_policy: None,
+        }
+    }
+
+    fn make_model() -> CreditFactorModel {
+        let mut tags = std::collections::BTreeMap::new();
+        tags.insert("rating".to_string(), "B".to_string());
+        tags.insert("region".to_string(), "US".to_string());
+
+        CreditFactorModel {
+            schema_version: CreditFactorModel::SCHEMA_VERSION.into(),
+            as_of: create_date(2024, Month::March, 29).unwrap(),
+            calibration_window: DateRange {
+                start: create_date(2022, Month::March, 29).unwrap(),
+                end: create_date(2024, Month::March, 29).unwrap(),
+            },
+            policy: IssuerBetaPolicy::GloballyOff,
+            generic_factor: GenericFactorSpec {
+                name: "CDX HY".into(),
+                series_id: "cdx.hy.5y".into(),
+            },
+            hierarchy: CreditHierarchySpec {
+                levels: vec![HierarchyDimension::Rating, HierarchyDimension::Region],
+            },
+            config: empty_factor_config(),
+            issuer_betas: vec![IssuerBetaRow {
+                issuer_id: IssuerId::new("ISSUER-B"),
+                tags: IssuerTags(tags),
+                mode: IssuerBetaMode::IssuerBeta,
+                betas: IssuerBetas {
+                    pc: 2.0,
+                    levels: vec![3.0, 4.0],
+                },
+                adder_at_anchor: 0.0,
+                adder_vol_annualized: 0.0,
+                adder_vol_source: AdderVolSource::Default,
+                fit_quality: None,
+            }],
+            anchor_state: LevelsAtAnchor {
+                pc: 0.0,
+                by_level: vec![],
+            },
+            static_correlation: FactorCorrelationMatrix::identity(vec![]),
+            vol_state: VolState {
+                factors: std::collections::BTreeMap::new(),
+                idiosyncratic: std::collections::BTreeMap::new(),
+            },
+            factor_histories: None,
+            diagnostics: CalibrationDiagnostics {
+                mode_counts: std::collections::BTreeMap::new(),
+                bucket_sizes_per_level: vec![],
+                fold_ups: vec![],
+                r_squared_histogram: None,
+                tag_taxonomy: std::collections::BTreeMap::new(),
+            },
+        }
+    }
+
+    fn with_factor_order(mut model: CreditFactorModel, ids: &[&str]) -> CreditFactorModel {
+        model.config.factors = ids
+            .iter()
+            .map(|id| FactorDefinition {
+                id: FactorId::new(*id),
+                factor_type: FactorType::Credit,
+                market_mapping: MarketMapping::CurveParallel {
+                    curve_ids: vec![],
+                    units: BumpUnits::RateBp,
+                },
+                description: None,
+            })
+            .collect();
+        model.config.covariance = FactorCovarianceMatrix::new(
+            model.config.factors.iter().map(|f| f.id.clone()).collect(),
+            vec![0.0; ids.len() * ids.len()],
+        )
+        .unwrap();
+        model
+    }
+
+    fn canonical_credit_bond(curve_id: CurveId) -> Arc<dyn Instrument> {
+        let mut bond = Bond::fixed(
+            "BOND-ISSUER-B",
+            Money::new(1_000_000.0, Currency::USD),
+            0.05,
+            create_date(2024, Month::January, 1).unwrap(),
+            create_date(2030, Month::January, 1).unwrap(),
+            "USD-OIS",
+        )
+        .expect("bond construction");
+        bond.credit_curve_id = Some(curve_id);
+        bond.attributes = Attributes::new().with_meta(ISSUER_ID_META_KEY, "ISSUER-B");
+        Arc::new(bond)
+    }
+
+    fn hazard(id: &str, as_of: finstack_core::dates::Date, rate: f64) -> HazardCurve {
+        HazardCurve::builder(id)
+            .base_date(as_of)
+            .knots([(1.0, rate), (5.0, rate)])
+            .build()
+            .unwrap()
+    }
+
+    #[test]
+    fn credit_cascade_uses_fixed_bp_factor_moves_from_market_scalars() {
+        let as_of_t0 = create_date(2025, Month::January, 1).unwrap();
+        let as_of_t1 = create_date(2025, Month::January, 2).unwrap();
+        let curve_id = CurveId::new("ISSUER-B-HAZ");
+        let model = make_model();
+        let instrument = canonical_credit_bond(curve_id.clone());
+        let market_t0 = MarketContext::new()
+            .insert(hazard(curve_id.as_str(), as_of_t0, 0.0100))
+            .insert_price("cdx.hy.5y", MarketScalar::Unitless(100.0))
+            .insert_price("credit::level0::Rating::B", MarketScalar::Unitless(0.0))
+            .insert_price(
+                "credit::level1::Rating.Region::B.US",
+                MarketScalar::Unitless(0.0),
+            );
+        let market_t1 = MarketContext::new()
+            .insert(hazard(curve_id.as_str(), as_of_t1, 0.0130))
+            .insert_price("cdx.hy.5y", MarketScalar::Unitless(125.0))
+            .insert_price("credit::level0::Rating::B", MarketScalar::Unitless(7.0))
+            .insert_price(
+                "credit::level1::Rating.Region::B.US",
+                MarketScalar::Unitless(-2.0),
+            );
+
+        let cascade = plan_credit_cascade(
+            &model,
+            &instrument,
+            &market_t0,
+            &market_t1,
+            as_of_t0,
+            as_of_t1,
+        )
+        .unwrap()
+        .expect("cascade");
+
+        let deltas: Vec<f64> = cascade.steps.iter().map(|step| step.delta_bp).collect();
+        assert_eq!(deltas.len(), 4);
+        assert!((deltas[0] - 25.0).abs() < 1e-10, "generic should be +25bp");
+        assert!((deltas[1] - 7.0).abs() < 1e-10, "rating should be +7bp");
+        assert!((deltas[2] - (-2.0)).abs() < 1e-10, "region should be -2bp");
+        assert!((deltas[3]).abs() < 1e-10, "adder should reconcile to zero");
+    }
+
+    #[test]
+    fn credit_cascade_applies_fixed_bp_factors_in_config_order_then_residual() {
+        let as_of_t0 = create_date(2025, Month::January, 1).unwrap();
+        let as_of_t1 = create_date(2025, Month::January, 2).unwrap();
+        let curve_id = CurveId::new("ISSUER-B-HAZ");
+        let model = with_factor_order(
+            make_model(),
+            &[
+                "credit::level0::Rating::B",
+                "cdx.hy.5y",
+                "credit::level1::Rating.Region::B.US",
+            ],
+        );
+        let instrument = canonical_credit_bond(curve_id.clone());
+        let market_t0 = MarketContext::new()
+            .insert(hazard(curve_id.as_str(), as_of_t0, 0.0100))
+            .insert_price("cdx.hy.5y", MarketScalar::Unitless(100.0))
+            .insert_price("credit::level0::Rating::B", MarketScalar::Unitless(0.0))
+            .insert_price(
+                "credit::level1::Rating.Region::B.US",
+                MarketScalar::Unitless(0.0),
+            );
+        let market_t1 = MarketContext::new()
+            .insert(hazard(curve_id.as_str(), as_of_t1, 0.0130))
+            .insert_price("cdx.hy.5y", MarketScalar::Unitless(105.0))
+            .insert_price("credit::level0::Rating::B", MarketScalar::Unitless(25.0))
+            .insert_price(
+                "credit::level1::Rating.Region::B.US",
+                MarketScalar::Unitless(-2.0),
+            );
+
+        let cascade = plan_credit_cascade(
+            &model,
+            &instrument,
+            &market_t0,
+            &market_t1,
+            as_of_t0,
+            as_of_t1,
+        )
+        .unwrap()
+        .expect("cascade");
+
+        let labels: Vec<&str> = cascade.steps.iter().map(|s| s.label.as_str()).collect();
+        let deltas: Vec<f64> = cascade.steps.iter().map(|s| s.delta_bp).collect();
+        assert_eq!(
+            labels,
+            vec![
+                "credit::rating",
+                "credit::generic",
+                "credit::region",
+                "credit::adder"
+            ]
+        );
+        assert_eq!(deltas.len(), 4);
+        assert!((deltas[0] - 25.0).abs() < 1e-10);
+        assert!((deltas[1] - 5.0).abs() < 1e-10);
+        assert!((deltas[2] - (-2.0)).abs() < 1e-10);
+        assert!((deltas[3] - 2.0).abs() < 1e-10);
     }
 }

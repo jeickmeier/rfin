@@ -117,6 +117,13 @@ pub struct PortfolioAttribution {
     /// This is separate from `fx_pnl` which captures FX exposure within instruments.
     pub fx_translation_pnl: Money,
 
+    /// Cross-factor interaction P&L in base currency.
+    ///
+    /// Aggregated from each position's native-currency `cross_factor_pnl`
+    /// after conversion to portfolio base currency.
+    #[serde(default = "default_zero_usd_money")]
+    pub cross_factor_pnl: Money,
+
     /// Implied volatility changes P&L in base currency.
     pub vol_pnl: Money,
 
@@ -158,6 +165,10 @@ pub struct PortfolioAttribution {
     pub scalars_detail: Option<ScalarsAttribution>,
 }
 
+fn default_zero_usd_money() -> Money {
+    Money::new(0.0, Currency::USD)
+}
+
 /// Report from reconciling position-level P&L attribution against portfolio totals.
 ///
 /// Verifies that the sum of all factor P&L buckets plus FX translation equals `total_pnl`.
@@ -188,13 +199,14 @@ enum FactorBucket {
     CorrelationsPnl = 5,
     FxPnl = 6,
     FxTranslationPnl = 7,
-    VolPnl = 8,
-    ModelParamsPnl = 9,
-    MarketScalarsPnl = 10,
-    Residual = 11,
+    CrossFactorPnl = 8,
+    VolPnl = 9,
+    ModelParamsPnl = 10,
+    MarketScalarsPnl = 11,
+    Residual = 12,
 }
 
-const N_BUCKETS: usize = 12;
+const N_BUCKETS: usize = 13;
 
 /// Private helper that aggregates portfolio-level factor P&L buckets using
 /// Neumaier summation. An enum-keyed array eliminates per-field duplication
@@ -245,6 +257,10 @@ impl FactorAccumulator {
             convert(pos_attr.correlations_pnl)?.amount(),
         );
         self.add(FactorBucket::FxPnl, convert(pos_attr.fx_pnl)?.amount());
+        self.add(
+            FactorBucket::CrossFactorPnl,
+            convert(pos_attr.cross_factor_pnl)?.amount(),
+        );
         self.add(FactorBucket::VolPnl, convert(pos_attr.vol_pnl)?.amount());
         self.add(
             FactorBucket::ModelParamsPnl,
@@ -280,6 +296,7 @@ impl FactorAccumulator {
             correlations_pnl: Money::new(self.total(FactorBucket::CorrelationsPnl), base_ccy),
             fx_pnl: Money::new(self.total(FactorBucket::FxPnl), base_ccy),
             fx_translation_pnl: Money::new(self.total(FactorBucket::FxTranslationPnl), base_ccy),
+            cross_factor_pnl: Money::new(self.total(FactorBucket::CrossFactorPnl), base_ccy),
             vol_pnl: Money::new(self.total(FactorBucket::VolPnl), base_ccy),
             model_params_pnl: Money::new(self.total(FactorBucket::ModelParamsPnl), base_ccy),
             market_scalars_pnl: Money::new(self.total(FactorBucket::MarketScalarsPnl), base_ccy),
@@ -586,13 +603,13 @@ impl PortfolioAttribution {
         // Header
         lines.push(
             "total,carry,rates_curves,credit_curves,inflation_curves,\
-             correlations,fx,fx_translation,vol,model_params,market_scalars,residual"
+             correlations,fx,fx_translation,cross_factor,vol,model_params,market_scalars,residual"
                 .to_string(),
         );
 
         // Data row
         lines.push(format!(
-            "{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{}",
             self.total_pnl.amount(),
             self.carry.amount(),
             self.rates_curves_pnl.amount(),
@@ -601,6 +618,7 @@ impl PortfolioAttribution {
             self.correlations_pnl.amount(),
             self.fx_pnl.amount(),
             self.fx_translation_pnl.amount(),
+            self.cross_factor_pnl.amount(),
             self.vol_pnl.amount(),
             self.model_params_pnl.amount(),
             self.market_scalars_pnl.amount(),
@@ -682,6 +700,10 @@ impl PortfolioAttribution {
             "  ├─ FX Translation: {}",
             fmt(&self.fx_translation_pnl, &self.total_pnl)
         ));
+        lines.push(format!(
+            "  ├─ Cross Factor: {}",
+            fmt(&self.cross_factor_pnl, &self.total_pnl)
+        ));
         lines.push(format!("  ├─ Vol: {}", fmt(&self.vol_pnl, &self.total_pnl)));
         lines.push(format!(
             "  ├─ Model Params: {}",
@@ -717,6 +739,7 @@ impl PortfolioAttribution {
         acc.add(self.inflation_curves_pnl.amount());
         acc.add(self.correlations_pnl.amount());
         acc.add(self.fx_pnl.amount());
+        acc.add(self.cross_factor_pnl.amount());
         acc.add(self.vol_pnl.amount());
         acc.add(self.model_params_pnl.amount());
         acc.add(self.market_scalars_pnl.amount());
@@ -750,6 +773,7 @@ mod tests {
             FactorBucket::CorrelationsPnl,
             FactorBucket::FxPnl,
             FactorBucket::FxTranslationPnl,
+            FactorBucket::CrossFactorPnl,
             FactorBucket::VolPnl,
             FactorBucket::ModelParamsPnl,
             FactorBucket::MarketScalarsPnl,
@@ -798,6 +822,7 @@ mod tests {
             correlations_pnl: zero,
             fx_pnl: zero,
             fx_translation_pnl: zero,
+            cross_factor_pnl: zero,
             vol_pnl: zero,
             model_params_pnl: zero,
             market_scalars_pnl: zero,
@@ -844,6 +869,7 @@ mod tests {
             correlations_pnl: zero,
             fx_pnl: zero,
             fx_translation_pnl: zero,
+            cross_factor_pnl: zero,
             vol_pnl: zero,
             model_params_pnl: zero,
             market_scalars_pnl: zero,
@@ -876,6 +902,7 @@ mod tests {
             correlations_pnl: Money::new(15.0, Currency::USD),
             fx_pnl: Money::new(25.0, Currency::USD),
             fx_translation_pnl: Money::new(10.0, Currency::USD),
+            cross_factor_pnl: zero,
             vol_pnl: Money::new(5.0, Currency::USD),
             model_params_pnl: Money::new(5.0, Currency::USD),
             market_scalars_pnl: Money::new(3.0, Currency::USD),
@@ -904,6 +931,7 @@ mod tests {
             correlations_pnl: zero,
             fx_pnl: zero,
             fx_translation_pnl: zero,
+            cross_factor_pnl: zero,
             vol_pnl: zero,
             model_params_pnl: zero,
             market_scalars_pnl: zero,
@@ -934,6 +962,7 @@ mod tests {
             correlations_pnl: Money::new(15.0, base_ccy),
             fx_pnl: Money::new(25.0, base_ccy),
             fx_translation_pnl: Money::new(10.0, base_ccy),
+            cross_factor_pnl: Money::new(0.0, base_ccy),
             vol_pnl: Money::new(5.0, base_ccy),
             model_params_pnl: Money::new(5.0, base_ccy),
             market_scalars_pnl: Money::new(3.0, base_ccy),
@@ -962,6 +991,39 @@ mod tests {
     }
 
     #[test]
+    fn reconciliation_check_includes_cross_factor_pnl() {
+        let base_ccy = Currency::USD;
+        let zero = Money::new(0.0, base_ccy);
+        let portfolio_attr = PortfolioAttribution {
+            total_pnl: Money::new(107.0, base_ccy),
+            carry: Money::new(20.0, base_ccy),
+            rates_curves_pnl: Money::new(80.0, base_ccy),
+            credit_curves_pnl: zero,
+            inflation_curves_pnl: zero,
+            correlations_pnl: zero,
+            fx_pnl: zero,
+            fx_translation_pnl: zero,
+            vol_pnl: zero,
+            cross_factor_pnl: Money::new(7.0, base_ccy),
+            model_params_pnl: zero,
+            market_scalars_pnl: zero,
+            residual: zero,
+            by_position: IndexMap::new(),
+            rates_detail: None,
+            credit_detail: None,
+            inflation_detail: None,
+            correlations_detail: None,
+            fx_detail: None,
+            vol_detail: None,
+            scalars_detail: None,
+        };
+
+        let report = portfolio_attr.reconciliation_check(0.01);
+        assert!(report.is_reconciled);
+        assert!(report.total_residual.abs() < 1e-10);
+    }
+
+    #[test]
     fn test_reconciliation_check_fails_when_totals_mismatch() {
         let base_ccy = Currency::USD;
         let zero = Money::new(0.0, base_ccy);
@@ -975,6 +1037,7 @@ mod tests {
             correlations_pnl: zero,
             fx_pnl: zero,
             fx_translation_pnl: zero,
+            cross_factor_pnl: zero,
             vol_pnl: zero,
             model_params_pnl: zero,
             market_scalars_pnl: zero,

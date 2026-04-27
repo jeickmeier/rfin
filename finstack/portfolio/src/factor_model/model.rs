@@ -21,20 +21,27 @@
 
 use super::assignment::{assign_position_factors, FactorAssignmentReport};
 use super::whatif::WhatIfEngine;
-use super::{ParametricDecomposer, RiskDecomposer, RiskDecomposition};
+use super::{
+    ParametricDecomposer, PositionResidualContribution, ResidualContributionSource, RiskDecomposer,
+    RiskDecomposition,
+};
 use crate::error::{Error, Result};
 use crate::Portfolio;
 use finstack_core::dates::Date;
+use finstack_core::factor_model::matching::ISSUER_ID_META_KEY;
 use finstack_core::factor_model::{
-    BumpSizeConfig, FactorCovarianceMatrix, FactorDefinition, FactorModelConfig, FactorModelError,
-    MatchingConfig, PricingMode, RiskMeasure, UnmatchedPolicy,
+    BumpSizeConfig, CurveType, FactorCovarianceMatrix, FactorDefinition, FactorModelConfig,
+    FactorModelError, FactorType, MarketDependency, MatchingConfig, PricingMode, RiskMeasure,
+    UnmatchedPolicy,
 };
 use finstack_core::market_data::context::MarketContext;
+use finstack_valuations::calibration::bumps::{bump_hazard_shift, BumpRequest};
 use finstack_valuations::factor_model::decompose as flatten_dependencies;
 use finstack_valuations::factor_model::sensitivity::{
     DeltaBasedEngine, FactorSensitivityEngine, FullRepricingEngine, SensitivityMatrix,
 };
 use finstack_valuations::instruments::Instrument;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 /// Builder for the top-level portfolio factor-model orchestrator.
 ///
@@ -153,6 +160,7 @@ impl FactorModelBuilder {
         };
 
         Ok(FactorModel {
+            credit_idiosyncratic_variance: credit_idiosyncratic_variance(&config.matching),
             factors: config.factors,
             covariance: config.covariance,
             matcher,
@@ -160,6 +168,7 @@ impl FactorModelBuilder {
             decomposer,
             risk_measure: config.risk_measure,
             unmatched_policy: config.unmatched_policy.unwrap_or_default(),
+            bump_config,
         })
     }
 }
@@ -190,6 +199,7 @@ fn default_sensitivity_engine(
 /// pluggable engines required to move from instrument dependencies to
 /// portfolio-level risk decomposition.
 pub struct FactorModel {
+    credit_idiosyncratic_variance: BTreeMap<finstack_core::types::IssuerId, f64>,
     factors: Vec<FactorDefinition>,
     covariance: FactorCovarianceMatrix,
     matcher: Box<dyn finstack_core::factor_model::FactorMatcher>,
@@ -197,6 +207,7 @@ pub struct FactorModel {
     decomposer: Box<dyn RiskDecomposer>,
     risk_measure: RiskMeasure,
     unmatched_policy: UnmatchedPolicy,
+    bump_config: BumpSizeConfig,
 }
 
 impl FactorModel {
@@ -304,12 +315,70 @@ impl FactorModel {
             })
             .collect();
 
-        Ok(self.sensitivity_engine.compute_sensitivities(
+        let mut sensitivities = self.sensitivity_engine.compute_sensitivities(
             &positions,
             &self.factors,
             market,
             as_of,
-        )?)
+        )?;
+        self.overlay_assignment_driven_credit_sensitivities(
+            portfolio,
+            market,
+            as_of,
+            &mut sensitivities,
+        )?;
+        Ok(sensitivities)
+    }
+
+    fn overlay_assignment_driven_credit_sensitivities(
+        &self,
+        portfolio: &Portfolio,
+        market: &MarketContext,
+        as_of: Date,
+        sensitivities: &mut SensitivityMatrix,
+    ) -> Result<()> {
+        for (position_idx, position) in portfolio.positions.iter().enumerate() {
+            let dependencies = flatten_dependencies(&position.instrument.market_dependencies()?);
+            for dependency in &dependencies {
+                let Some(curve_id) = credit_curve_id(dependency) else {
+                    continue;
+                };
+                let Some(entries) = self
+                    .matcher
+                    .match_factor_with_betas(dependency, position.instrument.attributes())
+                    .map_err(|e| Error::invalid_input(e.to_string()))?
+                else {
+                    continue;
+                };
+                for entry in entries {
+                    let Some(factor_idx) = self
+                        .factors
+                        .iter()
+                        .position(|factor| factor.id == entry.factor_id)
+                    else {
+                        continue;
+                    };
+                    if !uses_assignment_driven_credit_shock(&self.factors[factor_idx]) {
+                        continue;
+                    }
+                    let bump_size = self.bump_config.bump_size_for_factor(
+                        &self.factors[factor_idx].id,
+                        &self.factors[factor_idx].factor_type,
+                    );
+                    let delta = credit_curve_parallel_delta(
+                        position.instrument.as_ref(),
+                        position.quantity,
+                        market,
+                        as_of,
+                        curve_id,
+                        bump_size,
+                    )?;
+                    let current = sensitivities.delta(position_idx, factor_idx);
+                    sensitivities.set_delta(position_idx, factor_idx, current + delta);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Run the full sensitivity-plus-decomposition pipeline.
@@ -339,9 +408,65 @@ impl FactorModel {
         as_of: Date,
     ) -> Result<RiskDecomposition> {
         let sensitivities = self.compute_sensitivities(portfolio, market, as_of)?;
-        Ok(self
-            .decomposer
-            .decompose(&sensitivities, &self.covariance, &self.risk_measure)?)
+        let mut decomposition =
+            self.decomposer
+                .decompose(&sensitivities, &self.covariance, &self.risk_measure)?;
+        self.add_credit_residual_risk(&mut decomposition, portfolio, market, as_of)?;
+        Ok(decomposition)
+    }
+
+    fn add_credit_residual_risk(
+        &self,
+        decomposition: &mut RiskDecomposition,
+        portfolio: &Portfolio,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> Result<()> {
+        if self.credit_idiosyncratic_variance.is_empty() {
+            return Ok(());
+        }
+        let mut residual_contributions = Vec::new();
+        for position in &portfolio.positions {
+            let Some(issuer_id_str) = position
+                .instrument
+                .attributes()
+                .get_meta(ISSUER_ID_META_KEY)
+            else {
+                continue;
+            };
+            let issuer_id = finstack_core::types::IssuerId::new(issuer_id_str);
+            let Some(idio_variance) = self.credit_idiosyncratic_variance.get(&issuer_id).copied()
+            else {
+                continue;
+            };
+            if idio_variance <= 0.0 {
+                continue;
+            }
+            let dependencies = flatten_dependencies(&position.instrument.market_dependencies()?);
+            let mut exposure = 0.0;
+            for dependency in &dependencies {
+                if let Some(curve_id) = credit_curve_id(dependency) {
+                    exposure += credit_curve_parallel_delta(
+                        position.instrument.as_ref(),
+                        position.quantity,
+                        market,
+                        as_of,
+                        curve_id,
+                        self.bump_config.credit_bp,
+                    )?;
+                }
+            }
+            let residual_variance = exposure * exposure * idio_variance;
+            if residual_variance > 0.0 {
+                residual_contributions.push(PositionResidualContribution {
+                    position_id: position.position_id.clone(),
+                    residual_variance,
+                    source: ResidualContributionSource::FromCreditModel { issuer_id },
+                });
+            }
+        }
+        apply_residual_contributions(decomposition, residual_contributions);
+        Ok(())
     }
 
     /// Create a what-if engine anchored to a base decomposition and sensitivity matrix.
@@ -381,6 +506,265 @@ impl FactorModel {
     pub(crate) fn risk_measure(&self) -> &RiskMeasure {
         &self.risk_measure
     }
+
+    pub(crate) fn stressed_market(
+        &self,
+        portfolio: &Portfolio,
+        market: &MarketContext,
+        as_of: Date,
+        stresses: &[(finstack_core::factor_model::FactorId, f64)],
+    ) -> Result<MarketContext> {
+        use finstack_core::factor_model::FactorBumpUnit;
+        use finstack_valuations::factor_model::mapping_to_market_bumps;
+
+        let stress_by_id: HashMap<_, _> = stresses.iter().map(|(id, shift)| (id, *shift)).collect();
+        for (factor_id, _) in stresses {
+            if !self.factors.iter().any(|factor| factor.id == *factor_id) {
+                return Err(Error::invalid_input(format!(
+                    "Unknown factor '{factor_id}'"
+                )));
+            }
+        }
+
+        let mut stressed = market.clone();
+        for factor in &self.factors {
+            let Some(shift) = stress_by_id.get(&factor.id).copied() else {
+                continue;
+            };
+            if uses_assignment_driven_credit_shock(factor) {
+                let curve_ids = self.credit_curves_matched_to_factor(portfolio, &factor.id)?;
+                stressed = shift_credit_curves(&stressed, &curve_ids, shift)?;
+            } else {
+                stressed = stressed.bump(mapping_to_market_bumps(
+                    &factor.market_mapping,
+                    shift,
+                    FactorBumpUnit::canonical_for(&factor.factor_type),
+                    as_of,
+                )?)?;
+            }
+        }
+
+        Ok(stressed)
+    }
+
+    fn credit_curves_matched_to_factor(
+        &self,
+        portfolio: &Portfolio,
+        factor_id: &finstack_core::factor_model::FactorId,
+    ) -> Result<Vec<finstack_core::types::CurveId>> {
+        let mut curve_ids = BTreeSet::new();
+        for position in &portfolio.positions {
+            let dependencies = flatten_dependencies(&position.instrument.market_dependencies()?);
+            for dependency in &dependencies {
+                let Some(curve_id) = credit_curve_id(dependency) else {
+                    continue;
+                };
+                let Some(entries) = self
+                    .matcher
+                    .match_factor_with_betas(dependency, position.instrument.attributes())
+                    .map_err(|e| Error::invalid_input(e.to_string()))?
+                else {
+                    continue;
+                };
+                if entries.iter().any(|entry| entry.factor_id == *factor_id) {
+                    curve_ids.insert(curve_id.clone());
+                }
+            }
+        }
+        Ok(curve_ids.into_iter().collect())
+    }
+}
+
+fn credit_idiosyncratic_variance(
+    matching: &MatchingConfig,
+) -> BTreeMap<finstack_core::types::IssuerId, f64> {
+    let mut out = BTreeMap::new();
+    collect_credit_idiosyncratic_variance(matching, &mut out);
+    out
+}
+
+fn collect_credit_idiosyncratic_variance(
+    matching: &MatchingConfig,
+    out: &mut BTreeMap<finstack_core::types::IssuerId, f64>,
+) {
+    match matching {
+        MatchingConfig::CreditHierarchical(config) => {
+            for row in &config.issuer_betas {
+                out.insert(
+                    row.issuer_id.clone(),
+                    row.adder_vol_annualized * row.adder_vol_annualized,
+                );
+            }
+        }
+        MatchingConfig::Cascade(configs) => {
+            for config in configs {
+                collect_credit_idiosyncratic_variance(config, out);
+            }
+        }
+        MatchingConfig::MappingTable(_) | MatchingConfig::Hierarchical(_) => {}
+    }
+}
+
+fn apply_residual_contributions(
+    decomposition: &mut RiskDecomposition,
+    residual_contributions: Vec<PositionResidualContribution>,
+) {
+    let residual_variance: f64 = residual_contributions
+        .iter()
+        .map(|contribution| contribution.residual_variance)
+        .sum();
+    if residual_variance <= 0.0 {
+        return;
+    }
+    let systematic_variance =
+        variance_from_measure(decomposition.measure, decomposition.total_risk);
+    let combined_variance = systematic_variance + residual_variance;
+    let (combined_total, combined_component_scale) =
+        risk_total_and_component_scale(decomposition.measure, combined_variance);
+    let (_, systematic_component_scale) =
+        risk_total_and_component_scale(decomposition.measure, systematic_variance);
+    let factor_rescale = if systematic_component_scale.abs() > 0.0 {
+        combined_component_scale / systematic_component_scale
+    } else {
+        0.0
+    };
+
+    for contribution in &mut decomposition.factor_contributions {
+        contribution.absolute_risk *= factor_rescale;
+        contribution.marginal_risk *= factor_rescale;
+        contribution.relative_risk = if combined_total.abs() > 0.0 {
+            contribution.absolute_risk / combined_total
+        } else {
+            0.0
+        };
+    }
+    for contribution in &mut decomposition.position_factor_contributions {
+        contribution.risk_contribution *= factor_rescale;
+    }
+
+    decomposition.total_risk = combined_total;
+    decomposition.residual_risk = residual_variance * combined_component_scale;
+    decomposition
+        .position_residual_contributions
+        .extend(residual_contributions);
+}
+
+fn variance_from_measure(measure: RiskMeasure, total_risk: f64) -> f64 {
+    match measure {
+        RiskMeasure::Variance => total_risk.max(0.0),
+        RiskMeasure::Volatility => total_risk * total_risk,
+        RiskMeasure::VaR { confidence } => {
+            let z = super::math::normal_quantile(confidence);
+            if z > 0.0 {
+                (total_risk / -z).powi(2)
+            } else {
+                0.0
+            }
+        }
+        RiskMeasure::ExpectedShortfall { confidence } => {
+            let z = super::math::normal_quantile(confidence);
+            let es_multiplier = super::math::normal_pdf(z) / (1.0 - confidence);
+            if es_multiplier > 0.0 {
+                (total_risk / -es_multiplier).powi(2)
+            } else {
+                0.0
+            }
+        }
+    }
+}
+
+fn risk_total_and_component_scale(measure: RiskMeasure, variance: f64) -> (f64, f64) {
+    let variance = variance.max(0.0);
+    let sigma = variance.sqrt();
+    match measure {
+        RiskMeasure::Variance => (variance, 1.0),
+        RiskMeasure::Volatility => {
+            if sigma > 0.0 {
+                (sigma, sigma.recip())
+            } else {
+                (0.0, 0.0)
+            }
+        }
+        RiskMeasure::VaR { confidence } => {
+            let z = super::math::normal_quantile(confidence);
+            if sigma > 0.0 {
+                (-sigma * z, -z * sigma.recip())
+            } else {
+                (0.0, 0.0)
+            }
+        }
+        RiskMeasure::ExpectedShortfall { confidence } => {
+            let z = super::math::normal_quantile(confidence);
+            let es_multiplier = super::math::normal_pdf(z) / (1.0 - confidence);
+            if sigma > 0.0 {
+                (-sigma * es_multiplier, -es_multiplier * sigma.recip())
+            } else {
+                (0.0, 0.0)
+            }
+        }
+    }
+}
+
+fn uses_assignment_driven_credit_shock(factor: &FactorDefinition) -> bool {
+    matches!(factor.factor_type, FactorType::Credit)
+        && matches!(
+            factor.market_mapping,
+            finstack_core::factor_model::MarketMapping::CurveParallel { ref curve_ids, .. }
+                if curve_ids.is_empty()
+        )
+}
+
+fn credit_curve_id(dependency: &MarketDependency) -> Option<&finstack_core::types::CurveId> {
+    match dependency {
+        MarketDependency::CreditCurve { id } => Some(id),
+        MarketDependency::Curve {
+            id,
+            curve_type: CurveType::Hazard,
+        } => Some(id),
+        _ => None,
+    }
+}
+
+fn credit_curve_parallel_delta(
+    instrument: &dyn Instrument,
+    quantity: f64,
+    market: &MarketContext,
+    as_of: Date,
+    curve_id: &finstack_core::types::CurveId,
+    bump_size: f64,
+) -> Result<f64> {
+    if bump_size.abs() < f64::EPSILON {
+        return Err(Error::invalid_input(
+            "credit factor bump size must be non-zero for sensitivity computation",
+        ));
+    }
+    let bump = |value| -> finstack_core::Result<MarketContext> {
+        let curve = market.get_hazard(curve_id.as_str())?;
+        let bumped = bump_hazard_shift(curve.as_ref(), &BumpRequest::Parallel(value))?;
+        Ok(market.clone().insert(bumped))
+    };
+    let up = bump(bump_size)?;
+    let down = bump(-bump_size)?;
+    let pv_up = instrument.value_raw(&up, as_of)?;
+    let pv_down = instrument.value_raw(&down, as_of)?;
+    Ok((pv_up - pv_down) / (2.0 * bump_size) * quantity)
+}
+
+fn shift_credit_curves(
+    market: &MarketContext,
+    curve_ids: &[finstack_core::types::CurveId],
+    delta_bp: f64,
+) -> Result<MarketContext> {
+    let mut out = market.clone();
+    if delta_bp == 0.0 {
+        return Ok(out);
+    }
+    for curve_id in curve_ids {
+        let curve = out.get_hazard(curve_id.as_str())?;
+        let bumped = bump_hazard_shift(curve.as_ref(), &BumpRequest::Parallel(delta_bp))?;
+        out = out.insert(bumped);
+    }
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -650,7 +1034,7 @@ mod tests {
                 pricing_mode: PricingMode::DeltaBased,
                 risk_measure: RiskMeasure::Variance,
                 bump_size: None,
-                unmatched_policy: Some(UnmatchedPolicy::Strict),
+                unmatched_policy: Some(UnmatchedPolicy::Residual),
             })
             .with_custom_sensitivity_engine(FixedSensitivityEngine)
             .with_custom_decomposer(FixedDecomposer(RiskDecomposition {
@@ -997,6 +1381,248 @@ mod tests {
             "Credit absolute_risk {} != expected {}",
             decomp.factor_contributions[1].absolute_risk,
             credit_contrib,
+        );
+    }
+
+    fn canonical_credit_bond(curve_id: CurveId) -> finstack_valuations::instruments::Bond {
+        use finstack_core::factor_model::matching::ISSUER_ID_META_KEY;
+        let mut bond = finstack_valuations::instruments::Bond::fixed(
+            "BOND-ISSUER-B",
+            Money::new(1_000_000.0, Currency::USD),
+            0.05,
+            date!(2024 - 01 - 01),
+            date!(2030 - 01 - 01),
+            "USD-OIS",
+        )
+        .expect("canonical bond should build");
+        bond.credit_curve_id = Some(curve_id);
+        bond.attributes = Attributes::new().with_meta(ISSUER_ID_META_KEY, "ISSUER-B");
+        bond
+    }
+
+    fn credit_market(as_of: Date, curve_id: CurveId) -> MarketContext {
+        use finstack_core::dates::DayCount;
+        use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+        let discount = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots([
+                (0.0, 1.0),
+                (1.0, (-0.05_f64).exp()),
+                (5.0, (-0.25_f64).exp()),
+                (10.0, (-0.50_f64).exp()),
+            ])
+            .build()
+            .expect("discount curve");
+        let hazard = HazardCurve::builder(curve_id)
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots([(1.0, 0.01), (5.0, 0.01), (10.0, 0.01)])
+            .build()
+            .expect("hazard curve");
+        MarketContext::new().insert(discount).insert(hazard)
+    }
+
+    #[test]
+    fn credit_hierarchy_sensitivities_use_fixed_bp_membership_not_beta_scaled_mapping() {
+        use finstack_core::factor_model::credit_hierarchy::{
+            AdderVolSource, CreditHierarchySpec, HierarchyDimension, IssuerBetaMode, IssuerBetaRow,
+            IssuerBetas, IssuerTags,
+        };
+        use finstack_core::factor_model::matching::CreditHierarchicalConfig;
+        use std::collections::BTreeMap;
+
+        let as_of = date!(2024 - 01 - 01);
+        let curve_id = CurveId::new("ISSUER-B-HAZ");
+        let market = credit_market(as_of, curve_id.clone());
+        let mut tags = BTreeMap::new();
+        tags.insert("rating".to_string(), "B".to_string());
+        let issuer_row = IssuerBetaRow {
+            issuer_id: finstack_core::types::IssuerId::new("ISSUER-B"),
+            tags: IssuerTags(tags),
+            mode: IssuerBetaMode::IssuerBeta,
+            betas: IssuerBetas {
+                pc: 5.0,
+                levels: vec![7.0],
+            },
+            adder_at_anchor: 0.0,
+            adder_vol_annualized: 0.0,
+            adder_vol_source: AdderVolSource::Default,
+            fit_quality: None,
+        };
+        let factors = vec![
+            FactorDefinition {
+                id: FactorId::new("credit::generic"),
+                factor_type: FactorType::Credit,
+                market_mapping: MarketMapping::CurveParallel {
+                    curve_ids: vec![],
+                    units: BumpUnits::RateBp,
+                },
+                description: None,
+            },
+            FactorDefinition {
+                id: FactorId::new("credit::level0::Rating::B"),
+                factor_type: FactorType::Credit,
+                market_mapping: MarketMapping::CurveParallel {
+                    curve_ids: vec![],
+                    units: BumpUnits::RateBp,
+                },
+                description: None,
+            },
+        ];
+        let covariance = FactorCovarianceMatrix::new(
+            factors.iter().map(|f| f.id.clone()).collect(),
+            vec![1.0, 0.0, 0.0, 1.0],
+        )
+        .unwrap();
+        let model = FactorModelBuilder::new()
+            .config(FactorModelConfig {
+                factors,
+                covariance,
+                matching: MatchingConfig::CreditHierarchical(CreditHierarchicalConfig {
+                    dependency_filter: Default::default(),
+                    hierarchy: CreditHierarchySpec {
+                        levels: vec![HierarchyDimension::Rating],
+                    },
+                    issuer_betas: vec![issuer_row],
+                }),
+                pricing_mode: PricingMode::DeltaBased,
+                risk_measure: RiskMeasure::Variance,
+                bump_size: None,
+                unmatched_policy: Some(UnmatchedPolicy::Residual),
+            })
+            .build()
+            .unwrap();
+        let position = Position::new(
+            "pos-credit",
+            DUMMY_ENTITY_ID,
+            "inst-credit",
+            Arc::new(canonical_credit_bond(curve_id)),
+            1.0,
+            PositionUnit::Units,
+        )
+        .unwrap();
+        let portfolio = Portfolio::builder("portfolio")
+            .base_ccy(Currency::USD)
+            .as_of(as_of)
+            .position(position)
+            .build()
+            .unwrap();
+
+        let sensitivities = model
+            .compute_sensitivities(&portfolio, &market, as_of)
+            .expect("sensitivities");
+
+        let generic = sensitivities.delta(0, 0);
+        let rating = sensitivities.delta(0, 1);
+        assert!(
+            generic.abs() > 1e-8,
+            "canonical bond should have credit sensitivity"
+        );
+        assert!(
+            (generic - rating).abs() < 1e-10,
+            "fixed-bp hierarchy factors should use the same direct issuer CS01, not beta scaling"
+        );
+    }
+
+    #[test]
+    fn credit_hierarchy_analysis_adds_idiosyncratic_residual_variance() {
+        use finstack_core::factor_model::credit_hierarchy::{
+            AdderVolSource, CreditHierarchySpec, HierarchyDimension, IssuerBetaMode, IssuerBetaRow,
+            IssuerBetas, IssuerTags,
+        };
+        use finstack_core::factor_model::matching::CreditHierarchicalConfig;
+        use std::collections::BTreeMap;
+
+        let as_of = date!(2024 - 01 - 01);
+        let curve_id = CurveId::new("ISSUER-B-HAZ");
+        let market = credit_market(as_of, curve_id.clone());
+        let mut tags = BTreeMap::new();
+        tags.insert("rating".to_string(), "B".to_string());
+        let issuer_row = IssuerBetaRow {
+            issuer_id: finstack_core::types::IssuerId::new("ISSUER-B"),
+            tags: IssuerTags(tags),
+            mode: IssuerBetaMode::IssuerBeta,
+            betas: IssuerBetas {
+                pc: 1.0,
+                levels: vec![1.0],
+            },
+            adder_at_anchor: 0.0,
+            adder_vol_annualized: 3.0,
+            adder_vol_source: AdderVolSource::Default,
+            fit_quality: None,
+        };
+        let factors = vec![
+            FactorDefinition {
+                id: FactorId::new("credit::generic"),
+                factor_type: FactorType::Credit,
+                market_mapping: MarketMapping::CurveParallel {
+                    curve_ids: vec![],
+                    units: BumpUnits::RateBp,
+                },
+                description: None,
+            },
+            FactorDefinition {
+                id: FactorId::new("credit::level0::Rating::B"),
+                factor_type: FactorType::Credit,
+                market_mapping: MarketMapping::CurveParallel {
+                    curve_ids: vec![],
+                    units: BumpUnits::RateBp,
+                },
+                description: None,
+            },
+        ];
+        let covariance = FactorCovarianceMatrix::new(
+            factors.iter().map(|f| f.id.clone()).collect(),
+            vec![1.0, 0.0, 0.0, 1.0],
+        )
+        .unwrap();
+        let model = FactorModelBuilder::new()
+            .config(FactorModelConfig {
+                factors,
+                covariance,
+                matching: MatchingConfig::CreditHierarchical(CreditHierarchicalConfig {
+                    dependency_filter: Default::default(),
+                    hierarchy: CreditHierarchySpec {
+                        levels: vec![HierarchyDimension::Rating],
+                    },
+                    issuer_betas: vec![issuer_row],
+                }),
+                pricing_mode: PricingMode::DeltaBased,
+                risk_measure: RiskMeasure::Variance,
+                bump_size: None,
+                unmatched_policy: Some(UnmatchedPolicy::Residual),
+            })
+            .build()
+            .unwrap();
+        let position = Position::new(
+            "pos-credit",
+            DUMMY_ENTITY_ID,
+            "inst-credit",
+            Arc::new(canonical_credit_bond(curve_id)),
+            1.0,
+            PositionUnit::Units,
+        )
+        .unwrap();
+        let portfolio = Portfolio::builder("portfolio")
+            .base_ccy(Currency::USD)
+            .as_of(as_of)
+            .position(position)
+            .build()
+            .unwrap();
+
+        let decomposition = model.analyze(&portfolio, &market, as_of).expect("analysis");
+
+        let systematic: f64 = decomposition
+            .factor_contributions
+            .iter()
+            .map(|contribution| contribution.absolute_risk)
+            .sum();
+        assert_eq!(decomposition.position_residual_contributions.len(), 1);
+        assert!(decomposition.residual_risk > 0.0);
+        assert!(
+            (systematic + decomposition.residual_risk - decomposition.total_risk).abs() < 1e-8,
+            "systematic plus idiosyncratic residual variance should exhaust total variance"
         );
     }
 }

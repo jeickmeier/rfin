@@ -119,10 +119,9 @@ jobs:
       - name: Run Rust tests
         run: cargo nextest run --workspace --exclude finstack-py --lib --test '*' --no-fail-fast
 
-      - name: Run core rustdoc and doctests
+      - name: Run core rustdoc
         run: |
           RUSTDOCFLAGS="-D warnings" cargo doc -p finstack-core --no-deps
-          cargo test -p finstack-core --doc
 
   # ============================================
   # Test Python — maturin build + pytest

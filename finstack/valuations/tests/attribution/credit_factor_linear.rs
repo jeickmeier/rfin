@@ -21,6 +21,7 @@ use finstack_core::factor_model::{
 use finstack_core::market_data::context::{
     CurveState, MarketContextState, MARKET_CONTEXT_STATE_VERSION,
 };
+use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, IssuerId};
@@ -294,27 +295,52 @@ fn taylor_credit_detail_reconciles_to_credit_curves_pnl() {
     let haz_t0 = make_hazard(as_of_t0, 0.01); // 100 bp
     let haz_t1 = make_hazard(as_of_t1, 0.02); // 200 bp
 
-    let make_market_state = |disc: DiscountCurve, haz: HazardCurve| MarketContextState {
-        version: MARKET_CONTEXT_STATE_VERSION,
-        curves: vec![CurveState::Discount(disc), CurveState::Hazard(haz)],
-        fx: None,
-        surfaces: vec![],
-        prices: BTreeMap::new(),
-        series: vec![],
-        inflation_indices: vec![],
-        dividends: vec![],
-        credit_indices: vec![],
-        collateral: BTreeMap::new(),
-        fx_delta_vol_surfaces: vec![],
-        hierarchy: None,
-        vol_cubes: vec![],
-    };
+    let make_market_state =
+        |disc: DiscountCurve, haz: HazardCurve, prices: BTreeMap<String, MarketScalar>| {
+            MarketContextState {
+                version: MARKET_CONTEXT_STATE_VERSION,
+                curves: vec![CurveState::Discount(disc), CurveState::Hazard(haz)],
+                fx: None,
+                surfaces: vec![],
+                prices,
+                series: vec![],
+                inflation_indices: vec![],
+                dividends: vec![],
+                credit_indices: vec![],
+                collateral: BTreeMap::new(),
+                fx_delta_vol_surfaces: vec![],
+                hierarchy: None,
+                vol_cubes: vec![],
+            }
+        };
+    let prices_t0 = BTreeMap::from([
+        ("cdx.ig.5y".to_string(), MarketScalar::Unitless(100.0)),
+        (
+            "credit::level0::Rating::IG".to_string(),
+            MarketScalar::Unitless(0.0),
+        ),
+        (
+            "credit::level1::Rating.Region::IG.EU".to_string(),
+            MarketScalar::Unitless(0.0),
+        ),
+    ]);
+    let prices_t1 = BTreeMap::from([
+        ("cdx.ig.5y".to_string(), MarketScalar::Unitless(110.0)),
+        (
+            "credit::level0::Rating::IG".to_string(),
+            MarketScalar::Unitless(25.0),
+        ),
+        (
+            "credit::level1::Rating.Region::IG.EU".to_string(),
+            MarketScalar::Unitless(15.0),
+        ),
+    ]);
 
     let model = make_model();
     let spec = AttributionSpec {
         instrument: InstrumentJson::Bond(bond),
-        market_t0: make_market_state(disc_t0, haz_t0),
-        market_t1: make_market_state(disc_t1, haz_t1),
+        market_t0: make_market_state(disc_t0, haz_t0, prices_t0),
+        market_t1: make_market_state(disc_t1, haz_t1, prices_t1),
         as_of_t0,
         as_of_t1,
         method: AttributionMethod::Taylor(TaylorAttributionConfig::default()),
@@ -344,6 +370,10 @@ fn taylor_credit_detail_reconciles_to_credit_curves_pnl() {
         (attributed - expected).abs() < 1e-8,
         "taylor end-to-end reconciliation failed: attributed={attributed}, credit_curves_pnl={expected}"
     );
+    assert!((detail.generic_pnl.amount() - expected * 0.10).abs() < 1e-8);
+    assert!((detail.levels[0].total.amount() - expected * 0.25).abs() < 1e-8);
+    assert!((detail.levels[1].total.amount() - expected * 0.15).abs() < 1e-8);
+    assert!((detail.adder_pnl_total.amount() - expected * 0.50).abs() < 1e-8);
 }
 
 /// PR-7 named test 4: per-issuer adder map is `None` by default.

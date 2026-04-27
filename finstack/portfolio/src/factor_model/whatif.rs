@@ -5,10 +5,9 @@ use crate::position::Position;
 use crate::types::PositionId;
 use crate::Portfolio;
 use finstack_core::dates::Date;
-use finstack_core::factor_model::{FactorBumpUnit, FactorId};
+use finstack_core::factor_model::FactorId;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::NeumaierAccumulator;
-use finstack_valuations::factor_model::mapping_to_market_bumps;
 use finstack_valuations::factor_model::sensitivity::SensitivityMatrix;
 
 /// Minimum portfolio size at which factor-stress repricing is run in parallel.
@@ -168,26 +167,9 @@ impl<'a> WhatIfEngine<'a> {
 
     /// Shock factors, reprice positions, and recompute the stressed decomposition.
     pub fn factor_stress(&self, stresses: &[(FactorId, f64)]) -> Result<StressResult> {
-        let mut bumps = Vec::new();
-        for (factor_id, shift) in stresses {
-            let factor = self
-                .model
-                .factors()
-                .iter()
-                .find(|factor| factor.id == *factor_id)
-                .ok_or_else(|| Error::invalid_input(format!("Unknown factor '{}'", factor_id)))?;
-            // `factor_stress` shifts are specified in the factor's canonical
-            // unit (basis points for rates/credit, percent for equity/FX,
-            // absolute for vol) — see `FactorBumpUnit::canonical_for`.
-            bumps.extend(mapping_to_market_bumps(
-                &factor.market_mapping,
-                *shift,
-                FactorBumpUnit::canonical_for(&factor.factor_type),
-                self.as_of,
-            )?);
-        }
-
-        let stressed_market = self.market.bump(bumps)?;
+        let stressed_market =
+            self.model
+                .stressed_market(self.portfolio, self.market, self.as_of, stresses)?;
 
         let positions = &self.portfolio.positions;
         let position_pnl: Vec<(PositionId, f64)> =
@@ -498,6 +480,153 @@ mod tests {
             (pnl_units - pnl_pct).abs() < 1e-9,
             "units={pnl_units}, percentage={pnl_pct}"
         );
+    }
+
+    #[test]
+    fn factor_stress_applies_credit_hierarchy_fixed_bp_shocks_in_model_order() {
+        use finstack_core::factor_model::credit_hierarchy::{
+            AdderVolSource, CreditHierarchySpec, HierarchyDimension, IssuerBetaMode, IssuerBetaRow,
+            IssuerBetas, IssuerTags,
+        };
+        use finstack_core::factor_model::matching::{CreditHierarchicalConfig, ISSUER_ID_META_KEY};
+        use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+        use std::collections::BTreeMap;
+
+        let as_of = date!(2024 - 01 - 01);
+        let curve_id = CurveId::new("ISSUER-B-HAZ");
+        let discount = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .knots([
+                (0.0, 1.0),
+                (1.0, (-0.05_f64).exp()),
+                (5.0, (-0.25_f64).exp()),
+            ])
+            .build()
+            .expect("discount");
+        let hazard = HazardCurve::builder(curve_id.clone())
+            .base_date(as_of)
+            .knots([(1.0, 0.01), (5.0, 0.01)])
+            .build()
+            .expect("hazard");
+        let market = MarketContext::new().insert(discount).insert(hazard);
+        let factors = vec![
+            FactorDefinition {
+                id: FactorId::new("credit::level0::Rating::B"),
+                factor_type: FactorType::Credit,
+                market_mapping: MarketMapping::CurveParallel {
+                    curve_ids: vec![],
+                    units: BumpUnits::RateBp,
+                },
+                description: None,
+            },
+            FactorDefinition {
+                id: FactorId::new("credit::generic"),
+                factor_type: FactorType::Credit,
+                market_mapping: MarketMapping::CurveParallel {
+                    curve_ids: vec![],
+                    units: BumpUnits::RateBp,
+                },
+                description: None,
+            },
+        ];
+        let covariance = FactorCovarianceMatrix::new(
+            factors.iter().map(|factor| factor.id.clone()).collect(),
+            vec![1.0, 0.0, 0.0, 1.0],
+        )
+        .expect("covariance");
+        let mut tags = BTreeMap::new();
+        tags.insert("rating".to_string(), "B".to_string());
+        let model = FactorModelBuilder::new()
+            .config(FactorModelConfig {
+                factors,
+                covariance,
+                matching: MatchingConfig::CreditHierarchical(CreditHierarchicalConfig {
+                    dependency_filter: Default::default(),
+                    hierarchy: CreditHierarchySpec {
+                        levels: vec![HierarchyDimension::Rating],
+                    },
+                    issuer_betas: vec![IssuerBetaRow {
+                        issuer_id: finstack_core::types::IssuerId::new("ISSUER-B"),
+                        tags: IssuerTags(tags),
+                        mode: IssuerBetaMode::IssuerBeta,
+                        betas: IssuerBetas {
+                            pc: 9.0,
+                            levels: vec![11.0],
+                        },
+                        adder_at_anchor: 0.0,
+                        adder_vol_annualized: 0.0,
+                        adder_vol_source: AdderVolSource::Default,
+                        fit_quality: None,
+                    }],
+                }),
+                pricing_mode: PricingMode::DeltaBased,
+                risk_measure: RiskMeasure::Variance,
+                bump_size: None,
+                unmatched_policy: Some(UnmatchedPolicy::Residual),
+            })
+            .with_custom_sensitivity_engine(FixedSensitivityEngine)
+            .build()
+            .expect("model");
+        let mut bond = finstack_valuations::instruments::Bond::fixed(
+            "BOND-ISSUER-B",
+            Money::new(1_000_000.0, Currency::USD),
+            0.05,
+            as_of,
+            date!(2030 - 01 - 01),
+            "USD-OIS",
+        )
+        .expect("bond");
+        bond.credit_curve_id = Some(curve_id.clone());
+        bond.attributes = Attributes::new().with_meta(ISSUER_ID_META_KEY, "ISSUER-B");
+        let position = Position::new(
+            "pos-credit",
+            DUMMY_ENTITY_ID,
+            "bond-credit",
+            Arc::new(bond),
+            1.0,
+            PositionUnit::Units,
+        )
+        .expect("position");
+        let portfolio = Portfolio::builder("portfolio")
+            .base_ccy(Currency::USD)
+            .as_of(as_of)
+            .position(position)
+            .build()
+            .expect("portfolio");
+        let base = model.analyze(&portfolio, &market, as_of).expect("base");
+        let sensitivities = model
+            .compute_sensitivities(&portfolio, &market, as_of)
+            .expect("sensitivities");
+
+        let result = model
+            .what_if(&base, &sensitivities, &portfolio, &market, as_of)
+            .factor_stress(&[
+                (FactorId::new("credit::level0::Rating::B"), 25.0),
+                (FactorId::new("credit::generic"), 5.0),
+            ])
+            .expect("stress");
+        let manually_stressed = model
+            .stressed_market(
+                &portfolio,
+                &market,
+                as_of,
+                &[
+                    (FactorId::new("credit::level0::Rating::B"), 25.0),
+                    (FactorId::new("credit::generic"), 5.0),
+                ],
+            )
+            .expect("manual stress");
+        let base_value = portfolio.positions[0]
+            .instrument
+            .value_raw(&market, as_of)
+            .expect("base value");
+        let stressed_value = portfolio.positions[0]
+            .instrument
+            .value_raw(&manually_stressed, as_of)
+            .expect("stressed value");
+
+        assert!((result.total_pnl - (stressed_value - base_value)).abs() < 1e-8);
+        assert!(result.total_pnl.abs() > 1e-8);
     }
 
     fn build_test_model() -> Option<(FactorModel, Portfolio, MarketContext)> {

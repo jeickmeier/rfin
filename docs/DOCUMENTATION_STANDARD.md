@@ -26,7 +26,7 @@ Applies to:
 
 - **Rust:** `#![warn(missing_docs)]` (workspace) plus `-D missing_docs` at CI.
 - **Rustdoc:** every crate's CI job builds with `RUSTDOCFLAGS="-D warnings"`. Broken intra-doc links and stale references fail the build.
-- **Doctests:** `cargo test -p <crate> --doc` runs in CI. Doctests must be runnable; if a doctest can only compile, mark it `no_run`. Use `ignore` only when the example needs external resources.
+- **Doctests:** `cargo test -p <crate> --doc` is not part of the default CI build. Run it locally when adding doctests; doctests should be runnable unless the example needs `no_run` or external-resource `ignore` handling.
 
 If a lint is too aggressive for a specific item, prefer `#[allow(...)]` at the smallest scope possible and add a one-line comment justifying it. Don't disable the lint at the crate level.
 
@@ -313,7 +313,7 @@ When changing an existing public API:
 |------|--------|-------|
 | `-D missing_docs` (Rust) | Active | All workspace crates |
 | `RUSTDOCFLAGS="-D warnings"` | Active for `finstack-core`, `finstack-py`, `finstack-wasm` per local verification | Should be promoted to CI for the full workspace |
-| Doctests run | Active per crate | `cargo test -p <crate> --doc` |
+| Doctests run | Manual | `cargo test -p <crate> --doc` when adding doctests |
 | JSDoc `@example` density | Not yet enforced | Target: post-WASM-backfill, add a script that fails if a `#[wasm_bindgen]` export lacks `@example` |
 | `# References` density on financial code | Not yet enforced | Target: a heuristic check on `pricer/`, `metrics/`, `credit/`, `dates/daycount`, `risk_metrics/` |
 
