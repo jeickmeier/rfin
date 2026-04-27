@@ -440,9 +440,9 @@ mod tests {
     };
     use finstack_core::types::IssuerId;
     use finstack_valuations::factor_model::{
-        BucketSizeThresholds, CovarianceStrategy, CreditCalibrationConfig,
-        CreditCalibrationInputs, CreditCalibrator, GenericFactorSeries, HistoryPanel,
-        IssuerTagPanel, PanelSpace, VolModelChoice,
+        BucketSizeThresholds, CovarianceStrategy, CreditCalibrationConfig, CreditCalibrationInputs,
+        CreditCalibrator, GenericFactorSeries, HistoryPanel, IssuerTagPanel, PanelSpace,
+        VolModelChoice,
     };
     use std::collections::BTreeMap;
     use time::Month;
@@ -614,9 +614,8 @@ mod tests {
         assert_eq!(l0_val["date"].as_str().unwrap(), "2024-03-28");
 
         // decompose_period.
-        let period =
-            finstack_valuations::factor_model::decompose_period(&levels_t0, &levels_t1)
-                .expect("decompose_period");
+        let period = finstack_valuations::factor_model::decompose_period(&levels_t0, &levels_t1)
+            .expect("decompose_period");
         let p_val = super::period_decomposition_to_value(&period);
         assert!(p_val.is_object());
         assert!(p_val["d_generic"].as_f64().is_some());

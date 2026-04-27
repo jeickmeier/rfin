@@ -92,11 +92,9 @@ fn minimal_inputs_json() -> String {
 /// `schema_version` is preserved.
 #[wasm_bindgen_test]
 fn credit_factor_model_round_trips_through_json() {
-    let json = include_str!(
-        "../../finstack/valuations/tests/golden/credit_factor_model_v1.json"
-    );
-    let model = WasmCreditFactorModel::from_json(json)
-        .expect("from_json must succeed on golden artifact");
+    let json = include_str!("../../finstack/valuations/tests/golden/credit_factor_model_v1.json");
+    let model =
+        WasmCreditFactorModel::from_json(json).expect("from_json must succeed on golden artifact");
     let out = model.to_json().expect("to_json must succeed");
 
     let parsed_in: serde_json::Value = serde_json::from_str(json).unwrap();

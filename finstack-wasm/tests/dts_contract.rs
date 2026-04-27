@@ -28,14 +28,14 @@ fn credit_factor_hierarchy_dts_exposes_public_surface() {
 
     // Classes
     assert!(dts.contains("export declare class CreditFactorModel {"));
-    assert!(contains_signature(&dts, "static fromJson(s: string): CreditFactorModel;"));
+    assert!(contains_signature(
+        &dts,
+        "static fromJson(s: string): CreditFactorModel;"
+    ));
     assert!(contains_signature(&dts, "toJson(): string;"));
 
     assert!(dts.contains("export declare class CreditCalibrator {"));
-    assert!(contains_signature(
-        &dts,
-        "constructor(configJson: string);"
-    ));
+    assert!(contains_signature(&dts, "constructor(configJson: string);"));
     assert!(contains_signature(
         &dts,
         "calibrate(inputsJson: string): CreditFactorModel;"
@@ -77,7 +77,9 @@ fn credit_factor_hierarchy_dts_exposes_public_surface() {
     assert!(dts.contains("CreditCalibrator: typeof CreditCalibrator;"));
     assert!(dts.contains("FactorCovarianceForecast: typeof FactorCovarianceForecast;"));
     assert!(dts.contains("decomposeLevels("));
-    assert!(dts.contains("decomposePeriod(fromLevels: LevelsAtDate, toLevels: LevelsAtDate): PeriodDecomposition;"));
+    assert!(dts.contains(
+        "decomposePeriod(fromLevels: LevelsAtDate, toLevels: LevelsAtDate): PeriodDecomposition;"
+    ));
 }
 
 #[test]
