@@ -20,8 +20,10 @@ use crate::instruments::common_impl::numeric::decimal_to_f64;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
 use crate::market::conventions::ids::IndexId;
-use crate::market::conventions::ConventionRegistry;
+use crate::market::conventions::{ConventionRegistry, RateIndexConventions, RateIndexKind};
 use finstack_margin::types::OtcMarginSpec;
+
+use super::compounding::FloatingLegCompounding;
 
 // Re-export common enums from parameters
 pub use crate::instruments::common_impl::parameters::legs::{ParRateMethod, PayReceive};
@@ -219,7 +221,7 @@ impl InterestRateSwap {
         let idx = IndexId::new(index_id);
         let rate_conv = registry.require_rate_index(&idx)?;
 
-        let compounding = rate_conv.ois_compounding.clone().unwrap_or_default();
+        let compounding = floating_compounding_from_conventions(rate_conv)?;
 
         let swap = Self::builder()
             .id(id)
@@ -261,6 +263,29 @@ impl InterestRateSwap {
 
         swap.validate()?;
         Ok(swap)
+    }
+}
+
+fn floating_compounding_from_conventions(
+    rate_conv: &RateIndexConventions,
+) -> finstack_core::Result<FloatingLegCompounding> {
+    match rate_conv.kind {
+        RateIndexKind::Term => Ok(FloatingLegCompounding::Simple),
+        RateIndexKind::OvernightRfr => {
+            let compounding = rate_conv.ois_compounding.clone().ok_or_else(|| {
+                finstack_core::Error::Validation(
+                    "Overnight RFR index conventions must specify `ois_compounding`".to_string(),
+                )
+            })?;
+
+            if matches!(compounding, FloatingLegCompounding::Simple) {
+                return Err(finstack_core::Error::Validation(
+                    "OIS swap requires compounded-in-arrears floating compounding".to_string(),
+                ));
+            }
+
+            Ok(compounding)
+        }
     }
 }
 
@@ -686,5 +711,26 @@ mod tests {
             .expect("subtraction should succeed");
         assert_eq!(start, expected);
         assert!(start < end);
+    }
+
+    #[test]
+    fn from_conventions_uses_overnight_rfr_compounding() {
+        let swap = InterestRateSwap::from_conventions(ConventionSwapParams {
+            id: InstrumentId::new("USD-SOFR-OIS-SWAP-5Y"),
+            notional: Money::new(1_000_000.0, Currency::USD),
+            side: PayReceive::PayFixed,
+            fixed_rate: 0.04,
+            start: Date::from_calendar_date(2025, time::Month::January, 13).expect("start"),
+            end: Date::from_calendar_date(2030, time::Month::January, 13).expect("end"),
+            index_id: "USD-SOFR-OIS",
+            discount_curve_id: "USD-OIS",
+            forward_curve_id: "USD-SOFR-OIS",
+        })
+        .expect("OIS swap from conventions");
+
+        assert!(
+            !matches!(swap.float.compounding, FloatingLegCompounding::Simple),
+            "overnight RFR swaps must not silently default to simple compounding"
+        );
     }
 }

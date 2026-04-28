@@ -8,15 +8,89 @@ use crate::instruments::credit_derivatives::cds::{CDSConvention, CreditDefaultSw
 use crate::instruments::DynInstrument;
 use crate::instruments::PricingOverrides;
 use crate::market::build::helpers::{resolve_calendar, resolve_spot_date};
+use crate::market::conventions::ids::CdsConventionKey;
 use crate::market::conventions::registry::ConventionRegistry;
+use crate::market::conventions::CdsConventions;
 use crate::market::quotes::cds::CdsQuote;
 use crate::market::quotes::ids::Pillar;
 use crate::market::BuildCtx;
-use finstack_core::dates::{next_cds_date, BusinessDayConvention, DateExt, StubKind};
+use finstack_core::dates::{next_cds_date, BusinessDayConvention, Date, DateExt, StubKind};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
 use rust_decimal::Decimal;
+
+/// Resolved CDS dates used by both builders and calibration prepared quotes.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct CdsResolvedDates {
+    pub(crate) spot: Date,
+    pub(crate) start: Date,
+    pub(crate) maturity: Date,
+}
+
+/// Resolve CDS quote dates without requiring callers to inspect the boxed instrument.
+pub(crate) fn resolve_cds_quote_dates(
+    quote: &CdsQuote,
+    ctx: &BuildCtx,
+) -> Result<CdsResolvedDates> {
+    let (convention_key, pillar) = cds_quote_convention_and_pillar(quote);
+    let registry = ConventionRegistry::try_global()?;
+    let conv = registry.require_cds(convention_key)?;
+    resolve_cds_dates(ctx, conv, pillar)
+}
+
+fn cds_quote_convention_and_pillar(quote: &CdsQuote) -> (&CdsConventionKey, &Pillar) {
+    match quote {
+        CdsQuote::CdsParSpread {
+            convention, pillar, ..
+        }
+        | CdsQuote::CdsUpfront {
+            convention, pillar, ..
+        } => (convention, pillar),
+    }
+}
+
+fn resolve_cds_dates(
+    ctx: &BuildCtx,
+    conv: &CdsConventions,
+    pillar: &Pillar,
+) -> Result<CdsResolvedDates> {
+    let spot = resolve_spot_date(
+        ctx.as_of(),
+        &conv.calendar_id,
+        conv.settlement_days,
+        conv.bdc,
+    )?;
+    let cal = resolve_calendar(&conv.calendar_id)?;
+
+    // CDS Start: Market standard is the prior CDS roll (20th of Mar/Jun/Sep/Dec).
+    // Use the CDS IMM roll date on or before spot.
+    let roll_anchor = spot.add_months(-3);
+    let start = next_cds_date(roll_anchor);
+
+    let maturity = match pillar {
+        Pillar::Tenor(t) => {
+            // Maturity is the CDS roll date on or after the tenor target date.
+            // Use Unadjusted BDC to compute the raw target date, then roll to IMM.
+            // This prevents business-day adjustment from shifting us past the 20th
+            // into the next quarter (e.g., 20-Jun on Saturday -> 22-Jun -> 20-Sep).
+            let raw = t.add_to_date(start, Some(cal), BusinessDayConvention::Unadjusted)?;
+            next_cds_date(raw - time::Duration::days(1))
+        }
+        Pillar::Date(d) => {
+            // Enforce IMM alignment using the unadjusted input date.
+            // Do NOT business-day adjust before roll selection, as that can push
+            // the date past the 20th and cause next_cds_date to return the next quarter.
+            next_cds_date(*d - time::Duration::days(1))
+        }
+    };
+
+    Ok(CdsResolvedDates {
+        spot,
+        start,
+        maturity,
+    })
+}
 
 /// Build a Credit Default Swap instrument from a [`CdsQuote`].
 ///
@@ -159,37 +233,7 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<DynI
     crate::instruments::common_impl::validation::validate_recovery_rate(recovery_rate)?;
 
     let conv = registry.require_cds(convention_key)?;
-    let spot = resolve_spot_date(
-        ctx.as_of(),
-        &conv.calendar_id,
-        conv.settlement_days,
-        conv.bdc,
-    )?;
-
-    // Resolve calendar for tenor addition
-    let cal = resolve_calendar(&conv.calendar_id)?;
-
-    // CDS Start: Market standard is the prior CDS roll (20th of Mar/Jun/Sep/Dec).
-    // Use the CDS IMM roll date on or before spot.
-    let roll_anchor = spot.add_months(-3);
-    let start = next_cds_date(roll_anchor);
-
-    let maturity = match pillar {
-        Pillar::Tenor(t) => {
-            // Maturity is the CDS roll date on or after the tenor target date.
-            // Use Unadjusted BDC to compute the raw target date, then roll to IMM.
-            // This prevents business-day adjustment from shifting us past the 20th
-            // into the next quarter (e.g., 20-Jun on Saturday -> 22-Jun -> 20-Sep).
-            let raw = t.add_to_date(start, Some(cal), BusinessDayConvention::Unadjusted)?;
-            next_cds_date(raw - time::Duration::days(1))
-        }
-        Pillar::Date(d) => {
-            // Enforce IMM alignment using the unadjusted input date.
-            // Do NOT business-day adjust before roll selection, as that can push
-            // the date past the 20th and cause next_cds_date to return the next quarter.
-            next_cds_date(*d - time::Duration::days(1))
-        }
-    };
+    let dates = resolve_cds_dates(ctx, conv, pillar)?;
 
     let discount_id = ctx.require_curve_id("discount")?.to_string();
 
@@ -200,7 +244,7 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<DynI
     // Amount = Notional * pct; Date = Spot (Settlement)
     let upfront_payment = upfront.map(|pct| {
         (
-            spot,
+            dates.spot,
             Money::new(ctx.notional() * pct, convention_key.currency),
         )
     });
@@ -215,8 +259,8 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<DynI
         // Default to Buy Protection (Pay Premium).
         convention: convention_enum,
         premium: PremiumLegSpec {
-            start,
-            end: maturity,
+            start: dates.start,
+            end: dates.maturity,
             frequency: conv.frequency,
             stub: StubKind::None, // Default to None or derive?
             bdc: conv.bdc,

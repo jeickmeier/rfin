@@ -8,8 +8,7 @@
         "ANY:isda_na",
         "USD:isda_na",
         "CAD:isda_na",
-        "MXN:isda_na",
-        "DEFAULT:DEFAULT"
+        "MXN:isda_na"
       ],
       "record": {
         "doc_clause": "isda_na",

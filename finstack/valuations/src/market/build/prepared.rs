@@ -1,7 +1,7 @@
 //! Prepared quote envelopes for calibration pipelines.
 
 use crate::instruments::DynInstrument;
-use crate::market::build::cds::build_cds_instrument;
+use crate::market::build::cds::{build_cds_instrument, resolve_cds_quote_dates};
 use crate::market::build::helpers::{resolve_calendar, resolve_spot_date};
 use crate::market::build::rates::build_rate_instrument;
 use crate::market::conventions::registry::ConventionRegistry;
@@ -245,14 +245,9 @@ pub(crate) fn prepare_cds_quote(
     day_count: DayCount,
     base_date: Date,
 ) -> Result<PreparedQuote<CdsQuote>> {
+    let maturity_date = resolve_cds_quote_dates(&quote, build_ctx)?.maturity;
     let instrument = build_cds_instrument(&quote, build_ctx)?;
     let instrument: Arc<DynInstrument> = instrument.into();
-
-    let maturity_date = instrument
-        .as_any()
-        .downcast_ref::<crate::instruments::credit_derivatives::cds::CreditDefaultSwap>()
-        .map(|cds| cds.premium.end)
-        .ok_or_else(|| finstack_core::Error::Validation("Expected CDS instrument".to_string()))?;
 
     let pillar_time =
         day_count.year_fraction(base_date, maturity_date, DayCountContext::default())?;
@@ -336,5 +331,34 @@ mod tests {
             prepared.pillar_date > as_of,
             "swap pillar date should be after as_of"
         );
+    }
+
+    #[test]
+    fn prepare_cds_quote_uses_resolved_imm_maturity_as_pillar() {
+        let as_of = Date::from_calendar_date(2024, Month::January, 2).expect("valid date");
+        let mut curve_ids = HashMap::default();
+        curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+        curve_ids.insert("credit".to_string(), "ABC-CORP".to_string());
+        let ctx = BuildCtx::new(as_of, 10_000_000.0, curve_ids);
+
+        let explicit_maturity =
+            Date::from_calendar_date(2026, Month::June, 20).expect("valid maturity");
+        let quote = CdsQuote::CdsParSpread {
+            id: QuoteId::new("CDS-TEST-IMM"),
+            entity: "Test Corp".to_string(),
+            convention: crate::market::conventions::ids::CdsConventionKey {
+                currency: finstack_core::currency::Currency::USD,
+                doc_clause: crate::market::conventions::ids::CdsDocClause::IsdaNa,
+            },
+            pillar: Pillar::Date(explicit_maturity),
+            spread_bp: 100.0,
+            recovery_rate: 0.40,
+        };
+
+        let prepared =
+            prepare_cds_quote(quote, &ctx, DayCount::Act365F, as_of).expect("prepared CDS quote");
+
+        assert_eq!(prepared.pillar_date, explicit_maturity);
+        assert!(prepared.pillar_time > 2.0);
     }
 }

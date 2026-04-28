@@ -47,6 +47,7 @@
 //! - [`prepared::PreparedQuote`](prepared::PreparedQuote) for prepared quote envelopes
 
 /// Builders for bond instruments.
+#[cfg(test)]
 pub(crate) mod bond;
 /// Builders for credit instruments (CDS).
 pub(crate) mod cds;
@@ -55,6 +56,7 @@ pub(crate) mod cds_tranche;
 /// Context for building instruments.
 pub(crate) mod context;
 /// Builders for FX instruments.
+#[cfg(test)]
 pub(crate) mod fx;
 /// Shared helper functions for builders.
 pub(crate) mod helpers;
@@ -63,4 +65,5 @@ pub(crate) mod prepared;
 /// Builders for rates instruments.
 pub(crate) mod rates;
 /// Builders for cross-currency swap instruments.
+#[cfg(test)]
 pub(crate) mod xccy;

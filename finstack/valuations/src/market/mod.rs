@@ -83,13 +83,7 @@ pub mod conventions;
 /// Market quote schemas.
 pub mod quotes;
 
-#[doc(hidden)]
-pub use build::bond::build_bond_instrument;
 pub use build::cds::build_cds_instrument;
 pub use build::cds_tranche::{build_cds_tranche_instrument, CDSTrancheBuildOverrides};
 pub use build::context::BuildCtx;
-#[doc(hidden)]
-pub use build::fx::build_fx_instrument;
 pub use build::rates::build_rate_instrument;
-#[doc(hidden)]
-pub use build::xccy::build_xccy_instrument;

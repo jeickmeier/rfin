@@ -106,10 +106,6 @@ fn load_registry_from_str(json: &str) -> Result<HashMap<CdsConventionKey, CdsCon
                     )));
                 }
                 any_clauses.push((clause, conventions.clone()));
-            } else if prefix.eq_ignore_ascii_case("DEFAULT")
-                && clause_str.eq_ignore_ascii_case("DEFAULT")
-            {
-                any_clauses.push((entry.record.doc_clause, conventions.clone()));
             } else if let Ok(currency) = prefix.parse::<Currency>() {
                 let clause = parse_doc_clause(clause_str)?;
                 if clause != entry.record.doc_clause {

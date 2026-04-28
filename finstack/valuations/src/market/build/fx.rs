@@ -209,6 +209,10 @@ fn resolve_maturity_from_spot(
 }
 
 #[cfg(test)]
+#[path = "../../../tests/market/build/fx.rs"]
+mod builder_integration_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::market::conventions::ids::FxConventionId;

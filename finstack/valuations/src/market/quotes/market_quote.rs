@@ -88,10 +88,6 @@ macro_rules! impl_extract_quotes {
 }
 
 impl_extract_quotes!(RateQuote, Rates);
-impl_extract_quotes!(BondQuote, Bond);
 impl_extract_quotes!(CdsQuote, Cds);
 impl_extract_quotes!(CDSTrancheQuote, CDSTranche);
 impl_extract_quotes!(InflationQuote, Inflation);
-impl_extract_quotes!(FxQuote, Fx);
-impl_extract_quotes!(VolQuote, Vol);
-impl_extract_quotes!(XccyQuote, Xccy);

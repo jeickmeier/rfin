@@ -313,6 +313,10 @@ fn dirty_price_from_ytm_with_frequency_ctx(
 }
 
 #[cfg(test)]
+#[path = "../../../tests/market/build/bond.rs"]
+mod builder_integration_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::market::conventions::ids::BondConventionId;

@@ -313,12 +313,12 @@ pub(crate) fn resolve_market_conventions(
         )));
     }
 
-    // Currency default missing: fall back to global default.
+    // Currency default missing: fall back to the canonical North American default.
     cds_conventions_registry()
-        .get("DEFAULT:DEFAULT")
+        .get("ANY:isda_na")
         .ok_or_else(|| {
             finstack_core::Error::Validation(
-                "Missing CDS market conventions entry 'DEFAULT:DEFAULT'".to_string(),
+                "Missing CDS market conventions entry 'ANY:isda_na'".to_string(),
             )
         })
 }
@@ -1184,5 +1184,17 @@ mod tests {
             cds.protection.settlement_delay,
             CDSConvention::IsdaNa.settlement_delay()
         );
+    }
+
+    #[test]
+    fn missing_currency_default_falls_back_to_isda_na_alias() {
+        let conv = resolve_market_conventions(Currency::BRL, None)
+            .expect("missing currency default should fall back");
+
+        let isda_na = CDSConvention::IsdaNa
+            .try_registry()
+            .expect("canonical ISDA NA convention");
+
+        assert_eq!(conv, isda_na);
     }
 }
