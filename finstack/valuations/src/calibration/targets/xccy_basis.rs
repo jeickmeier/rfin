@@ -84,7 +84,6 @@ impl XccyBasisTarget {
             curve_ids,
         );
 
-        let pillar_policy = crate::market::build::prepared::PillarPolicy::default();
         let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(rates_quotes.len());
         for q in rates_quotes {
             let prepared = crate::market::build::prepared::prepare_rate_quote(
@@ -92,7 +91,7 @@ impl XccyBasisTarget {
                 &build_ctx,
                 curve_dc,
                 schema_params.base_date,
-                &pillar_policy,
+                true,
             )?;
             prepared_quotes.push(CalibrationQuote::Rates(prepared));
         }

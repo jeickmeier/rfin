@@ -1,29 +1,9 @@
 //! Loader for bond conventions embedded in JSON registries.
 
-use crate::instruments::BondConvention;
 use crate::market::conventions::defs::BondConventions;
 use crate::market::conventions::ids::BondConventionId;
-use finstack_core::currency::Currency;
 use finstack_core::Error;
 use finstack_core::HashMap;
-
-#[derive(Debug, Clone, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct BondConventionRecord {
-    currency: Currency,
-    market_convention: BondConvention,
-    default_discount_curve_id: String,
-}
-
-impl BondConventionRecord {
-    fn into_conventions(self) -> Result<BondConventions, Error> {
-        Ok(BondConventions {
-            currency: self.currency,
-            market_convention: self.market_convention,
-            default_discount_curve_id: self.default_discount_curve_id,
-        })
-    }
-}
 
 pub(crate) fn load_registry() -> Result<HashMap<BondConventionId, BondConventions>, Error> {
     let json = include_str!("../../../../data/conventions/bond_conventions.json");
@@ -31,13 +11,15 @@ pub(crate) fn load_registry() -> Result<HashMap<BondConventionId, BondConvention
         json,
         "bond",
         BondConventionId::new,
-        |rec: &BondConventionRecord| rec.clone().into_conventions(),
+        |rec: &BondConventions| Ok(rec.clone()),
     )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instruments::BondConvention;
+    use finstack_core::currency::Currency;
 
     #[test]
     fn usd_ust_bond_conventions_are_available() {

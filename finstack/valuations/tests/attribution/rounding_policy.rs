@@ -1,12 +1,12 @@
 //! Tests for rounding policy stamping and display in attribution.
 
+use crate::common::test_utils::TestInstrument;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::attribution::{attribute_pnl_parallel, AttributionMethod, PnlAttribution};
-use crate::common::test_utils::TestInstrument;
+use finstack_valuations::instruments::Instrument;
 use std::sync::Arc;
 use time::macros::date;
 
@@ -15,8 +15,10 @@ fn parallel_stamps_configured_rounding_context() {
     let as_of_t0 = date!(2025 - 01 - 01);
     let as_of_t1 = date!(2025 - 01 - 02);
 
-    let instrument: Arc<dyn Instrument> =
-        Arc::new(TestInstrument::new("TEST-ROUND", Money::new(1_000.0, Currency::USD)));
+    let instrument: Arc<dyn Instrument> = Arc::new(TestInstrument::new(
+        "TEST-ROUND",
+        Money::new(1_000.0, Currency::USD),
+    ));
     let market_t0 = MarketContext::new();
     let market_t1 = MarketContext::new();
 
@@ -76,7 +78,8 @@ fn explain_uses_stamped_rounding_context() {
     // Set non-zero components to exercise formatting paths
     attr.carry = Money::new(10.0, Currency::USD);
     attr.fx_pnl = Money::new(5.0, Currency::USD);
-    attr.compute_residual().expect("Residual computation should succeed");
+    attr.compute_residual()
+        .expect("Residual computation should succeed");
 
     let explanation = attr.explain();
     assert!(

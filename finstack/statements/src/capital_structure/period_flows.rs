@@ -322,7 +322,10 @@ mod tests {
                 }],
                 notional: Notional::par(1_000_000.0, Currency::USD),
                 day_count: DayCount::Act365F,
-                meta: CashFlowMeta::default(),
+                meta: CashFlowMeta {
+                    issue_date: Some(start),
+                    ..CashFlowMeta::default()
+                },
             },
         };
 
@@ -374,7 +377,10 @@ mod tests {
                 ],
                 notional: Notional::par(1_000_000.0, Currency::USD),
                 day_count: DayCount::Act365F,
-                meta: CashFlowMeta::default(),
+                meta: CashFlowMeta {
+                    issue_date: Some(start),
+                    ..CashFlowMeta::default()
+                },
             },
         };
 
@@ -419,7 +425,10 @@ mod tests {
                 }],
                 notional: Notional::par(0.0, Currency::USD),
                 day_count: DayCount::Act365F,
-                meta: CashFlowMeta::default(),
+                meta: CashFlowMeta {
+                    issue_date: Some(start),
+                    ..CashFlowMeta::default()
+                },
             },
         };
 
@@ -463,7 +472,10 @@ mod tests {
                 }],
                 notional: Notional::par(0.01, Currency::USD),
                 day_count: DayCount::Act365F,
-                meta: CashFlowMeta::default(),
+                meta: CashFlowMeta {
+                    issue_date: Some(start),
+                    ..CashFlowMeta::default()
+                },
             },
         };
 

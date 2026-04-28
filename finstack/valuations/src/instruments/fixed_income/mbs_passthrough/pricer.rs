@@ -501,20 +501,17 @@ mod tests {
 
     /// Regression test for the SMM-clamp removal at the MBS-pricer layer.
     ///
-    /// `PrepaymentModelSpec::smm` already clamps CPR at `MAX_CPR=0.999999`,
-    /// so the maximum SMM that can reach `generate_cashflows` via the public
-    /// API is `1 - (1 - 0.999999)^(1/12) ≈ 0.6838` — well under the old
-    /// pricer-layer cap of 0.9999. The cap was therefore a no-op on the real
-    /// path, but it would silently truncate any future direct-SMM source that
-    /// produced ≥ 0.9999. This test pins the SMM that arrives at
-    /// `generate_cashflows` so the redundant clamp can never quietly return.
+    /// `PrepaymentModelSpec::smm` now treats 100% CPR as 100% SMM and rejects
+    /// values above 100%. This test pins the SMM that arrives at
+    /// `generate_cashflows` so the pricer layer does not reintroduce its own
+    /// clamp.
     #[test]
     fn smm_at_max_cpr_passes_through_pricer_unchanged() {
         let as_of = Date::from_calendar_date(2024, Month::January, 15).expect("valid");
         let mut mbs = create_test_mbs();
         mbs.prepayment_model = PrepaymentModelSpec::constant_cpr(1.0);
 
-        let expected_smm = 1.0 - (1.0 - 0.999999_f64).powf(1.0 / 12.0);
+        let expected_smm = 1.0;
         let cashflows = generate_cashflows(&mbs, as_of, Some(1)).expect("should generate");
         let first = cashflows.first().expect("at least one cashflow");
 

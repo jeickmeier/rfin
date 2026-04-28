@@ -103,17 +103,17 @@ fn dv01_per_curve_breakdown() {
 
     let dv01_discount = res
         .measures
-        .get("bucketed_dv01::usd_ois")
+        .get("bucketed_dv01::USD_x2dOIS")
         .copied()
         .unwrap_or(0.0);
     let dv01_primary_fwd = res
         .measures
-        .get("bucketed_dv01::usd_sofr_3m")
+        .get("bucketed_dv01::USD_x2dSOFR_x2d3M")
         .copied()
         .unwrap_or(0.0);
     let dv01_reference_fwd = res
         .measures
-        .get("bucketed_dv01::usd_sofr_1m")
+        .get("bucketed_dv01::USD_x2dSOFR_x2d1M")
         .copied()
         .unwrap_or(0.0);
 
@@ -157,7 +157,7 @@ fn dv01_scales_with_notional() {
 
         let dv01 = res
             .measures
-            .get("bucketed_dv01::usd_sofr_3m")
+            .get("bucketed_dv01::USD_x2dSOFR_x2d3M")
             .copied()
             .unwrap_or(0.0);
         dv01s.push(dv01);
@@ -202,12 +202,12 @@ fn dv01_sign_convention() {
 
     let dv01_primary = res
         .measures
-        .get("bucketed_dv01::usd_sofr_3m")
+        .get("bucketed_dv01::USD_x2dSOFR_x2d3M")
         .copied()
         .unwrap_or(0.0);
     let dv01_reference = res
         .measures
-        .get("bucketed_dv01::usd_sofr_1m")
+        .get("bucketed_dv01::USD_x2dSOFR_x2d1M")
         .copied()
         .unwrap_or(0.0);
 
@@ -244,7 +244,7 @@ fn dv01_vs_numerical_bump() {
         .unwrap();
     let dv01_metric = res_base
         .measures
-        .get("bucketed_dv01::usd_sofr_3m")
+        .get("bucketed_dv01::USD_x2dSOFR_x2d3M")
         .copied()
         .unwrap_or(0.0);
 
@@ -345,12 +345,12 @@ fn dv01_leg_components_reasonable() {
 
     let dv01_primary = res
         .measures
-        .get("bucketed_dv01::usd_sofr_3m")
+        .get("bucketed_dv01::USD_x2dSOFR_x2d3M")
         .copied()
         .unwrap_or(0.0);
     let dv01_reference = res
         .measures
-        .get("bucketed_dv01::usd_sofr_1m")
+        .get("bucketed_dv01::USD_x2dSOFR_x2d1M")
         .copied()
         .unwrap_or(0.0);
 
@@ -540,11 +540,6 @@ fn test_bucketed_dv01_per_curve() {
     assert!(
         res.measures.contains_key("bucketed_dv01"),
         "Standard BucketedDv01 scalar should be present for BC"
-    );
-
-    assert!(
-        res.measures.contains_key("bucketed_dv01::USD-OIS::1y"),
-        "Discount curve bucketed series should be present under curve-qualified key"
     );
 
     let mut disc_buckets = 0;

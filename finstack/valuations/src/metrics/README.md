@@ -134,7 +134,11 @@ context.store_bucketed_series(MetricId::BucketedDv01, buckets);
 
 Every standard metric belongs to exactly one group. The grouping is enforced
 by compile-time tests in `core/ids.rs`. Use `list_standard_metrics_grouped()`
-(Python) or `MetricGroup::all_with_metrics()` (Rust) to query at runtime.
+(Python) or `MetricGroup::all_with_metrics()` (Rust) to query the canonical
+contract. `MetricRegistry::available_metrics_grouped()` returns registered
+standard metrics in `MetricGroup::ALL` order, sorts metrics alphabetically
+within each group, and intentionally omits `MetricId::Custom` values because
+custom metrics have no stable group contract.
 
 ### Pricing (20)
 
@@ -172,7 +176,6 @@ Time-driven P&L: theta decomposition, carry components, financing.
 | `theta` | PV(T+1) - PV(T) | Currency | All | 1-day time decay P&L |
 | `theta_carry` | Coupon accrual + pull-to-par + funding | Currency | All | Carry component of theta |
 | `theta_roll_down` | PV change from aging along same curve | Currency | All | Roll-down component of theta |
-| `theta_decay` | Theta - carry - roll_down | Currency | Options | Pure time-value (optionality) decay |
 | `carry_total` | coupon_income + pull_to_par + roll_down - funding_cost | Currency | Bond, Swap | Total carry decomposition |
 | `coupon_income` | Coupon x accrual fraction | Currency | Bond, Swap | Coupon/interest income during carry horizon |
 | `pull_to_par` | PV change from amortization at flat yield | Currency | Bond | PV convergence toward par |
@@ -180,6 +183,7 @@ Time-driven P&L: theta decomposition, carry components, financing.
 | `funding_cost` | Dirty price x funding rate x DCF | Currency | Bond | Cost of financing the position |
 | `implied_financing_rate` | Annualized rate from dollar roll drop | Decimal | TBA/MBS | Implied financing rate from dollar roll |
 | `roll_specialness` | Implied financing rate - repo rate | bps | TBA/MBS | Roll specialness vs. repo rate |
+| `breakeven` | Carry / risk sensitivity | Decimal | Carry trades | Breakeven market move over carry horizon |
 
 ### Sensitivity (19)
 
@@ -394,7 +398,19 @@ PE fund metrics, DCF valuation, repo analytics, inflation-linked bond metrics, V
 
 ## How to Add a New Metric
 
-### Step 1: Add Metric ID
+### Step 1: Choose Standard or Custom
+
+Use a standard `MetricId` constant when the metric is part of the supported
+cross-language API, should appear in grouped discovery, or needs Rust/Python/WASM
+contract stability. Use `MetricId::custom(...)` only for internal or caller-owned
+derived values such as curve-qualified buckets (`dv01::USD-OIS`) that should not
+appear in `MetricGroup` listings.
+
+At API boundaries that accept user-supplied standard metric names, parse with
+`MetricId::parse_strict(...)` so typos fail clearly. Reserve `MetricId::custom(...)`
+and `FromStr` for extension points that explicitly accept custom metrics.
+
+### Step 2: Add Metric ID
 
 Add your metric identifier to `core/ids.rs`:
 
@@ -416,7 +432,7 @@ pub const ALL_STANDARD: &'static [MetricId] = &[
 ];
 ```
 
-### Step 2: Implement the Calculator
+### Step 3: Implement the Calculator
 
 Create a calculator struct that implements `MetricCalculator`:
 
@@ -448,7 +464,7 @@ impl MetricCalculator for MyNewMetricCalculator {
 }
 ```
 
-### Step 3: Register the Metric
+### Step 4: Register the Metric
 
 Add registration in the appropriate instrument's `metrics.rs` module:
 
@@ -474,7 +490,7 @@ registry.register_metric(
 );
 ```
 
-### Step 4: Add Tests
+### Step 5: Add Tests
 
 Create comprehensive tests in the appropriate test module:
 
@@ -512,7 +528,7 @@ mod tests {
 }
 ```
 
-### Step 5: Document the Metric
+### Step 6: Document the Metric
 
 Add comprehensive documentation to `METRICS.md`:
 

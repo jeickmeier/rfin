@@ -13,7 +13,7 @@ use finstack_core::dates::{
 };
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::{Error, InputError, Result};
+use finstack_core::{Error, Result};
 
 /// Overrides for CDS tranche schedule and index metadata.
 ///
@@ -182,11 +182,6 @@ pub fn build_cds_tranche_instrument(
 ) -> Result<Box<DynInstrument>> {
     tracing::debug!(quote_id = %quote.id(), "building CDS tranche instrument");
     let registry = ConventionRegistry::try_global()?;
-    let missing_role = |role: &str| {
-        Error::Input(InputError::NotFound {
-            id: format!("curve role '{}'", role),
-        })
-    };
 
     // Extract fields
     let (
@@ -232,16 +227,10 @@ pub fn build_cds_tranche_instrument(
     // Resolve calendar for tenor addition
     let cal = resolve_calendar(&conv.calendar_id)?;
 
-    let discount_id = ctx
-        .curve_id("discount")
-        .map(String::from)
-        .ok_or_else(|| missing_role("discount"))?;
+    let discount_id = ctx.require_curve_id("discount")?.to_string();
 
     // Index curve ID: usually defaulted to index name if not mapped
-    let credit_id = ctx
-        .curve_id("credit")
-        .map(String::from)
-        .ok_or_else(|| missing_role("credit"))?;
+    let credit_id = ctx.require_curve_id("credit")?.to_string();
 
     let normalization_factor = detachment - attachment;
     if !normalization_factor.is_finite() || normalization_factor <= 0.0 {

@@ -335,95 +335,72 @@ pub(crate) fn collect_cashflows_in_period(
 // or `None` for instruments without a clear expiry concept (e.g., equity spot positions).
 // See the `Instrument` trait in `instruments/common/traits.rs`.
 
-/// Theta decomposition calculator.
-///
-/// Decomposes total theta into three additive components:
-///
-/// - **Carry**: net cashflows during the period (coupons, interest, fees; signed canonical schedule)
-/// - **Roll-down**: PV change from time passing along the *same* curve (no curve movement)
-/// - **Decay**: residual time-value / optionality decay (`total_theta - carry - roll_down`)
-///
-/// With static (T0) curves, `total_theta = carry + roll_down` by construction, so
-/// decay is identically zero. Non-zero decay arises only when the total theta is
-/// computed with distinct T1 curves (e.g., in daily P&L attribution).
-///
-/// The calculator is registered under [`MetricId::ThetaCarry`] and stores all three
-/// components as side-effects in [`MetricContext::computed`].
-pub(crate) struct GenericThetaDecomposed;
-
-impl Default for GenericThetaDecomposed {
-    fn default() -> Self {
-        Self
-    }
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct ThetaBreakdown {
+    total: f64,
+    carry: f64,
+    roll_down: f64,
 }
 
-impl crate::metrics::MetricCalculator for GenericThetaDecomposed {
-    fn calculate(&self, context: &mut crate::metrics::MetricContext) -> Result<f64> {
-        let period_str = context
-            .get_metric_overrides()
-            .and_then(|po| po.theta_period.as_deref())
-            .unwrap_or("1D");
+fn compute_theta_breakdown(context: &mut crate::metrics::MetricContext) -> Result<ThetaBreakdown> {
+    let period_str = context
+        .get_metric_overrides()
+        .and_then(|po| po.theta_period.as_deref())
+        .unwrap_or("1D");
 
-        let expiry_date = context.instrument.expiry();
-        let rolled_date = calculate_theta_date(context.as_of, period_str, expiry_date)?;
+    let expiry_date = context.instrument.expiry();
+    let rolled_date = calculate_theta_date(context.as_of, period_str, expiry_date)?;
 
-        if rolled_date <= context.as_of {
-            context
-                .computed
-                .insert(crate::metrics::MetricId::ThetaCarry, 0.0);
-            context
-                .computed
-                .insert(crate::metrics::MetricId::ThetaRollDown, 0.0);
-            context
-                .computed
-                .insert(crate::metrics::MetricId::ThetaDecay, 0.0);
-            return Ok(0.0);
-        }
-
-        let base_pv = context
-            .instrument_value_with_scenario(&context.curves, context.as_of)?
-            .amount();
-        let base_ccy = context.base_value.currency();
-
-        let rolled_pv = context
-            .instrument_value_with_scenario(&context.curves, rolled_date)?
-            .amount();
-
-        let carry = collect_cashflows_in_period(
-            context.instrument.as_ref(),
-            &context.curves,
-            context.as_of,
-            rolled_date,
-            base_ccy,
-        )?;
-
-        let roll_down = rolled_pv - base_pv;
-
-        // Total theta = carry + roll-down with T0-only curves.
-        // Decay would be non-zero if a separate total theta (with T1 curves) were available,
-        // but with static curves the decomposition is exact: total = carry + roll_down.
-        let total_theta = carry + roll_down;
-        let decay = total_theta - carry - roll_down;
-
-        context
-            .computed
-            .insert(crate::metrics::MetricId::ThetaCarry, carry);
-        context
-            .computed
-            .insert(crate::metrics::MetricId::ThetaRollDown, roll_down);
-        context
-            .computed
-            .insert(crate::metrics::MetricId::ThetaDecay, decay);
-
-        Ok(total_theta)
+    if rolled_date <= context.as_of {
+        tracing::warn!(
+            as_of = %context.as_of,
+            rolled_date = %rolled_date,
+            "Theta calculation rolled to or before the valuation date; returning 0.0"
+        );
+        return Ok(ThetaBreakdown {
+            total: 0.0,
+            carry: 0.0,
+            roll_down: 0.0,
+        });
     }
 
-    fn dependencies(&self) -> &[crate::metrics::MetricId] {
-        &[]
-    }
+    // Theta uses value() (instrument-economics-signed PV) for both base and rolled dates.
+    let base_pv = context
+        .instrument_value_with_scenario(&context.curves, context.as_of)?
+        .amount();
+    let base_ccy = context.base_value.currency();
+
+    let rolled_pv = context
+        .instrument_value_with_scenario(&context.curves, rolled_date)?
+        .amount();
+
+    let carry = collect_cashflows_in_period(
+        context.instrument.as_ref(),
+        &context.curves,
+        context.as_of,
+        rolled_date,
+        base_ccy,
+    )?;
+
+    let roll_down = rolled_pv - base_pv;
+
+    Ok(ThetaBreakdown {
+        total: carry + roll_down,
+        carry,
+        roll_down,
+    })
 }
 
-/// Lookup calculator for theta sub-components stored by [`GenericThetaDecomposed`].
+fn store_theta_breakdown(context: &mut crate::metrics::MetricContext, breakdown: ThetaBreakdown) {
+    context
+        .computed
+        .insert(crate::metrics::MetricId::ThetaCarry, breakdown.carry);
+    context
+        .computed
+        .insert(crate::metrics::MetricId::ThetaRollDown, breakdown.roll_down);
+}
+
+/// Lookup calculator for theta sub-components stored by [`GenericThetaAny`].
 ///
 /// Returns a value previously inserted into [`MetricContext::computed`] by the
 /// decomposition calculator, avoiding redundant re-computation.
@@ -440,7 +417,7 @@ impl crate::metrics::MetricCalculator for ThetaComponentLookup {
     }
 
     fn dependencies(&self) -> &[crate::metrics::MetricId] {
-        static DEPS: &[crate::metrics::MetricId] = &[crate::metrics::MetricId::ThetaCarry];
+        static DEPS: &[crate::metrics::MetricId] = &[crate::metrics::MetricId::Theta];
         DEPS
     }
 }
@@ -462,49 +439,9 @@ impl Default for GenericThetaAny {
 
 impl crate::metrics::MetricCalculator for GenericThetaAny {
     fn calculate(&self, context: &mut crate::metrics::MetricContext) -> Result<f64> {
-        // Get theta period from pricing overrides, default to "1D"
-        let period_str = context
-            .get_metric_overrides()
-            .and_then(|po| po.theta_period.as_deref())
-            .unwrap_or("1D");
-
-        // Get expiry date if available (via Instrument trait method)
-        let expiry_date = context.instrument.expiry();
-
-        // Calculate rolled date
-        let rolled_date = calculate_theta_date(context.as_of, period_str, expiry_date)?;
-
-        // If already expired or rolling to same date, theta is zero
-        if rolled_date <= context.as_of {
-            tracing::warn!(
-                as_of = %context.as_of,
-                rolled_date = %rolled_date,
-                "GenericThetaAny: Instrument already expired or rolling to same date, returning 0.0"
-            );
-            return Ok(0.0);
-        }
-
-        // Theta uses value() (instrument-economics-signed PV) for both base and rolled dates.
-        // See GenericTheta for rationale on why value_raw() is not appropriate here.
-        let base_pv = context
-            .instrument_value_with_scenario(&context.curves, context.as_of)?
-            .amount();
-        let base_ccy = context.base_value.currency();
-
-        let bumped_pv = context
-            .instrument_value_with_scenario(&context.curves, rolled_date)?
-            .amount();
-        let pv_change = bumped_pv - base_pv;
-
-        let cashflows_during_period = collect_cashflows_in_period(
-            context.instrument.as_ref(),
-            &context.curves,
-            context.as_of,
-            rolled_date,
-            base_ccy,
-        )?;
-
-        Ok(pv_change + cashflows_during_period)
+        let breakdown = compute_theta_breakdown(context)?;
+        store_theta_breakdown(context, breakdown);
+        Ok(breakdown.total)
     }
 
     fn dependencies(&self) -> &[crate::metrics::MetricId] {

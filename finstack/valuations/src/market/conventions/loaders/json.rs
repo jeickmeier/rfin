@@ -3,24 +3,76 @@
 use finstack_core::Error;
 use finstack_core::HashMap;
 
+const SUPPORTED_REGISTRY_SCHEMA_MAJOR: u32 = 2;
+
 /// A registry JSON file containing entries with alias IDs.
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct RegistryFile<R> {
-    /// Optional schema identifier.
-    #[serde(default)]
-    #[allow(dead_code)]
+    /// Schema identifier.
     pub(crate) schema: Option<String>,
-    /// Optional namespace identifier.
-    #[serde(default)]
-    #[allow(dead_code)]
+    /// Namespace identifier.
     pub(crate) namespace: Option<String>,
     /// Version number.
-    #[serde(default)]
-    #[allow(dead_code)]
     pub(crate) version: Option<u32>,
     /// Registry entries.
     pub(crate) entries: Vec<RegistryEntry<R>>,
+}
+
+impl<R> RegistryFile<R> {
+    /// Validate registry metadata before consuming embedded convention data.
+    pub(crate) fn validate_metadata(&self, registry_name: &str) -> Result<(), Error> {
+        let schema = self.schema.as_deref().ok_or_else(|| {
+            Error::Validation(format!(
+                "Embedded {registry_name} conventions registry is missing `schema`"
+            ))
+        })?;
+        if schema.trim().is_empty() {
+            return Err(Error::Validation(format!(
+                "Embedded {registry_name} conventions registry has an empty `schema`"
+            )));
+        }
+
+        let schema_major = parse_schema_major(schema).ok_or_else(|| {
+            Error::Validation(format!(
+                "Embedded {registry_name} conventions registry has unsupported schema identifier `{schema}`"
+            ))
+        })?;
+        if schema_major > SUPPORTED_REGISTRY_SCHEMA_MAJOR {
+            return Err(Error::Validation(format!(
+                "Embedded {registry_name} conventions registry schema major version {} exceeds supported version {}",
+                schema_major, SUPPORTED_REGISTRY_SCHEMA_MAJOR
+            )));
+        }
+
+        let namespace = self.namespace.as_deref().ok_or_else(|| {
+            Error::Validation(format!(
+                "Embedded {registry_name} conventions registry is missing `namespace`"
+            ))
+        })?;
+        if namespace.trim().is_empty() {
+            return Err(Error::Validation(format!(
+                "Embedded {registry_name} conventions registry has an empty `namespace`"
+            )));
+        }
+
+        let version = self.version.ok_or_else(|| {
+            Error::Validation(format!(
+                "Embedded {registry_name} conventions registry is missing `version`"
+            ))
+        })?;
+        if version == 0 {
+            return Err(Error::Validation(format!(
+                "Embedded {registry_name} conventions registry `version` must be positive"
+            )));
+        }
+
+        Ok(())
+    }
+}
+
+fn parse_schema_major(schema: &str) -> Option<u32> {
+    schema.rsplit_once(".registry.v")?.1.parse().ok()
 }
 
 /// One registry record plus its set of alias IDs.
@@ -91,6 +143,7 @@ where
             "Failed to parse embedded {registry_name} conventions registry JSON: {e}"
         ))
     })?;
+    file.validate_metadata(registry_name)?;
 
     let string_map = build_lookup_map_mapped(file, normalize_registry_id, |rec| map_record(rec))?;
 

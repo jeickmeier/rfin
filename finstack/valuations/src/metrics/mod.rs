@@ -242,7 +242,7 @@ pub(crate) use sensitivities::option_greeks::{
 };
 pub(crate) use sensitivities::rho::GenericRho;
 pub(crate) use sensitivities::theta::{
-    calculate_theta_date, GenericThetaAny, GenericThetaDecomposed, ThetaComponentLookup,
+    calculate_theta_date, GenericThetaAny, ThetaComponentLookup,
 };
 pub(crate) use sensitivities::vega::KeyRateVega;
 pub(crate) use shared::df_end::GenericDfEndCalculator;
@@ -510,17 +510,12 @@ fn register_universal_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(MetricId::Theta, std::sync::Arc::new(GenericThetaAny), &[]);
     registry.register_metric(
         MetricId::ThetaCarry,
-        std::sync::Arc::new(GenericThetaDecomposed),
+        std::sync::Arc::new(ThetaComponentLookup(MetricId::ThetaCarry)),
         &[],
     );
     registry.register_metric(
         MetricId::ThetaRollDown,
         std::sync::Arc::new(ThetaComponentLookup(MetricId::ThetaRollDown)),
-        &[],
-    );
-    registry.register_metric(
-        MetricId::ThetaDecay,
-        std::sync::Arc::new(ThetaComponentLookup(MetricId::ThetaDecay)),
         &[],
     );
     registry.register_metric(

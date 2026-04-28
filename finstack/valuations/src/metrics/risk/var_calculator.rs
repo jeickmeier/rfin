@@ -280,6 +280,15 @@ pub fn calculate_var_with_pricing(
     pricing_model: Option<ModelKey>,
     pricer_registry: Option<Arc<PricerRegistry>>,
 ) -> Result<VarResult> {
+    let _span = tracing::debug_span!(
+        "historical_var.calculate",
+        instrument_count = instruments.len(),
+        scenario_count = history.len(),
+        method = ?config.method,
+        confidence_level = config.confidence_level,
+    )
+    .entered();
+
     if instruments.is_empty() {
         return VarResult::from_distribution(Vec::new(), config.confidence_level);
     }
@@ -355,6 +364,13 @@ fn calculate_var_full_revaluation(
     pricing_model: Option<ModelKey>,
     pricer_registry: Option<Arc<PricerRegistry>>,
 ) -> Result<VarResult> {
+    let _span = tracing::debug_span!(
+        "historical_var.full_revaluation",
+        instrument_count = instruments.len(),
+        scenario_count = history.len(),
+    )
+    .entered();
+
     let instrument_refs: Vec<&dyn Instrument> = instruments.to_vec();
     let base_values_money: Vec<Money> = instrument_refs
         .iter()
@@ -422,6 +438,13 @@ fn calculate_var_taylor(
     pricing_model: Option<ModelKey>,
     pricer_registry: Option<Arc<PricerRegistry>>,
 ) -> Result<VarResult> {
+    let _span = tracing::debug_span!(
+        "historical_var.taylor",
+        instrument_count = instruments.len(),
+        scenario_count = history.len(),
+    )
+    .entered();
+
     if instruments.len() == 1 {
         // Use clone_box to get a sized type for Taylor approximation
         let boxed = instruments[0].clone_box();
@@ -457,6 +480,7 @@ fn calculate_var_taylor(
 struct BucketedSeries {
     per_curve: HashMap<String, HashMap<String, f64>>,
     fallback: HashMap<String, f64>,
+    per_curve_total: HashMap<String, f64>,
 }
 
 impl BucketedSeries {
@@ -468,14 +492,16 @@ impl BucketedSeries {
         }
         self.fallback.get(bucket).copied()
     }
+
+    fn curve_total(&self, curve_id: &str) -> Option<f64> {
+        self.per_curve_total.get(curve_id).copied()
+    }
 }
 
 struct TaylorSensitivities {
     currency: Currency,
     dv01: BucketedSeries,
     cs01: BucketedSeries,
-    parallel_dv01: f64,
-    parallel_cs01: f64,
     ir_convexity: f64,
     equity_delta: f64,
     equity_gamma: f64,
@@ -488,8 +514,6 @@ impl Default for TaylorSensitivities {
             currency: Currency::USD,
             dv01: BucketedSeries::default(),
             cs01: BucketedSeries::default(),
-            parallel_dv01: 0.0,
-            parallel_cs01: 0.0,
             ir_convexity: 0.0,
             equity_delta: 0.0,
             equity_gamma: 0.0,
@@ -653,18 +677,6 @@ fn compute_taylor_sensitivities(
     let dv01 = collect_bucketed_series(&context.computed_series, MetricId::BucketedDv01.as_str());
     let cs01 = collect_bucketed_series(&context.computed_series, MetricId::BucketedCs01.as_str());
 
-    let parallel_dv01 = required_metric(
-        &computed,
-        &MetricId::Dv01,
-        registry.is_applicable(&MetricId::Dv01, instrument_type),
-        instrument.id(),
-    )?;
-    let parallel_cs01 = required_metric(
-        &computed,
-        &MetricId::Cs01,
-        registry.is_applicable(&MetricId::Cs01, instrument_type),
-        instrument.id(),
-    )?;
     let ir_convexity = required_metric(
         &computed,
         &MetricId::IrConvexity,
@@ -704,8 +716,6 @@ fn compute_taylor_sensitivities(
         currency: base_value.currency(),
         dv01,
         cs01,
-        parallel_dv01,
-        parallel_cs01,
         ir_convexity,
         equity_delta: delta,
         equity_gamma: gamma,
@@ -737,7 +747,10 @@ fn taylor_pnl_for_scenario(
                 let dv01 = sensitivities
                     .dv01
                     .get(curve_id.as_str(), bucket.as_ref())
-                    .unwrap_or(sensitivities.parallel_dv01);
+                    .or_else(|| sensitivities.dv01.curve_total(curve_id.as_str()))
+                    .ok_or_else(|| {
+                        missing_taylor_sensitivity_error("DV01", curve_id.as_str(), bucket.as_ref())
+                    })?;
                 let shift_bp = shift.shift * 10_000.0;
                 pnl += dv01 * shift_bp;
                 total_rate_shift_bp += shift_bp;
@@ -751,7 +764,10 @@ fn taylor_pnl_for_scenario(
                 let cs01 = sensitivities
                     .cs01
                     .get(curve_id.as_str(), bucket.as_ref())
-                    .unwrap_or(sensitivities.parallel_cs01);
+                    .or_else(|| sensitivities.cs01.curve_total(curve_id.as_str()))
+                    .ok_or_else(|| {
+                        missing_taylor_sensitivity_error("CS01", curve_id.as_str(), bucket.as_ref())
+                    })?;
                 pnl += cs01 * shift.shift * 10_000.0;
             }
             crate::metrics::risk::RiskFactorType::EquitySpot { ticker } => {
@@ -793,6 +809,16 @@ fn taylor_pnl_for_scenario(
     }
 
     Ok(pnl)
+}
+
+fn missing_taylor_sensitivity_error(
+    metric: &str,
+    curve_id: &str,
+    bucket: &str,
+) -> finstack_core::Error {
+    finstack_core::Error::Validation(format!(
+        "Historical VaR Taylor approximation missing {metric} sensitivity for curve '{curve_id}' bucket '{bucket}'"
+    ))
 }
 
 fn required_metric(
@@ -841,6 +867,12 @@ fn collect_bucketed_series(
                 *result.fallback.entry(bucket.clone()).or_insert(0.0) += *value;
             }
         }
+    }
+
+    for (curve_id, series) in &result.per_curve {
+        result
+            .per_curve_total
+            .insert(curve_id.clone(), series.values().sum());
     }
 
     result
@@ -1276,6 +1308,81 @@ mod tests {
             (pnl - 250.0).abs() < 1e-12,
             "Taylor vol P&L should scale vega per 1 vol point: expected 250.0, got {pnl}"
         );
+    }
+
+    #[test]
+    fn taylor_rate_shift_errors_when_curve_bucket_sensitivity_is_missing() {
+        let as_of = sample_as_of();
+        let base_market = MarketContext::new();
+        let scenario = MarketScenario::new(
+            as_of,
+            vec![RiskFactorShift {
+                factor: RiskFactorType::DiscountRate {
+                    curve_id: CurveId::new("USD-LIBOR-3M"),
+                    tenor_years: 7.0,
+                },
+                shift: 0.0001,
+            }],
+        );
+        let sensitivities = TaylorSensitivities {
+            ..Default::default()
+        };
+
+        let err = taylor_pnl_for_scenario(
+            &sensitivities,
+            &base_market,
+            &scenario,
+            &mut HashMap::default(),
+        )
+        .expect_err("Taylor VaR must not use a cross-curve parallel DV01 fallback");
+
+        assert!(
+            err.to_string().contains("USD-LIBOR-3M"),
+            "missing sensitivity error should identify the curve, got: {err}"
+        );
+    }
+
+    #[test]
+    fn taylor_rate_shift_uses_same_curve_total_when_bucket_is_missing() -> Result<()> {
+        let as_of = sample_as_of();
+        let base_market = MarketContext::new();
+        let scenario = MarketScenario::new(
+            as_of,
+            vec![RiskFactorShift {
+                factor: RiskFactorType::DiscountRate {
+                    curve_id: CurveId::new("USD-LIBOR-3M"),
+                    tenor_years: 7.0,
+                },
+                shift: 0.0001,
+            }],
+        );
+        let mut curve_buckets = HashMap::default();
+        curve_buckets.insert("5y".to_string(), 30.0);
+        let mut dv01_by_curve = HashMap::default();
+        dv01_by_curve.insert("USD-LIBOR-3M".to_string(), curve_buckets);
+        let mut per_curve_total = HashMap::default();
+        per_curve_total.insert("USD-LIBOR-3M".to_string(), 30.0);
+        let sensitivities = TaylorSensitivities {
+            dv01: BucketedSeries {
+                per_curve: dv01_by_curve,
+                fallback: HashMap::default(),
+                per_curve_total,
+            },
+            ..Default::default()
+        };
+
+        let pnl = taylor_pnl_for_scenario(
+            &sensitivities,
+            &base_market,
+            &scenario,
+            &mut HashMap::default(),
+        )?;
+
+        assert!(
+            (pnl - 30.0).abs() < 1e-12,
+            "missing bucket should fall back to same-curve total only, got {pnl}"
+        );
+        Ok(())
     }
 
     #[test]

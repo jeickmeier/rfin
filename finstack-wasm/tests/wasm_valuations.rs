@@ -117,9 +117,16 @@ fn price_instrument_with_metrics_returns_result() {
     let inst = bond_instrument_json();
     let mkt = market_context_json();
     let metrics = serde_wasm_bindgen::to_value(&vec!["dirty_price".to_string()]).unwrap();
-    let result =
-        price_instrument_with_metrics(&inst, &mkt, "2024-01-01", "discounting", metrics, None)
-            .unwrap();
+    let result = price_instrument_with_metrics(
+        &inst,
+        &mkt,
+        "2024-01-01",
+        "discounting",
+        metrics,
+        None,
+        None,
+    )
+    .unwrap();
     assert!(!result.is_empty());
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
     assert!(parsed.is_object());
@@ -137,6 +144,7 @@ fn price_instrument_with_metrics_accepts_pricing_options() {
         "discounting",
         metrics,
         Some(r#"{"theta_period":"1D"}"#.to_string()),
+        None,
     )
     .unwrap();
     assert!(!result.is_empty());

@@ -58,13 +58,16 @@ fn price_instrument(
 ///     ``"theta_period"`` (e.g. ``"1D"``, ``"1W"``, ``"1M"``) and
 ///     ``"breakeven_config"`` (e.g. ``{"target": "z_spread", "mode": "linear"}``).
 ///     If omitted, the instrument's own overrides (if any) are used unchanged.
+/// market_history : str | None
+///     Optional JSON string of ``MarketHistory`` scenarios required by ``hvar`` and
+///     ``expected_shortfall`` metrics.
 ///
 /// Returns
 /// -------
 /// str
 ///     JSON-serialized ``ValuationResult`` including requested metrics.
 #[pyfunction]
-#[pyo3(signature = (instrument_json, market, as_of, model="default", metrics=vec![], pricing_options=None))]
+#[pyo3(signature = (instrument_json, market, as_of, model="default", metrics=vec![], pricing_options=None, market_history=None))]
 fn price_instrument_with_metrics(
     instrument_json: &str,
     market: &Bound<'_, PyAny>,
@@ -72,15 +75,17 @@ fn price_instrument_with_metrics(
     model: &str,
     metrics: Vec<String>,
     pricing_options: Option<&str>,
+    market_history: Option<&str>,
 ) -> PyResult<String> {
     let market = extract_market(market)?;
-    let result = finstack_valuations::pricer::price_instrument_json_with_metrics(
+    let result = finstack_valuations::pricer::price_instrument_json_with_metrics_and_history(
         instrument_json,
         &market,
         as_of,
         model,
         &metrics,
         pricing_options,
+        market_history,
     )
     .map_err(display_to_py)?;
     serde_json::to_string(&result).map_err(display_to_py)

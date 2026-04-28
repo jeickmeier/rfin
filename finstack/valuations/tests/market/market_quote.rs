@@ -1,4 +1,4 @@
-//! Tests for `market::quotes::market_quote` (`MarketQuote` bump routing and serde).
+//! Tests for `market::quotes::market_quote` (`MarketQuote` serde).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -7,7 +7,7 @@ use finstack_core::dates::Date;
 use finstack_valuations::market::conventions::ids::{BondConventionId, IndexId};
 use finstack_valuations::market::quotes::bond::BondQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
-use finstack_valuations::market::quotes::market_quote::{MarketQuote, MarketQuoteBump};
+use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
 
 fn sample_bond_quote() -> BondQuote {
@@ -25,49 +25,32 @@ fn sample_bond_quote() -> BondQuote {
 }
 
 #[test]
-fn market_quote_rates_bump_rate_decimal_round_trips_serde() {
+fn market_quote_rates_round_trips_serde() {
     let original = MarketQuote::Rates(RateQuote::Deposit {
         id: QuoteId::new("USD-DEP-1M"),
         index: IndexId::new("USD-SOFR-1M"),
         pillar: Pillar::Tenor("1M".parse().unwrap()),
         rate: 0.0525,
     });
-    let bumped = original
-        .bump_rate_decimal(0.0001)
-        .expect("rates support decimal rate bumps");
-    let json = serde_json::to_string(&bumped).expect("serialize");
+    let json = serde_json::to_string(&original).expect("serialize");
     let back: MarketQuote = serde_json::from_str(&json).expect("deserialize");
     match back {
         MarketQuote::Rates(RateQuote::Deposit { rate, .. }) => {
-            assert!((rate - 0.0526).abs() < 1e-12);
+            assert!((rate - 0.0525).abs() < 1e-12);
         }
         other => panic!("expected deposit quote, got {other:?}"),
     }
 }
 
 #[test]
-fn market_quote_bump_with_rejects_incompatible_variant() {
+fn market_quote_bond_round_trips_serde() {
     let bond = MarketQuote::Bond(sample_bond_quote());
-    assert!(bond.bump_with(MarketQuoteBump::VolAbsolute(0.01)).is_err());
-
-    let rates = MarketQuote::Rates(RateQuote::Deposit {
-        id: QuoteId::new("R"),
-        index: IndexId::new("USD-SOFR-1M"),
-        pillar: Pillar::Tenor("1M".parse().unwrap()),
-        rate: 0.01,
-    });
-    assert!(rates.bump_spread_decimal(0.0001).is_err());
-    assert!(rates.bump_vol_absolute(0.01).is_err());
-}
-
-#[test]
-fn market_quote_convenience_wrappers_delegate_to_bump_with() {
-    let bond = MarketQuote::Bond(sample_bond_quote());
-    let bumped = bond.bump_rate_bp(1.0).expect("bond clean price bp bump");
-    match bumped {
+    let json = serde_json::to_string(&bond).expect("serialize");
+    let back: MarketQuote = serde_json::from_str(&json).expect("deserialize");
+    match back {
         MarketQuote::Bond(BondQuote::FixedRateBulletCleanPrice {
             clean_price_pct, ..
-        }) => assert!((clean_price_pct - 99.0001).abs() < 1e-9),
+        }) => assert!((clean_price_pct - 99.0).abs() < 1e-9),
         other => panic!("expected bond quote, got {other:?}"),
     }
 }

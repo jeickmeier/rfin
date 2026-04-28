@@ -14,7 +14,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::NeumaierAccumulator;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_core::Result;
+use finstack_core::{HashMap, Result};
 
 /// Build a bond instrument from a [`BondQuote`].
 ///
@@ -75,14 +75,11 @@ pub fn build_bond_instrument(
             let flows = <Bond as CashflowProvider>::dated_cashflows(&bond, market, ctx.as_of())?;
             let dirty_price_ccy =
                 dirty_price_from_ytm_with_frequency_ctx(&bond, &flows, quote_ctx.quote_date, *ytm)?;
-            if bond.notional.amount().abs() < crate::constants::numerical::ZERO_TOLERANCE {
-                return Err(finstack_core::Error::Validation(
-                    "bond notional must be non-zero for price conversion".to_string(),
-                ));
-            }
-            let clean_price_pct = (dirty_price_ccy - quote_ctx.accrued_at_quote_date)
-                / bond.notional.amount()
-                * 100.0;
+            let clean_price_pct = clean_price_pct_from_dirty(
+                dirty_price_ccy,
+                quote_ctx.accrued_at_quote_date,
+                bond.notional.amount(),
+            )?;
 
             bond.pricing_overrides =
                 PricingOverrides::default().with_quoted_clean_price(clean_price_pct);
@@ -120,14 +117,11 @@ pub fn build_bond_instrument(
                     quote_ctx.quote_date,
                     *z_spread,
                 )?;
-            if bond.notional.amount().abs() < crate::constants::numerical::ZERO_TOLERANCE {
-                return Err(finstack_core::Error::Validation(
-                    "bond notional must be non-zero for price conversion".to_string(),
-                ));
-            }
-            let clean_price_pct = (dirty_price_ccy - quote_ctx.accrued_at_quote_date)
-                / bond.notional.amount()
-                * 100.0;
+            let clean_price_pct = clean_price_pct_from_dirty(
+                dirty_price_ccy,
+                quote_ctx.accrued_at_quote_date,
+                bond.notional.amount(),
+            )?;
             bond.pricing_overrides =
                 PricingOverrides::default().with_quoted_clean_price(clean_price_pct);
             Ok(Box::new(bond))
@@ -163,19 +157,45 @@ pub fn build_bond_instrument(
                     quote_ctx.quote_date,
                     *oas,
                 )?;
-            if bond.notional.amount().abs() < crate::constants::numerical::ZERO_TOLERANCE {
-                return Err(finstack_core::Error::Validation(
-                    "bond notional must be non-zero for price conversion".to_string(),
-                ));
-            }
-            let clean_price_pct = (dirty_price_ccy - quote_ctx.accrued_at_quote_date)
-                / bond.notional.amount()
-                * 100.0;
+            let clean_price_pct = clean_price_pct_from_dirty(
+                dirty_price_ccy,
+                quote_ctx.accrued_at_quote_date,
+                bond.notional.amount(),
+            )?;
             bond.pricing_overrides =
                 PricingOverrides::default().with_quoted_clean_price(clean_price_pct);
             Ok(Box::new(bond))
         }
     }
+}
+
+fn clean_price_pct_from_dirty(dirty_price_ccy: f64, accrued: f64, notional: f64) -> Result<f64> {
+    if !dirty_price_ccy.is_finite() {
+        return Err(finstack_core::Error::Validation(format!(
+            "derived dirty price must be finite, got {}",
+            dirty_price_ccy
+        )));
+    }
+    if !accrued.is_finite() {
+        return Err(finstack_core::Error::Validation(format!(
+            "bond accrued interest must be finite for price conversion, got {}",
+            accrued
+        )));
+    }
+    if notional.abs() < crate::constants::numerical::ZERO_TOLERANCE {
+        return Err(finstack_core::Error::Validation(
+            "bond notional must be non-zero for price conversion".to_string(),
+        ));
+    }
+
+    let clean_price_pct = (dirty_price_ccy - accrued) / notional * 100.0;
+    if !clean_price_pct.is_finite() {
+        return Err(finstack_core::Error::Validation(format!(
+            "derived clean price must be finite, got {}",
+            clean_price_pct
+        )));
+    }
+    Ok(clean_price_pct)
 }
 
 fn build_bond_shell(
@@ -249,6 +269,11 @@ fn dirty_price_from_ytm_with_frequency_ctx(
     let Some(&next_coupon) = future_dates.first() else {
         return Ok(0.0);
     };
+    let future_date_index: HashMap<_, _> = future_dates
+        .iter()
+        .enumerate()
+        .map(|(idx, date)| (*date, idx + 1))
+        .collect();
 
     let m = periods_per_year(freq)?.max(1.0);
     let period_length = 1.0 / m;
@@ -266,16 +291,12 @@ fn dirty_price_from_ytm_with_frequency_ctx(
             continue;
         }
         // 1-based coupon-period index from the next coupon date.
-        let k = future_dates
-            .iter()
-            .position(|d| *d == date)
-            .map(|i| i + 1)
-            .ok_or_else(|| {
-                finstack_core::Error::Validation(format!(
-                    "flow date {} not in ordered future-flow list",
-                    date
-                ))
-            })?;
+        let k = *future_date_index.get(&date).ok_or_else(|| {
+            finstack_core::Error::Validation(format!(
+                "flow date {} not in ordered future-flow list",
+                date
+            ))
+        })?;
         let exponent = nu + (k as f64 - 1.0);
         if exponent <= 0.0 {
             pv.add(amount.amount());

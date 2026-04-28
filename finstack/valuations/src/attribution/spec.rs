@@ -22,7 +22,6 @@ use finstack_core::{
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::str::FromStr;
 
 /// Schema version for attribution serialization.
 pub const ATTRIBUTION_SCHEMA_V1: &str = "finstack.attribution/1";
@@ -51,6 +50,12 @@ impl AttributionEnvelope {
 
     /// Execute the attribution and return the result envelope.
     pub fn execute(&self) -> Result<AttributionResultEnvelope> {
+        if self.schema != ATTRIBUTION_SCHEMA_V1 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Unsupported attribution schema '{}'; supported schemas: {}",
+                self.schema, ATTRIBUTION_SCHEMA_V1
+            )));
+        }
         let result = self.attribution.execute()?;
         Ok(AttributionResultEnvelope::new(result))
     }
@@ -232,7 +237,7 @@ impl AttributionSpec {
                         let mut unknown = Vec::new();
 
                         for name in metric_names {
-                            match MetricId::from_str(name) {
+                            match MetricId::parse_strict(name) {
                                 Ok(id) => parsed.push(id),
                                 Err(_) => unknown.push(name.clone()),
                             }

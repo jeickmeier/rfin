@@ -57,6 +57,46 @@ fn cross_interaction_pnl(
 /// Matches the historical inline filter (`pnl.amount().abs() > 1e-12`).
 const CROSS_FACTOR_TOLERANCE: f64 = 1e-12;
 
+#[derive(Clone, Copy)]
+enum FactorSlot {
+    Rates,
+    Credit,
+    Inflation,
+    Correlations,
+    Vol,
+    Scalars,
+}
+
+impl FactorSlot {
+    fn assign(self, attribution: &mut PnlAttribution, pnl: Money, reprice: Money) {
+        match self {
+            Self::Rates => attribution.rates_curves_pnl = pnl,
+            Self::Credit => attribution.credit_curves_pnl = pnl,
+            Self::Inflation => attribution.inflation_curves_pnl = pnl,
+            Self::Correlations => attribution.correlations_pnl = pnl,
+            Self::Vol => attribution.vol_pnl = pnl,
+            Self::Scalars => attribution.market_scalars_pnl = pnl,
+        }
+        let _ = reprice;
+    }
+}
+
+fn snapshot_has_data(snapshot: &MarketSnapshot, slot: FactorSlot) -> bool {
+    match slot {
+        FactorSlot::Rates => true,
+        FactorSlot::Credit => !snapshot.hazard_curves.is_empty(),
+        FactorSlot::Inflation => !snapshot.inflation_curves.is_empty(),
+        FactorSlot::Correlations => !snapshot.base_correlation_curves.is_empty(),
+        FactorSlot::Vol => !snapshot.surfaces.is_empty(),
+        FactorSlot::Scalars => {
+            !snapshot.prices.is_empty()
+                || !snapshot.series.is_empty()
+                || !snapshot.inflation_indices.is_empty()
+                || !snapshot.dividends.is_empty()
+        }
+    }
+}
+
 /// Accumulate a cross-factor interaction P&L into the running totals if its
 /// magnitude exceeds `CROSS_FACTOR_TOLERANCE`.
 fn record_cross_pair(
@@ -348,67 +388,49 @@ pub fn attribute_pnl_parallel_with_credit_model(
     // total_pnl now represents economic (total-return) P&L.
     apply_total_return_carry(&mut attribution, theta, coupon_income)?;
 
-    // Step 3: Rates curves attribution (discount + forward).
-    // Rates are always populated in practice, so `has_data = true` unconditionally.
+    // Steps 3-6: market curve families. The table preserves historical order and
+    // centralizes the extract -> restore -> store scaffolding.
     let rates_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::RATES);
-    if let Some((pnl, reprice, _market)) = reprice_factor_restored(
-        instrument,
-        market_t1,
-        &rates_snapshot,
-        CurveRestoreFlags::RATES,
-        true,
-        as_of_t1,
-        val_t1,
-        &mut num_repricings,
-    )? {
-        attribution.rates_curves_pnl = pnl;
-        val_with_t0_rates = Some(reprice);
-    }
-
-    // Step 4: Credit curves attribution (hazard curves).
     let credit_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::CREDIT);
-    if let Some((pnl, reprice, _market)) = reprice_factor_restored(
-        instrument,
-        market_t1,
-        &credit_snapshot,
-        CurveRestoreFlags::CREDIT,
-        !credit_snapshot.hazard_curves.is_empty(),
-        as_of_t1,
-        val_t1,
-        &mut num_repricings,
-    )? {
-        attribution.credit_curves_pnl = pnl;
-        val_with_t0_credit = Some(reprice);
-    }
-
-    // Step 5: Inflation curves attribution.
     let inflation_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::INFLATION);
-    if let Some((pnl, _reprice, _market)) = reprice_factor_restored(
-        instrument,
-        market_t1,
-        &inflation_snapshot,
-        CurveRestoreFlags::INFLATION,
-        !inflation_snapshot.inflation_curves.is_empty(),
-        as_of_t1,
-        val_t1,
-        &mut num_repricings,
-    )? {
-        attribution.inflation_curves_pnl = pnl;
-    }
-
-    // Step 6: Correlations attribution (base correlation curves).
     let correlations_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::CORRELATION);
-    if let Some((pnl, _reprice, _market)) = reprice_factor_restored(
-        instrument,
-        market_t1,
-        &correlations_snapshot,
-        CurveRestoreFlags::CORRELATION,
-        !correlations_snapshot.base_correlation_curves.is_empty(),
-        as_of_t1,
-        val_t1,
-        &mut num_repricings,
-    )? {
-        attribution.correlations_pnl = pnl;
+    let curve_factor_runs = [
+        (FactorSlot::Rates, CurveRestoreFlags::RATES, &rates_snapshot),
+        (
+            FactorSlot::Credit,
+            CurveRestoreFlags::CREDIT,
+            &credit_snapshot,
+        ),
+        (
+            FactorSlot::Inflation,
+            CurveRestoreFlags::INFLATION,
+            &inflation_snapshot,
+        ),
+        (
+            FactorSlot::Correlations,
+            CurveRestoreFlags::CORRELATION,
+            &correlations_snapshot,
+        ),
+    ];
+    for (slot, flags, snapshot) in curve_factor_runs {
+        if let Some((pnl, reprice, _market)) = reprice_factor_restored(
+            instrument,
+            market_t1,
+            snapshot,
+            flags,
+            snapshot_has_data(snapshot, slot),
+            as_of_t1,
+            val_t1,
+            &mut num_repricings,
+        )? {
+            slot.assign(&mut attribution, pnl, reprice);
+            match slot {
+                FactorSlot::Rates => val_with_t0_rates = Some(reprice),
+                FactorSlot::Credit => val_with_t0_credit = Some(reprice),
+                FactorSlot::Inflation | FactorSlot::Correlations => {}
+                FactorSlot::Vol | FactorSlot::Scalars => unreachable!("curve loop excludes slot"),
+            }
+        }
     }
 
     // Step 7: FX attribution
@@ -474,12 +496,12 @@ pub fn attribute_pnl_parallel_with_credit_model(
         market_t1,
         &vol_snapshot,
         CurveRestoreFlags::VOL,
-        !vol_snapshot.surfaces.is_empty(),
+        snapshot_has_data(&vol_snapshot, FactorSlot::Vol),
         as_of_t1,
         val_t1,
         &mut num_repricings,
     )? {
-        attribution.vol_pnl = pnl;
+        FactorSlot::Vol.assign(&mut attribution, pnl, reprice);
         val_with_t0_vol = Some(reprice);
     }
 
@@ -523,21 +545,17 @@ pub fn attribute_pnl_parallel_with_credit_model(
 
     // Step 10: Market scalars attribution.
     let scalars_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::SCALARS);
-    let has_scalars = !scalars_snapshot.prices.is_empty()
-        || !scalars_snapshot.series.is_empty()
-        || !scalars_snapshot.inflation_indices.is_empty()
-        || !scalars_snapshot.dividends.is_empty();
     if let Some((pnl, reprice, _market)) = reprice_factor_restored(
         instrument,
         market_t1,
         &scalars_snapshot,
         CurveRestoreFlags::SCALARS,
-        has_scalars,
+        snapshot_has_data(&scalars_snapshot, FactorSlot::Scalars),
         as_of_t1,
         val_t1,
         &mut num_repricings,
     )? {
-        attribution.market_scalars_pnl = pnl;
+        FactorSlot::Scalars.assign(&mut attribution, pnl, reprice);
         val_with_t0_scalars = Some(reprice);
     }
 

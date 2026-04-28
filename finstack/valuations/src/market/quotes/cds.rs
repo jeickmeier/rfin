@@ -10,6 +10,8 @@ use ts_rs::TS;
 const STANDARD_UPFRONT_RUNNING_COUPONS_BP: [f64; 2] = [100.0, 500.0];
 
 fn is_standard_upfront_running_coupon_bp(running_spread_bp: f64) -> bool {
+    // Running coupons are quoted in whole bp market standards, so an absolute
+    // tolerance is intentional here.
     STANDARD_UPFRONT_RUNNING_COUPONS_BP
         .iter()
         .any(|standard| (running_spread_bp - standard).abs() <= 1e-9)

@@ -240,6 +240,11 @@ impl FloatingLegCompounding {
         }
     }
 
+    /// CHF SARON standard convention (2-day true observation shift).
+    pub fn saron() -> Self {
+        Self::CompoundedWithObservationShift { shift_days: 2 }
+    }
+
     /// USD SOFR with ISDA 2021 observation shift (2-day shift).
     pub fn sofr_observation_shift() -> Self {
         Self::CompoundedWithObservationShift { shift_days: 2 }

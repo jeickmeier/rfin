@@ -422,6 +422,13 @@ pub fn attribute_pnl_metrics_based(
             funding_cost: None,
             theta: Some(attribution.carry),
         });
+    } else {
+        note_warning(
+            &mut attribution,
+            "Metrics-based carry attribution skipped: neither CarryTotal nor Theta metric was present; carry P&L set to zero",
+            instrument.id(),
+            "carry",
+        );
     }
 
     // 2. Rates curves attribution (DV01)
@@ -481,7 +488,17 @@ pub fn attribute_pnl_metrics_based(
         }
     } else if let Some(dv01) = val_t0.measures.get(MetricId::Dv01.as_str()) {
         // Fallback: use aggregate DV01 with the preamble's average shift.
-        let avg_shift = avg_rate_shift_bp.unwrap_or(0.0);
+        let avg_shift = if let Some(avg_shift) = avg_rate_shift_bp {
+            avg_shift
+        } else {
+            note_warning(
+                &mut attribution,
+                "Rates attribution has DV01 but no measurable discount-curve shift; rates P&L set to zero",
+                instrument.id(),
+                "rates_curves",
+            );
+            0.0
+        };
         rates_pnl = dv01 * avg_shift;
         convexity_avg_shift_bp = avg_rate_shift_bp;
 
@@ -557,10 +574,17 @@ pub fn attribute_pnl_metrics_based(
     // Ideal formula: PnL = Σ(CS01_i × Shift_i) for each curve i
     // Current formula: PnL = CS01_total × avg(Shift_i)
     if let Some(cs01) = val_t0.measures.get(MetricId::Cs01.as_str()) {
-        // Use preamble average. `unwrap_or(0.0)` preserves the prior behavior
-        // where a missing-or-fully-failed credit-curve measurement produced
-        // `avg_shift = 0.0` (no PnL contribution).
-        let avg_shift = avg_credit_shift_bp.unwrap_or(0.0);
+        let avg_shift = if let Some(avg_shift) = avg_credit_shift_bp {
+            avg_shift
+        } else {
+            note_warning(
+                &mut attribution,
+                "Credit attribution has CS01 but no measurable hazard-curve shift; credit P&L set to zero",
+                instrument.id(),
+                "credit_curves",
+            );
+            0.0
+        };
 
         let credit_amount = cs01 * avg_shift;
         attribution.credit_curves_pnl = Money::new(credit_amount, val_t1.value.currency());
@@ -618,6 +642,13 @@ pub fn attribute_pnl_metrics_based(
         if let Some(fx_shift) = fx_shift_pct {
             let fx_amount = fx01 * fx_shift;
             attribution.fx_pnl = Money::new(fx_amount, val_t1.value.currency());
+        } else {
+            note_warning(
+                &mut attribution,
+                "FX attribution has FX01 but no measurable FX shift; FX P&L set to zero",
+                instrument.id(),
+                "fx",
+            );
         }
     }
 
@@ -656,6 +687,13 @@ pub fn attribute_pnl_metrics_based(
                     LARGE_VOL_MOVE_THRESHOLD_PCT
                 ));
             }
+        } else {
+            note_warning(
+                &mut attribution,
+                "Volatility attribution has Vega but no measurable volatility-surface shift; vol P&L set to zero",
+                instrument.id(),
+                "vol",
+            );
         }
     }
 
@@ -1039,6 +1077,52 @@ mod tests {
         assert!((attribution.carry.amount() + 5.0).abs() < 1e-9);
         assert!((attribution.total_pnl.amount() + 5.0).abs() < 1e-9);
         assert!(attribution.residual_within_tolerance(0.01, 0.01));
+    }
+
+    #[test]
+    fn metrics_based_missing_carry_metric_adds_note() {
+        let as_of_t0 = date!(2025 - 01 - 15);
+        let as_of_t1 = date!(2025 - 01 - 16);
+        let meta = finstack_core::config::results_meta(&FinstackConfig::default());
+
+        let instrument: Arc<dyn Instrument> = Arc::new(TestInstrument::new(
+            "TEST-MISSING-CARRY",
+            Money::new(1_000.0, Currency::USD),
+        ));
+        let val_t0 = ValuationResult::stamped_with_meta(
+            "TEST-MISSING-CARRY",
+            as_of_t0,
+            Money::new(1_000.0, Currency::USD),
+            meta.clone(),
+        );
+        let val_t1 = ValuationResult::stamped_with_meta(
+            "TEST-MISSING-CARRY",
+            as_of_t1,
+            Money::new(1_000.0, Currency::USD),
+            meta,
+        );
+
+        let attribution = attribute_pnl_metrics_based(
+            &instrument,
+            &MarketContext::new(),
+            &MarketContext::new(),
+            &val_t0,
+            &val_t1,
+            as_of_t0,
+            as_of_t1,
+        )
+        .expect("metrics-based attribution should succeed");
+
+        assert_eq!(attribution.carry.amount(), 0.0);
+        assert!(
+            attribution
+                .meta
+                .notes
+                .iter()
+                .any(|note| note.contains("neither CarryTotal nor Theta")),
+            "missing carry inputs should be visible in notes: {:?}",
+            attribution.meta.notes
+        );
     }
 
     #[test]

@@ -56,17 +56,19 @@ pub fn price_instrument_with_metrics(
     model: &str,
     metrics: JsValue,
     pricing_options: Option<String>,
+    market_history: Option<String>,
 ) -> Result<String, JsValue> {
     let market: finstack_core::market_data::context::MarketContext =
         serde_json::from_str(market_json).map_err(to_js_err)?;
     let metric_strs: Vec<String> = serde_wasm_bindgen::from_value(metrics).map_err(to_js_err)?;
-    let result = finstack_valuations::pricer::price_instrument_json_with_metrics(
+    let result = finstack_valuations::pricer::price_instrument_json_with_metrics_and_history(
         instrument_json,
         &market,
         as_of,
         model,
         &metric_strs,
         pricing_options.as_deref(),
+        market_history.as_deref(),
     )
     .map_err(to_js_err)?;
     serde_json::to_string(&result).map_err(to_js_err)

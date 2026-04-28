@@ -702,7 +702,7 @@ impl<'a> CashflowEngine<'a> {
                     year_fraction: dt,
                     currency: ccy,
                 },
-            );
+            )?;
 
             // Handle principal flows from utilization changes
             // At period_end, utilization changes from start to end value for use in the next period

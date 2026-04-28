@@ -5,7 +5,6 @@ use finstack_valuations::pricer::{
     canonical_instrument_json, canonical_instrument_json_from_str,
     metric_value_from_instrument_json, present_standard_option_greeks_from_instrument_json,
     pretty_instrument_json, price_instrument_json_string,
-    price_instrument_json_with_metrics_string,
 };
 use serde_json::{Map, Value};
 use wasm_bindgen::prelude::*;
@@ -49,19 +48,22 @@ fn price_payload_with_metrics(
     metrics: JsValue,
     model: Option<String>,
     pricing_options: Option<String>,
+    market_history: Option<String>,
 ) -> Result<String, JsValue> {
     let market: finstack_core::market_data::context::MarketContext =
         serde_json::from_str(market_json).map_err(to_js_err)?;
     let metrics: Vec<String> = serde_wasm_bindgen::from_value(metrics).map_err(to_js_err)?;
-    price_instrument_json_with_metrics_string(
+    let result = finstack_valuations::pricer::price_instrument_json_with_metrics_and_history(
         json,
         &market,
         as_of,
         model.as_deref().unwrap_or("default"),
         &metrics,
         pricing_options.as_deref(),
+        market_history.as_deref(),
     )
-    .map_err(to_js_err)
+    .map_err(to_js_err)?;
+    serde_json::to_string(&result).map_err(to_js_err)
 }
 
 fn metric_value(
@@ -128,6 +130,7 @@ macro_rules! fx_class {
                 metrics: JsValue,
                 model: Option<String>,
                 pricing_options: Option<String>,
+                market_history: Option<String>,
             ) -> Result<String, JsValue> {
                 price_payload_with_metrics(
                     &self.json,
@@ -136,6 +139,7 @@ macro_rules! fx_class {
                     metrics,
                     model,
                     pricing_options,
+                    market_history,
                 )
             }
         }

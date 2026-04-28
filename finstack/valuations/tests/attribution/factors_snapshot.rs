@@ -308,6 +308,50 @@ fn test_restore_equivalence_mixed_curve_types() {
 }
 
 #[test]
+fn test_combined_restore_matches_stacked_restore() {
+    let base_date = date!(2025 - 01 - 15);
+
+    let source = MarketContext::new()
+        .insert(create_test_discount_curve("USD-OIS", base_date))
+        .insert(create_test_forward_curve("USD-SOFR", base_date))
+        .insert(create_test_hazard_curve("CORP-A", base_date))
+        .insert(create_test_inflation_curve("US-CPI", base_date));
+    let target = MarketContext::new()
+        .insert(create_test_discount_curve("EUR-OIS", base_date))
+        .insert(create_test_forward_curve("EUR-ESTR", base_date))
+        .insert(create_test_hazard_curve("CORP-B", base_date));
+
+    let flags = CurveRestoreFlags::RATES | CurveRestoreFlags::CREDIT;
+    let combined_snapshot = MarketSnapshot::extract(&source, flags);
+    let combined = MarketSnapshot::restore_market(&target, &combined_snapshot, flags);
+
+    let rates_snapshot = MarketSnapshot::extract(&source, CurveRestoreFlags::RATES);
+    let credit_snapshot = MarketSnapshot::extract(&source, CurveRestoreFlags::CREDIT);
+    let stacked_rates =
+        MarketSnapshot::restore_market(&target, &rates_snapshot, CurveRestoreFlags::RATES);
+    let stacked =
+        MarketSnapshot::restore_market(&stacked_rates, &credit_snapshot, CurveRestoreFlags::CREDIT);
+
+    let mut combined_ids = combined
+        .curve_ids()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    let mut stacked_ids = stacked
+        .curve_ids()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    combined_ids.sort();
+    stacked_ids.sort();
+    assert_eq!(combined_ids, stacked_ids);
+    assert!(combined.get_discount("USD-OIS").is_ok());
+    assert!(combined.get_forward("USD-SOFR").is_ok());
+    assert!(combined.get_hazard("CORP-A").is_ok());
+    assert!(combined.get_inflation_curve("US-CPI").is_err());
+    assert!(combined.get_discount("EUR-OIS").is_err());
+    assert!(combined.get_hazard("CORP-B").is_err());
+}
+
+#[test]
 fn test_volatility_snapshot_extract() {
     let market = MarketContext::new();
     let snapshot = VolatilitySnapshot::extract(&market);

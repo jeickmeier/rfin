@@ -51,7 +51,7 @@ use crate::builder::{AmortizationSpec, Notional};
 use crate::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use finstack_core::decimal::decimal_to_f64;
+use finstack_core::decimal::{decimal_to_f64, f64_to_decimal};
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
 use finstack_core::InputError;
@@ -229,20 +229,12 @@ fn derive_amortization_setup(
     })
 }
 
-/// Convert a finite f64 amount to Decimal for outstanding balance tracking.
-fn f64_to_decimal_saturating(value: f64) -> Decimal {
-    if !value.is_finite() {
-        return Decimal::ZERO;
-    }
-    Decimal::try_from(value).unwrap_or(Decimal::ZERO)
-}
-
 fn initialize_build_state(
     issue: Date,
     notional: &Notional,
     estimated_dates: usize,
     principal_events: &[PrincipalEvent],
-) -> BuildState {
+) -> finstack_core::Result<BuildState> {
     let estimated_flows = estimated_dates * 3;
     let mut flows: Vec<CashFlow> = Vec::with_capacity(estimated_flows);
 
@@ -257,7 +249,7 @@ fn initialize_build_state(
         });
     }
 
-    let mut outstanding = f64_to_decimal_saturating(notional.initial.amount());
+    let mut outstanding = f64_to_decimal(notional.initial.amount())?;
 
     for ev in principal_events.iter().filter(|ev| ev.date <= issue) {
         if ev.delta.amount() != 0.0 || ev.cash.amount() != 0.0 {
@@ -276,7 +268,7 @@ fn initialize_build_state(
                 accrual_factor: 0.0,
                 rate: None,
             });
-            outstanding += f64_to_decimal_saturating(ev.delta.amount());
+            outstanding += f64_to_decimal(ev.delta.amount())?;
         }
     }
 
@@ -285,11 +277,11 @@ fn initialize_build_state(
     outstanding_after.reserve(estimated_dates);
     outstanding_after.insert(issue, outstanding);
 
-    BuildState {
+    Ok(BuildState {
         flows,
         outstanding_after,
         outstanding,
-    }
+    })
 }
 
 fn collect_all_dates(inputs: &DateCollectionInputs<'_>) -> finstack_core::Result<Vec<Date>> {
@@ -387,7 +379,7 @@ impl<'a> DateProcessor<'a> {
         )?;
         let delta = outstanding_f64 - before;
         if delta != 0.0 {
-            state.outstanding += f64_to_decimal_saturating(delta);
+            state.outstanding += f64_to_decimal(delta)?;
         }
         Ok(())
     }
@@ -406,7 +398,11 @@ impl<'a> DateProcessor<'a> {
     }
 
     /// Process custom principal events (draws/repays) for this date.
-    fn process_principal_events(&self, d: Date, state: &mut BuildState) {
+    fn process_principal_events(
+        &self,
+        d: Date,
+        state: &mut BuildState,
+    ) -> finstack_core::Result<()> {
         for ev in self.ctx.principal_events.iter().filter(|ev| ev.date == d) {
             if ev.delta.amount() != 0.0 || ev.cash.amount() != 0.0 {
                 // Sign convention depends on flow kind:
@@ -424,9 +420,10 @@ impl<'a> DateProcessor<'a> {
                     accrual_factor: 0.0,
                     rate: None,
                 });
-                state.outstanding += f64_to_decimal_saturating(ev.delta.amount());
+                state.outstanding += f64_to_decimal(ev.delta.amount())?;
             }
         }
+        Ok(())
     }
 
     /// Handle maturity redemption: emit final principal repayment if outstanding > 0.
@@ -454,11 +451,11 @@ impl<'a> DateProcessor<'a> {
 
         // PIK capitalizes after amortization for this date.
         if pik_to_add > 0.0 {
-            state.outstanding += f64_to_decimal_saturating(pik_to_add);
+            state.outstanding += f64_to_decimal(pik_to_add)?;
         }
 
         self.emit_fees(d, &mut state)?;
-        self.process_principal_events(d, &mut state);
+        self.process_principal_events(d, &mut state)?;
         self.handle_maturity(d, &mut state)?;
 
         state.outstanding_after.insert(d, state.outstanding);
@@ -1605,7 +1602,7 @@ impl CompiledCashFlowPlan {
             &self.notional,
             self.dates.len(),
             &self.principal_events,
-        );
+        )?;
         let ccy = self.notional.initial.currency();
         for (fee_date, amount) in &self.fixed_fees {
             if *fee_date == self.issue && amount.amount() != 0.0 {
@@ -1649,7 +1646,7 @@ impl CompiledCashFlowPlan {
         let threshold = Decimal::new(1, 4); // 1e-4 = 1 bp relative
         let initial_amount = self.notional.initial.amount();
         if initial_amount.abs() > 0.0 {
-            let initial_dec = f64_to_decimal_saturating(initial_amount);
+            let initial_dec = f64_to_decimal(initial_amount)?;
             if initial_dec != Decimal::ZERO {
                 let abs_outstanding = if state.outstanding < Decimal::ZERO {
                     -state.outstanding

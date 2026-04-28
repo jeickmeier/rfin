@@ -87,6 +87,17 @@ fn ensure_finite(value: f64, metric_name: &str) -> finstack_core::Result<f64> {
     }
 }
 
+fn clone_with_crn_seed<I>(instrument: &I) -> I
+where
+    I: Clone + HasPricingOverrides,
+{
+    let mut seeded = instrument.clone();
+    <I as HasPricingOverrides>::pricing_overrides_mut(&mut seeded)
+        .metrics
+        .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
+    seeded
+}
+
 fn eval_raw_with_scratch_bumps<I>(
     context: &MetricContext,
     scratch: &mut finstack_core::market_data::context::MarketContext,
@@ -366,24 +377,14 @@ where
         // Use safe bump size with minimum floor to prevent division by zero
         let bump_size = safe_bump_size(current_spot, bump_pct);
 
-        // Clone instruments for bumping and set CRN seed scenario
-        // Using the same seed for all bumps ensures Monte Carlo noise cancels in FD
-        let mut instrument_up = instrument.clone();
-        let mut instrument_down = instrument.clone();
-
-        // Common Random Numbers: same seed for all scenarios ensures variance reduction
-        <I as HasPricingOverrides>::pricing_overrides_mut(&mut instrument_up)
-            .metrics
-            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
-        <I as HasPricingOverrides>::pricing_overrides_mut(&mut instrument_down)
-            .metrics
-            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
+        // Common Random Numbers: same seed for all scenarios ensures variance reduction.
+        let seeded_instrument = clone_with_crn_seed(instrument);
 
         let mut scratch = context.curves.as_ref().clone();
         let pv_up = eval_raw_with_scratch_bumps(
             context,
             &mut scratch,
-            &instrument_up,
+            &seeded_instrument,
             as_of,
             Some((spot_id, bump_pct)),
             None,
@@ -391,7 +392,7 @@ where
         let pv_down = eval_raw_with_scratch_bumps(
             context,
             &mut scratch,
-            &instrument_down,
+            &seeded_instrument,
             as_of,
             Some((spot_id, -bump_pct)),
             None,
@@ -467,35 +468,24 @@ where
         // This avoids "bump-of-bump" scaling artifacts when bumps are applied multiplicatively
         // (percentage bumps) and yields exact results for quadratic payoffs.
 
-        // Clone instruments and set CRN seed for variance reduction
-        let mut instrument_base = instrument.clone();
-        <I as HasPricingOverrides>::pricing_overrides_mut(&mut instrument_base)
-            .metrics
-            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
+        // Common Random Numbers: same seed for all scenarios ensures variance reduction.
+        let seeded_instrument = clone_with_crn_seed(instrument);
         let mut scratch = context.curves.as_ref().clone();
-        let base_pv = context.reprice_instrument_raw(&instrument_base, &scratch, as_of)?;
+        let base_pv = context.reprice_instrument_raw(&seeded_instrument, &scratch, as_of)?;
 
-        let mut instrument_up = instrument.clone();
-        <I as HasPricingOverrides>::pricing_overrides_mut(&mut instrument_up)
-            .metrics
-            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let pv_up = eval_raw_with_scratch_bumps(
             context,
             &mut scratch,
-            &instrument_up,
+            &seeded_instrument,
             as_of,
             Some((spot_id, bump_pct)),
             None,
         )?;
 
-        let mut instrument_down = instrument.clone();
-        <I as HasPricingOverrides>::pricing_overrides_mut(&mut instrument_down)
-            .metrics
-            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let pv_down = eval_raw_with_scratch_bumps(
             context,
             &mut scratch,
-            &instrument_down,
+            &seeded_instrument,
             as_of,
             Some((spot_id, -bump_pct)),
             None,
@@ -557,20 +547,13 @@ where
         // Interpreted as an **absolute** implied vol bump in decimal units (e.g., 0.01 = +1 vol point).
         let bump_abs = defaults.vol_bump_pct;
 
-        let mut inst_up = instrument.clone();
-        <I as HasPricingOverrides>::pricing_overrides_mut(&mut inst_up)
-            .metrics
-            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
-        let mut inst_down = instrument.clone();
-        <I as HasPricingOverrides>::pricing_overrides_mut(&mut inst_down)
-            .metrics
-            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
+        let seeded_instrument = clone_with_crn_seed(instrument);
 
         let mut scratch = context.curves.as_ref().clone();
         let pv_up = eval_raw_with_scratch_bumps(
             context,
             &mut scratch,
-            &inst_up,
+            &seeded_instrument,
             as_of,
             None,
             Some((vol_surface_id.as_str(), bump_abs)),
@@ -578,7 +561,7 @@ where
         let pv_down = eval_raw_with_scratch_bumps(
             context,
             &mut scratch,
-            &inst_down,
+            &seeded_instrument,
             as_of,
             None,
             Some((vol_surface_id.as_str(), -bump_abs)),
@@ -637,30 +620,18 @@ where
             ));
         }
 
-        // Clone instruments and set CRN seed for variance reduction
-        let mut instrument_base = instrument.clone();
-        <I as HasPricingOverrides>::pricing_overrides_mut(&mut instrument_base)
-            .metrics
-            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
+        // Common Random Numbers: same seed for all scenarios ensures variance reduction.
+        let seeded_instrument = clone_with_crn_seed(instrument);
         let mut scratch = context.curves.as_ref().clone();
-        let base_pv = context.reprice_instrument_raw(&instrument_base, &scratch, as_of)?;
+        let base_pv = context.reprice_instrument_raw(&seeded_instrument, &scratch, as_of)?;
 
         // Absolute implied vol bump (vol points).
         let bump_abs = defaults.vol_bump_pct;
 
-        let mut inst_up = instrument.clone();
-        <I as HasPricingOverrides>::pricing_overrides_mut(&mut inst_up)
-            .metrics
-            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
-        let mut inst_down = instrument.clone();
-        <I as HasPricingOverrides>::pricing_overrides_mut(&mut inst_down)
-            .metrics
-            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
-
         let pv_up = eval_raw_with_scratch_bumps(
             context,
             &mut scratch,
-            &inst_up,
+            &seeded_instrument,
             as_of,
             None,
             Some((vol_surface_id.as_str(), bump_abs)),
@@ -668,7 +639,7 @@ where
         let pv_down = eval_raw_with_scratch_bumps(
             context,
             &mut scratch,
-            &inst_down,
+            &seeded_instrument,
             as_of,
             None,
             Some((vol_surface_id.as_str(), -bump_abs)),
@@ -748,28 +719,13 @@ where
         let h_abs = safe_bump_size(current_spot, spot_bump_pct); // absolute spot change
         let k_abs = vol_bump_abs; // absolute vol change (vol points)
 
-        let mut inst_pp = instrument.clone();
-        <I as HasPricingOverrides>::pricing_overrides_mut(&mut inst_pp)
-            .metrics
-            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
-        let mut inst_pm = instrument.clone();
-        <I as HasPricingOverrides>::pricing_overrides_mut(&mut inst_pm)
-            .metrics
-            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
-        let mut inst_mp = instrument.clone();
-        <I as HasPricingOverrides>::pricing_overrides_mut(&mut inst_mp)
-            .metrics
-            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
-        let mut inst_mm = instrument.clone();
-        <I as HasPricingOverrides>::pricing_overrides_mut(&mut inst_mm)
-            .metrics
-            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
+        let seeded_instrument = clone_with_crn_seed(instrument);
 
         let mut scratch = context.curves.as_ref().clone();
         let v_pp = eval_raw_with_scratch_bumps(
             context,
             &mut scratch,
-            &inst_pp,
+            &seeded_instrument,
             as_of,
             Some((spot_id, spot_bump_pct)),
             Some((vol_surface_id.as_str(), k_abs)),
@@ -777,7 +733,7 @@ where
         let v_pm = eval_raw_with_scratch_bumps(
             context,
             &mut scratch,
-            &inst_pm,
+            &seeded_instrument,
             as_of,
             Some((spot_id, spot_bump_pct)),
             Some((vol_surface_id.as_str(), -k_abs)),
@@ -785,7 +741,7 @@ where
         let v_mp = eval_raw_with_scratch_bumps(
             context,
             &mut scratch,
-            &inst_mp,
+            &seeded_instrument,
             as_of,
             Some((spot_id, -spot_bump_pct)),
             Some((vol_surface_id.as_str(), k_abs)),
@@ -793,7 +749,7 @@ where
         let v_mm = eval_raw_with_scratch_bumps(
             context,
             &mut scratch,
-            &inst_mm,
+            &seeded_instrument,
             as_of,
             Some((spot_id, -spot_bump_pct)),
             Some((vol_surface_id.as_str(), -k_abs)),

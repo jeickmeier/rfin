@@ -15,7 +15,7 @@ use crate::market::BuildCtx;
 use finstack_core::dates::{next_cds_date, BusinessDayConvention, DateExt, StubKind};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::{Error, InputError, Result};
+use finstack_core::Result;
 use rust_decimal::Decimal;
 
 /// Build a Credit Default Swap instrument from a [`CdsQuote`].
@@ -124,17 +124,12 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<DynI
     tracing::debug!(quote_id = %quote.id(), "building CDS instrument");
     quote.validate_market_conventions()?;
     let registry = ConventionRegistry::try_global()?;
-    let missing_role = |role: &str| {
-        Error::Input(InputError::NotFound {
-            id: format!("curve role '{}'", role),
-        })
-    };
 
     // Normalize both quote styles onto a shared running-coupon path before building.
     let spread_bp = quote.quoted_running_spread_bp();
 
     // Extract the remaining fields.
-    let (id, convention_key, _entity, pillar, recovery_rate, upfront) = match quote {
+    let (id, convention_key, entity, pillar, recovery_rate, upfront) = match quote {
         CdsQuote::CdsParSpread {
             id,
             entity,
@@ -196,16 +191,10 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<DynI
         }
     };
 
-    let discount_id = ctx
-        .curve_id("discount")
-        .map(String::from)
-        .ok_or_else(|| missing_role("discount"))?;
+    let discount_id = ctx.require_curve_id("discount")?.to_string();
 
     // Credit curve ID: usually defaulted to entity name if not mapped
-    let credit_id = ctx
-        .curve_id("credit")
-        .map(String::from)
-        .ok_or_else(|| missing_role("credit"))?;
+    let credit_id = ctx.require_curve_id("credit")?.to_string();
 
     // Calculate upfront amount if present
     // Amount = Notional * pct; Date = Spot (Settlement)
@@ -251,7 +240,7 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<DynI
         doc_clause: Some(convention_key.doc_clause),
         protection_effective_date: None,
         margin_spec: None,
-        attributes: Attributes::new(),
+        attributes: Attributes::new().with_meta("entity", entity.as_str()),
     };
 
     Ok(Box::new(cds))

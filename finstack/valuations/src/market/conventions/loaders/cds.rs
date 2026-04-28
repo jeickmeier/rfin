@@ -1,24 +1,24 @@
 //! Loader for CDS conventions embedded in JSON registries.
 
-use super::json::{build_lookup_map_mapped, normalize_registry_id, RegistryFile};
+use super::json::{normalize_registry_id, RegistryFile};
 use crate::market::conventions::defs::CdsConventions;
 use crate::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::Error;
 use finstack_core::HashMap;
+use std::str::FromStr;
 use strum::IntoEnumIterator;
 
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CdsConventionsRecord {
-    #[allow(dead_code)]
     doc_clause: CdsDocClause,
     day_count: DayCount,
     payment_frequency: String,
     bdc: BusinessDayConvention,
-    #[allow(dead_code)]
-    stub_convention: String,
+    #[serde(rename = "stub_convention")]
+    _stub_convention: String,
     settlement_days: i32,
     calendar_id: String,
 }
@@ -42,28 +42,28 @@ impl CdsConventionsRecord {
     }
 }
 
-/// Parse a doc clause string into `CdsDocClause`.
-fn parse_doc_clause(clause_str: &str) -> Option<CdsDocClause> {
-    serde_json::from_value(serde_json::Value::String(clause_str.to_string())).ok()
+fn parse_doc_clause(clause_str: &str) -> Result<CdsDocClause, Error> {
+    CdsDocClause::from_str(clause_str).map_err(Error::Validation)
 }
 
 /// Load the CDS conventions from the embedded JSON registry.
 ///
-/// This loader expands `ANY:<Clause>` and `DEFAULT:DEFAULT` IDs across all ISO currencies,
-/// allowing the embedded registry to define catch-all conventions that apply to any currency
-/// not explicitly overridden. Explicit currency IDs (e.g., `USD:IsdaNa`) take precedence
-/// over expanded `ANY` entries.
+/// This loader expands `ANY:<Clause>` IDs across all ISO currencies, allowing the embedded
+/// registry to define catch-all conventions that apply to any currency not explicitly
+/// overridden. Explicit currency IDs (e.g., `USD:IsdaNa`) take precedence over expanded
+/// `ANY` entries.
 pub(crate) fn load_registry() -> Result<HashMap<CdsConventionKey, CdsConventions>, Error> {
     let json = include_str!("../../../../data/conventions/cds_conventions.json");
+    load_registry_from_str(json)
+}
+
+fn load_registry_from_str(json: &str) -> Result<HashMap<CdsConventionKey, CdsConventions>, Error> {
     let file: RegistryFile<CdsConventionsRecord> = serde_json::from_str(json).map_err(|e| {
         Error::Validation(format!(
             "Failed to parse embedded CDS conventions registry JSON: {e}"
         ))
     })?;
-
-    let string_map = build_lookup_map_mapped(file, normalize_registry_id, |rec| {
-        rec.clone().into_conventions()
-    })?;
+    file.validate_metadata("CDS")?;
 
     // Two-pass approach:
     // 1. Collect explicit (Currency, Clause) keys first - these take precedence
@@ -71,46 +71,65 @@ pub(crate) fn load_registry() -> Result<HashMap<CdsConventionKey, CdsConventions
 
     let mut final_map: HashMap<CdsConventionKey, CdsConventions> = HashMap::default();
     let mut any_clauses: Vec<(CdsDocClause, CdsConventions)> = Vec::new();
+    let mut seen_ids: HashMap<String, ()> = HashMap::default();
 
-    for (key_str, val) in string_map {
-        let parts: Vec<&str> = key_str.split(':').collect();
-        if parts.len() != 2 {
-            continue; // Invalid format
-        }
+    for entry in file.entries {
+        let conventions = entry.record.clone().into_conventions()?;
+        for id in entry.ids {
+            let key_str = normalize_registry_id(&id);
+            if seen_ids.insert(key_str.clone(), ()).is_some() {
+                return Err(Error::Validation(format!(
+                    "Duplicate registry id after normalization: '{}' (from '{}')",
+                    key_str, id
+                )));
+            }
 
-        let prefix = parts[0];
-        let clause_str = parts[1];
+            let (prefix, clause_str) = key_str.split_once(':').ok_or_else(|| {
+                Error::Validation(format!(
+                    "Invalid CDS convention registry id '{}': expected '<Currency>:<DocClause>' or 'ANY:<DocClause>'",
+                    key_str
+                ))
+            })?;
+            if clause_str.contains(':') {
+                return Err(Error::Validation(format!(
+                    "Invalid CDS convention registry id '{}': expected exactly one ':' separator",
+                    key_str
+                )));
+            }
 
-        // Handle explicit currency keys (e.g., "USD:IsdaNa")
-        if let Ok(currency) = prefix.parse::<Currency>() {
-            if let Some(clause) = parse_doc_clause(clause_str) {
+            if prefix.eq_ignore_ascii_case("ANY") {
+                let clause = parse_doc_clause(clause_str)?;
+                if clause != entry.record.doc_clause {
+                    return Err(Error::Validation(format!(
+                        "CDS convention registry id '{}' doc clause does not match record doc_clause {:?}",
+                        key_str, entry.record.doc_clause
+                    )));
+                }
+                any_clauses.push((clause, conventions.clone()));
+            } else if prefix.eq_ignore_ascii_case("DEFAULT")
+                && clause_str.eq_ignore_ascii_case("DEFAULT")
+            {
+                any_clauses.push((entry.record.doc_clause, conventions.clone()));
+            } else if let Ok(currency) = prefix.parse::<Currency>() {
+                let clause = parse_doc_clause(clause_str)?;
+                if clause != entry.record.doc_clause {
+                    return Err(Error::Validation(format!(
+                        "CDS convention registry id '{}' doc clause does not match record doc_clause {:?}",
+                        key_str, entry.record.doc_clause
+                    )));
+                }
                 let key = CdsConventionKey {
                     currency,
                     doc_clause: clause,
                 };
-                final_map.insert(key, val?);
-            }
-        } else if prefix.eq_ignore_ascii_case("ANY") || prefix.eq_ignore_ascii_case("DEFAULT") {
-            // Handle "ANY:<Clause>" or "DEFAULT:DEFAULT" (treat DEFAULT:DEFAULT as ANY:<record.doc_clause>)
-            // For DEFAULT:DEFAULT, the clause in the key may be "DEFAULT" but the actual clause
-            // is in the record's doc_clause field. We use clause_str here which may be "DEFAULT".
-            // The JSON shows "DEFAULT:DEFAULT" in the ids array, but the record has doc_clause: IsdaNa.
-            // So we need to parse the clause from the record, not the key.
-            // Actually, looking at the JSON, DEFAULT:DEFAULT is in the same entry as ANY:IsdaNa,
-            // so they share the same record. We can just treat DEFAULT as synonymous with ANY.
-            if let Some(clause) = parse_doc_clause(clause_str) {
-                any_clauses.push((clause, val?));
-            } else if clause_str.eq_ignore_ascii_case("DEFAULT") {
-                // "DEFAULT:DEFAULT" - need to get the clause from the record's doc_clause
-                // But at this point we only have the conventions, not the original record.
-                // The doc_clause was parsed in into_conventions but not stored in CdsConventions.
-                // For now, we'll skip "DEFAULT:DEFAULT" expansion since we can't determine the clause.
-                // The JSON has DEFAULT:DEFAULT in the same entry as USD:IsdaNa, ANY:IsdaNa, etc.,
-                // so those explicit entries will cover the expected cases.
-                continue;
+                final_map.insert(key, conventions.clone());
+            } else {
+                return Err(Error::Validation(format!(
+                    "Invalid CDS convention registry id '{}': unknown currency or prefix '{}'",
+                    key_str, prefix
+                )));
             }
         }
-        // Skip other invalid prefixes
     }
 
     // Second pass: expand ANY entries to all currencies not already present
@@ -167,5 +186,64 @@ mod tests {
             })
             .expect("SGD IsdaAs");
         assert_eq!(sgd.calendar_id, "sgsi");
+    }
+
+    #[test]
+    fn malformed_registry_id_errors() {
+        let json = r#"{
+            "schema": "finstack.instruments.cds.conventions.registry.v2",
+            "namespace": "instruments.cds.market_conventions",
+            "version": 1,
+            "entries": [
+                {
+                    "ids": ["USD-isda_na"],
+                    "record": {
+                        "doc_clause": "isda_na",
+                        "day_count": "Act360",
+                        "payment_frequency": "3M",
+                        "bdc": "modified_following",
+                        "stub_convention": "ShortFront",
+                        "settlement_days": 3,
+                        "calendar_id": "nyse"
+                    }
+                }
+            ]
+        }"#;
+
+        let err = load_registry_from_str(json).expect_err("malformed key should fail");
+        assert!(
+            err.to_string()
+                .contains("expected '<Currency>:<DocClause>'"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn id_doc_clause_must_match_record_doc_clause() {
+        let json = r#"{
+            "schema": "finstack.instruments.cds.conventions.registry.v2",
+            "namespace": "instruments.cds.market_conventions",
+            "version": 1,
+            "entries": [
+                {
+                    "ids": ["USD:isda_eu"],
+                    "record": {
+                        "doc_clause": "isda_na",
+                        "day_count": "Act360",
+                        "payment_frequency": "3M",
+                        "bdc": "modified_following",
+                        "stub_convention": "ShortFront",
+                        "settlement_days": 3,
+                        "calendar_id": "nyse"
+                    }
+                }
+            ]
+        }"#;
+
+        let err = load_registry_from_str(json).expect_err("mismatched clause should fail");
+        assert!(
+            err.to_string().contains("does not match record doc_clause"),
+            "unexpected error: {err}"
+        );
     }
 }

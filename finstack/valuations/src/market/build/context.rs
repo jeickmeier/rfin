@@ -1,7 +1,7 @@
 //! Build context for quote-to-instrument construction.
 
 use finstack_core::dates::Date;
-use finstack_core::HashMap;
+use finstack_core::{Error, HashMap, InputError, Result};
 
 /// Context for building instruments from market quotes.
 ///
@@ -164,5 +164,18 @@ impl BuildCtx {
     /// ```
     pub fn curve_id(&self, role: &str) -> Option<&str> {
         self.curve_ids.get(role).map(|s| s.as_str())
+    }
+
+    /// Get a required curve ID by role name.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`InputError::NotFound`] when the role is not mapped in this context.
+    pub fn require_curve_id(&self, role: &str) -> Result<&str> {
+        self.curve_id(role).ok_or_else(|| {
+            Error::Input(InputError::NotFound {
+                id: format!("curve role '{}'", role),
+            })
+        })
     }
 }

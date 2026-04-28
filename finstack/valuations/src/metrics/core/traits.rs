@@ -593,37 +593,42 @@ impl MetricContext {
         self.computed_tensor3.get(id)
     }
 
-    /// Builds a default composite key like `base::p1[::p2[::p3]]...` using sanitized labels.
+    /// Builds a default composite key like `base::p1[::p2[::p3]]...`.
     fn default_composite_key(base: &MetricId, parts: &[&str]) -> MetricId {
-        // Calculate exact capacity needed
-        let base_len = base.as_str().len();
-        let separator_len = 2; // "::"
-        let parts_len: usize = parts.iter().map(|p| p.len() + separator_len).sum();
-
-        let mut key = String::with_capacity(base_len + parts_len);
+        let mut key = String::with_capacity(base.as_str().len() + parts.len() * 8);
         key.push_str(base.as_str());
 
         for p in parts {
             key.push_str("::");
-
-            let start_len = key.len();
-            let mut last_was_underscore = true; // Treat start as "underscore" to trim leading separators
-
-            for ch in p.chars() {
-                if ch.is_ascii_alphanumeric() {
-                    key.push(ch.to_ascii_lowercase());
-                    last_was_underscore = false;
-                } else if !last_was_underscore {
-                    key.push('_');
-                    last_was_underscore = true;
-                }
+            if p.is_empty() {
+                key.push_str("_empty");
+                continue;
             }
-
-            // Trim trailing underscore
-            if last_was_underscore && key.len() > start_len {
-                key.pop();
+            for byte in p.as_bytes() {
+                if byte.is_ascii_alphanumeric() {
+                    key.push(char::from(*byte));
+                } else {
+                    use std::fmt::Write as _;
+                    let _ = write!(&mut key, "_x{byte:02x}");
+                }
             }
         }
         MetricId::custom(key)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_composite_key_preserves_distinct_non_alphanumeric_labels() {
+        let hyphen = MetricContext::default_composite_key(&MetricId::BucketedDv01, &["USD-OIS"]);
+        let underscore =
+            MetricContext::default_composite_key(&MetricId::BucketedDv01, &["USD_OIS"]);
+
+        assert_ne!(hyphen, underscore);
+        assert_eq!(hyphen.as_str(), "bucketed_dv01::USD_x2dOIS");
+        assert_eq!(underscore.as_str(), "bucketed_dv01::USD_x5fOIS");
     }
 }

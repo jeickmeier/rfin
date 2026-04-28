@@ -300,6 +300,10 @@ fn pv_by_period_precomputed(
     periods: &[Period],
 ) -> IndexMap<PeriodId, IndexMap<Currency, Money>> {
     debug_assert_eq!(sorted.len(), pv_per_flow.len());
+    debug_assert!(
+        periods.windows(2).all(|w| w[0].start <= w[1].start),
+        "pv_by_period_precomputed requires periods sorted by start date"
+    );
     let mut out: IndexMap<PeriodId, IndexMap<Currency, Money>> = IndexMap::new();
     let mut per_ccy: IndexMap<Currency, NeumaierAccumulator> = IndexMap::new();
     let mut flow_idx = 0usize;

@@ -25,12 +25,6 @@ use super::{decimal_to_f64, f64_to_decimal};
 /// Uses `Decimal` arithmetic throughout for consistency with the periodic fee
 /// emission path, avoiding f64 precision differences for large notionals.
 ///
-/// # Panics
-///
-/// In **debug builds only**, asserts that `base_amount`, `fee_bp`, and
-/// `year_fraction` are all finite via `debug_assert!`. In release builds the
-/// non-finite branch returns `None` (no cashflow emitted) rather than
-/// silently producing a zero fee.
 fn emit_fee_generic(
     d: Date,
     base_amount: f64,
@@ -38,46 +32,27 @@ fn emit_fee_generic(
     year_fraction: f64,
     ccy: Currency,
     kind: CFKind,
-) -> Option<CashFlow> {
-    // Catch non-finite inputs in debug builds so tests surface the problem.
-    debug_assert!(
-        base_amount.is_finite(),
-        "emit_fee_generic: base_amount is not finite ({base_amount})"
-    );
-    debug_assert!(
-        fee_bp.is_finite(),
-        "emit_fee_generic: fee_bp is not finite ({fee_bp})"
-    );
-    debug_assert!(
-        year_fraction.is_finite(),
-        "emit_fee_generic: year_fraction is not finite ({year_fraction})"
-    );
-
-    // Guard: non-finite inputs produce no cashflow rather than a silent zero fee.
-    if !base_amount.is_finite() || !fee_bp.is_finite() || !year_fraction.is_finite() {
-        return None;
-    }
-
+) -> finstack_core::Result<Option<CashFlow>> {
     // Use Decimal for consistent precision with emit_fees_on
-    let base_dec = Decimal::try_from(base_amount).ok()?;
-    let fee_bp_dec = Decimal::try_from(fee_bp).ok()?;
-    let yf_dec = Decimal::try_from(year_fraction).ok()?;
+    let base_dec = f64_to_decimal(base_amount)?;
+    let fee_bp_dec = f64_to_decimal(fee_bp)?;
+    let yf_dec = f64_to_decimal(year_fraction)?;
 
     let fee_amt_dec = base_dec * fee_bp_dec * BP_TO_RATE * yf_dec;
-    let fee_amt = decimal_to_f64(fee_amt_dec).ok()?;
-    let rate = decimal_to_f64(fee_bp_dec * BP_TO_RATE).ok()?;
+    let fee_amt = decimal_to_f64(fee_amt_dec)?;
+    let rate = decimal_to_f64(fee_bp_dec * BP_TO_RATE)?;
 
     if fee_amt > 0.0 {
-        Some(CashFlow {
+        Ok(Some(CashFlow {
             date: d,
             reset_date: None,
             amount: Money::new(fee_amt, ccy),
             kind,
             accrual_factor: year_fraction,
             rate: Some(rate),
-        })
+        }))
     } else {
-        None
+        Ok(None)
     }
 }
 
@@ -103,7 +78,7 @@ pub(crate) fn emit_commitment_fee_on(
     commitment_fee_bp: f64,
     year_fraction: f64,
     ccy: Currency,
-) -> Option<CashFlow> {
+) -> finstack_core::Result<Option<CashFlow>> {
     emit_fee_generic(
         d,
         undrawn_balance,
@@ -136,7 +111,7 @@ pub(crate) fn emit_usage_fee_on(
     usage_fee_bp: f64,
     year_fraction: f64,
     ccy: Currency,
-) -> Option<CashFlow> {
+) -> finstack_core::Result<Option<CashFlow>> {
     emit_fee_generic(
         d,
         drawn_balance,
@@ -169,7 +144,7 @@ pub(crate) fn emit_facility_fee_on(
     facility_fee_bp: f64,
     year_fraction: f64,
     ccy: Currency,
-) -> Option<CashFlow> {
+) -> finstack_core::Result<Option<CashFlow>> {
     emit_fee_generic(
         d,
         commitment_amount,
@@ -285,8 +260,6 @@ pub(in crate::builder) fn emit_fees_on(
     ccy: Currency,
     new_flows: &mut Vec<CashFlow>,
 ) -> finstack_core::Result<()> {
-    // Conversion factor from basis points to rate (1 bp = 0.0001)
-    let bp_to_rate = Decimal::new(1, 4); // 0.0001
     let mut twa_buf: Vec<(Date, Decimal)> = Vec::new();
 
     for pf in periodic_fees {
@@ -334,11 +307,11 @@ pub(in crate::builder) fn emit_fees_on(
             };
 
             let yf_dec = f64_to_decimal(yf)?;
-            let fee_amt_dec = base_amt * pf.bps * bp_to_rate * yf_dec;
+            let fee_amt_dec = base_amt * pf.bps * BP_TO_RATE * yf_dec;
             let fee_amt = decimal_to_f64(fee_amt_dec)?;
 
             // Convert rate from bps to decimal for storage
-            let rate_dec = pf.bps * bp_to_rate;
+            let rate_dec = pf.bps * BP_TO_RATE;
             let rate = decimal_to_f64(rate_dec)?;
 
             if fee_amt > 0.0 {
@@ -394,14 +367,17 @@ pub struct RevolvingFeeEmissionConfig {
 }
 
 /// Emit all revolving-credit fee cashflows for a single accrual period.
-pub fn emit_revolving_credit_fees(flows: &mut Vec<CashFlow>, cfg: &RevolvingFeeEmissionConfig) {
+pub fn emit_revolving_credit_fees(
+    flows: &mut Vec<CashFlow>,
+    cfg: &RevolvingFeeEmissionConfig,
+) -> finstack_core::Result<()> {
     if let Some(cf) = emit_commitment_fee_on(
         cfg.payment_date,
         cfg.undrawn_balance,
         cfg.commitment_fee_bp,
         cfg.year_fraction,
         cfg.currency,
-    ) {
+    )? {
         flows.push(cf);
     }
 
@@ -411,7 +387,7 @@ pub fn emit_revolving_credit_fees(flows: &mut Vec<CashFlow>, cfg: &RevolvingFeeE
         cfg.usage_fee_bp,
         cfg.year_fraction,
         cfg.currency,
-    ) {
+    )? {
         flows.push(cf);
     }
 
@@ -421,9 +397,10 @@ pub fn emit_revolving_credit_fees(flows: &mut Vec<CashFlow>, cfg: &RevolvingFeeE
         cfg.facility_fee_bp,
         cfg.year_fraction,
         cfg.currency,
-    ) {
+    )? {
         flows.push(cf);
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -707,7 +684,8 @@ mod tests {
                 year_fraction: 0.25,
                 currency: Currency::USD,
             },
-        );
+        )
+        .expect("finite fee inputs");
 
         assert_eq!(flows.len(), 3);
         assert_eq!(flows[0].kind, CFKind::CommitmentFee);

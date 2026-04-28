@@ -5,7 +5,7 @@
 
 use crate::metrics::sensitivities::theta::{calculate_theta_date, collect_cashflows_in_period};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::{DayCount, DayCountContext};
+use finstack_core::dates::DayCountContext;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
@@ -151,7 +151,12 @@ fn compute_funding_cost(
 
     let funding_curve = context.curves.get_discount(funding_curve_id.as_str())?;
     let annual_rate = funding_curve.zero_rate_on_date(rolled_date, Compounding::Continuous)?;
-    let day_count = context.day_count.unwrap_or(DayCount::Act365F);
+    let day_count = context.day_count.ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "funding cost for '{}' requires an explicit day-count convention",
+            context.instrument.id()
+        ))
+    })?;
     let dcf = day_count.year_fraction(context.as_of, rolled_date, DayCountContext::default())?;
 
     Ok(context.base_value.amount() * annual_rate * dcf)
@@ -309,6 +314,26 @@ mod tests {
             .expect("funding cost");
 
         assert!((funding_cost - expected).abs() < 1e-8);
+    }
+
+    #[test]
+    fn test_funding_cost_requires_explicit_day_count() {
+        let as_of = date!(2025 - 01 - 15);
+        let mut bond = zero_coupon_bond();
+        bond.funding_curve_id = Some(CurveId::new("USD-REPO"));
+        let market = MarketContext::new()
+            .insert(flat_discount_curve("USD-OIS", 0.05, as_of))
+            .insert(flat_discount_curve("USD-REPO", 0.02, as_of));
+        let mut context = context_for(bond, market, as_of, "1M", Some(0.05));
+
+        let err = CarryDecompositionCalculator
+            .calculate(&mut context)
+            .expect_err("funding cost should not silently default the day-count convention");
+
+        assert!(
+            err.to_string().contains("day-count"),
+            "expected day-count validation error, got: {err}"
+        );
     }
 
     #[test]

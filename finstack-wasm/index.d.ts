@@ -1122,7 +1122,8 @@ export interface ValuationInstrumentsNamespace {
     asOf: string,
     model: string,
     metrics: string[],
-    pricingOptions?: string | null
+    pricingOptions?: string | null,
+    marketHistory?: string | null
   ): string;
   listStandardMetrics(): string[];
   listStandardMetricsGrouped(): Record<string, string[]>;
@@ -1138,7 +1139,8 @@ export interface FxInstrument {
     asOf: string,
     metrics: string[],
     model?: string | null,
-    pricingOptions?: string | null
+    pricingOptions?: string | null,
+    marketHistory?: string | null
   ): string;
 }
 
@@ -1295,7 +1297,8 @@ export interface CreditDerivativesNamespace {
     asOf: string,
     model: string,
     metrics: string[],
-    pricingOptions?: string | null
+    pricingOptions?: string | null,
+    marketHistory?: string | null
   ): string;
 }
 
@@ -1340,7 +1343,8 @@ export interface ValuationsNamespace {
     asOf: string,
     model: string,
     metrics: string[],
-    pricingOptions?: string | null
+    pricingOptions?: string | null,
+    marketHistory?: string | null
   ): string;
   /**
    * Per-flow cashflow envelope (DF / survival / PV) for a discountable

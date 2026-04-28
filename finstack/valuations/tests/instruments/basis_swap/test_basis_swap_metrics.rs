@@ -116,23 +116,22 @@ fn dv01_metrics() {
     let dv01 = res.measures[MetricId::Dv01.as_str()];
 
     // Dv01 is now configured in PerCurve mode, so it returns the sum of individual curve sensitivities
-    // and stores the breakdown in measures with composite keys "bucketed_dv01::curve_id"
-    // Note: Curve IDs are sanitized (hyphens become underscores) in composite keys
+    // and stores the breakdown in measures with reversible composite curve keys.
 
     // Extract per-curve DV01s from measures using composite keys
     let dv01_discount = res
         .measures
-        .get("bucketed_dv01::usd_ois")
+        .get("bucketed_dv01::USD_x2dOIS")
         .copied()
         .unwrap_or(0.0);
     let dv01_primary_fwd = res
         .measures
-        .get("bucketed_dv01::usd_sofr_3m")
+        .get("bucketed_dv01::USD_x2dSOFR_x2d3M")
         .copied()
         .unwrap_or(0.0);
     let dv01_reference_fwd = res
         .measures
-        .get("bucketed_dv01::usd_sofr_1m")
+        .get("bucketed_dv01::USD_x2dSOFR_x2d1M")
         .copied()
         .unwrap_or(0.0);
 

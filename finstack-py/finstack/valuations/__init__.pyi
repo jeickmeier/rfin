@@ -328,6 +328,7 @@ def price_instrument_with_metrics(
     model: str = "default",
     metrics: list[str] = [],
     pricing_options: str | None = None,
+    market_history: str | None = None,
 ) -> str:
     """Price an instrument and request explicit risk metrics.
 
@@ -341,6 +342,8 @@ def price_instrument_with_metrics(
             merged into the instrument's ``pricing_overrides``. Supports
             ``"theta_period"`` (e.g. ``"6M"``) and ``"breakeven_config"``
             (e.g. ``{"target": "z_spread", "mode": "linear"}``).
+        market_history: Optional JSON string of ``MarketHistory`` scenarios
+            required by ``hvar`` and ``expected_shortfall`` metrics.
 
     Returns:
         Pretty-printed JSON ``ValuationResult`` including requested metrics.
@@ -474,11 +477,15 @@ class PnlAttribution:
         ...
 
     def to_json(self) -> str:
-        """Serialize to pretty-printed JSON.
+        """Serialize to compact JSON.
 
         Returns:
-            Pretty-printed JSON string.
+            Compact JSON string.
         """
+        ...
+
+    def to_dict(self) -> dict[str, object]:
+        """Export the canonical serde-shaped attribution payload as a dict."""
         ...
 
     @property
@@ -651,7 +658,7 @@ def attribute_pnl(
         config: Optional config overrides (tolerance, metrics, bump sizes).
 
     Returns:
-        Pretty-printed JSON ``PnlAttribution`` payload.
+        Compact JSON ``PnlAttribution`` payload.
 
     Example:
         >>> attr_json = attribute_pnl(inst, mkt_t0, mkt_t1, "2025-01-15", "2025-01-16", "Parallel")

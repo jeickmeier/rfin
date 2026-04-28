@@ -75,194 +75,83 @@ use std::sync::Arc;
 /// let fx_vol = CurveRestoreFlags::FX | CurveRestoreFlags::VOL;
 /// ```
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
-pub struct CurveRestoreFlags {
-    /// Restore discount curves from snapshot
-    pub discount: bool,
-    /// Restore forward curves from snapshot
-    pub forward: bool,
-    /// Restore hazard curves from snapshot
-    pub hazard: bool,
-    /// Restore inflation curves from snapshot
-    pub inflation: bool,
-    /// Restore base correlation curves from snapshot
-    pub correlation: bool,
-    /// Restore FX matrix from snapshot
-    pub fx: bool,
-    /// Restore volatility surfaces from snapshot
-    pub vol: bool,
-    /// Restore market scalars (prices, series, inflation indices, dividends) from
-    /// snapshot. See module docs for the DROP semantic.
-    pub scalars: bool,
-}
+pub struct CurveRestoreFlags(u16);
 
 /// Broader-name alias for [`CurveRestoreFlags`]. Prefer this name in new code where
 /// the flags mix curve and non-curve (FX/VOL/SCALARS) families.
 pub type MarketRestoreFlags = CurveRestoreFlags;
 
 impl CurveRestoreFlags {
+    const DISCOUNT_BIT: u16 = 1 << 0;
+    const FORWARD_BIT: u16 = 1 << 1;
+    const HAZARD_BIT: u16 = 1 << 2;
+    const INFLATION_BIT: u16 = 1 << 3;
+    const CORRELATION_BIT: u16 = 1 << 4;
+    const FX_BIT: u16 = 1 << 5;
+    const VOL_BIT: u16 = 1 << 6;
+    const SCALARS_BIT: u16 = 1 << 7;
+    const ALL_BITS: u16 = Self::DISCOUNT_BIT
+        | Self::FORWARD_BIT
+        | Self::HAZARD_BIT
+        | Self::INFLATION_BIT
+        | Self::CORRELATION_BIT
+        | Self::FX_BIT
+        | Self::VOL_BIT
+        | Self::SCALARS_BIT;
+
     /// Restore discount curves from snapshot
-    pub const DISCOUNT: Self = Self {
-        discount: true,
-        forward: false,
-        hazard: false,
-        inflation: false,
-        correlation: false,
-        fx: false,
-        vol: false,
-        scalars: false,
-    };
+    pub const DISCOUNT: Self = Self(Self::DISCOUNT_BIT);
 
     /// Restore forward curves from snapshot
-    pub const FORWARD: Self = Self {
-        discount: false,
-        forward: true,
-        hazard: false,
-        inflation: false,
-        correlation: false,
-        fx: false,
-        vol: false,
-        scalars: false,
-    };
+    pub const FORWARD: Self = Self(Self::FORWARD_BIT);
 
     /// Restore hazard curves from snapshot
-    pub const HAZARD: Self = Self {
-        discount: false,
-        forward: false,
-        hazard: true,
-        inflation: false,
-        correlation: false,
-        fx: false,
-        vol: false,
-        scalars: false,
-    };
+    pub const HAZARD: Self = Self(Self::HAZARD_BIT);
 
     /// Restore inflation curves from snapshot
-    pub const INFLATION: Self = Self {
-        discount: false,
-        forward: false,
-        hazard: false,
-        inflation: true,
-        correlation: false,
-        fx: false,
-        vol: false,
-        scalars: false,
-    };
+    pub const INFLATION: Self = Self(Self::INFLATION_BIT);
 
     /// Restore base correlation curves from snapshot
-    pub const CORRELATION: Self = Self {
-        discount: false,
-        forward: false,
-        hazard: false,
-        inflation: false,
-        correlation: true,
-        fx: false,
-        vol: false,
-        scalars: false,
-    };
+    pub const CORRELATION: Self = Self(Self::CORRELATION_BIT);
 
     /// Restore FX matrix from snapshot
-    pub const FX: Self = Self {
-        discount: false,
-        forward: false,
-        hazard: false,
-        inflation: false,
-        correlation: false,
-        fx: true,
-        vol: false,
-        scalars: false,
-    };
+    pub const FX: Self = Self(Self::FX_BIT);
 
     /// Restore volatility surfaces from snapshot
-    pub const VOL: Self = Self {
-        discount: false,
-        forward: false,
-        hazard: false,
-        inflation: false,
-        correlation: false,
-        fx: false,
-        vol: true,
-        scalars: false,
-    };
+    pub const VOL: Self = Self(Self::VOL_BIT);
 
     /// Restore market scalars (prices, series, inflation indices, dividends) from
     /// snapshot. Scalars present in the current market but absent from the snapshot
     /// are **dropped** (see module docs).
-    pub const SCALARS: Self = Self {
-        discount: false,
-        forward: false,
-        hazard: false,
-        inflation: false,
-        correlation: false,
-        fx: false,
-        vol: false,
-        scalars: true,
-    };
+    pub const SCALARS: Self = Self(Self::SCALARS_BIT);
 
     /// Convenience combination: restore both discount and forward curves (rates family)
-    pub const RATES: Self = Self {
-        discount: true,
-        forward: true,
-        hazard: false,
-        inflation: false,
-        correlation: false,
-        fx: false,
-        vol: false,
-        scalars: false,
-    };
+    pub const RATES: Self = Self(Self::DISCOUNT_BIT | Self::FORWARD_BIT);
 
     /// Convenience combination: restore hazard curves (credit family)
-    pub const CREDIT: Self = Self {
-        discount: false,
-        forward: false,
-        hazard: true,
-        inflation: false,
-        correlation: false,
-        fx: false,
-        vol: false,
-        scalars: false,
-    };
+    pub const CREDIT: Self = Self(Self::HAZARD_BIT);
 
     /// Returns flags with all market factor families enabled.
     #[inline]
     pub const fn all() -> Self {
-        Self {
-            discount: true,
-            forward: true,
-            hazard: true,
-            inflation: true,
-            correlation: true,
-            fx: true,
-            vol: true,
-            scalars: true,
-        }
+        Self(Self::ALL_BITS)
     }
 
     /// Returns flags with no factor families enabled.
     #[inline]
     pub const fn empty() -> Self {
-        Self {
-            discount: false,
-            forward: false,
-            hazard: false,
-            inflation: false,
-            correlation: false,
-            fx: false,
-            vol: false,
-            scalars: false,
-        }
+        Self(0)
     }
 
     /// Returns true if the specified flags are all set.
     #[inline]
     pub const fn contains(&self, other: Self) -> bool {
-        (!other.discount || self.discount)
-            && (!other.forward || self.forward)
-            && (!other.hazard || self.hazard)
-            && (!other.inflation || self.inflation)
-            && (!other.correlation || self.correlation)
-            && (!other.fx || self.fx)
-            && (!other.vol || self.vol)
-            && (!other.scalars || self.scalars)
+        (self.0 & other.0) == other.0
+    }
+
+    #[inline]
+    const fn has(self, bit: u16) -> bool {
+        (self.0 & bit) != 0
     }
 }
 
@@ -271,16 +160,7 @@ impl std::ops::BitOr for CurveRestoreFlags {
 
     #[inline]
     fn bitor(self, rhs: Self) -> Self::Output {
-        Self {
-            discount: self.discount || rhs.discount,
-            forward: self.forward || rhs.forward,
-            hazard: self.hazard || rhs.hazard,
-            inflation: self.inflation || rhs.inflation,
-            correlation: self.correlation || rhs.correlation,
-            fx: self.fx || rhs.fx,
-            vol: self.vol || rhs.vol,
-            scalars: self.scalars || rhs.scalars,
-        }
+        Self(self.0 | rhs.0)
     }
 }
 
@@ -289,16 +169,7 @@ impl std::ops::BitAnd for CurveRestoreFlags {
 
     #[inline]
     fn bitand(self, rhs: Self) -> Self::Output {
-        Self {
-            discount: self.discount && rhs.discount,
-            forward: self.forward && rhs.forward,
-            hazard: self.hazard && rhs.hazard,
-            inflation: self.inflation && rhs.inflation,
-            correlation: self.correlation && rhs.correlation,
-            fx: self.fx && rhs.fx,
-            vol: self.vol && rhs.vol,
-            scalars: self.scalars && rhs.scalars,
-        }
+        Self(self.0 & rhs.0)
     }
 }
 
@@ -307,16 +178,7 @@ impl std::ops::Not for CurveRestoreFlags {
 
     #[inline]
     fn not(self) -> Self::Output {
-        Self {
-            discount: !self.discount,
-            forward: !self.forward,
-            hazard: !self.hazard,
-            inflation: !self.inflation,
-            correlation: !self.correlation,
-            fx: !self.fx,
-            vol: !self.vol,
-            scalars: !self.scalars,
-        }
+        Self(!self.0 & Self::ALL_BITS)
     }
 }
 
@@ -389,27 +251,27 @@ impl MarketSnapshot {
         let mut snapshot = Self::default();
 
         for curve_id in market.curve_ids() {
-            if flags.discount {
+            if flags.has(CurveRestoreFlags::DISCOUNT_BIT) {
                 if let Ok(curve) = market.get_discount(curve_id) {
                     snapshot.discount_curves.insert(curve_id.clone(), curve);
                 }
             }
-            if flags.forward {
+            if flags.has(CurveRestoreFlags::FORWARD_BIT) {
                 if let Ok(curve) = market.get_forward(curve_id) {
                     snapshot.forward_curves.insert(curve_id.clone(), curve);
                 }
             }
-            if flags.hazard {
+            if flags.has(CurveRestoreFlags::HAZARD_BIT) {
                 if let Ok(curve) = market.get_hazard(curve_id) {
                     snapshot.hazard_curves.insert(curve_id.clone(), curve);
                 }
             }
-            if flags.inflation {
+            if flags.has(CurveRestoreFlags::INFLATION_BIT) {
                 if let Ok(curve) = market.get_inflation_curve(curve_id) {
                     snapshot.inflation_curves.insert(curve_id.clone(), curve);
                 }
             }
-            if flags.correlation {
+            if flags.has(CurveRestoreFlags::CORRELATION_BIT) {
                 if let Ok(curve) = market.get_base_correlation(curve_id) {
                     snapshot
                         .base_correlation_curves
@@ -418,15 +280,15 @@ impl MarketSnapshot {
             }
         }
 
-        if flags.fx {
+        if flags.has(CurveRestoreFlags::FX_BIT) {
             snapshot.fx = market.fx().cloned();
         }
 
-        if flags.vol {
+        if flags.has(CurveRestoreFlags::VOL_BIT) {
             snapshot.surfaces = market.surfaces_snapshot();
         }
 
-        if flags.scalars {
+        if flags.has(CurveRestoreFlags::SCALARS_BIT) {
             snapshot.prices = market
                 .prices_iter()
                 .map(|(k, v)| (k.clone(), v.clone()))
@@ -468,16 +330,11 @@ impl MarketSnapshot {
         let mut new_market = MarketContext::new();
 
         // --- Curves: preserve unflagged families, restore flagged ones ---
-        let curve_mask = CurveRestoreFlags {
-            discount: true,
-            forward: true,
-            hazard: true,
-            inflation: true,
-            correlation: true,
-            fx: false,
-            vol: false,
-            scalars: false,
-        };
+        let curve_mask = CurveRestoreFlags::DISCOUNT
+            | CurveRestoreFlags::FORWARD
+            | CurveRestoreFlags::HAZARD
+            | CurveRestoreFlags::INFLATION
+            | CurveRestoreFlags::CORRELATION;
         let preserve_curve_flags = !restore_flags & curve_mask;
         let preserved = MarketSnapshot::extract(current_market, preserve_curve_flags);
 
@@ -515,7 +372,7 @@ impl MarketSnapshot {
         }
 
         // --- FX ---
-        if restore_flags.fx {
+        if restore_flags.has(CurveRestoreFlags::FX_BIT) {
             match &snapshot.fx {
                 Some(fx) => {
                     new_market = new_market.insert_fx(Arc::clone(fx));
@@ -529,7 +386,7 @@ impl MarketSnapshot {
         }
 
         // --- Volatility surfaces ---
-        if restore_flags.vol {
+        if restore_flags.has(CurveRestoreFlags::VOL_BIT) {
             new_market.replace_surfaces_mut(snapshot.surfaces.clone());
         } else {
             new_market.replace_surfaces_mut(current_market.surfaces_snapshot());
@@ -540,7 +397,7 @@ impl MarketSnapshot {
         // Drop semantic is intentional: a scalar present in `current_market` but
         // absent from `snapshot` must NOT appear in the result. This keeps factor
         // isolation correct for the attribution call paths.
-        if restore_flags.scalars {
+        if restore_flags.has(CurveRestoreFlags::SCALARS_BIT) {
             for (id, price) in &snapshot.prices {
                 new_market = new_market.insert_price(id.as_str(), price.clone());
             }

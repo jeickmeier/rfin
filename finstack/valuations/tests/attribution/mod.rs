@@ -10,6 +10,8 @@
 //! - `quantlib_parity`: Analytical formula validation
 //! - `scalars_attribution`: Market scalars extraction/restoration
 //! - `serialization_roundtrip`: JSON serialization tests
+//! - `spec_tests`: Attribution spec validation tests
+//! - `rounding_policy`: Rounding policy stamping tests
 
 mod bond_attribution;
 mod carry_credit_factor;
@@ -22,10 +24,8 @@ mod metrics_based_convexity;
 mod model_params_attribution;
 mod no_model_compatibility;
 mod quantlib_parity;
+mod rounding_policy;
 mod scalars_attribution;
 mod serialization_roundtrip;
+mod spec_tests;
 mod types_pnl;
-
-// Note: rounding_policy.rs and spec_tests.rs use pub(crate) test utilities
-// or have other issues and are tested within the library via `cargo test`
-// (not as integration tests)

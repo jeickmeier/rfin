@@ -3,10 +3,10 @@
 //! Provides parallel and key-rate vega calculators for instruments with volatility surfaces.
 
 use crate::instruments::common_impl::traits::Instrument;
-use crate::metrics::bump_surface_vol_absolute;
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};
+use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits};
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::math::{neumaier_sum, NeumaierAccumulator};
 use std::marker::PhantomData;
@@ -27,6 +27,15 @@ pub(crate) fn standard_equity_expiry_buckets() -> Vec<f64> {
 /// Standard strike buckets (relative to spot) for equity options.
 pub(crate) fn standard_strike_ratios() -> Vec<f64> {
     vec![0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5]
+}
+
+fn vol_bump(value: f64) -> BumpSpec {
+    BumpSpec {
+        mode: BumpMode::Additive,
+        units: BumpUnits::Fraction,
+        value,
+        bump_type: BumpType::Parallel,
+    }
 }
 
 /// Key-rate vega calculator: bumps individual (expiry, strike) points.
@@ -138,12 +147,16 @@ where
             *existing
         } else {
             // Central difference O(h²) — consistent with bucketed approach
-            let parallel_up =
-                bump_surface_vol_absolute(base_ctx, vol_surface_id.as_str(), bump_pct)?;
-            let parallel_down =
-                bump_surface_vol_absolute(base_ctx, vol_surface_id.as_str(), -bump_pct)?;
-            let pv_up = context.reprice_money(&parallel_up, as_of)?;
-            let pv_down = context.reprice_money(&parallel_down, as_of)?;
+            let mut scratch = base_ctx.clone();
+            let token_up =
+                scratch.apply_surface_bump_in_place(vol_surface_id.as_str(), vol_bump(bump_pct))?;
+            let pv_up = context.reprice_money(&scratch, as_of)?;
+            scratch.revert_scratch_bump(token_up)?;
+
+            let token_down = scratch
+                .apply_surface_bump_in_place(vol_surface_id.as_str(), vol_bump(-bump_pct))?;
+            let pv_down = context.reprice_money(&scratch, as_of)?;
+            scratch.revert_scratch_bump(token_down)?;
             (pv_up.amount() - pv_down.amount()) / (2.0 * bump_pct)
         };
 
@@ -173,16 +186,20 @@ where
             self.strikes.clone()
         };
 
+        let mut scratch = base_ctx.clone();
         for &expiry in &self.expiries {
             let mut row = Vec::new();
             for &strike in &strike_grid {
                 // Central differences: O(h²) accuracy, consistent with other Greeks
                 let bumped_up = vol_surface.bump_point(expiry, strike, bump_pct)?;
                 let bumped_down = vol_surface.bump_point(expiry, strike, -bump_pct)?;
-                let temp_up = base_ctx.clone().insert_surface(bumped_up);
-                let temp_down = base_ctx.clone().insert_surface(bumped_down);
-                let pv_up = context.reprice_money(&temp_up, as_of)?;
-                let pv_down = context.reprice_money(&temp_down, as_of)?;
+                scratch.insert_surface_mut(bumped_up);
+                let pv_up = context.reprice_money(&scratch, as_of)?;
+                scratch.insert_surface_mut(std::sync::Arc::clone(&vol_surface));
+
+                scratch.insert_surface_mut(bumped_down);
+                let pv_down = context.reprice_money(&scratch, as_of)?;
+                scratch.insert_surface_mut(std::sync::Arc::clone(&vol_surface));
 
                 let vega = (pv_up.amount() - pv_down.amount()) / (2.0 * bump_pct);
                 row.push(vega);

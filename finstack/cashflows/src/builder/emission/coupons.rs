@@ -54,14 +54,45 @@ use super::{decimal_to_f64, f64_to_decimal};
 /// from the reset (fixing) date to the index maturity date, not the payment date.
 /// This ensures correct rate projection for instruments where the payment date
 /// differs from the index tenor end.
-fn compute_index_maturity(reset_date: Date, index_tenor: Tenor) -> Date {
+fn compute_index_maturity(reset_date: Date, index_tenor: Tenor) -> finstack_core::Result<Date> {
     use finstack_core::dates::TenorUnit;
-    match index_tenor.unit {
-        TenorUnit::Months => reset_date.add_months(index_tenor.count as i32),
-        TenorUnit::Days => reset_date + time::Duration::days(index_tenor.count as i64),
-        TenorUnit::Years => reset_date.add_months((index_tenor.count * 12) as i32),
-        TenorUnit::Weeks => reset_date + time::Duration::days((index_tenor.count * 7) as i64),
-    }
+    let maturity = match index_tenor.unit {
+        TenorUnit::Months => {
+            let months = i32::try_from(index_tenor.count).map_err(|_| {
+                finstack_core::Error::Validation(format!(
+                    "index tenor months = {} exceeds i32::MAX",
+                    index_tenor.count
+                ))
+            })?;
+            reset_date.add_months(months)
+        }
+        TenorUnit::Days => reset_date + time::Duration::days(i64::from(index_tenor.count)),
+        TenorUnit::Years => {
+            let months = index_tenor.count.checked_mul(12).ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "index tenor years = {} overflows month conversion",
+                    index_tenor.count
+                ))
+            })?;
+            let months = i32::try_from(months).map_err(|_| {
+                finstack_core::Error::Validation(format!(
+                    "index tenor years = {} exceeds i32::MAX months",
+                    index_tenor.count
+                ))
+            })?;
+            reset_date.add_months(months)
+        }
+        TenorUnit::Weeks => {
+            let days = index_tenor.count.checked_mul(7).ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "index tenor weeks = {} overflows day conversion",
+                    index_tenor.count
+                ))
+            })?;
+            reset_date + time::Duration::days(i64::from(days))
+        }
+    };
+    Ok(maturity)
 }
 
 fn rate_when_curve_missing(
@@ -514,7 +545,7 @@ pub(crate) fn emit_float_coupons_on(
             // This ensures the forward rate is projected for the correct period
             // (e.g., 3M LIBOR projects from reset_date to reset_date + 3M),
             // regardless of when the payment actually occurs.
-            let index_maturity = compute_index_maturity(reset_date, spec.rate_spec.reset_freq);
+            let index_maturity = compute_index_maturity(reset_date, spec.rate_spec.reset_freq)?;
 
             let runtime_spec = ResolvedFloatingRateSpec::try_from(&spec.rate_spec)?;
             let params = &runtime_spec.params;

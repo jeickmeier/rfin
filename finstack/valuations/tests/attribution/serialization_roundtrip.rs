@@ -97,6 +97,69 @@ fn test_attribution_envelope_json_roundtrip() {
 }
 
 #[test]
+fn test_attribution_envelope_execute_rejects_unknown_schema() {
+    let bond = Bond::fixed(
+        "TEST-BOND",
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        create_date(2024, Month::January, 1).unwrap(),
+        create_date(2034, Month::January, 1).unwrap(),
+        "USD-OIS",
+    )
+    .unwrap();
+
+    let spec = AttributionSpec {
+        instrument: InstrumentJson::Bond(bond),
+        market_t0: MarketContextState {
+            version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
+            curves: vec![],
+            fx: None,
+            surfaces: vec![],
+            prices: std::collections::BTreeMap::new(),
+            series: vec![],
+            inflation_indices: vec![],
+            dividends: vec![],
+            credit_indices: vec![],
+            collateral: std::collections::BTreeMap::new(),
+            fx_delta_vol_surfaces: vec![],
+            hierarchy: None,
+            vol_cubes: vec![],
+        },
+        market_t1: MarketContextState {
+            version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
+            curves: vec![],
+            fx: None,
+            surfaces: vec![],
+            prices: std::collections::BTreeMap::new(),
+            series: vec![],
+            inflation_indices: vec![],
+            dividends: vec![],
+            credit_indices: vec![],
+            collateral: std::collections::BTreeMap::new(),
+            fx_delta_vol_surfaces: vec![],
+            hierarchy: None,
+            vol_cubes: vec![],
+        },
+        as_of_t0: create_date(2025, Month::January, 1).unwrap(),
+        as_of_t1: create_date(2025, Month::January, 2).unwrap(),
+        method: AttributionMethod::Parallel,
+        config: None,
+        model_params_t0: None,
+        credit_factor_model: None,
+        credit_factor_detail_options: Default::default(),
+    };
+
+    let mut envelope = AttributionEnvelope::new(spec);
+    envelope.schema = "finstack.attribution/2".to_string();
+
+    let error = envelope.execute().expect_err("unknown schema must fail");
+    assert!(
+        error.to_string().contains("Unsupported attribution schema"),
+        "schema error should be explicit, got: {error}"
+    );
+}
+
+#[test]
 fn test_attribution_envelope_waterfall_roundtrip() {
     use finstack_valuations::attribution::AttributionFactor;
 

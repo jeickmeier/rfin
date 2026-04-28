@@ -130,13 +130,6 @@ impl MetricId {
     /// Theta roll-down component (PV change from moving along same curve)
     pub const ThetaRollDown: Self = Self(Cow::Borrowed("theta_roll_down"));
 
-    /// Theta decay component (pure time value loss, optionality decay).
-    ///
-    /// Under the current static-curve model (T0-only), theta decomposes
-    /// exactly into carry + roll-down, so decay is always zero.
-    /// A non-zero value requires a separate T1-curve total-theta computation.
-    pub const ThetaDecay: Self = Self(Cow::Borrowed("theta_decay"));
-
     /// Total carry decomposition (coupon_income + pull_to_par + roll_down - funding_cost).
     pub const CarryTotal: Self = Self(Cow::Borrowed("carry_total"));
 
@@ -1153,7 +1146,6 @@ impl MetricId {
         MetricId::Theta,
         MetricId::ThetaCarry,
         MetricId::ThetaRollDown,
-        MetricId::ThetaDecay,
         MetricId::CarryTotal,
         MetricId::CouponIncome,
         MetricId::PullToPar,
@@ -1455,11 +1447,10 @@ const PRICING_METRICS: [MetricId; 20] = [
     MetricId::TimeToMaturity,
 ];
 
-const CARRY_METRICS: [MetricId; 12] = [
+const CARRY_METRICS: [MetricId; 11] = [
     MetricId::Theta,
     MetricId::ThetaCarry,
     MetricId::ThetaRollDown,
-    MetricId::ThetaDecay,
     MetricId::CarryTotal,
     MetricId::CouponIncome,
     MetricId::PullToPar,

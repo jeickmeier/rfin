@@ -29,6 +29,7 @@ use finstack_core::market_data::diff::{
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -146,73 +147,72 @@ pub fn attribute_pnl_taylor(
 
     // Rate sensitivities (parallel DV01 per discount curve)
     let market_deps = instrument.market_dependencies()?;
-    for curve_id in &market_deps.curve_dependencies().discount_curves {
-        match compute_rate_factor(
-            instrument, market_t0, market_t1, as_of_t0, pv_t0, curve_id, config,
-        ) {
-            Ok(result) => {
-                total_explained += result.explained_pnl;
-                if let Some(g) = result.gamma_pnl {
-                    total_explained += g;
+    let curve_deps = market_deps.curve_dependencies();
+    let mut factor_results: Vec<(TaylorFactorResult, usize)> = curve_deps
+        .discount_curves
+        .par_iter()
+        .filter_map(|curve_id| {
+            match compute_rate_factor(
+                instrument, market_t0, market_t1, as_of_t0, pv_t0, curve_id, config,
+            ) {
+                Ok(result) => Some((result, 2)),
+                Err(e) => {
+                    tracing::warn!(
+                        curve_id = %curve_id,
+                        error = %e,
+                        "Taylor attribution: rate factor computation failed"
+                    );
+                    None
                 }
-                num_repricings += 2;
-                factors.push(result);
             }
-            Err(e) => {
-                tracing::warn!(
-                    curve_id = %curve_id,
-                    error = %e,
-                    "Taylor attribution: rate factor computation failed"
-                );
-            }
-        }
-    }
+        })
+        .collect();
 
     // Forward curve sensitivities (parallel bump per forward curve)
-    for curve_id in &market_deps.curve_dependencies().forward_curves {
-        match compute_forward_factor(
-            instrument, market_t0, market_t1, as_of_t0, pv_t0, curve_id, config,
-        ) {
-            Ok(result) => {
-                total_explained += result.explained_pnl;
-                if let Some(g) = result.gamma_pnl {
-                    total_explained += g;
+    factor_results.extend(
+        curve_deps
+            .forward_curves
+            .par_iter()
+            .filter_map(|curve_id| {
+                match compute_forward_factor(
+                    instrument, market_t0, market_t1, as_of_t0, pv_t0, curve_id, config,
+                ) {
+                    Ok(result) => Some((result, 2)),
+                    Err(e) => {
+                        tracing::warn!(
+                            curve_id = %curve_id,
+                            error = %e,
+                            "Taylor attribution: forward factor computation failed"
+                        );
+                        None
+                    }
                 }
-                num_repricings += 2;
-                factors.push(result);
-            }
-            Err(e) => {
-                tracing::warn!(
-                    curve_id = %curve_id,
-                    error = %e,
-                    "Taylor attribution: forward factor computation failed"
-                );
-            }
-        }
-    }
+            })
+            .collect::<Vec<_>>(),
+    );
 
     // Credit sensitivities (CS01 per hazard curve)
-    for curve_id in &market_deps.curve_dependencies().credit_curves {
-        match compute_credit_factor(
-            instrument, market_t0, market_t1, as_of_t0, pv_t0, curve_id, config,
-        ) {
-            Ok(result) => {
-                total_explained += result.explained_pnl;
-                if let Some(g) = result.gamma_pnl {
-                    total_explained += g;
+    factor_results.extend(
+        curve_deps
+            .credit_curves
+            .par_iter()
+            .filter_map(|curve_id| {
+                match compute_credit_factor(
+                    instrument, market_t0, market_t1, as_of_t0, pv_t0, curve_id, config,
+                ) {
+                    Ok(result) => Some((result, 2)),
+                    Err(e) => {
+                        tracing::warn!(
+                            curve_id = %curve_id,
+                            error = %e,
+                            "Taylor attribution: credit factor computation failed"
+                        );
+                        None
+                    }
                 }
-                num_repricings += 2;
-                factors.push(result);
-            }
-            Err(e) => {
-                tracing::warn!(
-                    curve_id = %curve_id,
-                    error = %e,
-                    "Taylor attribution: credit factor computation failed"
-                );
-            }
-        }
-    }
+            })
+            .collect::<Vec<_>>(),
+    );
 
     // Volatility sensitivity (vega)
     if let Some(ref surface_id_str) = market_deps.equity_dependencies().vol_surface_id {
@@ -227,12 +227,7 @@ pub fn attribute_pnl_taylor(
             config,
         ) {
             Ok(result) => {
-                total_explained += result.explained_pnl;
-                if let Some(g) = result.gamma_pnl {
-                    total_explained += g;
-                }
-                num_repricings += 2;
-                factors.push(result);
+                factor_results.push((result, 2));
             }
             Err(e) => {
                 tracing::warn!(
@@ -242,6 +237,15 @@ pub fn attribute_pnl_taylor(
                 );
             }
         }
+    }
+
+    for (result, repricings) in factor_results {
+        total_explained += result.explained_pnl;
+        if let Some(g) = result.gamma_pnl {
+            total_explained += g;
+        }
+        num_repricings += repricings;
+        factors.push(result);
     }
 
     // Theta (time decay): reprice at T1 date with T0 market

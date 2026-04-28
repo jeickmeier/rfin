@@ -192,6 +192,22 @@ pub(crate) fn stamp_fx_policy(
     });
 }
 
+pub(crate) fn note_warning(
+    attribution: &mut PnlAttribution,
+    message: impl Into<String>,
+    instrument_id: &str,
+    factor: &str,
+) {
+    let message = message.into();
+    tracing::warn!(
+        instrument_id = %instrument_id,
+        factor,
+        message = %message,
+        "Attribution soft warning"
+    );
+    attribution.meta.notes.push(message);
+}
+
 pub(crate) fn finalize_attribution(
     attribution: &mut PnlAttribution,
     instrument_id: &str,

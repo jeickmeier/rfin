@@ -16,7 +16,8 @@ use finstack_core::Result;
 /// Each risk factor represents a market variable that can shift and impact
 /// portfolio valuations. Risk factors are bucketed at standard tenors/strikes
 /// to enable historical simulation.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type")]
 pub enum RiskFactorType {
     /// Discount curve rate at a specific tenor (in years).
     DiscountRate {
@@ -177,7 +178,7 @@ where
         },
     );
 
-    extract_equity_like_risk_factors(instrument, market, &mut factors, &mut seen)?;
+    extract_instrument_specific_risk_factors(instrument, market, &mut factors, &mut seen)?;
 
     Ok(factors)
 }
@@ -214,21 +215,23 @@ fn extract_curve_factors<FExists, FMk>(
     }
 }
 
-fn extract_equity_like_risk_factors<I>(
-    instrument: &I,
-    market: &MarketContext,
-    factors: &mut Vec<RiskFactorType>,
-    seen: &mut HashSet<String>,
-) -> Result<()>
-where
-    I: Instrument + CurveDependencies,
-{
-    // Spot equities
-    if let Some(eq) = instrument
-        .as_any()
-        .downcast_ref::<crate::instruments::equity::Equity>()
-    {
-        for price_id in eq.price_id_candidates() {
+trait InstrumentRiskFactorProvider {
+    fn append_risk_factors(
+        &self,
+        market: &MarketContext,
+        factors: &mut Vec<RiskFactorType>,
+        seen: &mut HashSet<String>,
+    ) -> Result<()>;
+}
+
+impl InstrumentRiskFactorProvider for crate::instruments::equity::Equity {
+    fn append_risk_factors(
+        &self,
+        market: &MarketContext,
+        factors: &mut Vec<RiskFactorType>,
+        seen: &mut HashSet<String>,
+    ) -> Result<()> {
+        for price_id in self.price_id_candidates() {
             if market.get_price(&price_id).is_ok() {
                 push_factor(
                     factors,
@@ -238,14 +241,20 @@ where
                 break;
             }
         }
+        Ok(())
     }
+}
 
-    // Convertible bonds expose equity spot risk via underlying
-    if let Some(conv) = instrument
-        .as_any()
-        .downcast_ref::<crate::instruments::fixed_income::convertible::ConvertibleBond>(
-    ) {
-        if let Some(ticker) = conv.underlying_equity_id.as_ref() {
+impl InstrumentRiskFactorProvider
+    for crate::instruments::fixed_income::convertible::ConvertibleBond
+{
+    fn append_risk_factors(
+        &self,
+        market: &MarketContext,
+        factors: &mut Vec<RiskFactorType>,
+        seen: &mut HashSet<String>,
+    ) -> Result<()> {
+        if let Some(ticker) = self.underlying_equity_id.as_ref() {
             if market.get_price(ticker).is_ok() {
                 push_factor(
                     factors,
@@ -256,35 +265,115 @@ where
                 );
             }
         }
+        Ok(())
     }
+}
 
-    // Equity options carry spot and vol surface exposure
-    if let Some(opt) = instrument
-        .as_any()
-        .downcast_ref::<crate::instruments::equity::equity_option::EquityOption>()
-    {
-        if market.get_price(&opt.spot_id).is_ok() {
+impl InstrumentRiskFactorProvider for crate::instruments::equity::equity_option::EquityOption {
+    fn append_risk_factors(
+        &self,
+        market: &MarketContext,
+        factors: &mut Vec<RiskFactorType>,
+        seen: &mut HashSet<String>,
+    ) -> Result<()> {
+        if market.get_price(&self.spot_id).is_ok() {
             push_factor(
                 factors,
                 seen,
                 RiskFactorType::EquitySpot {
-                    ticker: opt.spot_id.to_string(),
+                    ticker: self.spot_id.to_string(),
                 },
             );
         }
 
-        if market.get_surface(opt.vol_surface_id.as_str()).is_ok() {
-            push_factor(
-                factors,
-                seen,
-                RiskFactorType::ImpliedVol {
-                    surface_id: opt.vol_surface_id.clone(),
-                    expiry_years: 0.0,
-                    strike: opt.strike,
-                },
-            );
-        }
+        append_vol_surface_factor(
+            market,
+            factors,
+            seen,
+            &self.vol_surface_id,
+            0.0,
+            self.strike,
+        );
+        Ok(())
     }
+}
+
+impl InstrumentRiskFactorProvider for crate::instruments::fx::fx_option::FxOption {
+    fn append_risk_factors(
+        &self,
+        market: &MarketContext,
+        factors: &mut Vec<RiskFactorType>,
+        seen: &mut HashSet<String>,
+    ) -> Result<()> {
+        append_vol_surface_factor(
+            market,
+            factors,
+            seen,
+            &self.vol_surface_id,
+            0.0,
+            self.strike,
+        );
+        Ok(())
+    }
+}
+
+fn append_vol_surface_factor(
+    market: &MarketContext,
+    factors: &mut Vec<RiskFactorType>,
+    seen: &mut HashSet<String>,
+    surface_id: &CurveId,
+    expiry_years: f64,
+    strike: f64,
+) {
+    if market.get_surface(surface_id.as_str()).is_ok() {
+        push_factor(
+            factors,
+            seen,
+            RiskFactorType::ImpliedVol {
+                surface_id: surface_id.clone(),
+                expiry_years,
+                strike,
+            },
+        );
+    }
+}
+
+fn append_if_instrument<T>(
+    instrument: &dyn Instrument,
+    market: &MarketContext,
+    factors: &mut Vec<RiskFactorType>,
+    seen: &mut HashSet<String>,
+) -> Result<()>
+where
+    T: InstrumentRiskFactorProvider + 'static,
+{
+    if let Some(typed) = instrument.as_any().downcast_ref::<T>() {
+        typed.append_risk_factors(market, factors, seen)?;
+    }
+    Ok(())
+}
+
+fn extract_instrument_specific_risk_factors<I>(
+    instrument: &I,
+    market: &MarketContext,
+    factors: &mut Vec<RiskFactorType>,
+    seen: &mut HashSet<String>,
+) -> Result<()>
+where
+    I: Instrument + CurveDependencies,
+{
+    let instrument = instrument as &dyn Instrument;
+
+    append_if_instrument::<crate::instruments::equity::Equity>(instrument, market, factors, seen)?;
+    append_if_instrument::<crate::instruments::fixed_income::convertible::ConvertibleBond>(
+        instrument, market, factors, seen,
+    )?;
+    append_if_instrument::<crate::instruments::equity::equity_option::EquityOption>(
+        instrument, market, factors, seen,
+    )?;
+    append_if_instrument::<crate::instruments::fx::fx_option::FxOption>(
+        instrument, market, factors, seen,
+    )?;
 
     Ok(())
 }
@@ -470,6 +559,62 @@ mod tests {
             "should include vol surface factor"
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_extract_vol_factors_from_fx_option() -> Result<()> {
+        use crate::instruments::fx::fx_option::FxOption;
+        use crate::instruments::{
+            Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
+        };
+
+        let as_of = date!(2024 - 01 - 01);
+        let option = FxOption::builder()
+            .id(finstack_core::types::InstrumentId::new("FXO"))
+            .base_currency(Currency::EUR)
+            .quote_currency(Currency::USD)
+            .strike(1.10)
+            .option_type(OptionType::Call)
+            .exercise_style(ExerciseStyle::European)
+            .expiry(date!(2025 - 01 - 01))
+            .day_count(DayCount::Act365F)
+            .notional(Money::new(1_000_000.0, Currency::EUR))
+            .settlement(SettlementType::Cash)
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+            .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
+            .vol_surface_id(CurveId::new("EURUSD-VOL"))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()?;
+
+        let usd_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots(vec![(0.0, 1.0), (1.0, 0.98)])
+            .build()?;
+        let eur_curve = DiscountCurve::builder("EUR-OIS")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots(vec![(0.0, 1.0), (1.0, 0.99)])
+            .build()?;
+        let market = MarketContext::new()
+            .insert(usd_curve)
+            .insert(eur_curve)
+            .insert_surface(
+                finstack_core::market_data::surfaces::VolSurface::builder("EURUSD-VOL")
+                    .expiries(&[1.0])
+                    .strikes(&[1.10])
+                    .row(&[0.12])
+                    .build()?,
+            );
+
+        let factors = extract_risk_factors(&option, &market)?;
+
+        assert!(
+            factors.iter().any(|f| matches!(f, RiskFactorType::ImpliedVol { surface_id, .. } if surface_id == &option.vol_surface_id)),
+            "FX option should include its volatility surface factor"
+        );
         Ok(())
     }
 }

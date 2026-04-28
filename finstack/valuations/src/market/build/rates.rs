@@ -104,338 +104,326 @@ use rust_decimal::Decimal;
 pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<DynInstrument>> {
     tracing::debug!(quote_id = %quote.id(), "building rate instrument");
     let registry = ConventionRegistry::try_global()?;
-    let missing_role = |role: &str| {
-        Error::Input(InputError::NotFound {
-            id: format!("curve role '{}'", role),
-        })
-    };
 
     match quote {
-        RateQuote::Deposit {
-            id,
-            index,
-            pillar,
-            rate,
-        } => {
-            let conv = registry.require_rate_index(index)?;
-            let spot_start = resolve_spot_date(
-                ctx.as_of(),
-                &conv.market_calendar_id,
-                conv.market_settlement_days,
-                conv.market_business_day_convention,
-            )?;
-            // Resolve concrete accrual start/end dates here so the built instrument
-            // remains fixed even if as_of changes later.
-            let start = spot_start;
-
-            // Resolve calendar for tenor addition
-            let cal = resolve_calendar(&conv.market_calendar_id)?;
-
-            let end = match pillar {
-                Pillar::Tenor(t) => {
-                    // Maturity is SPOT + tenor adjusted by BDC/Calendar.
-                    t.add_to_date(spot_start, Some(cal), conv.market_business_day_convention)?
-                }
-                Pillar::Date(d) => adjust(*d, conv.market_business_day_convention, cal)?,
-            };
-
-            let discount_id = ctx
-                .curve_id("discount")
-                .map(String::from)
-                .ok_or_else(|| missing_role("discount"))?;
-
-            // Use currency string representation
-            let currency = conv.currency;
-
-            let deposit = Deposit::builder()
-                .id(InstrumentId::new(id.as_str()))
-                .notional(Money::new(ctx.notional(), currency))
-                .start_date(start)
-                .maturity(end)
-                .day_count(conv.day_count)
-                .quote_rate_opt(Some(
-                    Decimal::try_from(*rate).map_err(|_| InputError::ConversionOverflow)?,
-                ))
-                .discount_curve_id(CurveId::new(discount_id))
-                // Optional fields
-                .bdc(conv.market_business_day_convention)
-                .calendar_id_opt(Some(conv.market_calendar_id.clone().into()))
-                .attributes(Default::default())
-                .build()?;
-
-            Ok(Box::new(deposit))
-        }
-        RateQuote::Fra {
-            id,
-            index,
-            start: start_pillar,
-            end: end_pillar,
-            rate,
-        } => {
-            let conv = registry.require_rate_index(index)?;
-            let spot = resolve_spot_date(
-                ctx.as_of(),
-                &conv.market_calendar_id,
-                conv.market_settlement_days,
-                conv.market_business_day_convention,
-            )?;
-
-            let cal = resolve_calendar(&conv.market_calendar_id)?;
-
-            // Resolve start/end dates from SPOT
-            let start_date = match start_pillar {
-                Pillar::Tenor(t) => {
-                    t.add_to_date(spot, Some(cal), conv.market_business_day_convention)?
-                }
-                Pillar::Date(d) => adjust(*d, conv.market_business_day_convention, cal)?,
-            };
-            let end_date = match end_pillar {
-                Pillar::Tenor(t) => {
-                    t.add_to_date(spot, Some(cal), conv.market_business_day_convention)?
-                }
-                Pillar::Date(d) => adjust(*d, conv.market_business_day_convention, cal)?,
-            };
-
-            // Fixings are determined by reset lag from start date
-            let reset_lag = conv.default_reset_lag_days;
-            let fixing_date = resolve_fixing_date(start_date, conv)?;
-
-            let discount_id = ctx
-                .curve_id("discount")
-                .map(String::from)
-                .ok_or_else(|| missing_role("discount"))?;
-            let forward_id = ctx
-                .curve_id("forward")
-                .map(String::from)
-                .ok_or_else(|| missing_role("forward"))?;
-
-            let fra = ForwardRateAgreement::builder()
-                .id(InstrumentId::new(id.as_str()))
-                .notional(Money::new(ctx.notional(), conv.currency))
-                .fixing_date(fixing_date)
-                .start_date(start_date)
-                .maturity(end_date)
-                .fixed_rate(Decimal::try_from(*rate).map_err(|_| InputError::ConversionOverflow)?)
-                .day_count(conv.day_count)
-                .reset_lag(reset_lag)
-                .discount_curve_id(CurveId::new(discount_id))
-                .forward_curve_id(CurveId::new(forward_id))
-                .side(crate::instruments::common_impl::parameters::legs::PayReceive::ReceiveFixed)
-                .fixing_calendar_id_opt(Some(conv.market_calendar_id.clone().into()))
-                .fixing_bdc_opt(Some(conv.market_business_day_convention))
-                .attributes(Default::default())
-                .build()?;
-
-            Ok(Box::new(fra))
-        }
-        RateQuote::Futures {
-            id,
-            contract,
-            expiry,
-            price,
-            convexity_adjustment,
-            vol_surface_id,
-        } => {
-            let fut_conv = registry.require_ir_future(contract)?;
-            let idx_conv = registry.require_rate_index(&fut_conv.index_id)?;
-
-            let cal = resolve_calendar(&fut_conv.calendar_id)?;
-            let bdc = idx_conv.market_business_day_convention;
-
-            let expiry_date = adjust(*expiry, bdc, cal)?;
-            let period_start_unadj =
-                expiry_date.add_business_days(fut_conv.settlement_days, cal)?;
-            let period_start = adjust(period_start_unadj, bdc, cal)?;
-
-            let delivery_tenor = finstack_core::dates::Tenor::new(
-                fut_conv.delivery_months as u32,
-                TenorUnit::Months,
-            );
-            let period_end = delivery_tenor.add_to_date(period_start, Some(cal), bdc)?;
-
-            let fixing_date = resolve_fixing_date(period_start, idx_conv)?;
-
-            let discount_id = ctx
-                .curve_id("discount")
-                .map(String::from)
-                .ok_or_else(|| missing_role("discount"))?;
-            let forward_id = ctx
-                .curve_id("forward")
-                .map(String::from)
-                .ok_or_else(|| missing_role("forward"))?;
-
-            let contract_specs = FutureContractSpecs {
-                face_value: fut_conv.face_value,
-                tick_size: fut_conv.tick_size,
-                tick_value: fut_conv.tick_value,
-                delivery_months: fut_conv.delivery_months,
-                convexity_adjustment: (*convexity_adjustment).or(fut_conv.convexity_adjustment),
-            };
-
-            let future = InterestRateFuture::builder()
-                .id(InstrumentId::new(id.as_str()))
-                .notional(Money::new(ctx.notional(), idx_conv.currency))
-                .expiry(expiry_date)
-                .fixing_date(fixing_date)
-                .period_start(period_start)
-                .period_end(period_end)
-                .quoted_price(*price)
-                .day_count(idx_conv.day_count)
-                .position(Position::Long)
-                .contract_specs(contract_specs)
-                .discount_curve_id(CurveId::new(discount_id))
-                .forward_curve_id(CurveId::new(forward_id))
-                .vol_surface_id_opt(vol_surface_id.clone())
-                .attributes(Default::default())
-                .build()?;
-
-            Ok(Box::new(future))
-        }
-        RateQuote::Swap {
-            id,
-            index,
-            pillar,
-            rate,
-            spread_decimal,
-        } => {
-            let conv = registry.require_rate_index(index)?;
-            let spot = resolve_spot_date(
-                ctx.as_of(),
-                &conv.market_calendar_id,
-                conv.market_settlement_days,
-                conv.market_business_day_convention,
-            )?;
-
-            let cal = resolve_calendar(&conv.market_calendar_id)?;
-
-            // Swap start is spot
-            let start = spot;
-            let maturity = match pillar {
-                Pillar::Tenor(t) => {
-                    t.add_to_date(start, Some(cal), conv.market_business_day_convention)?
-                }
-                Pillar::Date(d) => adjust(*d, conv.market_business_day_convention, cal)?,
-            };
-
-            let discount_id = ctx
-                .curve_id("discount")
-                .map(String::from)
-                .ok_or_else(|| missing_role("discount"))?;
-            let forward_id = ctx
-                .curve_id("forward")
-                .map(String::from)
-                .ok_or_else(|| missing_role("forward"))?;
-
-            use crate::instruments::common_impl::parameters::legs::PayReceive;
-
-            // Map conventions
-            let end_of_month = start == start.end_of_month();
-            let leg_conv = IrsLegConventions {
-                fixed_freq: conv.default_fixed_leg_frequency,
-                float_freq: conv.default_payment_frequency,
-                fixed_dc: conv.default_fixed_leg_day_count,
-                float_dc: conv.day_count,
-                bdc: conv.market_business_day_convention,
-                payment_calendar_id: Some(conv.market_calendar_id.clone()),
-                fixing_calendar_id: Some(conv.market_calendar_id.clone()),
-                stub: finstack_core::dates::StubKind::ShortFront,
-                reset_lag_days: conv.default_reset_lag_days,
-                payment_lag_days: conv.default_payment_lag_days,
-            };
-
-            let rate_decimal = Decimal::try_from(*rate)
-                .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
-
-            let compounding = match conv.kind {
-                RateIndexKind::Term => {
-                    crate::instruments::rates::irs::FloatingLegCompounding::Simple
-                }
-                RateIndexKind::OvernightRfr => conv.ois_compounding.clone().unwrap_or(
-                    crate::instruments::rates::irs::FloatingLegCompounding::CompoundedInArrears {
-                        lookback_days: 0,
-                        observation_shift: None,
-                    },
-                ),
-            };
-
-            if matches!(conv.kind, RateIndexKind::OvernightRfr)
-                && matches!(
-                    compounding,
-                    crate::instruments::rates::irs::FloatingLegCompounding::Simple
-                )
-            {
-                return Err(Error::Validation(
-                    "OIS swap requires compounded-in-arrears floating compounding".to_string(),
-                ));
-            }
-
-            let fixed = crate::instruments::common_impl::parameters::legs::FixedLegSpec {
-                discount_curve_id: CurveId::new(discount_id.clone()),
-                rate: rate_decimal,
-                frequency: leg_conv.fixed_freq,
-                day_count: leg_conv.fixed_dc,
-                bdc: leg_conv.bdc,
-                calendar_id: leg_conv.payment_calendar_id.clone(),
-                stub: leg_conv.stub,
-                start,
-                end: maturity,
-                par_method: None,
-                compounding_simple: true,
-                payment_lag_days: leg_conv.payment_lag_days,
-                end_of_month,
-            };
-
-            let float = crate::instruments::common_impl::parameters::legs::FloatLegSpec {
-                discount_curve_id: CurveId::new(discount_id),
-                forward_curve_id: CurveId::new(forward_id),
-                spread_bp: Decimal::ZERO,
-                frequency: leg_conv.float_freq,
-                day_count: leg_conv.float_dc,
-                bdc: leg_conv.bdc,
-                calendar_id: leg_conv.payment_calendar_id,
-                stub: leg_conv.stub,
-                reset_lag_days: leg_conv.reset_lag_days,
-                fixing_calendar_id: leg_conv.fixing_calendar_id,
-                start,
-                end: maturity,
-                compounding,
-                payment_lag_days: leg_conv.payment_lag_days,
-                end_of_month,
-            };
-
-            let mut swap = InterestRateSwap::builder()
-                .id(InstrumentId::new(id.as_str()))
-                .notional(Money::new(ctx.notional(), conv.currency))
-                .side(PayReceive::PayFixed)
-                .fixed(fixed)
-                .float(float)
-                .build()?;
-
-            // Apply spread if present
-            // spread_decimal is in decimal format (e.g., 0.0010 for 10bp)
-            // Convert to basis points by multiplying by 10000
-            if let Some(spread_decimal) = spread_decimal {
-                let spread_bp_f64 = *spread_decimal * 10000.0;
-                if !spread_bp_f64.is_finite() {
-                    let kind = if spread_bp_f64.is_nan() {
-                        finstack_core::NonFiniteKind::NaN
-                    } else if spread_bp_f64.is_sign_positive() {
-                        finstack_core::NonFiniteKind::PosInfinity
-                    } else {
-                        finstack_core::NonFiniteKind::NegInfinity
-                    };
-                    return Err(finstack_core::InputError::NonFiniteValue { kind }.into());
-                }
-                swap.float.spread_bp = rust_decimal::Decimal::try_from(spread_bp_f64)
-                    .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
-            }
-
-            Ok(Box::new(swap))
-        }
+        RateQuote::Deposit { .. } => build_deposit(quote, ctx, registry),
+        RateQuote::Fra { .. } => build_fra(quote, ctx, registry),
+        RateQuote::Futures { .. } => build_future(quote, ctx, registry),
+        RateQuote::Swap { .. } => build_swap(quote, ctx, registry),
     }
 }
 
 // Helpers
+
+fn build_deposit(
+    quote: &RateQuote,
+    ctx: &BuildCtx,
+    registry: &ConventionRegistry,
+) -> Result<Box<DynInstrument>> {
+    let RateQuote::Deposit {
+        id,
+        index,
+        pillar,
+        rate,
+    } = quote
+    else {
+        return Err(Error::Validation(
+            "build_deposit called with non-deposit rate quote".to_string(),
+        ));
+    };
+
+    let conv = registry.require_rate_index(index)?;
+    let spot_start = resolve_spot_date(
+        ctx.as_of(),
+        &conv.market_calendar_id,
+        conv.market_settlement_days,
+        conv.market_business_day_convention,
+    )?;
+    // Resolve concrete accrual start/end dates here so the built instrument
+    // remains fixed even if as_of changes later.
+    let start = spot_start;
+
+    let cal = resolve_calendar(&conv.market_calendar_id)?;
+    let end = match pillar {
+        Pillar::Tenor(t) => {
+            // Maturity is SPOT + tenor adjusted by BDC/Calendar.
+            t.add_to_date(spot_start, Some(cal), conv.market_business_day_convention)?
+        }
+        Pillar::Date(d) => adjust(*d, conv.market_business_day_convention, cal)?,
+    };
+
+    let deposit = Deposit::builder()
+        .id(InstrumentId::new(id.as_str()))
+        .notional(Money::new(ctx.notional(), conv.currency))
+        .start_date(start)
+        .maturity(end)
+        .day_count(conv.day_count)
+        .quote_rate_opt(Some(
+            Decimal::try_from(*rate).map_err(|_| InputError::ConversionOverflow)?,
+        ))
+        .discount_curve_id(CurveId::new(ctx.require_curve_id("discount")?.to_string()))
+        .bdc(conv.market_business_day_convention)
+        .calendar_id_opt(Some(conv.market_calendar_id.clone().into()))
+        .attributes(Default::default())
+        .build()?;
+
+    Ok(Box::new(deposit))
+}
+
+fn build_fra(
+    quote: &RateQuote,
+    ctx: &BuildCtx,
+    registry: &ConventionRegistry,
+) -> Result<Box<DynInstrument>> {
+    let RateQuote::Fra {
+        id,
+        index,
+        start: start_pillar,
+        end: end_pillar,
+        rate,
+    } = quote
+    else {
+        return Err(Error::Validation(
+            "build_fra called with non-FRA rate quote".to_string(),
+        ));
+    };
+
+    let conv = registry.require_rate_index(index)?;
+    let spot = resolve_spot_date(
+        ctx.as_of(),
+        &conv.market_calendar_id,
+        conv.market_settlement_days,
+        conv.market_business_day_convention,
+    )?;
+    let cal = resolve_calendar(&conv.market_calendar_id)?;
+
+    let start_date = match start_pillar {
+        Pillar::Tenor(t) => t.add_to_date(spot, Some(cal), conv.market_business_day_convention)?,
+        Pillar::Date(d) => adjust(*d, conv.market_business_day_convention, cal)?,
+    };
+    let end_date = match end_pillar {
+        Pillar::Tenor(t) => t.add_to_date(spot, Some(cal), conv.market_business_day_convention)?,
+        Pillar::Date(d) => adjust(*d, conv.market_business_day_convention, cal)?,
+    };
+
+    let fra = ForwardRateAgreement::builder()
+        .id(InstrumentId::new(id.as_str()))
+        .notional(Money::new(ctx.notional(), conv.currency))
+        .fixing_date(resolve_fixing_date(start_date, conv)?)
+        .start_date(start_date)
+        .maturity(end_date)
+        .fixed_rate(Decimal::try_from(*rate).map_err(|_| InputError::ConversionOverflow)?)
+        .day_count(conv.day_count)
+        .reset_lag(conv.default_reset_lag_days)
+        .discount_curve_id(CurveId::new(ctx.require_curve_id("discount")?.to_string()))
+        .forward_curve_id(CurveId::new(ctx.require_curve_id("forward")?.to_string()))
+        .side(crate::instruments::common_impl::parameters::legs::PayReceive::ReceiveFixed)
+        .fixing_calendar_id_opt(Some(conv.market_calendar_id.clone().into()))
+        .fixing_bdc_opt(Some(conv.market_business_day_convention))
+        .attributes(Default::default())
+        .build()?;
+
+    Ok(Box::new(fra))
+}
+
+fn build_future(
+    quote: &RateQuote,
+    ctx: &BuildCtx,
+    registry: &ConventionRegistry,
+) -> Result<Box<DynInstrument>> {
+    let RateQuote::Futures {
+        id,
+        contract,
+        expiry,
+        price,
+        convexity_adjustment,
+        vol_surface_id,
+    } = quote
+    else {
+        return Err(Error::Validation(
+            "build_future called with non-future rate quote".to_string(),
+        ));
+    };
+
+    let fut_conv = registry.require_ir_future(contract)?;
+    let idx_conv = registry.require_rate_index(&fut_conv.index_id)?;
+    let cal = resolve_calendar(&fut_conv.calendar_id)?;
+    let bdc = idx_conv.market_business_day_convention;
+
+    let expiry_date = adjust(*expiry, bdc, cal)?;
+    let period_start_unadj = expiry_date.add_business_days(fut_conv.settlement_days, cal)?;
+    let period_start = adjust(period_start_unadj, bdc, cal)?;
+    let delivery_tenor =
+        finstack_core::dates::Tenor::new(fut_conv.delivery_months as u32, TenorUnit::Months);
+    let period_end = delivery_tenor.add_to_date(period_start, Some(cal), bdc)?;
+
+    let contract_specs = FutureContractSpecs {
+        face_value: fut_conv.face_value,
+        tick_size: fut_conv.tick_size,
+        tick_value: fut_conv.tick_value,
+        delivery_months: fut_conv.delivery_months,
+        convexity_adjustment: (*convexity_adjustment).or(fut_conv.convexity_adjustment),
+    };
+
+    let future = InterestRateFuture::builder()
+        .id(InstrumentId::new(id.as_str()))
+        .notional(Money::new(ctx.notional(), idx_conv.currency))
+        .expiry(expiry_date)
+        .fixing_date(resolve_fixing_date(period_start, idx_conv)?)
+        .period_start(period_start)
+        .period_end(period_end)
+        .quoted_price(*price)
+        .day_count(idx_conv.day_count)
+        .position(Position::Long)
+        .contract_specs(contract_specs)
+        .discount_curve_id(CurveId::new(ctx.require_curve_id("discount")?.to_string()))
+        .forward_curve_id(CurveId::new(ctx.require_curve_id("forward")?.to_string()))
+        .vol_surface_id_opt(vol_surface_id.clone())
+        .attributes(Default::default())
+        .build()?;
+
+    Ok(Box::new(future))
+}
+
+fn build_swap(
+    quote: &RateQuote,
+    ctx: &BuildCtx,
+    registry: &ConventionRegistry,
+) -> Result<Box<DynInstrument>> {
+    let RateQuote::Swap {
+        id,
+        index,
+        pillar,
+        rate,
+        spread_decimal,
+    } = quote
+    else {
+        return Err(Error::Validation(
+            "build_swap called with non-swap rate quote".to_string(),
+        ));
+    };
+
+    let conv = registry.require_rate_index(index)?;
+    let spot = resolve_spot_date(
+        ctx.as_of(),
+        &conv.market_calendar_id,
+        conv.market_settlement_days,
+        conv.market_business_day_convention,
+    )?;
+    let cal = resolve_calendar(&conv.market_calendar_id)?;
+    let start = spot;
+    let maturity = match pillar {
+        Pillar::Tenor(t) => t.add_to_date(start, Some(cal), conv.market_business_day_convention)?,
+        Pillar::Date(d) => adjust(*d, conv.market_business_day_convention, cal)?,
+    };
+
+    use crate::instruments::common_impl::parameters::legs::PayReceive;
+
+    let end_of_month = start == start.end_of_month();
+    let leg_conv = IrsLegConventions {
+        fixed_freq: conv.default_fixed_leg_frequency,
+        float_freq: conv.default_payment_frequency,
+        fixed_dc: conv.default_fixed_leg_day_count,
+        float_dc: conv.day_count,
+        bdc: conv.market_business_day_convention,
+        payment_calendar_id: Some(conv.market_calendar_id.clone()),
+        fixing_calendar_id: Some(conv.market_calendar_id.clone()),
+        stub: finstack_core::dates::StubKind::ShortFront,
+        reset_lag_days: conv.default_reset_lag_days,
+        payment_lag_days: conv.default_payment_lag_days,
+    };
+
+    let rate_decimal =
+        Decimal::try_from(*rate).map_err(|_| finstack_core::InputError::ConversionOverflow)?;
+    let compounding = match conv.kind {
+        RateIndexKind::Term => crate::instruments::rates::irs::FloatingLegCompounding::Simple,
+        RateIndexKind::OvernightRfr => conv.ois_compounding.clone().ok_or_else(|| {
+            Error::Validation(
+                "Overnight RFR index conventions must specify `ois_compounding`".to_string(),
+            )
+        })?,
+    };
+
+    if matches!(conv.kind, RateIndexKind::OvernightRfr)
+        && matches!(
+            compounding,
+            crate::instruments::rates::irs::FloatingLegCompounding::Simple
+        )
+    {
+        return Err(Error::Validation(
+            "OIS swap requires compounded-in-arrears floating compounding".to_string(),
+        ));
+    }
+
+    let discount_id = ctx.require_curve_id("discount")?.to_string();
+    let forward_id = ctx.require_curve_id("forward")?.to_string();
+    let fixed = crate::instruments::common_impl::parameters::legs::FixedLegSpec {
+        discount_curve_id: CurveId::new(discount_id.clone()),
+        rate: rate_decimal,
+        frequency: leg_conv.fixed_freq,
+        day_count: leg_conv.fixed_dc,
+        bdc: leg_conv.bdc,
+        calendar_id: leg_conv.payment_calendar_id.clone(),
+        stub: leg_conv.stub,
+        start,
+        end: maturity,
+        par_method: None,
+        compounding_simple: true,
+        payment_lag_days: leg_conv.payment_lag_days,
+        end_of_month,
+    };
+
+    let float = crate::instruments::common_impl::parameters::legs::FloatLegSpec {
+        discount_curve_id: CurveId::new(discount_id),
+        forward_curve_id: CurveId::new(forward_id),
+        spread_bp: Decimal::ZERO,
+        frequency: leg_conv.float_freq,
+        day_count: leg_conv.float_dc,
+        bdc: leg_conv.bdc,
+        calendar_id: leg_conv.payment_calendar_id,
+        stub: leg_conv.stub,
+        reset_lag_days: leg_conv.reset_lag_days,
+        fixing_calendar_id: leg_conv.fixing_calendar_id,
+        start,
+        end: maturity,
+        compounding,
+        payment_lag_days: leg_conv.payment_lag_days,
+        end_of_month,
+    };
+
+    let mut swap = InterestRateSwap::builder()
+        .id(InstrumentId::new(id.as_str()))
+        .notional(Money::new(ctx.notional(), conv.currency))
+        .side(PayReceive::PayFixed)
+        .fixed(fixed)
+        .float(float)
+        .build()?;
+
+    apply_swap_spread(&mut swap, spread_decimal)?;
+    Ok(Box::new(swap))
+}
+
+fn apply_swap_spread(swap: &mut InterestRateSwap, spread_decimal: &Option<f64>) -> Result<()> {
+    let Some(spread_decimal) = spread_decimal else {
+        return Ok(());
+    };
+
+    // `spread_decimal` is in decimal format (e.g. 0.0010 for 10bp).
+    let spread_bp_f64 = *spread_decimal * 10_000.0;
+    if !spread_bp_f64.is_finite() {
+        let kind = if spread_bp_f64.is_nan() {
+            finstack_core::NonFiniteKind::NaN
+        } else if spread_bp_f64.is_sign_positive() {
+            finstack_core::NonFiniteKind::PosInfinity
+        } else {
+            finstack_core::NonFiniteKind::NegInfinity
+        };
+        return Err(finstack_core::InputError::NonFiniteValue { kind }.into());
+    }
+    swap.float.spread_bp = Decimal::try_from(spread_bp_f64)
+        .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
+    Ok(())
+}
 
 fn resolve_fixing_date(start: Date, conv: &RateIndexConventions) -> Result<Date> {
     let cal = resolve_calendar(&conv.market_calendar_id)?;

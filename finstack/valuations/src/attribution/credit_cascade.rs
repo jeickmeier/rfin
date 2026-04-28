@@ -111,12 +111,19 @@ pub(crate) fn plan_credit_cascade(
         Some(s) => s.to_string(),
         None => return Ok(None),
     };
-    let issuer_id = IssuerId::new(issuer_id_str);
+    let issuer_id = IssuerId::new(issuer_id_str.as_str());
 
     // Find issuer in model.
     let issuer_row = match model.issuer_betas.iter().find(|r| r.issuer_id == issuer_id) {
         Some(row) => row,
-        None => return Ok(None),
+        None => {
+            tracing::warn!(
+                instrument_id = %instrument.id(),
+                issuer_id = %issuer_id_str,
+                "Credit cascade skipped: issuer is not mapped in the credit factor model"
+            );
+            return Ok(None);
+        }
     };
     let tags = issuer_row.tags.clone();
 

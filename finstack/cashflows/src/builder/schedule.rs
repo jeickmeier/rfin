@@ -487,6 +487,27 @@ impl CashFlowSchedule {
         // earliest flow if there are pre-issue principal events.
         let mut initial_funding_skipped = false;
         let initial_amount = self.notional.initial.amount();
+        let initial_funding_candidate_count =
+            if self.meta.issue_date.is_none() && initial_amount != 0.0 {
+                self.flows
+                    .iter()
+                    .filter(|flow| {
+                        flow.kind == CFKind::Notional
+                            && flow.amount.amount() < 0.0
+                            && amounts_approx_equal(flow.amount.amount().abs(), initial_amount)
+                    })
+                    .count()
+            } else {
+                0
+            };
+        if initial_funding_candidate_count > 1 {
+            return Err(finstack_core::Error::Validation(
+                "outstanding_by_date: schedule.meta.issue_date is unset and multiple negative \
+                 notional flows match the initial notional; cannot identify initial funding \
+                 unambiguously"
+                    .into(),
+            ));
+        }
 
         let mut i = 0usize;
         while i < self.flows.len() {
@@ -502,10 +523,13 @@ impl CashFlowSchedule {
                     && initial_amount != 0.0
                     && match self.meta.issue_date {
                         Some(issue) => self.flows[j].date == issue,
-                        None => amounts_approx_equal(
-                            self.flows[j].amount.amount().abs(),
-                            initial_amount,
-                        ),
+                        None => {
+                            initial_funding_candidate_count == 1
+                                && amounts_approx_equal(
+                                    self.flows[j].amount.amount().abs(),
+                                    initial_amount,
+                                )
+                        }
                     };
                 if is_initial_funding {
                     initial_funding_skipped = true;

@@ -175,7 +175,7 @@ pub fn with_model_params(
     }
 }
 
-/// Measure prepayment parameter shift between two snapshots.
+/// Try to measure prepayment parameter shift between two snapshots.
 ///
 /// Returns shift in basis points for use with Prepayment01 metric.
 ///
@@ -184,13 +184,10 @@ pub fn with_model_params(
 /// * `snapshot_t0` - Parameters at T₀
 /// * `snapshot_t1` - Parameters at T₁
 ///
-/// # Returns
-///
-/// Shift in basis points, or 0.0 if not applicable.
-pub fn measure_prepayment_shift(
+pub fn try_measure_prepayment_shift(
     snapshot_t0: &ModelParamsSnapshot,
     snapshot_t1: &ModelParamsSnapshot,
-) -> f64 {
+) -> Option<f64> {
     match (snapshot_t0, snapshot_t1) {
         (
             ModelParamsSnapshot::StructuredCredit {
@@ -215,27 +212,39 @@ pub fn measure_prepayment_shift(
                 ) => {
                     // PSA multiplier change (convert to CPR change approximation)
                     // PSA 100% ≈ 6% CPR terminal, so multiply difference by 6%
-                    (mult_t1 - mult_t0) * 600.0 // Convert to basis points
+                    Some((mult_t1 - mult_t0) * 600.0) // Convert to basis points
                 }
                 (None, None)
                 | (Some(PrepaymentCurve::Constant), Some(PrepaymentCurve::Constant)) => {
                     // Direct CPR difference in basis points
-                    (prep_t1.cpr - prep_t0.cpr) * 10000.0
+                    Some((prep_t1.cpr - prep_t0.cpr) * 10000.0)
                 }
-                _ => 0.0, // Mixed or unsupported model types
+                _ => None, // Mixed or unsupported model types
             }
         }
-        _ => 0.0,
+        _ => None,
     }
 }
 
-/// Measure default rate parameter shift between two snapshots.
+/// Measure prepayment parameter shift between two snapshots.
 ///
-/// Returns shift in basis points for use with Default01 metric.
-pub fn measure_default_shift(
+/// Returns shift in basis points, or 0.0 if not applicable. Prefer
+/// [`try_measure_prepayment_shift`] when the caller can surface diagnostics for
+/// unsupported snapshot pairs.
+pub fn measure_prepayment_shift(
     snapshot_t0: &ModelParamsSnapshot,
     snapshot_t1: &ModelParamsSnapshot,
 ) -> f64 {
+    try_measure_prepayment_shift(snapshot_t0, snapshot_t1).unwrap_or(0.0)
+}
+
+/// Try to measure default rate parameter shift between two snapshots.
+///
+/// Returns shift in basis points for use with Default01 metric.
+pub fn try_measure_default_shift(
+    snapshot_t0: &ModelParamsSnapshot,
+    snapshot_t1: &ModelParamsSnapshot,
+) -> Option<f64> {
     match (snapshot_t0, snapshot_t1) {
         (
             ModelParamsSnapshot::StructuredCredit {
@@ -248,19 +257,31 @@ pub fn measure_default_shift(
             },
         ) => {
             // CDR difference in basis points (works for both constant and SDA curves)
-            (def_t1.cdr - def_t0.cdr) * 10000.0
+            Some((def_t1.cdr - def_t0.cdr) * 10000.0)
         }
-        _ => 0.0,
+        _ => None,
     }
 }
 
-/// Measure recovery rate parameter shift between two snapshots.
+/// Measure default rate parameter shift between two snapshots.
 ///
-/// Returns shift in percentage points (not basis points) for use with Recovery01 metric.
-pub fn measure_recovery_shift(
+/// Returns shift in basis points, or 0.0 if not applicable. Prefer
+/// [`try_measure_default_shift`] when the caller can surface diagnostics for
+/// unsupported snapshot pairs.
+pub fn measure_default_shift(
     snapshot_t0: &ModelParamsSnapshot,
     snapshot_t1: &ModelParamsSnapshot,
 ) -> f64 {
+    try_measure_default_shift(snapshot_t0, snapshot_t1).unwrap_or(0.0)
+}
+
+/// Try to measure recovery rate parameter shift between two snapshots.
+///
+/// Returns shift in percentage points (not basis points) for use with Recovery01 metric.
+pub fn try_measure_recovery_shift(
+    snapshot_t0: &ModelParamsSnapshot,
+    snapshot_t1: &ModelParamsSnapshot,
+) -> Option<f64> {
     match (snapshot_t0, snapshot_t1) {
         (
             ModelParamsSnapshot::StructuredCredit {
@@ -273,19 +294,31 @@ pub fn measure_recovery_shift(
             },
         ) => {
             // Direct recovery rate difference in percentage points
-            (rec_t1.rate - rec_t0.rate) * 100.0
+            Some((rec_t1.rate - rec_t0.rate) * 100.0)
         }
-        _ => 0.0,
+        _ => None,
     }
 }
 
-/// Measure conversion ratio shift between two snapshots.
+/// Measure recovery rate parameter shift between two snapshots.
 ///
-/// Returns shift in percentage points for use with Conversion01 metric.
-pub fn measure_conversion_shift(
+/// Returns shift in percentage points, or 0.0 if not applicable. Prefer
+/// [`try_measure_recovery_shift`] when the caller can surface diagnostics for
+/// unsupported snapshot pairs.
+pub fn measure_recovery_shift(
     snapshot_t0: &ModelParamsSnapshot,
     snapshot_t1: &ModelParamsSnapshot,
 ) -> f64 {
+    try_measure_recovery_shift(snapshot_t0, snapshot_t1).unwrap_or(0.0)
+}
+
+/// Try to measure conversion ratio shift between two snapshots.
+///
+/// Returns shift in percentage points for use with Conversion01 metric.
+pub fn try_measure_conversion_shift(
+    snapshot_t0: &ModelParamsSnapshot,
+    snapshot_t1: &ModelParamsSnapshot,
+) -> Option<f64> {
     match (snapshot_t0, snapshot_t1) {
         (
             ModelParamsSnapshot::Convertible {
@@ -298,18 +331,33 @@ pub fn measure_conversion_shift(
             match (conv_t0.ratio, conv_t1.ratio) {
                 (Some(ratio_t0), Some(ratio_t1)) => {
                     // Conversion ratio change as percentage
-                    ((ratio_t1 - ratio_t0) / ratio_t0) * 100.0
+                    Some(((ratio_t1 - ratio_t0) / ratio_t0) * 100.0)
                 }
-                _ => 0.0,
+                _ => None,
             }
         }
-        _ => 0.0,
+        _ => None,
     }
+}
+
+/// Measure conversion ratio shift between two snapshots.
+///
+/// Returns shift in percentage points, or 0.0 if not applicable. Prefer
+/// [`try_measure_conversion_shift`] when the caller can surface diagnostics for
+/// unsupported snapshot pairs.
+pub fn measure_conversion_shift(
+    snapshot_t0: &ModelParamsSnapshot,
+    snapshot_t1: &ModelParamsSnapshot,
+) -> f64 {
+    try_measure_conversion_shift(snapshot_t0, snapshot_t1).unwrap_or(0.0)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instruments::fixed_income::convertible::{
+        AntiDilutionPolicy, ConversionPolicy, DividendAdjustment,
+    };
 
     #[test]
     fn test_extract_none_for_unsupported_instrument() {
@@ -334,6 +382,30 @@ mod tests {
         let shift = measure_prepayment_shift(&params_t0, &params_t1);
         // PSA increased by 0.5, which is 0.5 * 600bp = 300bp
         assert_eq!(shift, 300.0);
+    }
+
+    #[test]
+    fn test_try_measure_shift_returns_none_for_snapshot_type_mismatch() {
+        let structured = ModelParamsSnapshot::StructuredCredit {
+            prepayment_spec: PrepaymentModelSpec::psa(1.0),
+            default_spec: DefaultModelSpec::constant_cdr(0.02),
+            recovery_spec: RecoveryModelSpec::with_lag(0.60, 12),
+        };
+        let convertible = ModelParamsSnapshot::Convertible {
+            conversion_spec: ConversionSpec {
+                ratio: Some(20.0),
+                price: None,
+                policy: ConversionPolicy::Voluntary,
+                anti_dilution: AntiDilutionPolicy::None,
+                dividend_adjustment: DividendAdjustment::None,
+                dilution_events: Vec::new(),
+            },
+        };
+
+        assert!(try_measure_prepayment_shift(&structured, &convertible).is_none());
+        assert!(try_measure_default_shift(&structured, &convertible).is_none());
+        assert!(try_measure_recovery_shift(&structured, &convertible).is_none());
+        assert!(try_measure_conversion_shift(&structured, &convertible).is_none());
     }
 
     #[test]

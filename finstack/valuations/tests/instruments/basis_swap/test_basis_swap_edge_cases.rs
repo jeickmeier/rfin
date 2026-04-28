@@ -140,7 +140,7 @@ fn very_large_notional() {
 
     let dv01 = res
         .measures
-        .get("bucketed_dv01::usd_sofr_3m")
+        .get("bucketed_dv01::USD_x2dSOFR_x2d3M")
         .copied()
         .unwrap_or(0.0);
 

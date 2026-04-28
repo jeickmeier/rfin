@@ -51,7 +51,7 @@ impl OisCompoundingSpec {
             Self::Estr => FloatingLegCompounding::estr(),
             Self::Tona => FloatingLegCompounding::tona(),
             Self::Fedfunds => FloatingLegCompounding::fedfunds(),
-            Self::Saron => FloatingLegCompounding::CompoundedWithObservationShift { shift_days: 2 },
+            Self::Saron => FloatingLegCompounding::saron(),
             Self::CompoundedInArrears {
                 lookback_days,
                 observation_shift,
@@ -175,7 +175,7 @@ mod tests {
 
         assert_eq!(
             chf_saron.ois_compounding,
-            Some(FloatingLegCompounding::CompoundedWithObservationShift { shift_days: 2 })
+            Some(FloatingLegCompounding::saron())
         );
     }
 

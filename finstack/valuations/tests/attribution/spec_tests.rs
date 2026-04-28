@@ -22,6 +22,9 @@ fn empty_market_state() -> MarketContextState {
         dividends: vec![],
         credit_indices: vec![],
         collateral: BTreeMap::new(),
+        fx_delta_vol_surfaces: vec![],
+        hierarchy: None,
+        vol_cubes: vec![],
     }
 }
 
@@ -68,7 +71,10 @@ fn spec_rejects_unknown_metrics() {
 
     let envelope = AttributionEnvelope::new(spec);
     let result = envelope.execute();
-    assert!(result.is_err(), "Unknown metrics should trigger validation error");
+    assert!(
+        result.is_err(),
+        "Unknown metrics should trigger validation error"
+    );
 
     let err = result.unwrap_err();
     if let finstack_core::Error::Validation(msg) = err {

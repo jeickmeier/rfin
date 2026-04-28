@@ -92,13 +92,20 @@ pub(crate) trait BumperFactory: Send + Sync {
     fn create(&self, context: &MetricContext) -> Result<Option<Box<dyn FactorBumper>>>;
 }
 
-#[derive(Debug, Clone)]
-struct RatesParallelBumper {
-    curve_ids: Vec<CurveId>,
-    bump_bp: f64,
+#[derive(Debug, Clone, Copy)]
+enum ParallelCurveKind {
+    Rates,
+    Credit,
 }
 
-impl FactorBumper for RatesParallelBumper {
+#[derive(Debug, Clone)]
+struct ParallelCurveBumper {
+    curve_ids: Vec<CurveId>,
+    bump_bp: f64,
+    kind: ParallelCurveKind,
+}
+
+impl FactorBumper for ParallelCurveBumper {
     fn bump_market(
         &self,
         market: &MarketContext,
@@ -121,45 +128,13 @@ impl FactorBumper for RatesParallelBumper {
     }
 
     fn is_applicable(&self, market: &MarketContext, _as_of: Date) -> bool {
-        self.curve_ids.iter().any(|curve_id| {
-            market.get_discount(curve_id.as_str()).is_ok()
-                || market.get_forward(curve_id.as_str()).is_ok()
+        self.curve_ids.iter().any(|curve_id| match self.kind {
+            ParallelCurveKind::Rates => {
+                market.get_discount(curve_id.as_str()).is_ok()
+                    || market.get_forward(curve_id.as_str()).is_ok()
+            }
+            ParallelCurveKind::Credit => market.get_hazard(curve_id.as_str()).is_ok(),
         })
-    }
-}
-
-#[derive(Debug, Clone)]
-struct CreditParallelBumper {
-    curve_ids: Vec<CurveId>,
-    bump_bp: f64,
-}
-
-impl FactorBumper for CreditParallelBumper {
-    fn bump_market(
-        &self,
-        market: &MarketContext,
-        _as_of: Date,
-        direction: f64,
-    ) -> Result<MarketContext> {
-        let bumps: Vec<MarketBump> = self
-            .curve_ids
-            .iter()
-            .map(|id| MarketBump::Curve {
-                id: id.clone(),
-                spec: BumpSpec::parallel_bp(self.bump_bp * direction),
-            })
-            .collect();
-        market.bump(bumps)
-    }
-
-    fn bump_size(&self) -> f64 {
-        self.bump_bp
-    }
-
-    fn is_applicable(&self, market: &MarketContext, _as_of: Date) -> bool {
-        self.curve_ids
-            .iter()
-            .any(|curve_id| market.get_hazard(curve_id.as_str()).is_ok())
     }
 }
 
@@ -277,9 +252,10 @@ impl BumperFactory for RatesBumperFactory {
 
         let defaults =
             sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?;
-        Ok(Some(Box::new(RatesParallelBumper {
+        Ok(Some(Box::new(ParallelCurveBumper {
             curve_ids,
             bump_bp: defaults.rate_bump_bp,
+            kind: ParallelCurveKind::Rates,
         })))
     }
 }
@@ -297,9 +273,10 @@ impl BumperFactory for CreditBumperFactory {
 
         let defaults =
             sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?;
-        Ok(Some(Box::new(CreditParallelBumper {
+        Ok(Some(Box::new(ParallelCurveBumper {
             curve_ids: deps.curves.credit_curves.to_vec(),
             bump_bp: defaults.credit_spread_bump_bp,
+            kind: ParallelCurveKind::Credit,
         })))
     }
 }

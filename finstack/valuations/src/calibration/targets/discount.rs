@@ -392,14 +392,13 @@ Global solve requires strictly increasing times.",
 
         let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(rates_quotes.len());
 
-        let pillar_policy = crate::market::build::prepared::PillarPolicy::default();
         for q in rates_quotes {
             let prepared = crate::market::build::prepared::prepare_rate_quote(
                 q,
                 &build_ctx,
                 curve_dc,
                 params.base_date,
-                &pillar_policy,
+                true,
             )?;
             prepared_quotes.push(CalibrationQuote::Rates(prepared));
         }

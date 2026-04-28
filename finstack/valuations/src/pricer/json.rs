@@ -160,10 +160,43 @@ pub fn price_instrument_json_with_metrics(
     metrics: &[String],
     pricing_options: Option<&str>,
 ) -> finstack_core::Result<ValuationResult> {
+    price_instrument_json_with_metrics_and_history(
+        instrument_json,
+        market,
+        as_of,
+        model,
+        metrics,
+        pricing_options,
+        None,
+    )
+}
+
+/// Price a tagged instrument JSON payload with explicit metric requests and
+/// optional historical scenarios for VaR-style metrics.
+pub fn price_instrument_json_with_metrics_and_history(
+    instrument_json: &str,
+    market: &MarketContext,
+    as_of: &str,
+    model: &str,
+    metrics: &[String],
+    pricing_options: Option<&str>,
+    market_history_json: Option<&str>,
+) -> finstack_core::Result<ValuationResult> {
     let instrument = parse_boxed_instrument_json(instrument_json, pricing_options)?;
     let as_of = parse_as_of_date(as_of)?;
     let model = resolve_model_key(instrument.as_ref(), model)?;
-    let metric_ids: Vec<MetricId> = metrics.iter().map(MetricId::custom).collect();
+    let metric_ids: Vec<MetricId> = metrics
+        .iter()
+        .map(|metric| MetricId::parse_strict(metric))
+        .collect::<finstack_core::Result<_>>()?;
+    let pricing_options = if let Some(json) = market_history_json {
+        let history: crate::metrics::risk::MarketHistory = serde_json::from_str(json)
+            .map_err(|e| Error::Validation(format!("invalid market history JSON: {e}")))?;
+        crate::instruments::PricingOptions::default()
+            .with_market_history(std::sync::Arc::new(history))
+    } else {
+        crate::instruments::PricingOptions::default()
+    };
     standard_registry()
         .price_with_metrics(
             instrument.as_ref(),
@@ -171,7 +204,7 @@ pub fn price_instrument_json_with_metrics(
             market,
             as_of,
             &metric_ids,
-            Default::default(),
+            pricing_options,
         )
         .map_err(Into::into)
 }
@@ -502,6 +535,71 @@ mod tests {
     }
 
     #[test]
+    fn price_instrument_json_with_metrics_rejects_unknown_metric_names() {
+        let err = price_instrument_json_with_metrics(
+            &bond_instrument_json(),
+            &market_context(),
+            "2024-01-01",
+            "discounting",
+            &["dvO1".to_string()],
+            None,
+        )
+        .expect_err("JSON pricing boundary should parse requested metrics strictly");
+
+        assert!(
+            err.to_string().contains("dvO1") || err.to_string().contains("dvo1"),
+            "unknown metric error should include the requested metric, got: {err}"
+        );
+    }
+
+    #[test]
+    fn price_instrument_json_with_metrics_accepts_market_history_for_hvar() {
+        let history = crate::metrics::risk::MarketHistory::new(
+            time::Date::from_calendar_date(2024, time::Month::January, 1).expect("date"),
+            2,
+            vec![
+                crate::metrics::risk::MarketScenario::new(
+                    time::Date::from_calendar_date(2023, time::Month::December, 29).expect("date"),
+                    vec![crate::metrics::risk::RiskFactorShift {
+                        factor: crate::metrics::risk::RiskFactorType::DiscountRate {
+                            curve_id: finstack_core::types::CurveId::new("USD-OIS"),
+                            tenor_years: 5.0,
+                        },
+                        shift: 0.0005,
+                    }],
+                ),
+                crate::metrics::risk::MarketScenario::new(
+                    time::Date::from_calendar_date(2023, time::Month::December, 28).expect("date"),
+                    vec![crate::metrics::risk::RiskFactorShift {
+                        factor: crate::metrics::risk::RiskFactorType::DiscountRate {
+                            curve_id: finstack_core::types::CurveId::new("USD-OIS"),
+                            tenor_years: 10.0,
+                        },
+                        shift: -0.0003,
+                    }],
+                ),
+            ],
+        );
+        let history_json = serde_json::to_string(&history).expect("history JSON");
+
+        let result = price_instrument_json_with_metrics_and_history(
+            &bond_instrument_json(),
+            &market_context(),
+            "2024-01-01",
+            "discounting",
+            &["hvar".to_string(), "expected_shortfall".to_string()],
+            None,
+            Some(&history_json),
+        )
+        .expect("HVar should price when market history is supplied");
+
+        assert!(result.measures.contains_key(MetricId::HVar.as_str()));
+        assert!(result
+            .measures
+            .contains_key(MetricId::ExpectedShortfall.as_str()));
+    }
+
+    #[test]
     fn metric_helpers_return_requested_present_metrics() {
         let json = bond_instrument_json();
         let dirty_price = metric_value_from_instrument_json(
@@ -519,7 +617,7 @@ mod tests {
             &market_context(),
             "2024-01-01",
             "discounting",
-            &["dirty_price", "not_returned"],
+            &["dirty_price", "vega"],
         )
         .expect("metrics");
         assert_eq!(metrics, vec![("dirty_price", dirty_price)]);

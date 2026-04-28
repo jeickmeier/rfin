@@ -221,12 +221,13 @@ pub fn compute_credit_factor_attribution(
         if cs01 == 0.0 {
             continue;
         }
-        let row = beta_idx.get(&input.issuer_id).ok_or_else(|| {
-            Error::Validation(format!(
-                "credit_factor_attribution: issuer {:?} not found in CreditFactorModel.issuer_betas",
-                input.issuer_id.as_str()
-            ))
-        })?;
+        let Some(row) = beta_idx.get(&input.issuer_id) else {
+            tracing::warn!(
+                issuer_id = %input.issuer_id.as_str(),
+                "Credit factor attribution skipped issuer not found in CreditFactorModel.issuer_betas"
+            );
+            continue;
+        };
         if row.betas.levels.len() != num_levels {
             return Err(Error::Validation(format!(
                 "credit_factor_attribution: issuer {:?} betas.levels.len() = {}, expected {}",

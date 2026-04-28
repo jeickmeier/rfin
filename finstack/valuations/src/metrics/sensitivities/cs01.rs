@@ -130,11 +130,14 @@ where
         bump_hazard_shift(hazard_ref, &bump_request_down)?
     };
 
-    let temp_ctx_up = base_ctx.clone().insert(bumped_hazard_up);
-    let pv_bumped_up = revalue_raw(&temp_ctx_up)?;
+    let mut scratch = base_ctx.clone();
+    scratch.insert_mut(bumped_hazard_up);
+    let pv_bumped_up = revalue_raw(&scratch)?;
+    scratch.insert_mut(std::sync::Arc::clone(&hazard));
 
-    let temp_ctx_down = base_ctx.clone().insert(bumped_hazard_down);
-    let pv_bumped_down = revalue_raw(&temp_ctx_down)?;
+    scratch.insert_mut(bumped_hazard_down);
+    let pv_bumped_down = revalue_raw(&scratch)?;
+    scratch.insert_mut(std::sync::Arc::clone(&hazard));
 
     Ok(sensitivity_central_diff(
         pv_bumped_up,
@@ -217,6 +220,7 @@ where
 
     let mut series: Vec<(std::borrow::Cow<'static, str>, f64)> = Vec::new();
     let mut total = 0.0;
+    let mut scratch = base_ctx.clone();
 
     for t in buckets {
         let label = super::config::format_bucket_label_cow(t);
@@ -252,11 +256,13 @@ where
             bump_hazard_shift(hazard_ref, &bump_request_down)?
         };
 
-        let temp_ctx_up = base_ctx.clone().insert(bumped_hazard_up);
-        let pv_bumped_up = revalue_raw(&temp_ctx_up)?;
+        scratch.insert_mut(bumped_hazard_up);
+        let pv_bumped_up = revalue_raw(&scratch)?;
+        scratch.insert_mut(std::sync::Arc::clone(&hazard));
 
-        let temp_ctx_down = base_ctx.clone().insert(bumped_hazard_down);
-        let pv_bumped_down = revalue_raw(&temp_ctx_down)?;
+        scratch.insert_mut(bumped_hazard_down);
+        let pv_bumped_down = revalue_raw(&scratch)?;
+        scratch.insert_mut(std::sync::Arc::clone(&hazard));
 
         let cs01 = sensitivity_central_diff(pv_bumped_up, pv_bumped_down, bump_bp);
         series.push((label, cs01));

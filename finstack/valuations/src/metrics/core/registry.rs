@@ -280,6 +280,14 @@ impl MetricRegistry {
         context: &mut MetricContext,
         mode: StrictMode,
     ) -> finstack_core::Result<HashMap<MetricId, f64>> {
+        let _span = tracing::debug_span!(
+            "metric_registry.compute",
+            metric_count = metric_ids.len(),
+            instrument_type = %context.instrument.key(),
+            mode = ?mode,
+        )
+        .entered();
+
         // Build dependency graph and compute order for this instrument type
         let instrument_type = context.instrument.key();
         let order = self.resolve_dependencies(metric_ids, instrument_type)?;
@@ -501,7 +509,7 @@ impl MetricRegistry {
 mod tests {
     use super::*;
     use crate::instruments::common_impl::traits::{Attributes, Instrument};
-    use crate::metrics::core::ids::MetricId;
+    use crate::metrics::core::ids::{MetricGroup, MetricId};
     use crate::metrics::core::traits::{MetricCalculator, MetricContext};
     use crate::pricer::InstrumentType;
     use crate::results::ValuationResult;
@@ -929,5 +937,43 @@ mod tests {
         assert_eq!(results.get(&MetricId::Theta), Some(&50.0));
         assert!(!results.contains_key(&MetricId::Convexity));
         assert!(!context.computed.contains_key(&MetricId::Convexity));
+    }
+
+    #[test]
+    fn available_metrics_grouped_is_deterministic_and_standard_only() {
+        let mut registry = MetricRegistry::new();
+
+        for id in [
+            MetricId::ThetaRollDown,
+            MetricId::Dv01,
+            MetricId::CleanPrice,
+            MetricId::Theta,
+            MetricId::custom("user_defined_metric"),
+        ] {
+            registry.register_metric(
+                id,
+                Arc::new(SuccessCalculator {
+                    value: 1.0,
+                    deps: Vec::new(),
+                }),
+                &[],
+            );
+        }
+
+        let first = registry.available_metrics_grouped();
+        let second = registry.available_metrics_grouped();
+        assert_eq!(first, second);
+
+        assert_eq!(
+            first,
+            vec![
+                (MetricGroup::Pricing, vec![MetricId::CleanPrice]),
+                (
+                    MetricGroup::Carry,
+                    vec![MetricId::Theta, MetricId::ThetaRollDown],
+                ),
+                (MetricGroup::Sensitivity, vec![MetricId::Dv01]),
+            ]
+        );
     }
 }

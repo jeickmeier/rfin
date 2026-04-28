@@ -180,8 +180,8 @@ pub struct AccrualConfig {
     /// instead of silently falling back to the inverse-day-count
     /// approximation used by derive_horizon_start.
     ///
-    /// Default: false (preserves backwards compatibility; warning is logged
-    /// and an approximate first coupon period start is derived).
+    /// Default: true. Set to false only for legacy schedules that intentionally
+    /// rely on the inverse-day-count approximation.
     pub strict_issue_date: bool,
 }
 
@@ -192,7 +192,7 @@ impl Default for AccrualConfig {
             ex_coupon: None,
             include_pik: true,
             frequency: None,
-            strict_issue_date: false,
+            strict_issue_date: true,
         }
     }
 }
@@ -388,7 +388,7 @@ fn build_coupon_periods(
     for &i in &coupon_idx {
         let cf = &schedule.flows[i];
 
-        let cf_af = accrual_factor_from_builder(cf.accrual_factor);
+        let cf_af = (cf.accrual_factor > 0.0).then_some(cf.accrual_factor);
 
         if let Some(last) = buckets.last_mut() {
             if last.date == cf.date {
@@ -465,20 +465,6 @@ fn build_coupon_periods(
     }
 
     Ok(periods)
-}
-
-/// Convert a builder-reported accrual factor (`f64`) into the `Option<f64>`
-/// representation used internally by [`CouponBucket`].
-///
-/// Builder code emits `0.0` when no accrual factor applies; this function
-/// maps that sentinel to `None` so downstream logic can distinguish "unset"
-/// from a genuine zero-length period.
-fn accrual_factor_from_builder(af: f64) -> Option<f64> {
-    if af > 0.0 {
-        Some(af)
-    } else {
-        None
-    }
 }
 
 /// Build period inputs (including notional at start-of-period) from coupon periods
@@ -680,6 +666,13 @@ mod tests {
         );
     }
 
+    fn legacy_derivation_config() -> AccrualConfig {
+        AccrualConfig {
+            strict_issue_date: false,
+            ..AccrualConfig::default()
+        }
+    }
+
     /// Create a minimal schedule with coupon flows for testing issue date derivation.
     fn make_test_schedule(
         coupon_dates: &[(Date, f64)], // (date, accrual_factor)
@@ -727,7 +720,7 @@ mod tests {
             DayCount::Thirty360,
         );
 
-        let cfg = AccrualConfig::default();
+        let cfg = legacy_derivation_config();
         let periods = build_coupon_periods(&schedule, &cfg).expect("periods");
 
         assert!(!periods.is_empty(), "Should have coupon periods");
@@ -757,7 +750,7 @@ mod tests {
             DayCount::Act365F,
         );
 
-        let cfg = AccrualConfig::default();
+        let cfg = legacy_derivation_config();
         let periods = build_coupon_periods(&schedule, &cfg).expect("periods");
 
         assert!(!periods.is_empty());
@@ -785,7 +778,7 @@ mod tests {
             DayCount::Thirty360,
         );
 
-        let cfg = AccrualConfig::default();
+        let cfg = legacy_derivation_config();
         let periods = build_coupon_periods(&schedule, &cfg).expect("periods");
 
         assert!(!periods.is_empty());
@@ -812,7 +805,7 @@ mod tests {
             DayCount::Thirty360,
         );
 
-        let cfg = AccrualConfig::default();
+        let cfg = legacy_derivation_config();
         let periods = build_coupon_periods(&schedule, &cfg).expect("periods");
 
         // With zero accrual factor, we hit fallback: first_bucket.date = July 1
@@ -838,7 +831,7 @@ mod tests {
             DayCount::Thirty360,
         );
 
-        let cfg = AccrualConfig::default();
+        let cfg = legacy_derivation_config();
         let periods = build_coupon_periods(&schedule, &cfg).expect("periods");
 
         // With excessive accrual factor, we hit fallback: first_bucket.date = July 1
@@ -900,7 +893,8 @@ mod tests {
 
         // Calculate accrued at April 1 (halfway through first period)
         let as_of = make_date(2025, 4, 1);
-        let accrued = accrued_interest_amount(&schedule, as_of, &AccrualConfig::default()).unwrap();
+        let accrued =
+            accrued_interest_amount(&schedule, as_of, &legacy_derivation_config()).unwrap();
 
         // With derived issue date Jan 1 and first coupon July 1:
         // - Period length: 180 days (30/360)

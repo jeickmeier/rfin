@@ -7,10 +7,8 @@
 //! - `build/` - Instrument building from market quotes
 //!   - `credit` - Credit instrument building from CDS quotes
 //!   - `rates` - Rate instrument building from deposit/swap/FRA quotes
-//! - `quote_bumps` - Tests for rate, spread, and vol bump operations
-//! - `quote_schemas` - Schema validation and serialization tests for quote types
+//! - `quote_schemas` - Schema validation, serialization, and concrete quote bump tests
 
 pub mod build;
 mod market_quote;
-mod quote_bumps;
 mod quote_schemas;
