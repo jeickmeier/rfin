@@ -64,7 +64,7 @@ use super::risk_metrics::{
 ///     Date::from_calendar_date(2025, Month::January, 3).unwrap(),
 ///     Date::from_calendar_date(2025, Month::January, 6).unwrap(),
 /// );
-/// assert_eq!(perf.cagr().len(), 2);
+/// assert_eq!(perf.cagr()?.len(), 2);
 /// # Ok::<(), finstack_core::Error>(())
 /// ```
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
@@ -397,8 +397,12 @@ impl Performance {
     ///
     /// # Returns
     ///
-    /// One CAGR per ticker in column order. Returns `0.0` per ticker if the
-    /// active range has no valid holding period.
+    /// One CAGR per ticker in column order.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::InputError::Invalid`] if the active range has
+    /// no valid positive holding period.
     ///
     /// # Examples
     ///
@@ -415,16 +419,18 @@ impl Performance {
     /// #     None,
     /// #     PeriodKind::Daily,
     /// # )?;
-    /// let cagr = perf.cagr();
+    /// let cagr = perf.cagr()?;
     /// assert_eq!(cagr.len(), 1);
     /// # Ok::<(), finstack_core::Error>(())
     /// ```
-    pub fn cagr(&self) -> Vec<f64> {
+    pub fn cagr(&self) -> crate::Result<Vec<f64>> {
         let Some((start, end)) = self.active_holding_period() else {
-            return vec![0.0; self.ticker_names.len()];
+            return Err(crate::error::InputError::Invalid.into());
         };
         let basis = risk_metrics::CagrBasis::dates(start, end);
-        self.map_tickers(|i| risk_metrics::cagr(self.active_returns(i), basis))
+        (0..self.ticker_names.len())
+            .map(|i| risk_metrics::cagr(self.active_returns(i), basis))
+            .collect()
     }
 
     /// Mean return for each ticker.
@@ -499,9 +505,14 @@ impl Performance {
     ///
     /// One Calmar ratio per ticker in column order. Returns `0.0` for tickers
     /// with no observed drawdown.
-    pub fn calmar(&self) -> Vec<f64> {
-        let cagrs = self.cagr();
-        self.map_tickers(|i| calmar(cagrs[i], max_drawdown(self.active_drawdown_values(i))))
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from [`Self::cagr`] when the active range cannot be
+    /// annualized.
+    pub fn calmar(&self) -> crate::Result<Vec<f64>> {
+        let cagrs = self.cagr()?;
+        Ok(self.map_tickers(|i| calmar(cagrs[i], max_drawdown(self.active_drawdown_values(i)))))
     }
 
     /// Maximum drawdown for each ticker.
@@ -769,9 +780,15 @@ impl Performance {
     ///
     /// One Martin ratio per ticker in column order. Returns `0.0` for tickers
     /// with zero Ulcer Index.
-    pub fn martin_ratio(&self) -> Vec<f64> {
-        let cagrs = self.cagr();
-        self.map_tickers(|i| martin_ratio(cagrs[i], ulcer_index(self.active_drawdown_values(i))))
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from [`Self::cagr`] when the active range cannot be
+    /// annualized.
+    pub fn martin_ratio(&self) -> crate::Result<Vec<f64>> {
+        let cagrs = self.cagr()?;
+        Ok(self
+            .map_tickers(|i| martin_ratio(cagrs[i], ulcer_index(self.active_drawdown_values(i)))))
     }
 
     /// Parametric (Gaussian) VaR for each ticker.
@@ -843,12 +860,17 @@ impl Performance {
     /// # Returns
     ///
     /// One Sterling ratio per ticker in column order.
-    pub fn sterling_ratio(&self, risk_free_rate: f64, n: usize) -> Vec<f64> {
-        let cagrs = self.cagr();
-        self.map_tickers(|i| {
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from [`Self::cagr`] when the active range cannot be
+    /// annualized.
+    pub fn sterling_ratio(&self, risk_free_rate: f64, n: usize) -> crate::Result<Vec<f64>> {
+        let cagrs = self.cagr()?;
+        Ok(self.map_tickers(|i| {
             let avg = super::drawdown::mean_episode_drawdown(self.active_drawdown_values(i), n);
             sterling_ratio(cagrs[i], avg, risk_free_rate)
-        })
+        }))
     }
 
     /// Burke ratio for each ticker.
@@ -861,15 +883,20 @@ impl Performance {
     /// # Returns
     ///
     /// One Burke ratio per ticker in column order.
-    pub fn burke_ratio(&self, risk_free_rate: f64, n: usize) -> Vec<f64> {
-        let cagrs = self.cagr();
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from [`Self::cagr`] when the active range cannot be
+    /// annualized.
+    pub fn burke_ratio(&self, risk_free_rate: f64, n: usize) -> crate::Result<Vec<f64>> {
+        let cagrs = self.cagr()?;
         let dates = self.active_dates();
-        self.map_tickers(|i| {
+        Ok(self.map_tickers(|i| {
             let episodes =
                 super::drawdown::drawdown_details(self.active_drawdown_values(i), dates, n);
             let dd_vals: Vec<f64> = episodes.iter().map(|e| e.max_drawdown).collect();
             burke_ratio(cagrs[i], &dd_vals, risk_free_rate)
-        })
+        }))
     }
 
     /// Pain index for each ticker.
@@ -890,12 +917,17 @@ impl Performance {
     /// # Returns
     ///
     /// One pain ratio per ticker in column order.
-    pub fn pain_ratio(&self, risk_free_rate: f64) -> Vec<f64> {
-        let cagrs = self.cagr();
-        self.map_tickers(|i| {
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from [`Self::cagr`] when the active range cannot be
+    /// annualized.
+    pub fn pain_ratio(&self, risk_free_rate: f64) -> crate::Result<Vec<f64>> {
+        let cagrs = self.cagr()?;
+        Ok(self.map_tickers(|i| {
             let pain = pain_index(self.active_drawdown_values(i));
             pain_ratio(cagrs[i], pain, risk_free_rate)
-        })
+        }))
     }
 
     // ── Batch 4: Multi-factor and CDaR ──

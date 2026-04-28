@@ -44,13 +44,13 @@ fn performance_facade_exercises_broad_api_surface() {
     assert_eq!(perf.benchmark_idx(), 1);
     assert_eq!(perf.freq(), PeriodKind::Daily);
 
-    let _ = perf.cagr();
+    let _ = perf.cagr().expect("valid performance CAGR");
     let _ = perf.mean_return(true);
     let _ = perf.mean_return(false);
     let _ = perf.volatility(true);
     let _ = perf.sharpe(0.02);
     let _ = perf.sortino(0.0);
-    let _ = perf.calmar();
+    let _ = perf.calmar().expect("valid Calmar ratios");
     let _ = perf.max_drawdown();
     let _ = perf.value_at_risk(0.95);
     let _ = perf.expected_shortfall(0.95);
@@ -81,15 +81,15 @@ fn performance_facade_exercises_broad_api_surface() {
     let _ = perf.omega_ratio(0.0);
     let _ = perf.treynor(0.02);
     let _ = perf.gain_to_pain();
-    let _ = perf.martin_ratio();
+    let _ = perf.martin_ratio().expect("valid Martin ratios");
     let _ = perf.parametric_var(0.95);
     let _ = perf.cornish_fisher_var(0.95);
     let _ = perf.rolling_sortino(0, 25);
     let _ = perf.recovery_factor();
-    let _ = perf.sterling_ratio(0.02, 3);
-    let _ = perf.burke_ratio(0.02, 3);
+    let _ = perf.sterling_ratio(0.02, 3).expect("valid Sterling ratios");
+    let _ = perf.burke_ratio(0.02, 3).expect("valid Burke ratios");
     let _ = perf.pain_index();
-    let _ = perf.pain_ratio(0.02);
+    let _ = perf.pain_ratio(0.02).expect("valid Pain ratios");
 
     let mut bench_series = simple_returns(&col_b);
     bench_series = bench_series[1..].to_vec();

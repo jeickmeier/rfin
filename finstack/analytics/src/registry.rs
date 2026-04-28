@@ -13,6 +13,8 @@ use serde::Deserialize;
 pub const ANALYTICS_DEFAULTS_EXTENSION_KEY: &str = "analytics.defaults.v1";
 
 const ANALYTICS_DEFAULTS: &str = include_str!("../data/defaults/analytics_defaults.v1.json");
+const EXPECTED_SCHEMA: &str = "finstack.analytics.defaults.v1";
+const EXPECTED_VERSION: u32 = 1;
 
 static EMBEDDED_DEFAULTS: OnceLock<Result<AnalyticsDefaults>> = OnceLock::new();
 
@@ -200,29 +202,35 @@ pub fn embedded_defaults() -> Result<&'static AnalyticsDefaults> {
     }
 }
 
-/// Panic-on-failure access for binding defaults backed by embedded data.
-#[must_use]
-#[allow(clippy::expect_used)]
-pub fn embedded_defaults_or_panic() -> &'static AnalyticsDefaults {
-    embedded_defaults().expect("embedded analytics defaults are compile-time assets")
-}
-
 /// Loads analytics defaults from configuration or falls back to embedded defaults.
 pub fn defaults_from_config(config: &FinstackConfig) -> Result<AnalyticsDefaults> {
     if let Some(value) = config.extensions.get(ANALYTICS_DEFAULTS_EXTENSION_KEY) {
         let file: DefaultsFile = serde_json::from_value(value.clone()).map_err(|err| {
+            tracing::warn!(
+                extension_key = ANALYTICS_DEFAULTS_EXTENSION_KEY,
+                error = %err,
+                "failed to parse analytics defaults extension"
+            );
             Error::Validation(format!(
                 "failed to parse analytics defaults extension: {err}"
             ))
         })?;
         defaults_from_file(file)
     } else {
+        tracing::debug!(
+            extension_key = ANALYTICS_DEFAULTS_EXTENSION_KEY,
+            "analytics defaults extension missing; using embedded defaults"
+        );
         Ok(embedded_defaults()?.clone())
     }
 }
 
 fn parse_embedded_defaults() -> Result<AnalyticsDefaults> {
     let file: DefaultsFile = serde_json::from_str(ANALYTICS_DEFAULTS).map_err(|err| {
+        tracing::warn!(
+            error = %err,
+            "failed to parse embedded analytics defaults"
+        );
         Error::Validation(format!(
             "failed to parse embedded analytics defaults: {err}"
         ))
@@ -251,83 +259,120 @@ fn defaults_from_file(file: DefaultsFile) -> Result<AnalyticsDefaults> {
 }
 
 fn validate_file(file: &DefaultsFile) -> Result<()> {
-    let _schema = &file.schema;
-    let _version = file.version;
-    validate_ann_factor(
+    validate_schema_version(file)?;
+    validate_field(
         "python_bindings.mean_return.ann_factor",
         file.python_bindings.mean_return.ann_factor,
+        |value| value.is_finite() && value > 0.0,
+        "must be positive",
     )?;
-    validate_ann_factor(
+    validate_field(
         "python_bindings.volatility.ann_factor",
         file.python_bindings.volatility.ann_factor,
+        |value| value.is_finite() && value > 0.0,
+        "must be positive",
     )?;
-    validate_finite(
+    validate_field(
         "python_bindings.downside_deviation.mar",
         file.python_bindings.downside_deviation.mar,
+        f64::is_finite,
+        "must be finite",
     )?;
-    validate_ann_factor(
+    validate_field(
         "python_bindings.downside_deviation.ann_factor",
         file.python_bindings.downside_deviation.ann_factor,
+        |value| value.is_finite() && value > 0.0,
+        "must be positive",
     )?;
-    validate_finite(
+    validate_field(
         "python_bindings.sortino.mar",
         file.python_bindings.sortino.mar,
+        f64::is_finite,
+        "must be finite",
     )?;
-    validate_ann_factor(
+    validate_field(
         "python_bindings.sortino.ann_factor",
         file.python_bindings.sortino.ann_factor,
+        |value| value.is_finite() && value > 0.0,
+        "must be positive",
     )?;
-    validate_finite(
+    validate_field(
         "python_bindings.modified_sharpe.risk_free_rate",
         file.python_bindings.modified_sharpe.risk_free_rate,
+        f64::is_finite,
+        "must be finite",
     )?;
-    validate_confidence(
+    validate_field(
         "python_bindings.modified_sharpe.confidence",
         file.python_bindings.modified_sharpe.confidence,
+        |value| value.is_finite() && (0.0..1.0).contains(&value),
+        "must be finite and between 0 and 1",
     )?;
-    validate_ann_factor(
+    validate_field(
         "python_bindings.modified_sharpe.ann_factor",
         file.python_bindings.modified_sharpe.ann_factor,
+        |value| value.is_finite() && value > 0.0,
+        "must be positive",
     )?;
-    validate_positive_usize(
+    validate_field(
         "python_bindings.rolling.window",
         file.python_bindings.rolling.window,
+        |value| value > 0,
+        "must be positive",
     )?;
-    validate_ann_factor(
+    validate_field(
         "python_bindings.rolling.ann_factor",
         file.python_bindings.rolling.ann_factor,
+        |value| value.is_finite() && value > 0.0,
+        "must be positive",
     )?;
-    validate_finite(
+    validate_field(
         "python_bindings.rolling.risk_free_rate",
         file.python_bindings.rolling.risk_free_rate,
+        f64::is_finite,
+        "must be finite",
     )?;
-    validate_confidence(
+    validate_field(
         "python_bindings.tail_risk.confidence",
         file.python_bindings.tail_risk.confidence,
+        |value| value.is_finite() && (0.0..1.0).contains(&value),
+        "must be finite and between 0 and 1",
     )?;
-    validate_ann_factor(
+    validate_field(
         "python_bindings.benchmark.ann_factor",
         file.python_bindings.benchmark.ann_factor,
+        |value| value.is_finite() && value > 0.0,
+        "must be positive",
     )?;
-    validate_positive_usize(
+    validate_field(
         "python_bindings.benchmark.rolling_window",
         file.python_bindings.benchmark.rolling_window,
+        |value| value > 0,
+        "must be positive",
     )?;
-    validate_positive_usize(
+    validate_field(
         "python_bindings.ruin_model.horizon_periods",
         file.python_bindings.ruin_model.horizon_periods,
+        |value| value > 0,
+        "must be positive",
     )?;
-    validate_positive_usize(
+    validate_field(
         "python_bindings.ruin_model.n_paths",
         file.python_bindings.ruin_model.n_paths,
+        |value| value > 0,
+        "must be positive",
     )?;
-    validate_positive_usize(
+    validate_field(
         "python_bindings.ruin_model.block_size",
         file.python_bindings.ruin_model.block_size,
+        |value| value > 0,
+        "must be positive",
     )?;
-    validate_confidence(
+    validate_field(
         "python_bindings.ruin_model.confidence_level",
         file.python_bindings.ruin_model.confidence_level,
+        |value| value.is_finite() && (0.0..1.0).contains(&value),
+        "must be finite and between 0 and 1",
     )?;
     validate_fiscal_calendar(
         "python_bindings.lookback.default_fiscal_calendar",
@@ -335,32 +380,61 @@ fn validate_file(file: &DefaultsFile) -> Result<()> {
     )
 }
 
-fn validate_positive_usize(label: &str, value: usize) -> Result<()> {
-    if value == 0 {
-        return Err(Error::Validation(format!("{label} must be positive")));
+fn validate_schema_version(file: &DefaultsFile) -> Result<()> {
+    match file.schema.as_deref() {
+        Some(EXPECTED_SCHEMA) => {}
+        Some(schema) => {
+            tracing::warn!(
+                expected_schema = EXPECTED_SCHEMA,
+                actual_schema = schema,
+                "analytics defaults schema mismatch"
+            );
+            return Err(Error::Validation(format!(
+                "analytics defaults schema must be {EXPECTED_SCHEMA}, got {schema}"
+            )));
+        }
+        None => {
+            tracing::warn!("analytics defaults schema missing");
+            return Err(Error::Validation(
+                "analytics defaults schema is required".to_string(),
+            ));
+        }
     }
-    Ok(())
+
+    match file.version {
+        Some(EXPECTED_VERSION) => Ok(()),
+        Some(version) => {
+            tracing::warn!(
+                expected_version = EXPECTED_VERSION,
+                actual_version = version,
+                "analytics defaults version mismatch"
+            );
+            Err(Error::Validation(format!(
+                "analytics defaults version must be {EXPECTED_VERSION}, got {version}"
+            )))
+        }
+        None => {
+            tracing::warn!("analytics defaults version missing");
+            Err(Error::Validation(
+                "analytics defaults version is required".to_string(),
+            ))
+        }
+    }
 }
 
-fn validate_ann_factor(label: &str, value: f64) -> Result<()> {
-    if !value.is_finite() || value <= 0.0 {
-        return Err(Error::Validation(format!("{label} must be positive")));
-    }
-    Ok(())
-}
-
-fn validate_confidence(label: &str, value: f64) -> Result<()> {
-    if !value.is_finite() || !(0.0..1.0).contains(&value) {
-        return Err(Error::Validation(format!(
-            "{label} must be finite and between 0 and 1"
-        )));
-    }
-    Ok(())
-}
-
-fn validate_finite(label: &str, value: f64) -> Result<()> {
-    if !value.is_finite() {
-        return Err(Error::Validation(format!("{label} must be finite")));
+fn validate_field<T>(
+    label: &str,
+    value: T,
+    is_valid: impl FnOnce(T) -> bool,
+    requirement: &str,
+) -> Result<()> {
+    if !is_valid(value) {
+        tracing::warn!(
+            field = label,
+            requirement,
+            "analytics defaults validation failed"
+        );
+        return Err(Error::Validation(format!("{label} {requirement}")));
     }
     Ok(())
 }
@@ -388,4 +462,74 @@ fn validate_fiscal_calendar(label: &str, calendar: &FiscalCalendarDefaults) -> R
         .map_err(|err| {
             Error::Validation(format!("{label} has invalid fiscal start month/day: {err}"))
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn defaults_value() -> serde_json::Value {
+        serde_json::from_str(ANALYTICS_DEFAULTS).expect("embedded defaults JSON should parse")
+    }
+
+    fn parse_file(value: serde_json::Value) -> DefaultsFile {
+        serde_json::from_value(value).expect("defaults file should deserialize")
+    }
+
+    fn validation_message(result: Result<()>) -> String {
+        match result.expect_err("validation should fail") {
+            Error::Validation(message) => message,
+            err => panic!("expected validation error, got {err:?}"),
+        }
+    }
+
+    #[test]
+    fn validate_file_requires_schema() {
+        let mut value = defaults_value();
+        value.as_object_mut().expect("object").remove("schema");
+
+        let message = validation_message(validate_file(&parse_file(value)));
+
+        assert!(message.contains("schema"));
+    }
+
+    #[test]
+    fn validate_file_rejects_wrong_schema() {
+        let mut value = defaults_value();
+        value["schema"] = serde_json::Value::String("wrong.schema".to_string());
+
+        let message = validation_message(validate_file(&parse_file(value)));
+
+        assert!(message.contains("schema"));
+    }
+
+    #[test]
+    fn validate_file_requires_version() {
+        let mut value = defaults_value();
+        value.as_object_mut().expect("object").remove("version");
+
+        let message = validation_message(validate_file(&parse_file(value)));
+
+        assert!(message.contains("version"));
+    }
+
+    #[test]
+    fn validate_file_rejects_wrong_version() {
+        let mut value = defaults_value();
+        value["version"] = serde_json::Value::from(2);
+
+        let message = validation_message(validate_file(&parse_file(value)));
+
+        assert!(message.contains("version"));
+    }
+
+    #[test]
+    fn validate_file_rejects_invalid_numeric_field() {
+        let mut value = defaults_value();
+        value["python_bindings"]["rolling"]["window"] = serde_json::Value::from(0);
+
+        let message = validation_message(validate_file(&parse_file(value)));
+
+        assert!(message.contains("python_bindings.rolling.window"));
+    }
 }

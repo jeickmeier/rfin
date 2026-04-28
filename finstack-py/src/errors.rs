@@ -9,6 +9,13 @@
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
+pyo3::create_exception!(
+    finstack.analytics,
+    AnalyticsError,
+    PyValueError,
+    "Analytics validation or calculation failure (inherits ValueError)."
+);
+
 /// Format an error and its full `source()` chain into a single string.
 ///
 /// PyO3 exceptions only carry a message, not a structured cause chain, so we
@@ -37,6 +44,15 @@ fn format_chain(err: &dyn std::error::Error) -> String {
 /// `finstack_valuations::Error::Calibration(core_err)`.
 pub fn core_to_py(e: finstack_core::Error) -> PyErr {
     PyValueError::new_err(format_chain(&e))
+}
+
+/// Convert an analytics-domain core error into a Python `AnalyticsError`.
+///
+/// `AnalyticsError` inherits from `ValueError`, so existing callers catching
+/// `ValueError` remain compatible while analytics users can opt into a narrower
+/// exception type.
+pub fn analytics_to_py(e: finstack_core::Error) -> PyErr {
+    AnalyticsError::new_err(format_chain(&e))
 }
 
 /// Convert any `Display`-able error into a Python `ValueError`.

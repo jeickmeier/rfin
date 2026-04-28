@@ -6,8 +6,98 @@
 
 use finstack_wasm::api::analytics::*;
 use finstack_wasm::api::statements_analytics::compute_multiple;
+use js_sys::{Array, Float64Array};
+use serde::Deserialize;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_test::*;
+
+const ANALYTICS_PARITY_FIXTURE: &str =
+    include_str!("../../finstack/analytics/tests/fixtures/analytics_parity.json");
+
+#[derive(Deserialize)]
+struct AnalyticsParityFixture {
+    returns: Vec<f64>,
+    benchmark: Vec<f64>,
+    factors: Vec<Vec<f64>>,
+    dates: Vec<String>,
+    expected: AnalyticsParityExpected,
+}
+
+#[derive(Deserialize)]
+struct AnalyticsParityExpected {
+    cagr_factor: f64,
+    sharpe: f64,
+    sortino: f64,
+    value_at_risk: f64,
+    expected_shortfall: f64,
+    rolling_greeks: ExpectedRollingGreeks,
+    multi_factor_greeks: ExpectedMultiFactorGreeks,
+}
+
+#[derive(Deserialize)]
+struct ExpectedRollingGreeks {
+    alphas: Vec<f64>,
+    betas: Vec<f64>,
+}
+
+#[derive(Deserialize)]
+struct ExpectedMultiFactorGreeks {
+    alpha: f64,
+    betas: Vec<f64>,
+    r_squared: f64,
+    adjusted_r_squared: f64,
+    residual_vol: f64,
+}
+
+#[derive(Deserialize)]
+struct WasmRollingGreeksResult {
+    alphas: Vec<f64>,
+    betas: Vec<f64>,
+}
+
+#[derive(Deserialize)]
+struct WasmMultiFactorResult {
+    alpha: f64,
+    betas: Vec<f64>,
+    r_squared: f64,
+    adjusted_r_squared: f64,
+    residual_vol: f64,
+}
+
+fn analytics_parity_fixture() -> AnalyticsParityFixture {
+    serde_json::from_str(ANALYTICS_PARITY_FIXTURE).unwrap()
+}
+
+fn to_js<T: serde::Serialize>(value: &T) -> JsValue {
+    serde_wasm_bindgen::to_value(value).unwrap()
+}
+
+fn to_f64_array(value: &[f64]) -> JsValue {
+    Float64Array::from(value).into()
+}
+
+fn to_f64_matrix(rows: &[Vec<f64>]) -> JsValue {
+    let array = Array::new_with_length(rows.len() as u32);
+    for (i, row) in rows.iter().enumerate() {
+        let row_value: JsValue = Float64Array::from(row.as_slice()).into();
+        array.set(i as u32, row_value);
+    }
+    array.into()
+}
+
+fn assert_close(actual: f64, expected: f64) {
+    assert!(
+        (actual - expected).abs() < 1.0e-12,
+        "actual={actual}, expected={expected}"
+    );
+}
+
+fn assert_vec_close(actual: &[f64], expected: &[f64]) {
+    assert_eq!(actual.len(), expected.len());
+    for (&actual, &expected) in actual.iter().zip(expected.iter()) {
+        assert_close(actual, expected);
+    }
+}
 
 fn returns_js() -> JsValue {
     serde_wasm_bindgen::to_value(&vec![
@@ -75,6 +165,121 @@ fn cagr_factor_basis_finite() {
     let basis = WasmCagrBasis::factor(252.0);
     let v = cagr(returns_js(), &basis).unwrap();
     assert!(v.is_finite());
+}
+
+#[wasm_bindgen_test]
+fn cagr_date_basis_rejects_non_positive_span() {
+    let basis = WasmCagrBasis::dates("2024-01-01", "2024-01-01", None).unwrap();
+    assert!(cagr(returns_js(), &basis).is_err());
+}
+
+#[wasm_bindgen_test]
+fn analytics_matches_shared_parity_fixture() {
+    let fixture = analytics_parity_fixture();
+    let expected = &fixture.expected;
+
+    let basis = WasmCagrBasis::factor(252.0);
+    assert_close(
+        cagr(to_js(&fixture.returns), &basis).unwrap(),
+        expected.cagr_factor,
+    );
+    assert_close(sharpe(0.12, 0.18, 0.02), expected.sharpe);
+    assert_close(
+        sortino(to_js(&fixture.returns), true, 252.0, 0.0).unwrap(),
+        expected.sortino,
+    );
+    assert_close(
+        value_at_risk(to_js(&fixture.returns), 0.95).unwrap(),
+        expected.value_at_risk,
+    );
+    assert_close(
+        expected_shortfall(to_js(&fixture.returns), 0.95).unwrap(),
+        expected.expected_shortfall,
+    );
+
+    let rolling: WasmRollingGreeksResult = serde_wasm_bindgen::from_value(
+        rolling_greeks(
+            to_js(&fixture.returns),
+            to_js(&fixture.benchmark),
+            to_js(&fixture.dates),
+            5,
+            252.0,
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_vec_close(&rolling.alphas, &expected.rolling_greeks.alphas);
+    assert_vec_close(&rolling.betas, &expected.rolling_greeks.betas);
+
+    let multi: WasmMultiFactorResult = serde_wasm_bindgen::from_value(
+        multi_factor_greeks(to_js(&fixture.returns), to_js(&fixture.factors), 252.0).unwrap(),
+    )
+    .unwrap();
+    assert_close(multi.alpha, expected.multi_factor_greeks.alpha);
+    assert_vec_close(&multi.betas, &expected.multi_factor_greeks.betas);
+    assert_close(multi.r_squared, expected.multi_factor_greeks.r_squared);
+    assert_close(
+        multi.adjusted_r_squared,
+        expected.multi_factor_greeks.adjusted_r_squared,
+    );
+    assert_close(
+        multi.residual_vol,
+        expected.multi_factor_greeks.residual_vol,
+    );
+}
+
+#[wasm_bindgen_test]
+fn typed_array_inputs_match_shared_parity_fixture() {
+    let fixture = analytics_parity_fixture();
+    let expected = &fixture.expected;
+
+    assert_close(
+        value_at_risk(to_f64_array(&fixture.returns), 0.95).unwrap(),
+        expected.value_at_risk,
+    );
+    assert_close(
+        expected_shortfall(to_f64_array(&fixture.returns), 0.95).unwrap(),
+        expected.expected_shortfall,
+    );
+
+    let rolling: WasmRollingGreeksResult = serde_wasm_bindgen::from_value(
+        rolling_greeks(
+            to_f64_array(&fixture.returns),
+            to_f64_array(&fixture.benchmark),
+            to_js(&fixture.dates),
+            5,
+            252.0,
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_vec_close(&rolling.alphas, &expected.rolling_greeks.alphas);
+    assert_vec_close(&rolling.betas, &expected.rolling_greeks.betas);
+
+    let multi: WasmMultiFactorResult = serde_wasm_bindgen::from_value(
+        multi_factor_greeks(
+            to_f64_array(&fixture.returns),
+            to_f64_matrix(&fixture.factors),
+            252.0,
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_close(multi.alpha, expected.multi_factor_greeks.alpha);
+    assert_vec_close(&multi.betas, &expected.multi_factor_greeks.betas);
+
+    let prices = to_f64_array(&[100.0, 102.0, 101.0, 103.0]);
+    let simple: Vec<f64> = serde_wasm_bindgen::from_value(simple_returns(prices).unwrap()).unwrap();
+    assert_eq!(simple.len(), 4);
+    assert!(simple.iter().all(|x| x.is_finite()));
+}
+
+#[wasm_bindgen_test]
+fn multi_factor_greeks_rejects_non_finite_factor_inputs() {
+    let returns = to_js(&vec![0.01, -0.02, 0.03, -0.01]);
+    let factors = to_js(&vec![vec![0.01, f64::NAN, 0.02, -0.01]]);
+
+    assert!(multi_factor_greeks(returns, factors, 252.0).is_err());
 }
 
 #[wasm_bindgen_test]

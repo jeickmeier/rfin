@@ -13,6 +13,7 @@ from typing import Sequence
 import pandas as pd
 
 __all__ = [
+    "AnalyticsError",
     "PeriodStats",
     "BetaResult",
     "GreeksResult",
@@ -125,6 +126,9 @@ __all__ = [
 # ---------------------------------------------------------------------------
 # Result types
 # ---------------------------------------------------------------------------
+
+class AnalyticsError(ValueError):
+    """Analytics validation or calculation failure."""
 
 class PeriodStats:
     """Aggregated statistics for grouped periodic returns."""
@@ -834,7 +838,11 @@ class Performance:
         """
 
     def cagr(self) -> list[float]:
-        """CAGR for each ticker."""
+        """CAGR for each ticker.
+
+        Raises:
+            ValueError: If the active date window cannot be annualized.
+        """
 
     def mean_return(self, annualize: bool = True) -> list[float]:
         """Mean return for each ticker."""
@@ -849,7 +857,11 @@ class Performance:
         """Sortino ratio for each ticker."""
 
     def calmar(self) -> list[float]:
-        """Calmar ratio for each ticker."""
+        """Calmar ratio for each ticker.
+
+        Raises:
+            ValueError: If the active date window cannot be annualized.
+        """
 
     def max_drawdown(self) -> list[float]:
         """Max drawdown for each ticker."""
@@ -903,7 +915,11 @@ class Performance:
         """Ulcer index for each ticker."""
 
     def martin_ratio(self) -> list[float]:
-        """Martin ratio for each ticker."""
+        """Martin ratio for each ticker.
+
+        Raises:
+            ValueError: If the active date window cannot be annualized.
+        """
 
     def recovery_factor(self) -> list[float]:
         """Recovery factor for each ticker."""
@@ -912,7 +928,11 @@ class Performance:
         """Pain index for each ticker."""
 
     def pain_ratio(self, risk_free_rate: float = 0.0) -> list[float]:
-        """Pain ratio for each ticker."""
+        """Pain ratio for each ticker.
+
+        Raises:
+            ValueError: If the active date window cannot be annualized.
+        """
 
     def tail_ratio(self, confidence: float = 0.95) -> list[float]:
         """Tail ratio for each ticker."""
@@ -939,10 +959,18 @@ class Performance:
         """Modified Sharpe ratio for each ticker."""
 
     def sterling_ratio(self, risk_free_rate: float = 0.0, n: int = 5) -> list[float]:
-        """Sterling ratio for each ticker."""
+        """Sterling ratio for each ticker.
+
+        Raises:
+            ValueError: If the active date window cannot be annualized.
+        """
 
     def burke_ratio(self, risk_free_rate: float = 0.0, n: int = 5) -> list[float]:
-        """Burke ratio for each ticker."""
+        """Burke ratio for each ticker.
+
+        Raises:
+            ValueError: If the active date window cannot be annualized.
+        """
 
     def cumulative_returns(self) -> list[list[float]]:
         """Cumulative returns for each ticker."""
@@ -1737,6 +1765,10 @@ def cagr(returns: list[float], basis: CagrBasis) -> float:
 
     Returns:
         CAGR over the window.
+
+    Raises:
+        ValueError: If returns are empty, the date span is non-positive, or the
+            annualization factor is non-positive or non-finite.
 
     Example:
         >>> import datetime

@@ -44,6 +44,14 @@ fn bench_tail_risk(c: &mut Criterion) {
     c.bench_function("expected_shortfall 2.5k", |b| {
         b.iter(|| black_box(expected_shortfall(black_box(&r), 0.95)));
     });
+
+    let large = synthetic_returns(100_000, 43);
+    c.bench_function("value_at_risk 100k", |b| {
+        b.iter(|| black_box(value_at_risk(black_box(&large), 0.95)));
+    });
+    c.bench_function("expected_shortfall 100k", |b| {
+        b.iter(|| black_box(expected_shortfall(black_box(&large), 0.95)));
+    });
 }
 
 fn bench_return_based(c: &mut Criterion) {

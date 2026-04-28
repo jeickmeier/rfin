@@ -13,6 +13,9 @@
 //! - annualized means scale linearly with the periods-per-year factor
 //! - annualized volatility-like quantities scale with `sqrt(periods_per_year)`
 //! - historical VaR and ES are reported in return space and are not time-scaled
+//! - `NaN` may represent missing observations for sentinel-returning metrics;
+//!   strict `Result` APIs such as [`cagr`] and benchmark multi-factor
+//!   regression reject invalid inputs explicitly
 //!
 //! Drawdown-derived ratios such as Calmar, Martin, Sterling, Burke, Pain, and
 //! Recovery Factor live in [`crate::drawdown`]. Benchmark-relative ratios such

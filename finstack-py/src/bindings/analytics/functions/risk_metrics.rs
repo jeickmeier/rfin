@@ -3,7 +3,7 @@ use super::super::types::{
     PyRuinEstimate, PyRuinModel,
 };
 use crate::bindings::core::dates::utils::py_to_date;
-use crate::errors::core_to_py;
+use crate::errors::analytics_to_py as core_to_py;
 use finstack_analytics as fa;
 use finstack_analytics::registry::{embedded_defaults, RiskMetricPythonDefaults};
 use pyo3::prelude::*;
@@ -15,9 +15,12 @@ fn py_risk_defaults() -> PyResult<&'static RiskMetricPythonDefaults> {
 }
 
 /// CAGR using a supplied annualization basis.
+///
+/// Raises ``ValueError`` for empty returns, non-positive date spans, or invalid
+/// annualization factors.
 #[pyfunction]
-fn cagr(returns: Vec<f64>, basis: &PyCagrBasis) -> f64 {
-    fa::risk_metrics::cagr(&returns, basis.inner)
+fn cagr(returns: Vec<f64>, basis: &PyCagrBasis) -> PyResult<f64> {
+    fa::risk_metrics::cagr(&returns, basis.inner).map_err(core_to_py)
 }
 
 /// Arithmetic mean return.
@@ -135,12 +138,15 @@ fn modified_sharpe(
 /// Monte Carlo ruin probability estimation.
 #[pyfunction]
 fn estimate_ruin(
+    py: Python<'_>,
     returns: Vec<f64>,
     definition: &PyRuinDefinition,
     model: &PyRuinModel,
 ) -> PyRuinEstimate {
+    let definition = definition.inner;
+    let model = model.inner;
     PyRuinEstimate {
-        inner: fa::risk_metrics::estimate_ruin(&returns, definition.inner, &model.inner),
+        inner: py.detach(|| fa::risk_metrics::estimate_ruin(&returns, definition, &model)),
     }
 }
 
@@ -148,6 +154,7 @@ fn estimate_ruin(
 #[pyfunction]
 #[pyo3(signature = (returns, dates, window = None, ann_factor = None, risk_free_rate = None))]
 fn rolling_sharpe(
+    py: Python<'_>,
     returns: Vec<f64>,
     dates: Vec<Bound<'_, PyAny>>,
     window: Option<usize>,
@@ -160,7 +167,9 @@ fn rolling_sharpe(
     let risk_free_rate = risk_free_rate.unwrap_or(defaults.risk_free_rate);
     let rd: Vec<time::Date> = dates.iter().map(py_to_date).collect::<PyResult<_>>()?;
     Ok(PyRollingSharpe {
-        inner: fa::risk_metrics::rolling_sharpe(&returns, &rd, window, ann_factor, risk_free_rate),
+        inner: py.detach(|| {
+            fa::risk_metrics::rolling_sharpe(&returns, &rd, window, ann_factor, risk_free_rate)
+        }),
     })
 }
 
@@ -168,6 +177,7 @@ fn rolling_sharpe(
 #[pyfunction]
 #[pyo3(signature = (returns, dates, window = None, ann_factor = None))]
 fn rolling_sortino(
+    py: Python<'_>,
     returns: Vec<f64>,
     dates: Vec<Bound<'_, PyAny>>,
     window: Option<usize>,
@@ -178,7 +188,7 @@ fn rolling_sortino(
     let ann_factor = ann_factor.unwrap_or(defaults.ann_factor);
     let rd: Vec<time::Date> = dates.iter().map(py_to_date).collect::<PyResult<_>>()?;
     Ok(PyRollingSortino {
-        inner: fa::risk_metrics::rolling_sortino(&returns, &rd, window, ann_factor),
+        inner: py.detach(|| fa::risk_metrics::rolling_sortino(&returns, &rd, window, ann_factor)),
     })
 }
 
@@ -186,6 +196,7 @@ fn rolling_sortino(
 #[pyfunction]
 #[pyo3(signature = (returns, dates, window = None, ann_factor = None))]
 fn rolling_volatility(
+    py: Python<'_>,
     returns: Vec<f64>,
     dates: Vec<Bound<'_, PyAny>>,
     window: Option<usize>,
@@ -196,7 +207,8 @@ fn rolling_volatility(
     let ann_factor = ann_factor.unwrap_or(defaults.ann_factor);
     let rd: Vec<time::Date> = dates.iter().map(py_to_date).collect::<PyResult<_>>()?;
     Ok(PyRollingVolatility {
-        inner: fa::risk_metrics::rolling_volatility(&returns, &rd, window, ann_factor),
+        inner: py
+            .detach(|| fa::risk_metrics::rolling_volatility(&returns, &rd, window, ann_factor)),
     })
 }
 

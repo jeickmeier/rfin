@@ -6,7 +6,7 @@
 
 use std::str::FromStr;
 
-use crate::errors::core_to_py;
+use crate::errors::analytics_to_py as core_to_py;
 use finstack_analytics::timeseries as ts;
 use finstack_analytics::timeseries::{Egarch11, Garch11, GarchModel, GjrGarch11, InnovationDist};
 use pyo3::prelude::*;
@@ -323,9 +323,11 @@ fn parse_dist(s: &str) -> PyResult<InnovationDist> {
 /// conditional variance series.
 #[pyfunction]
 #[pyo3(signature = (returns, distribution = "gaussian"))]
-fn fit_garch11(returns: Vec<f64>, distribution: &str) -> PyResult<PyGarchFit> {
+fn fit_garch11(py: Python<'_>, returns: Vec<f64>, distribution: &str) -> PyResult<PyGarchFit> {
     let dist = parse_dist(distribution)?;
-    let fit = Garch11.fit(&returns, dist, None).map_err(core_to_py)?;
+    let fit = py
+        .detach(|| Garch11.fit(&returns, dist, None))
+        .map_err(core_to_py)?;
     Ok(PyGarchFit::from_inner(fit))
 }
 
@@ -345,9 +347,11 @@ fn fit_garch11(returns: Vec<f64>, distribution: &str) -> PyResult<PyGarchFit> {
 /// :class:`GarchFit` result.
 #[pyfunction]
 #[pyo3(signature = (returns, distribution = "gaussian"))]
-fn fit_egarch11(returns: Vec<f64>, distribution: &str) -> PyResult<PyGarchFit> {
+fn fit_egarch11(py: Python<'_>, returns: Vec<f64>, distribution: &str) -> PyResult<PyGarchFit> {
     let dist = parse_dist(distribution)?;
-    let fit = Egarch11.fit(&returns, dist, None).map_err(core_to_py)?;
+    let fit = py
+        .detach(|| Egarch11.fit(&returns, dist, None))
+        .map_err(core_to_py)?;
     Ok(PyGarchFit::from_inner(fit))
 }
 
@@ -370,9 +374,11 @@ fn fit_egarch11(returns: Vec<f64>, distribution: &str) -> PyResult<PyGarchFit> {
 /// :class:`GarchFit` result.
 #[pyfunction]
 #[pyo3(signature = (returns, distribution = "gaussian"))]
-fn fit_gjr_garch11(returns: Vec<f64>, distribution: &str) -> PyResult<PyGarchFit> {
+fn fit_gjr_garch11(py: Python<'_>, returns: Vec<f64>, distribution: &str) -> PyResult<PyGarchFit> {
     let dist = parse_dist(distribution)?;
-    let fit = GjrGarch11.fit(&returns, dist, None).map_err(core_to_py)?;
+    let fit = py
+        .detach(|| GjrGarch11.fit(&returns, dist, None))
+        .map_err(core_to_py)?;
     Ok(PyGarchFit::from_inner(fit))
 }
 
@@ -388,20 +394,17 @@ fn fit_gjr_garch11(returns: Vec<f64>, distribution: &str) -> PyResult<PyGarchFit
 #[pyfunction]
 #[pyo3(signature = (fit, horizons, trading_days_per_year = 252.0, terminal_residual = None))]
 fn forecast_garch_fit(
+    py: Python<'_>,
     fit: &PyGarchFit,
     horizons: Vec<usize>,
     trading_days_per_year: f64,
     terminal_residual: Option<f64>,
 ) -> Vec<PyVarianceForecast> {
-    ts::forecast_garch_fit(
-        &fit.inner,
-        &horizons,
-        trading_days_per_year,
-        terminal_residual,
-    )
-    .into_iter()
-    .map(PyVarianceForecast::from_inner)
-    .collect()
+    let fit = fit.inner.clone();
+    py.detach(|| ts::forecast_garch_fit(&fit, &horizons, trading_days_per_year, terminal_residual))
+        .into_iter()
+        .map(PyVarianceForecast::from_inner)
+        .collect()
 }
 
 // -------------------------------------------------------------------

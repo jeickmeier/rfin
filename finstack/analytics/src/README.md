@@ -116,7 +116,7 @@ impl Performance {
     pub fn reset_bench_ticker(&mut self, ticker: &str) -> Result<()>;
 
     // Scalar metrics (one value per ticker)
-    pub fn cagr(&self) -> Vec<f64>;
+    pub fn cagr(&self) -> Result<Vec<f64>>;
     pub fn sharpe(&self, risk_free_rate: f64) -> Vec<f64>;
     pub fn sortino(&self, mar: f64) -> Vec<f64>;
     pub fn calmar(&self) -> Vec<f64>;

@@ -482,6 +482,11 @@ pub(crate) fn fit_garch_mle<M: GarchModel + ?Sized>(
 ) -> crate::Result<GarchFit> {
     let n = returns.len();
     if n < 10 {
+        tracing::debug!(
+            n,
+            reason = "insufficient_observations",
+            "GARCH fit rejected input"
+        );
         return Err(finstack_core::Error::Validation(
             "GARCH fitting requires at least 10 observations".to_string(),
         ));
@@ -501,6 +506,12 @@ pub(crate) fn fit_garch_mle<M: GarchModel + ?Sized>(
     };
 
     if sample_var < 1e-20 || !sample_var.is_finite() {
+        tracing::debug!(
+            n,
+            sample_var,
+            reason = "zero_or_non_finite_variance",
+            "GARCH fit rejected input"
+        );
         return Err(finstack_core::Error::Validation(
             "Return series has zero or non-finite variance".to_string(),
         ));
@@ -566,6 +577,13 @@ pub(crate) fn fit_garch_mle<M: GarchModel + ?Sized>(
     }
 
     if best_params_vec.is_empty() {
+        tracing::debug!(
+            n,
+            has_gamma,
+            dist = ?dist,
+            reason = "no_stationary_grid_point",
+            "GARCH fit using fallback starting point"
+        );
         // Fallback starting point
         let alpha = 0.05;
         let beta = 0.90;
@@ -615,6 +633,14 @@ pub(crate) fn fit_garch_mle<M: GarchModel + ?Sized>(
     let final_params =
         GarchParams::from_vec(&result.x, dist, has_gamma, model.family()).with_mean(sample_mean);
     let final_ll = -result.f_val;
+    if !result.converged {
+        tracing::warn!(
+            iterations = result.iterations,
+            final_objective = result.f_val,
+            final_log_likelihood = final_ll,
+            "GARCH optimizer did not converge"
+        );
+    }
 
     // Compute conditional variances and standardized residuals.
     // Residuals are demeaned, so z_t = (r_t - mu) / sigma_t.
@@ -625,6 +651,13 @@ pub(crate) fn fit_garch_mle<M: GarchModel + ?Sized>(
         .iter()
         .zip(sigma2.iter())
         .map(|(&r, &s2)| {
+            if s2 < 1e-20 {
+                tracing::debug!(
+                    variance = s2,
+                    reason = "variance_floor",
+                    "GARCH standardized residual using variance floor"
+                );
+            }
             let s = s2.max(1e-20).sqrt();
             (r - sample_mean) / s
         })

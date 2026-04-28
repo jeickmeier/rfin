@@ -269,6 +269,8 @@ export declare const core: CoreNamespace;
 /** Breach indicator from VaR backtesting: "Hit" or "Miss". */
 export type Breach = 'Hit' | 'Miss';
 export type VarMethod = 'Historical' | 'Parametric' | 'CornishFisher';
+export type NumericArray = number[] | Float64Array;
+export type NumericMatrix = NumericArray[];
 
 /** Kupiec Proportion of Failures (POF) unconditional coverage test result. */
 export interface KupiecResultJson {
@@ -536,64 +538,68 @@ export interface AnalyticsNamespace {
   RuinDefinition: RuinDefinitionConstructor;
   RuinModel: RuinModelConstructor;
   sharpe(annReturn: number, annVol: number, riskFreeRate: number): number;
-  sortino(returns: number[], annualize: boolean, annFactor: number, mar: number): number;
-  volatility(returns: number[], annualize: boolean, annFactor: number): number;
-  meanReturn(returns: number[], annualize: boolean, annFactor: number): number;
-  cagr(returns: number[], basis: CagrBasis): number;
+  sortino(returns: NumericArray, annualize: boolean, annFactor: number, mar: number): number;
+  volatility(returns: NumericArray, annualize: boolean, annFactor: number): number;
+  meanReturn(returns: NumericArray, annualize: boolean, annFactor: number): number;
+  cagr(returns: NumericArray, basis: CagrBasis): number;
   downsideDeviation(
-    returns: number[],
+    returns: NumericArray,
     threshold: number,
     annualize: boolean,
     annFactor: number
   ): number;
-  geometricMean(returns: number[]): number;
-  omegaRatio(returns: number[], threshold: number): number;
-  gainToPain(returns: number[]): number;
+  geometricMean(returns: NumericArray): number;
+  omegaRatio(returns: NumericArray, threshold: number): number;
+  gainToPain(returns: NumericArray): number;
   modifiedSharpe(
-    returns: number[],
+    returns: NumericArray,
     riskFreeRate: number,
     confidence: number,
     annFactor: number
   ): number;
-  estimateRuin(returns: number[], definition: RuinDefinition, model: RuinModel): RuinEstimateJson;
+  estimateRuin(
+    returns: NumericArray,
+    definition: RuinDefinition,
+    model: RuinModel
+  ): RuinEstimateJson;
   // Risk metrics — tail
-  valueAtRisk(returns: number[], confidence: number): number;
-  expectedShortfall(returns: number[], confidence: number): number;
-  parametricVar(returns: number[], confidence: number, annFactor?: number): number;
-  cornishFisherVar(returns: number[], confidence: number, annFactor?: number): number;
-  skewness(returns: number[]): number;
-  kurtosis(returns: number[]): number;
-  tailRatio(returns: number[], confidence: number): number;
-  outlierWinRatio(returns: number[], confidence: number): number;
-  outlierLossRatio(returns: number[], confidence: number): number;
+  valueAtRisk(returns: NumericArray, confidence: number): number;
+  expectedShortfall(returns: NumericArray, confidence: number): number;
+  parametricVar(returns: NumericArray, confidence: number, annFactor?: number): number;
+  cornishFisherVar(returns: NumericArray, confidence: number, annFactor?: number): number;
+  skewness(returns: NumericArray): number;
+  kurtosis(returns: NumericArray): number;
+  tailRatio(returns: NumericArray, confidence: number): number;
+  outlierWinRatio(returns: NumericArray, confidence: number): number;
+  outlierLossRatio(returns: NumericArray, confidence: number): number;
   // Risk metrics — rolling (dated structs)
   rollingSharpe(
-    returns: number[],
+    returns: NumericArray,
     dates: string[],
     window: number,
     annFactor: number,
     riskFreeRate: number
   ): RollingSharpe;
   rollingSortino(
-    returns: number[],
+    returns: NumericArray,
     dates: string[],
     window: number,
     annFactor: number
   ): RollingSortino;
   rollingVolatility(
-    returns: number[],
+    returns: NumericArray,
     dates: string[],
     window: number,
     annFactor: number
   ): RollingVolatility;
   // Returns
-  simpleReturns(prices: number[]): number[];
-  compSum(returns: number[]): number[];
-  compTotal(returns: number[]): number;
-  cleanReturns(returns: number[]): number[];
-  convertToPrices(returns: number[], startPrice: number): number[];
-  rebase(prices: number[], baseValue: number): number[];
-  excessReturns(returns: number[], rf: number[], nperiods?: number): number[];
+  simpleReturns(prices: NumericArray): number[];
+  compSum(returns: NumericArray): number[];
+  compTotal(returns: NumericArray): number;
+  cleanReturns(returns: NumericArray): number[];
+  convertToPrices(returns: NumericArray, startPrice: number): number[];
+  rebase(prices: NumericArray, baseValue: number): number[];
+  excessReturns(returns: NumericArray, rf: NumericArray, nperiods?: number): number[];
   // Drawdown
   toDrawdownSeries(returns: number[]): number[];
   maxDrawdown(drawdownSeries: number[]): number;
@@ -618,34 +624,38 @@ export interface AnalyticsNamespace {
     policy: BenchmarkAlignmentPolicy
   ): number[];
   trackingError(
-    returns: number[],
-    benchmark: number[],
+    returns: NumericArray,
+    benchmark: NumericArray,
     annualize: boolean,
     annFactor: number
   ): number;
   informationRatio(
-    returns: number[],
-    benchmark: number[],
+    returns: NumericArray,
+    benchmark: NumericArray,
     annualize: boolean,
     annFactor: number
   ): number;
-  rSquared(returns: number[], benchmark: number[]): number;
-  upCapture(returns: number[], benchmark: number[]): number;
-  downCapture(returns: number[], benchmark: number[]): number;
-  captureRatio(returns: number[], benchmark: number[]): number;
-  battingAverage(returns: number[], benchmark: number[]): number;
+  rSquared(returns: NumericArray, benchmark: NumericArray): number;
+  upCapture(returns: NumericArray, benchmark: NumericArray): number;
+  downCapture(returns: NumericArray, benchmark: NumericArray): number;
+  captureRatio(returns: NumericArray, benchmark: NumericArray): number;
+  battingAverage(returns: NumericArray, benchmark: NumericArray): number;
   treynor(annReturn: number, riskFreeRate: number, beta: number): number;
   mSquared(annReturn: number, annVol: number, benchVol: number, riskFreeRate: number): number;
-  beta(portfolio: number[], benchmark: number[]): BetaResult;
-  greeks(returns: number[], benchmark: number[], annFactor: number): GreeksResult;
+  beta(portfolio: NumericArray, benchmark: NumericArray): BetaResult;
+  greeks(returns: NumericArray, benchmark: NumericArray, annFactor: number): GreeksResult;
   rollingGreeks(
-    returns: number[],
-    benchmark: number[],
+    returns: NumericArray,
+    benchmark: NumericArray,
     dates: string[],
     window: number,
     annFactor: number
   ): RollingGreeksResult;
-  multiFactorGreeks(returns: number[], factors: number[][], annFactor: number): MultiFactorResult;
+  multiFactorGreeks(
+    returns: NumericArray,
+    factors: NumericMatrix,
+    annFactor: number
+  ): MultiFactorResult;
   // Aggregation
   groupByPeriod(dates: string[], returns: number[], periodKind: string): [string, number][];
   periodStats(returns: number[]): PeriodStats;

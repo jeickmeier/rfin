@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use crate::bindings::core::dates::utils::{date_to_py, py_to_date};
 use crate::bindings::pandas_utils::{dates_to_pylist, dict_to_dataframe};
+use crate::errors::analytics_to_py as core_to_py;
 use finstack_analytics as fa;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyType};
@@ -617,11 +618,12 @@ impl PyRuinModel {
         block_size: Option<usize>,
         seed: Option<u64>,
         confidence_level: Option<f64>,
-    ) -> Self {
-        let defaults = &fa::registry::embedded_defaults_or_panic()
+    ) -> PyResult<Self> {
+        let defaults = &fa::registry::embedded_defaults()
+            .map_err(core_to_py)?
             .python_bindings
             .ruin_model;
-        Self {
+        Ok(Self {
             inner: fa::risk_metrics::RuinModel {
                 horizon_periods: horizon_periods.unwrap_or(defaults.horizon_periods),
                 n_paths: n_paths.unwrap_or(defaults.n_paths),
@@ -629,7 +631,7 @@ impl PyRuinModel {
                 seed: seed.unwrap_or(defaults.seed),
                 confidence_level: confidence_level.unwrap_or(defaults.confidence_level),
             },
-        }
+        })
     }
 
     /// Number of forward periods to simulate.

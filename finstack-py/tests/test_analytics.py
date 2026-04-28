@@ -13,6 +13,7 @@ from finstack.statements_analytics import (
 import pytest
 
 from finstack.analytics import (
+    AnalyticsError,
     RuinModel,
     classify_breaches,
     comp_sum,
@@ -22,6 +23,7 @@ from finstack.analytics import (
     max_drawdown,
     mean_return,
     mtd_select,
+    multi_factor_greeks,
     pnl_explanation,
     qtd_select,
     rolling_var_forecasts,
@@ -165,6 +167,30 @@ class TestCagr:
 
         value = cagr([0.10], CagrBasis.dates(date(2024, 1, 1), date(2025, 1, 1)))
         assert value == pytest.approx(0.10, abs=1e-3)
+
+    def test_date_basis_rejects_non_positive_spans(self) -> None:
+        """Same-date and reversed-date CAGR spans should raise instead of returning 0."""
+        from finstack.analytics import CagrBasis, cagr
+
+        with pytest.raises(AnalyticsError, match=r"(?i)invalid") as exc:
+            cagr([0.10], CagrBasis.dates(date(2024, 1, 1), date(2024, 1, 1)))
+        assert isinstance(exc.value, ValueError)
+
+        with pytest.raises(AnalyticsError, match=r"(?i)invalid"):
+            cagr([0.10], CagrBasis.dates(date(2025, 1, 1), date(2024, 1, 1)))
+
+
+class TestMultiFactorGreeks:
+    """Validate strict multi-factor regression boundaries."""
+
+    def test_non_finite_factor_raises(self) -> None:
+        """Non-finite factor data should raise instead of producing bad regression output."""
+        returns = [0.01, -0.02, 0.03, -0.01]
+        factors = [[0.01, float("nan"), 0.02, -0.01]]
+
+        with pytest.raises(AnalyticsError, match=r"(?i)invalid") as exc:
+            multi_factor_greeks(returns, factors, 252.0)
+        assert isinstance(exc.value, ValueError)
 
 
 class TestMaxDrawdown:

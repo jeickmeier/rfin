@@ -11,7 +11,7 @@
 //!   (matching Excel `SKEW()` / `KURT()`)
 //! - empty inputs return `0.0` rather than panicking
 
-use crate::math::stats::{mean, quantile, variance};
+use crate::math::stats::{mean, variance};
 
 fn has_strict_confidence(confidence: f64) -> bool {
     confidence.is_finite() && confidence > 0.0 && confidence < 1.0
@@ -19,6 +19,49 @@ fn has_strict_confidence(confidence: f64) -> bool {
 
 fn valid_horizon(ann_factor: Option<f64>) -> bool {
     ann_factor.is_none_or(|af| af.is_finite() && af > 0.0)
+}
+
+fn finite_returns_copy(returns: &[f64]) -> Option<Vec<f64>> {
+    let mut data = Vec::with_capacity(returns.len());
+    for &value in returns {
+        if !value.is_finite() {
+            tracing::debug!(
+                n_returns = returns.len(),
+                reason = "non_finite_return",
+                "tail-risk metric returning NaN"
+            );
+            return None;
+        }
+        data.push(value);
+    }
+    Some(data)
+}
+
+fn quantile_finite(data: &mut [f64], p: f64) -> f64 {
+    let n = data.len();
+    debug_assert!(n > 0);
+    debug_assert!((0.0..=1.0).contains(&p));
+
+    if n == 1 {
+        return data[0];
+    }
+
+    let h = (n - 1) as f64 * p;
+    let lo = h.floor() as usize;
+    let hi = lo + 1;
+    let frac = h - lo as f64;
+    data.select_nth_unstable_by(lo, |a, b| {
+        a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal)
+    });
+    let v_lo = data[lo];
+    if hi >= n || frac == 0.0 {
+        return v_lo;
+    }
+    data[lo + 1..].select_nth_unstable_by(0, |a, b| {
+        a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal)
+    });
+    let v_hi = data[lo + 1];
+    v_lo + frac * (v_hi - v_lo)
 }
 
 /// Historical Value-at-Risk at the given confidence level.
@@ -68,10 +111,17 @@ pub fn value_at_risk(returns: &[f64], confidence: f64) -> f64 {
         return 0.0;
     }
     if !has_strict_confidence(confidence) {
+        tracing::debug!(
+            confidence,
+            reason = "invalid_confidence",
+            "value_at_risk returning NaN"
+        );
         return f64::NAN;
     }
-    let mut data: Vec<f64> = returns.to_vec();
-    quantile(&mut data, 1.0 - confidence)
+    let Some(mut data) = finite_returns_copy(returns) else {
+        return f64::NAN;
+    };
+    quantile_finite(&mut data, 1.0 - confidence)
 }
 /// Expected Shortfall (CVaR / ES) at the given confidence level.
 ///
@@ -118,10 +168,17 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64) -> f64 {
         return 0.0;
     }
     if !has_strict_confidence(confidence) {
+        tracing::debug!(
+            confidence,
+            reason = "invalid_confidence",
+            "expected_shortfall returning NaN"
+        );
         return f64::NAN;
     }
-    let mut data: Vec<f64> = returns.to_vec();
-    let var_threshold = quantile(&mut data, 1.0 - confidence);
+    let Some(mut data) = finite_returns_copy(returns) else {
+        return f64::NAN;
+    };
+    let var_threshold = quantile_finite(&mut data, 1.0 - confidence);
     let mut tail_sum = 0.0;
     let mut tail_count = 0usize;
     for &value in data.iter() {
@@ -178,9 +235,11 @@ pub fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
     if !has_strict_confidence(confidence) {
         return f64::NAN;
     }
-    let mut data: Vec<f64> = returns.to_vec();
-    let upper = quantile(&mut data, confidence).abs();
-    let lower = quantile(&mut data, 1.0 - confidence).abs();
+    let Some(mut data) = finite_returns_copy(returns) else {
+        return f64::NAN;
+    };
+    let upper = quantile_finite(&mut data, confidence).abs();
+    let lower = quantile_finite(&mut data, 1.0 - confidence).abs();
     if lower == 0.0 {
         return if upper > 0.0 { f64::INFINITY } else { f64::NAN };
     }
@@ -219,8 +278,10 @@ pub fn outlier_win_ratio(returns: &[f64], confidence: f64) -> f64 {
     if !has_strict_confidence(confidence) {
         return f64::NAN;
     }
-    let mut data: Vec<f64> = returns.to_vec();
-    let threshold = quantile(&mut data, confidence);
+    let Some(mut data) = finite_returns_copy(returns) else {
+        return f64::NAN;
+    };
+    let threshold = quantile_finite(&mut data, confidence);
     let count = returns.iter().filter(|&&r| r > threshold).count();
     count as f64 / returns.len() as f64
 }
@@ -258,8 +319,10 @@ pub fn outlier_loss_ratio(returns: &[f64], confidence: f64) -> f64 {
     if !has_strict_confidence(confidence) {
         return f64::NAN;
     }
-    let mut data: Vec<f64> = returns.to_vec();
-    let threshold = quantile(&mut data, 1.0 - confidence);
+    let Some(mut data) = finite_returns_copy(returns) else {
+        return f64::NAN;
+    };
+    let threshold = quantile_finite(&mut data, 1.0 - confidence);
     let count = returns.iter().filter(|&&r| r < threshold).count();
     count as f64 / returns.len() as f64
 }
@@ -564,6 +627,17 @@ mod tests {
         let es = expected_shortfall(&data, 0.5);
         let expected = (-3.0 - 1.0 - 1.0) / 3.0;
         assert!((es - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn tail_risk_metrics_reject_non_finite_inputs() {
+        let data = [-0.03, f64::NAN, 0.01, 0.02];
+
+        assert!(value_at_risk(&data, 0.95).is_nan());
+        assert!(expected_shortfall(&data, 0.95).is_nan());
+        assert!(tail_ratio(&data, 0.95).is_nan());
+        assert!(outlier_win_ratio(&data, 0.95).is_nan());
+        assert!(outlier_loss_ratio(&data, 0.95).is_nan());
     }
 
     #[test]

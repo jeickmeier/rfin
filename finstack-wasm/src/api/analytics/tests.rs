@@ -77,7 +77,8 @@ mod tests {
     #[test]
     fn underlying_cagr_factor_basis() {
         let r = vec![0.01, -0.02, 0.03, -0.01, 0.02];
-        let c = fa::risk_metrics::cagr(&r, fa::risk_metrics::CagrBasis::factor(252.0));
+        let c = fa::risk_metrics::cagr(&r, fa::risk_metrics::CagrBasis::factor(252.0))
+            .expect("valid CAGR");
         assert!(c.is_finite());
     }
 

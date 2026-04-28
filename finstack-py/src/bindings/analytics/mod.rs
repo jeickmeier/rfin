@@ -19,6 +19,10 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "__doc__",
         "Performance analytics: returns, drawdowns, risk metrics, benchmarks.",
     )?;
+    m.add(
+        "AnalyticsError",
+        py.get_type::<crate::errors::AnalyticsError>(),
+    )?;
 
     types::register(py, &m)?;
     performance::register(py, &m)?;
@@ -29,6 +33,8 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let all = PyList::new(
         py,
         [
+            // Exceptions
+            "AnalyticsError",
             // Types
             "PeriodStats",
             "BetaResult",

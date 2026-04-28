@@ -21,7 +21,7 @@ fn performance_cagr_uses_default_act_365_25_convention_for_single_return_window(
     )
     .expect("performance should build");
 
-    let cagr = perf.cagr();
+    let cagr = perf.cagr().expect("valid performance CAGR");
     assert_eq!(cagr.len(), 1);
     let expected = 1.10_f64.powf(365.25 / 365.0) - 1.0;
     assert!(
@@ -243,7 +243,8 @@ fn max_drawdown_and_calmar_compose_from_primitives() {
         finstack_analytics::risk_metrics::cagr(
             &returns,
             finstack_analytics::risk_metrics::CagrBasis::factor(ann),
-        ),
+        )
+        .expect("valid CAGR"),
         expected_max_drawdown,
     );
 

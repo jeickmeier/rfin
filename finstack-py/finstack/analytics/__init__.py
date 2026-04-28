@@ -7,6 +7,9 @@ from __future__ import annotations
 
 from finstack.finstack import analytics as _analytics
 
+# Exceptions
+AnalyticsError = _analytics.AnalyticsError
+
 # Types
 PeriodStats = _analytics.PeriodStats
 BetaResult = _analytics.BetaResult
@@ -137,6 +140,7 @@ bic = _analytics.bic
 hqic = _analytics.hqic
 
 __all__: list[str] = [
+    "AnalyticsError",
     "BacktestResult",
     "BenchmarkAlignmentPolicy",
     "BetaResult",

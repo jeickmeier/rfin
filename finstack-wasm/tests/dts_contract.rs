@@ -87,9 +87,11 @@ fn analytics_dts_matches_runtime_hotspots() {
     let dts = index_dts();
 
     assert!(dts.contains("dates: string[];"));
+    assert!(dts.contains("export type NumericArray = number[] | Float64Array;"));
+    assert!(dts.contains("export type NumericMatrix = NumericArray[];"));
     assert!(contains_ignoring_ws(
         &dts,
-        "rollingGreeks(returns: number[], benchmark: number[], dates: string[], window: number, annFactor: number): RollingGreeksResult;",
+        "rollingGreeks(returns: NumericArray, benchmark: NumericArray, dates: string[], window: number, annFactor: number): RollingGreeksResult;",
     ));
     assert!(
         dts.contains("classifyBreaches(varForecasts: number[], realizedPnl: number[]): boolean[];")
@@ -102,8 +104,9 @@ fn analytics_dts_matches_runtime_hotspots() {
         &dts,
         "compareVarBacktests(models: [string, number[]][], realizedPnl: number[], confidence: number, windowSize: number): MultiModelComparisonJson;",
     ));
-    assert!(dts
-        .contains("excessReturns(returns: number[], rf: number[], nperiods?: number): number[];"));
+    assert!(dts.contains(
+        "excessReturns(returns: NumericArray, rf: NumericArray, nperiods?: number): number[];"
+    ));
     assert!(dts.contains("martinRatio(cagr: number, ulcer: number): number;"));
     assert!(dts.contains("The WASM analytics namespace intentionally exposes pure functions"));
 }

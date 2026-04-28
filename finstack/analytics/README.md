@@ -114,7 +114,7 @@ perf.reset_date_range(
     Date::from_calendar_date(2025, Month::January, 6).unwrap(),
 );
 
-let windowed_cagr = perf.cagr();
+let windowed_cagr = perf.cagr()?;
 assert_eq!(windowed_cagr.len(), 2);
 assert_eq!(max_drawdown.len(), 2);
 ```

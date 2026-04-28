@@ -458,6 +458,19 @@ mod tests {
     }
 
     #[test]
+    fn minimize_non_finite_objective_reports_non_convergence() {
+        let f = |_x: &[f64]| f64::NAN;
+        let opt = NelderMead::new(8, 1e-12);
+        let bounds = vec![(-1.0, 1.0), (-1.0, 1.0)];
+
+        let result = opt.minimize(f, &[0.0, 0.0], &bounds);
+
+        assert!(!result.converged);
+        assert_eq!(result.iterations, 8);
+        assert!(result.f_val.is_nan());
+    }
+
+    #[test]
     fn bounds_enforced() {
         let f = |x: &[f64]| (x[0] - 5.0).powi(2);
         let bounds = vec![(0.0, 3.0)];

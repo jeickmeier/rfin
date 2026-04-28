@@ -3,7 +3,7 @@
 use super::types::*;
 use crate::bindings::core::dates::utils::{date_to_py, py_to_date};
 use crate::bindings::pandas_utils::{dates_to_pylist, dict_to_dataframe};
-use crate::errors::core_to_py;
+use crate::errors::analytics_to_py as core_to_py;
 use finstack_analytics as fa;
 use finstack_core::dates::{CalendarRegistry, FiscalConfig, HolidayCalendar, PeriodKind};
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -199,8 +199,8 @@ impl PyPerformance {
     // -- Scalar-per-ticker methods --
 
     /// CAGR for each ticker.
-    fn cagr(&self) -> Vec<f64> {
-        self.inner.cagr()
+    fn cagr(&self) -> PyResult<Vec<f64>> {
+        self.inner.cagr().map_err(core_to_py)
     }
 
     /// Mean return for each ticker.
@@ -228,8 +228,8 @@ impl PyPerformance {
     }
 
     /// Calmar ratio for each ticker.
-    fn calmar(&self) -> Vec<f64> {
-        self.inner.calmar()
+    fn calmar(&self) -> PyResult<Vec<f64>> {
+        self.inner.calmar().map_err(core_to_py)
     }
 
     /// Max drawdown for each ticker.
@@ -323,8 +323,8 @@ impl PyPerformance {
     }
 
     /// Martin ratio for each ticker.
-    fn martin_ratio(&self) -> Vec<f64> {
-        self.inner.martin_ratio()
+    fn martin_ratio(&self) -> PyResult<Vec<f64>> {
+        self.inner.martin_ratio().map_err(core_to_py)
     }
 
     /// Recovery factor for each ticker.
@@ -339,8 +339,8 @@ impl PyPerformance {
 
     /// Pain ratio for each ticker.
     #[pyo3(signature = (risk_free_rate = 0.0))]
-    fn pain_ratio(&self, risk_free_rate: f64) -> Vec<f64> {
-        self.inner.pain_ratio(risk_free_rate)
+    fn pain_ratio(&self, risk_free_rate: f64) -> PyResult<Vec<f64>> {
+        self.inner.pain_ratio(risk_free_rate).map_err(core_to_py)
     }
 
     /// Tail ratio for each ticker.
@@ -391,14 +391,18 @@ impl PyPerformance {
 
     /// Sterling ratio for each ticker.
     #[pyo3(signature = (risk_free_rate = 0.0, n = 5))]
-    fn sterling_ratio(&self, risk_free_rate: f64, n: usize) -> Vec<f64> {
-        self.inner.sterling_ratio(risk_free_rate, n)
+    fn sterling_ratio(&self, risk_free_rate: f64, n: usize) -> PyResult<Vec<f64>> {
+        self.inner
+            .sterling_ratio(risk_free_rate, n)
+            .map_err(core_to_py)
     }
 
     /// Burke ratio for each ticker.
     #[pyo3(signature = (risk_free_rate = 0.0, n = 5))]
-    fn burke_ratio(&self, risk_free_rate: f64, n: usize) -> Vec<f64> {
-        self.inner.burke_ratio(risk_free_rate, n)
+    fn burke_ratio(&self, risk_free_rate: f64, n: usize) -> PyResult<Vec<f64>> {
+        self.inner
+            .burke_ratio(risk_free_rate, n)
+            .map_err(core_to_py)
     }
 
     // -- Vector-per-ticker methods --
@@ -456,25 +460,35 @@ impl PyPerformance {
 
     /// Rolling greeks for a specific ticker.
     #[pyo3(signature = (ticker_idx, window = 63))]
-    fn rolling_greeks(&self, ticker_idx: usize, window: usize) -> PyRollingGreeks {
+    fn rolling_greeks(&self, py: Python<'_>, ticker_idx: usize, window: usize) -> PyRollingGreeks {
         PyRollingGreeks {
-            inner: self.inner.rolling_greeks(ticker_idx, window),
+            inner: py.detach(|| self.inner.rolling_greeks(ticker_idx, window)),
         }
     }
 
     /// Rolling volatility for a specific ticker.
     #[pyo3(signature = (ticker_idx, window = 63))]
-    fn rolling_volatility(&self, ticker_idx: usize, window: usize) -> PyRollingVolatility {
+    fn rolling_volatility(
+        &self,
+        py: Python<'_>,
+        ticker_idx: usize,
+        window: usize,
+    ) -> PyRollingVolatility {
         PyRollingVolatility {
-            inner: self.inner.rolling_volatility(ticker_idx, window),
+            inner: py.detach(|| self.inner.rolling_volatility(ticker_idx, window)),
         }
     }
 
     /// Rolling Sortino for a specific ticker.
     #[pyo3(signature = (ticker_idx, window = 63))]
-    fn rolling_sortino(&self, ticker_idx: usize, window: usize) -> PyRollingSortino {
+    fn rolling_sortino(
+        &self,
+        py: Python<'_>,
+        ticker_idx: usize,
+        window: usize,
+    ) -> PyRollingSortino {
         PyRollingSortino {
-            inner: self.inner.rolling_sortino(ticker_idx, window),
+            inner: py.detach(|| self.inner.rolling_sortino(ticker_idx, window)),
         }
     }
 
@@ -482,14 +496,16 @@ impl PyPerformance {
     #[pyo3(signature = (ticker_idx, window = 63, risk_free_rate = 0.0))]
     fn rolling_sharpe(
         &self,
+        py: Python<'_>,
         ticker_idx: usize,
         window: usize,
         risk_free_rate: f64,
     ) -> PyRollingSharpe {
         PyRollingSharpe {
-            inner: self
-                .inner
-                .rolling_sharpe(ticker_idx, window, risk_free_rate),
+            inner: py.detach(|| {
+                self.inner
+                    .rolling_sharpe(ticker_idx, window, risk_free_rate)
+            }),
         }
     }
 
@@ -516,12 +532,12 @@ impl PyPerformance {
     /// Multi-factor regression for a specific ticker.
     fn multi_factor_greeks(
         &self,
+        py: Python<'_>,
         ticker_idx: usize,
         factor_returns: Vec<Vec<f64>>,
     ) -> PyResult<PyMultiFactorResult> {
         let refs: Vec<&[f64]> = factor_returns.iter().map(|v| v.as_slice()).collect();
-        self.inner
-            .multi_factor_greeks(ticker_idx, &refs)
+        py.detach(|| self.inner.multi_factor_greeks(ticker_idx, &refs))
             .map(|r| PyMultiFactorResult { inner: r })
             .map_err(core_to_py)
     }
@@ -529,11 +545,13 @@ impl PyPerformance {
     /// Ruin estimation for each ticker.
     fn estimate_ruin(
         &self,
+        py: Python<'_>,
         definition: &PyRuinDefinition,
         model: &PyRuinModel,
     ) -> Vec<PyRuinEstimate> {
-        self.inner
-            .estimate_ruin(definition.inner, &model.inner)
+        let definition = definition.inner;
+        let model = model.inner;
+        py.detach(|| self.inner.estimate_ruin(definition, &model))
             .into_iter()
             .map(|e| PyRuinEstimate { inner: e })
             .collect()
@@ -587,12 +605,12 @@ impl PyPerformance {
         // (name, value) pairs driven by a single source of truth so adding a
         // metric is one line, not three places to update.
         let metrics: [(&str, Vec<f64>); 22] = [
-            ("cagr", self.inner.cagr()),
+            ("cagr", self.inner.cagr().map_err(core_to_py)?),
             ("mean_return", self.inner.mean_return(true)),
             ("volatility", self.inner.volatility(true)),
             ("sharpe", self.inner.sharpe(risk_free_rate)),
             ("sortino", self.inner.sortino(0.0)),
-            ("calmar", self.inner.calmar()),
+            ("calmar", self.inner.calmar().map_err(core_to_py)?),
             ("max_drawdown", self.inner.max_drawdown()),
             ("value_at_risk", self.inner.value_at_risk(confidence)),
             (

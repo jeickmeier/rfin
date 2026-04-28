@@ -2,7 +2,7 @@ use crate::utils::to_js_err;
 use finstack_analytics as fa;
 use wasm_bindgen::prelude::*;
 
-use super::support::parse_iso_dates;
+use super::support::{parse_f64_matrix, parse_f64_vec, parse_iso_dates};
 
 /// Policy for handling missing dates during benchmark alignment.
 #[wasm_bindgen(js_name = BenchmarkAlignmentPolicy)]
@@ -57,8 +57,8 @@ pub fn tracking_error(
     annualize: bool,
     ann_factor: f64,
 ) -> Result<f64, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    let b: Vec<f64> = serde_wasm_bindgen::from_value(benchmark).map_err(to_js_err)?;
+    let r = parse_f64_vec(returns)?;
+    let b = parse_f64_vec(benchmark)?;
     Ok(fa::benchmark::tracking_error(&r, &b, annualize, ann_factor))
 }
 
@@ -70,8 +70,8 @@ pub fn information_ratio(
     annualize: bool,
     ann_factor: f64,
 ) -> Result<f64, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    let b: Vec<f64> = serde_wasm_bindgen::from_value(benchmark).map_err(to_js_err)?;
+    let r = parse_f64_vec(returns)?;
+    let b = parse_f64_vec(benchmark)?;
     Ok(fa::benchmark::information_ratio(
         &r, &b, annualize, ann_factor,
     ))
@@ -80,40 +80,40 @@ pub fn information_ratio(
 /// R-squared of portfolio returns against benchmark.
 #[wasm_bindgen(js_name = rSquared)]
 pub fn r_squared(returns: JsValue, benchmark: JsValue) -> Result<f64, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    let b: Vec<f64> = serde_wasm_bindgen::from_value(benchmark).map_err(to_js_err)?;
+    let r = parse_f64_vec(returns)?;
+    let b = parse_f64_vec(benchmark)?;
     Ok(fa::benchmark::r_squared(&r, &b))
 }
 
 /// Up-capture ratio (participation in benchmark gains).
 #[wasm_bindgen(js_name = upCapture)]
 pub fn up_capture(returns: JsValue, benchmark: JsValue) -> Result<f64, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    let b: Vec<f64> = serde_wasm_bindgen::from_value(benchmark).map_err(to_js_err)?;
+    let r = parse_f64_vec(returns)?;
+    let b = parse_f64_vec(benchmark)?;
     Ok(fa::benchmark::up_capture(&r, &b))
 }
 
 /// Down-capture ratio (participation in benchmark losses).
 #[wasm_bindgen(js_name = downCapture)]
 pub fn down_capture(returns: JsValue, benchmark: JsValue) -> Result<f64, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    let b: Vec<f64> = serde_wasm_bindgen::from_value(benchmark).map_err(to_js_err)?;
+    let r = parse_f64_vec(returns)?;
+    let b = parse_f64_vec(benchmark)?;
     Ok(fa::benchmark::down_capture(&r, &b))
 }
 
 /// Capture ratio (up-capture / down-capture).
 #[wasm_bindgen(js_name = captureRatio)]
 pub fn capture_ratio(returns: JsValue, benchmark: JsValue) -> Result<f64, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    let b: Vec<f64> = serde_wasm_bindgen::from_value(benchmark).map_err(to_js_err)?;
+    let r = parse_f64_vec(returns)?;
+    let b = parse_f64_vec(benchmark)?;
     Ok(fa::benchmark::capture_ratio(&r, &b))
 }
 
 /// Batting average (fraction of periods outperforming the benchmark).
 #[wasm_bindgen(js_name = battingAverage)]
 pub fn batting_average(returns: JsValue, benchmark: JsValue) -> Result<f64, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    let b: Vec<f64> = serde_wasm_bindgen::from_value(benchmark).map_err(to_js_err)?;
+    let r = parse_f64_vec(returns)?;
+    let b = parse_f64_vec(benchmark)?;
     Ok(fa::benchmark::batting_average(&r, &b))
 }
 
@@ -132,8 +132,8 @@ pub fn m_squared(ann_return: f64, ann_vol: f64, bench_vol: f64, risk_free_rate: 
 /// OLS beta regression with standard error and 95% confidence interval.
 #[wasm_bindgen(js_name = beta)]
 pub fn beta(portfolio: JsValue, benchmark: JsValue) -> Result<JsValue, JsValue> {
-    let p: Vec<f64> = serde_wasm_bindgen::from_value(portfolio).map_err(to_js_err)?;
-    let b: Vec<f64> = serde_wasm_bindgen::from_value(benchmark).map_err(to_js_err)?;
+    let p = parse_f64_vec(portfolio)?;
+    let b = parse_f64_vec(benchmark)?;
     let result = fa::benchmark::beta(&p, &b);
     serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
 }
@@ -141,13 +141,16 @@ pub fn beta(portfolio: JsValue, benchmark: JsValue) -> Result<JsValue, JsValue> 
 /// Single-index greeks: alpha, beta, R-squared, adjusted R-squared.
 #[wasm_bindgen(js_name = greeks)]
 pub fn greeks(returns: JsValue, benchmark: JsValue, ann_factor: f64) -> Result<JsValue, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    let b: Vec<f64> = serde_wasm_bindgen::from_value(benchmark).map_err(to_js_err)?;
+    let r = parse_f64_vec(returns)?;
+    let b = parse_f64_vec(benchmark)?;
     let result = fa::benchmark::greeks(&r, &b, ann_factor);
     serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
 }
 
 /// Rolling alpha and beta over a sliding window.
+///
+/// Non-finite inputs follow the Rust sentinel convention and propagate as NaN
+/// values in the serialized result.
 #[wasm_bindgen(js_name = rollingGreeks)]
 pub fn rolling_greeks(
     returns: JsValue,
@@ -156,8 +159,8 @@ pub fn rolling_greeks(
     window: usize,
     ann_factor: f64,
 ) -> Result<JsValue, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    let b: Vec<f64> = serde_wasm_bindgen::from_value(benchmark).map_err(to_js_err)?;
+    let r = parse_f64_vec(returns)?;
+    let b = parse_f64_vec(benchmark)?;
     let date_strs: Vec<String> = serde_wasm_bindgen::from_value(dates).map_err(to_js_err)?;
     let rd = parse_iso_dates(&date_strs)?;
     let rg = fa::benchmark::rolling_greeks(&r, &b, &rd, window, ann_factor);
@@ -171,8 +174,8 @@ pub fn multi_factor_greeks(
     factors: JsValue,
     ann_factor: f64,
 ) -> Result<JsValue, JsValue> {
-    let r: Vec<f64> = serde_wasm_bindgen::from_value(returns).map_err(to_js_err)?;
-    let f: Vec<Vec<f64>> = serde_wasm_bindgen::from_value(factors).map_err(to_js_err)?;
+    let r = parse_f64_vec(returns)?;
+    let f = parse_f64_matrix(factors)?;
     let refs: Vec<&[f64]> = f.iter().map(|v| v.as_slice()).collect();
     let result = fa::benchmark::multi_factor_greeks(&r, &refs, ann_factor).map_err(to_js_err)?;
     serde_wasm_bindgen::to_value(&result).map_err(to_js_err)

@@ -1,6 +1,6 @@
 //! Return-based risk metrics: mean, volatility, Sharpe, Sortino, CAGR, and more.
 //!
-//! All functions operate on `&[f64]` return slices and return scalar `f64`.
+//! Most functions operate on `&[f64]` return slices and return scalar `f64`.
 //! Annualization uses the caller-supplied factor (typically from
 //! `PeriodKind::annualization_factor()`).
 
@@ -118,9 +118,13 @@ impl CagrBasis {
 ///
 /// # Returns
 ///
-/// Annualized growth rate as a decimal. Returns [`f64::NAN`] for empty input,
-/// `0.0` for non-positive date spans, and [`f64::NAN`] when a factor basis uses
-/// an invalid annualization factor.
+/// Annualized growth rate as a decimal.
+///
+/// # Errors
+///
+/// Returns [`crate::error::InputError::Invalid`] when `returns` is empty, a
+/// date basis has a non-positive span, or a factor basis uses a non-positive or
+/// non-finite annualization factor.
 ///
 /// # Examples
 ///
@@ -131,13 +135,14 @@ impl CagrBasis {
 /// let start = Date::from_calendar_date(2024, Month::January, 1).unwrap();
 /// let end   = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 /// // Single 10% return over one year → CAGR ≈ 10%.
-/// let c = cagr(&[0.10], CagrBasis::dates(start, end));
+/// let c = cagr(&[0.10], CagrBasis::dates(start, end))?;
 /// assert!((c - 0.10).abs() < 0.01);
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
-#[must_use]
-pub fn cagr(returns: &[f64], basis: CagrBasis) -> f64 {
+pub fn cagr(returns: &[f64], basis: CagrBasis) -> crate::Result<f64> {
     if returns.is_empty() {
-        return f64::NAN;
+        tracing::debug!(reason = "empty_returns", "invalid CAGR input");
+        return Err(crate::error::InputError::Invalid.into());
     }
 
     match basis {
@@ -154,25 +159,37 @@ fn cagr_from_dates(
     start: crate::dates::Date,
     end: crate::dates::Date,
     convention: AnnualizationConvention,
-) -> f64 {
+) -> crate::Result<f64> {
     let total = 1.0 + crate::returns::comp_total(returns);
     let years = annualized_years(start, end, convention);
     if years <= 0.0 {
-        return 0.0;
+        tracing::debug!(
+            ?start,
+            ?end,
+            ?convention,
+            reason = "non_positive_date_span",
+            "invalid CAGR input"
+        );
+        return Err(crate::error::InputError::Invalid.into());
     }
-    total.powf(1.0 / years) - 1.0
+    Ok(total.powf(1.0 / years) - 1.0)
 }
 
-fn cagr_from_factor(returns: &[f64], ann_factor: f64) -> f64 {
+fn cagr_from_factor(returns: &[f64], ann_factor: f64) -> crate::Result<f64> {
     if !ann_factor.is_finite() || ann_factor <= 0.0 {
-        return f64::NAN;
+        tracing::debug!(
+            ann_factor,
+            reason = "invalid_annualization_factor",
+            "invalid CAGR input"
+        );
+        return Err(crate::error::InputError::Invalid.into());
     }
     let total = 1.0 + crate::returns::comp_total(returns);
     let years = returns.len() as f64 / ann_factor;
     if years > 0.0 {
-        total.powf(1.0 / years) - 1.0
+        Ok(total.powf(1.0 / years) - 1.0)
     } else {
-        0.0
+        Err(crate::error::InputError::Invalid.into())
     }
 }
 
@@ -963,7 +980,7 @@ mod tests {
     #[test]
     fn cagr_basic() {
         let r = [0.10];
-        let c = cagr(&r, CagrBasis::dates(jan1(2024), jan1(2025)));
+        let c = cagr(&r, CagrBasis::dates(jan1(2024), jan1(2025))).expect("valid CAGR");
         assert!((c - 0.10).abs() < 0.01);
     }
 
@@ -977,14 +994,15 @@ mod tests {
                 jan1(2025),
                 AnnualizationConvention::Act365Fixed,
             ),
-        );
+        )
+        .expect("valid CAGR");
         assert!((c - 0.09971358593414137).abs() < 1.0e-12);
     }
 
     #[test]
     fn cagr_default_convention_is_act_365_25() {
         let r = [0.10];
-        let c_default = cagr(&r, CagrBasis::dates(jan1(2024), jan1(2025)));
+        let c_default = cagr(&r, CagrBasis::dates(jan1(2024), jan1(2025))).expect("valid CAGR");
         let c_fixed = cagr(
             &r,
             CagrBasis::dates_with_convention(
@@ -992,7 +1010,8 @@ mod tests {
                 jan1(2025),
                 AnnualizationConvention::Act365Fixed,
             ),
-        );
+        )
+        .expect("valid CAGR");
         assert!(c_default > c_fixed);
         assert!((c_default - 0.09978518245839707).abs() < 1.0e-12);
     }
@@ -1007,7 +1026,8 @@ mod tests {
                 jan1(2025),
                 AnnualizationConvention::ActAct,
             ),
-        );
+        )
+        .expect("valid CAGR");
         assert!((c - 0.10).abs() < 1.0e-12);
     }
 
@@ -1030,14 +1050,24 @@ mod tests {
 
     #[test]
     fn cagr_factor_basis_rejects_bad_ann_factor() {
-        assert!(cagr(&[0.01, 0.02], CagrBasis::factor(0.0)).is_nan());
-        assert!(cagr(&[0.01, 0.02], CagrBasis::factor(-1.0)).is_nan());
-        assert!(cagr(&[0.01, 0.02], CagrBasis::factor(f64::NAN)).is_nan());
+        assert!(cagr(&[0.01, 0.02], CagrBasis::factor(0.0)).is_err());
+        assert!(cagr(&[0.01, 0.02], CagrBasis::factor(-1.0)).is_err());
+        assert!(cagr(&[0.01, 0.02], CagrBasis::factor(f64::NAN)).is_err());
     }
 
     #[test]
     fn cagr_factor_basis_accepts_single_period() {
-        assert!((cagr(&[0.10], CagrBasis::factor(1.0)) - 0.10).abs() < 1.0e-12);
+        assert!(
+            (cagr(&[0.10], CagrBasis::factor(1.0)).expect("valid CAGR") - 0.10).abs() < 1.0e-12
+        );
+    }
+
+    #[test]
+    fn cagr_date_basis_rejects_non_positive_spans() {
+        let returns = [0.10];
+
+        assert!(cagr(&returns, CagrBasis::dates(jan1(2024), jan1(2024))).is_err());
+        assert!(cagr(&returns, CagrBasis::dates(jan1(2025), jan1(2024))).is_err());
     }
 
     #[test]
@@ -1046,7 +1076,7 @@ mod tests {
         let m_ann = mean_return(&r, true, 252.0);
         let mean_p = mean(&r);
         assert!((m_ann - mean_p * 252.0).abs() < 1e-10);
-        let cagr_ann = cagr(&r, CagrBasis::factor(252.0));
+        let cagr_ann = cagr(&r, CagrBasis::factor(252.0)).expect("valid CAGR");
         assert!(
             cagr_ann.is_finite() && (m_ann - cagr_ann).abs() > 1e-6,
             "arithmetic annualized mean should differ from compounded cagr"
@@ -1301,8 +1331,8 @@ mod tests {
     }
 
     #[test]
-    fn cagr_empty_is_nan() {
-        assert!(cagr(&[], CagrBasis::factor(252.0)).is_nan());
+    fn cagr_empty_is_err() {
+        assert!(cagr(&[], CagrBasis::factor(252.0)).is_err());
     }
 
     #[test]

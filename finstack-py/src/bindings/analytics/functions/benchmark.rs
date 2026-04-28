@@ -8,7 +8,7 @@ use super::super::types::{
     PyBenchmarkAlignmentPolicy, PyBetaResult, PyGreeksResult, PyMultiFactorResult, PyRollingGreeks,
 };
 use crate::bindings::core::dates::utils::py_to_date;
-use crate::errors::core_to_py;
+use crate::errors::analytics_to_py as core_to_py;
 use finstack_analytics as fa;
 use pyo3::prelude::*;
 
@@ -108,9 +108,12 @@ fn greeks(
 ///     :class:`RollingGreeks` with parallel ``dates``, ``alphas``, and
 ///     ``betas`` arrays. Each output value is right-labeled by the last
 ///     date in its window. Output length is ``len(returns) - window + 1``.
+///     Non-finite inputs follow the Rust sentinel convention and propagate
+///     as ``NaN`` outputs.
 #[pyfunction]
 #[pyo3(signature = (returns, benchmark, dates, window = None, ann_factor = None))]
 fn rolling_greeks(
+    py: Python<'_>,
     returns: Vec<f64>,
     benchmark: Vec<f64>,
     dates: Vec<Bound<'_, PyAny>>,
@@ -122,7 +125,9 @@ fn rolling_greeks(
     let ann_factor = ann_factor.unwrap_or(defaults.ann_factor);
     let rd: Vec<time::Date> = dates.iter().map(py_to_date).collect::<PyResult<_>>()?;
     Ok(PyRollingGreeks {
-        inner: fa::benchmark::rolling_greeks(&returns, &benchmark, &rd, window, ann_factor),
+        inner: py.detach(|| {
+            fa::benchmark::rolling_greeks(&returns, &benchmark, &rd, window, ann_factor)
+        }),
     })
 }
 
@@ -275,6 +280,7 @@ fn batting_average(returns: Vec<f64>, benchmark: Vec<f64>) -> f64 {
 #[pyfunction]
 #[pyo3(signature = (returns, factors, ann_factor = None))]
 fn multi_factor_greeks(
+    py: Python<'_>,
     returns: Vec<f64>,
     factors: Vec<Vec<f64>>,
     ann_factor: Option<f64>,
@@ -282,7 +288,7 @@ fn multi_factor_greeks(
     let defaults = benchmark_defaults()?;
     let ann_factor = ann_factor.unwrap_or(defaults.ann_factor);
     let refs: Vec<&[f64]> = factors.iter().map(|v| v.as_slice()).collect();
-    fa::benchmark::multi_factor_greeks(&returns, &refs, ann_factor)
+    py.detach(|| fa::benchmark::multi_factor_greeks(&returns, &refs, ann_factor))
         .map(|r| PyMultiFactorResult { inner: r })
         .map_err(core_to_py)
 }

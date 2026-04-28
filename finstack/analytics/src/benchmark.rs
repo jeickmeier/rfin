@@ -7,6 +7,8 @@ use crate::dates::Date;
 use crate::math::stats::{correlation, mean, OnlineCovariance, OnlineStats};
 use finstack_core::math::neumaier_sum;
 
+// Recompute the rolling sums every 64 steps to bound drift from incremental
+// add/remove updates without turning the whole calculation into O(n * window).
 const ROLLING_GREEKS_RECOMPUTE_INTERVAL: usize = 64;
 
 #[inline]
@@ -121,8 +123,20 @@ pub fn align_benchmark(
             aligned.push(bench_returns[bi]);
         } else {
             match policy {
-                BenchmarkAlignmentPolicy::ZeroReturnOnMissingDates => aligned.push(0.0),
+                BenchmarkAlignmentPolicy::ZeroReturnOnMissingDates => {
+                    tracing::debug!(
+                        target_date = ?target,
+                        reason = "missing_benchmark_date",
+                        "zero-filled benchmark return"
+                    );
+                    aligned.push(0.0);
+                }
                 BenchmarkAlignmentPolicy::ErrorOnMissingDates => {
+                    tracing::debug!(
+                        target_date = ?target,
+                        reason = "missing_benchmark_date",
+                        "benchmark alignment failed"
+                    );
                     return Err(crate::error::InputError::Invalid.into());
                 }
             }
@@ -572,6 +586,9 @@ pub struct RollingGreeks {
 ///
 /// A [`RollingGreeks`] with `dates`, `alphas`, and `betas` of equal length.
 /// Returns empty vectors if `window` is zero or exceeds the series length.
+/// Non-finite input values are propagated through the output as sentinel
+/// `NaN` values; use [`multi_factor_greeks`] when strict regression input
+/// validation is required.
 ///
 /// # Examples
 ///
@@ -596,6 +613,12 @@ pub fn rolling_greeks(
 ) -> RollingGreeks {
     let n = returns.len().min(benchmark.len()).min(dates.len());
     if n < window || window == 0 {
+        tracing::debug!(
+            n,
+            window,
+            reason = "insufficient_window",
+            "rolling greeks returning empty result"
+        );
         return RollingGreeks {
             dates: vec![],
             alphas: vec![],
@@ -603,6 +626,15 @@ pub fn rolling_greeks(
         };
     }
     let count = n - window + 1;
+    if count > ROLLING_GREEKS_RECOMPUTE_INTERVAL {
+        tracing::debug!(
+            n,
+            window,
+            count,
+            recompute_interval = ROLLING_GREEKS_RECOMPUTE_INTERVAL,
+            "rolling greeks using incremental O(n) path"
+        );
+    }
     let mut out_dates = Vec::with_capacity(count);
     let mut alphas = Vec::with_capacity(count);
     let mut betas = Vec::with_capacity(count);
@@ -990,6 +1022,11 @@ pub fn multi_factor_greeks(
     ann_factor: f64,
 ) -> crate::Result<MultiFactorResult> {
     if !ann_factor.is_finite() || ann_factor <= 0.0 {
+        tracing::debug!(
+            ann_factor,
+            reason = "invalid_annualization_factor",
+            "multi-factor greeks rejected input"
+        );
         return Err(crate::error::InputError::Invalid.into());
     }
 
@@ -998,18 +1035,42 @@ pub fn multi_factor_greeks(
     let p = k + 1; // intercept + k factors
 
     if n < p + 1 || k == 0 {
+        tracing::debug!(
+            n,
+            k,
+            min_observations = p + 1,
+            reason = "insufficient_observations",
+            "multi-factor greeks rejected input"
+        );
         return Err(crate::error::InputError::Invalid.into());
     }
     if returns.iter().any(|r| !r.is_finite()) {
+        tracing::debug!(
+            n,
+            reason = "non_finite_returns",
+            "multi-factor greeks rejected input"
+        );
         return Err(crate::error::InputError::Invalid.into());
     }
     if factors
         .iter()
         .any(|factor| factor.iter().any(|v| !v.is_finite()))
     {
+        tracing::debug!(
+            n,
+            k,
+            reason = "non_finite_factors",
+            "multi-factor greeks rejected input"
+        );
         return Err(crate::error::InputError::Invalid.into());
     }
     if factors.iter().any(|factor| factor.len() != n) {
+        tracing::debug!(
+            n,
+            k,
+            reason = "factor_length_mismatch",
+            "multi-factor greeks rejected input"
+        );
         return Err(crate::error::InputError::DimensionMismatch.into());
     }
     let mut columns = Vec::with_capacity(p);
@@ -1217,7 +1278,7 @@ mod tests {
 
         let window = 64;
         let ann_factor = 252.0;
-        let n = ROLLING_GREEKS_RECOMPUTE_INTERVAL + window + 128;
+        let n = ROLLING_GREEKS_RECOMPUTE_INTERVAL * 4 + window + 33;
         let r: Vec<f64> = (0..n)
             .map(|i| {
                 let x = i as f64;
@@ -1242,7 +1303,7 @@ mod tests {
             .map(|(&actual, &expected)| (actual - expected).abs())
             .fold(0.0_f64, f64::max);
         assert!(
-            max_beta_diff < 5e-4,
+            max_beta_diff < 4.5e-4,
             "max beta diff too large: {max_beta_diff}"
         );
         assert!(rolling.alphas.iter().all(|alpha| alpha.is_finite()));

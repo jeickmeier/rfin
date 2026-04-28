@@ -9,7 +9,7 @@ use super::types::{
     PyPnlExplanation, PyTrafficLightResult,
 };
 use crate::bindings::core::dates::utils::py_to_date;
-use crate::errors::core_to_py;
+use crate::errors::analytics_to_py as core_to_py;
 use finstack_analytics::backtesting as bt;
 use finstack_analytics::backtesting::Breach;
 use finstack_analytics::lookback as lb;
