@@ -81,7 +81,7 @@ fn attribute_pnl(
     )
     .map_err(display_to_py)?;
 
-    let result = py.allow_threads(|| spec.execute()).map_err(display_to_py)?;
+    let result = py.detach(|| spec.execute()).map_err(display_to_py)?;
     serde_json::to_string(&result.attribution).map_err(display_to_py)
 }
 
@@ -109,9 +109,7 @@ fn attribute_pnl_from_spec(py: Python<'_>, spec_json: &str) -> PyResult<String> 
     use finstack_valuations::attribution::AttributionEnvelope;
 
     let envelope: AttributionEnvelope = serde_json::from_str(spec_json).map_err(display_to_py)?;
-    let result_envelope = py
-        .allow_threads(|| envelope.execute())
-        .map_err(display_to_py)?;
+    let result_envelope = py.detach(|| envelope.execute()).map_err(display_to_py)?;
     serde_json::to_string(&result_envelope).map_err(display_to_py)
 }
 

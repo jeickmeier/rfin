@@ -314,6 +314,45 @@ fn waterfall_no_model_keeps_default_credit_step() {
     assert!(attribution.credit_curves_pnl.amount().abs() > 0.0);
 }
 
+#[test]
+fn parallel_model_with_unmapped_issuer_adds_diagnostic_note() {
+    let (as_of_t0, as_of_t1) = standard_period();
+    let bond = make_bond();
+    let mut model = make_model(vec![HierarchyDimension::Rating]);
+    model.issuer_betas.clear();
+
+    let spec = AttributionSpec {
+        instrument: InstrumentJson::Bond(bond),
+        market_t0: make_market_state(flat_discount(as_of_t0), flat_hazard(as_of_t0, 0.01)),
+        market_t1: make_market_state(flat_discount(as_of_t1), flat_hazard(as_of_t1, 0.02)),
+        as_of_t0,
+        as_of_t1,
+        method: AttributionMethod::Parallel,
+        model_params_t0: None,
+        credit_factor_model: Some(CreditFactorModelRef::Inline(Box::new(model))),
+        credit_factor_detail_options: CreditFactorDetailOptions::default(),
+        config: None,
+    };
+
+    let attribution = AttributionEnvelope::new(spec)
+        .execute()
+        .expect("parallel attribution should succeed")
+        .result
+        .attribution;
+
+    assert!(attribution.credit_factor_detail.is_none());
+    assert!(
+        attribution
+            .meta
+            .notes
+            .iter()
+            .any(|note| note.contains("credit_factor_model supplied")
+                && note.contains("credit_factor_detail omitted")),
+        "unmapped issuer should be visible in notes: {:?}",
+        attribution.meta.notes
+    );
+}
+
 /// PR-8a test 4: same credit total, different hierarchies → different details.
 #[test]
 fn same_credit_total_different_hierarchy_different_detail() {

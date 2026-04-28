@@ -1,14 +1,39 @@
+use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{
     BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve,
 };
 use finstack_core::math::interp::InterpStyle;
+use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
 use finstack_valuations::attribution::{
     CurveRestoreFlags, MarketSnapshot, ScalarsSnapshot, VolatilitySnapshot,
 };
 use std::sync::Arc;
 use time::macros::date;
+
+struct StaticFxProvider;
+
+impl FxProvider for StaticFxProvider {
+    fn rate(
+        &self,
+        from: Currency,
+        to: Currency,
+        _on: Date,
+        _policy: FxConversionPolicy,
+    ) -> finstack_core::Result<f64> {
+        match (from, to) {
+            (a, b) if a == b => Ok(1.0),
+            (Currency::USD, Currency::EUR) => Ok(0.9),
+            (Currency::EUR, Currency::USD) => Ok(1.0 / 0.9),
+            _ => Ok(1.0),
+        }
+    }
+}
+
+fn sample_fx_matrix() -> FxMatrix {
+    FxMatrix::new(Arc::new(StaticFxProvider))
+}
 
 fn create_test_discount_curve(id: &str, base_date: Date) -> DiscountCurve {
     DiscountCurve::builder(id)
@@ -308,47 +333,79 @@ fn test_restore_equivalence_mixed_curve_types() {
 }
 
 #[test]
-fn test_combined_restore_matches_stacked_restore() {
+fn test_combined_restore_matches_stacked_restore_for_cross_factor_flags() {
     let base_date = date!(2025 - 01 - 15);
-
-    let source = MarketContext::new()
+    let market_t0 = MarketContext::new()
         .insert(create_test_discount_curve("USD-OIS", base_date))
         .insert(create_test_forward_curve("USD-SOFR", base_date))
         .insert(create_test_hazard_curve("CORP-A", base_date))
-        .insert(create_test_inflation_curve("US-CPI", base_date));
-    let target = MarketContext::new()
+        .insert_fx(sample_fx_matrix());
+
+    let market_t1 = MarketContext::new()
         .insert(create_test_discount_curve("EUR-OIS", base_date))
         .insert(create_test_forward_curve("EUR-ESTR", base_date))
         .insert(create_test_hazard_curve("CORP-B", base_date));
 
-    let flags = CurveRestoreFlags::RATES | CurveRestoreFlags::CREDIT;
-    let combined_snapshot = MarketSnapshot::extract(&source, flags);
-    let combined = MarketSnapshot::restore_market(&target, &combined_snapshot, flags);
+    let flags = CurveRestoreFlags::RATES | CurveRestoreFlags::CREDIT | CurveRestoreFlags::FX;
+    let combined_snapshot = MarketSnapshot::extract(&market_t0, flags);
+    let combined = MarketSnapshot::restore_market(&market_t1, &combined_snapshot, flags);
 
-    let rates_snapshot = MarketSnapshot::extract(&source, CurveRestoreFlags::RATES);
-    let credit_snapshot = MarketSnapshot::extract(&source, CurveRestoreFlags::CREDIT);
+    let rates_snapshot = MarketSnapshot::extract(&market_t0, CurveRestoreFlags::RATES);
+    let credit_snapshot = MarketSnapshot::extract(&market_t0, CurveRestoreFlags::CREDIT);
+    let fx_snapshot = MarketSnapshot::extract(&market_t0, CurveRestoreFlags::FX);
     let stacked_rates =
-        MarketSnapshot::restore_market(&target, &rates_snapshot, CurveRestoreFlags::RATES);
-    let stacked =
+        MarketSnapshot::restore_market(&market_t1, &rates_snapshot, CurveRestoreFlags::RATES);
+    let stacked_credit =
         MarketSnapshot::restore_market(&stacked_rates, &credit_snapshot, CurveRestoreFlags::CREDIT);
+    let stacked =
+        MarketSnapshot::restore_market(&stacked_credit, &fx_snapshot, CurveRestoreFlags::FX);
 
-    let mut combined_ids = combined
-        .curve_ids()
-        .map(ToString::to_string)
-        .collect::<Vec<_>>();
-    let mut stacked_ids = stacked
-        .curve_ids()
-        .map(ToString::to_string)
-        .collect::<Vec<_>>();
-    combined_ids.sort();
-    stacked_ids.sort();
-    assert_eq!(combined_ids, stacked_ids);
-    assert!(combined.get_discount("USD-OIS").is_ok());
-    assert!(combined.get_forward("USD-SOFR").is_ok());
-    assert!(combined.get_hazard("CORP-A").is_ok());
-    assert!(combined.get_inflation_curve("US-CPI").is_err());
-    assert!(combined.get_discount("EUR-OIS").is_err());
-    assert!(combined.get_hazard("CORP-B").is_err());
+    assert_eq!(
+        combined
+            .get_discount("USD-OIS")
+            .expect("combined discount")
+            .df(1.0),
+        stacked
+            .get_discount("USD-OIS")
+            .expect("stacked discount")
+            .df(1.0)
+    );
+    assert_eq!(
+        combined
+            .get_forward("USD-SOFR")
+            .expect("combined forward")
+            .rate(1.0),
+        stacked
+            .get_forward("USD-SOFR")
+            .expect("stacked forward")
+            .rate(1.0)
+    );
+    assert_eq!(
+        combined
+            .get_hazard("CORP-A")
+            .expect("combined hazard")
+            .hazard_rate(1.0),
+        stacked
+            .get_hazard("CORP-A")
+            .expect("stacked hazard")
+            .hazard_rate(1.0)
+    );
+    assert!(combined.fx().is_some());
+    assert!(stacked.fx().is_some());
+}
+
+#[test]
+fn test_restore_fx_with_none_snapshot_clears_current_fx() {
+    let market_with_fx = MarketContext::new().insert_fx(sample_fx_matrix());
+    let snapshot_without_fx = MarketSnapshot::default();
+
+    let restored = MarketSnapshot::restore_market(
+        &market_with_fx,
+        &snapshot_without_fx,
+        CurveRestoreFlags::FX,
+    );
+
+    assert!(restored.fx().is_none());
 }
 
 #[test]

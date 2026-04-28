@@ -114,7 +114,10 @@ impl CurveRestoreFlags {
     /// Restore base correlation curves from snapshot
     pub const CORRELATION: Self = Self(Self::CORRELATION_BIT);
 
-    /// Restore FX matrix from snapshot
+    /// Restore FX matrix from snapshot.
+    ///
+    /// If the snapshot has `fx = None`, this flag intentionally clears FX from
+    /// the restored market instead of preserving the current market's FX.
     pub const FX: Self = Self(Self::FX_BIT);
 
     /// Restore volatility surfaces from snapshot
@@ -147,11 +150,6 @@ impl CurveRestoreFlags {
     #[inline]
     pub const fn contains(&self, other: Self) -> bool {
         (self.0 & other.0) == other.0
-    }
-
-    #[inline]
-    const fn has(self, bit: u16) -> bool {
-        (self.0 & bit) != 0
     }
 }
 
@@ -251,27 +249,27 @@ impl MarketSnapshot {
         let mut snapshot = Self::default();
 
         for curve_id in market.curve_ids() {
-            if flags.has(CurveRestoreFlags::DISCOUNT_BIT) {
+            if flags.contains(CurveRestoreFlags::DISCOUNT) {
                 if let Ok(curve) = market.get_discount(curve_id) {
                     snapshot.discount_curves.insert(curve_id.clone(), curve);
                 }
             }
-            if flags.has(CurveRestoreFlags::FORWARD_BIT) {
+            if flags.contains(CurveRestoreFlags::FORWARD) {
                 if let Ok(curve) = market.get_forward(curve_id) {
                     snapshot.forward_curves.insert(curve_id.clone(), curve);
                 }
             }
-            if flags.has(CurveRestoreFlags::HAZARD_BIT) {
+            if flags.contains(CurveRestoreFlags::HAZARD) {
                 if let Ok(curve) = market.get_hazard(curve_id) {
                     snapshot.hazard_curves.insert(curve_id.clone(), curve);
                 }
             }
-            if flags.has(CurveRestoreFlags::INFLATION_BIT) {
+            if flags.contains(CurveRestoreFlags::INFLATION) {
                 if let Ok(curve) = market.get_inflation_curve(curve_id) {
                     snapshot.inflation_curves.insert(curve_id.clone(), curve);
                 }
             }
-            if flags.has(CurveRestoreFlags::CORRELATION_BIT) {
+            if flags.contains(CurveRestoreFlags::CORRELATION) {
                 if let Ok(curve) = market.get_base_correlation(curve_id) {
                     snapshot
                         .base_correlation_curves
@@ -280,15 +278,15 @@ impl MarketSnapshot {
             }
         }
 
-        if flags.has(CurveRestoreFlags::FX_BIT) {
+        if flags.contains(CurveRestoreFlags::FX) {
             snapshot.fx = market.fx().cloned();
         }
 
-        if flags.has(CurveRestoreFlags::VOL_BIT) {
+        if flags.contains(CurveRestoreFlags::VOL) {
             snapshot.surfaces = market.surfaces_snapshot();
         }
 
-        if flags.has(CurveRestoreFlags::SCALARS_BIT) {
+        if flags.contains(CurveRestoreFlags::SCALARS) {
             snapshot.prices = market
                 .prices_iter()
                 .map(|(k, v)| (k.clone(), v.clone()))
@@ -372,7 +370,7 @@ impl MarketSnapshot {
         }
 
         // --- FX ---
-        if restore_flags.has(CurveRestoreFlags::FX_BIT) {
+        if restore_flags.contains(CurveRestoreFlags::FX) {
             match &snapshot.fx {
                 Some(fx) => {
                     new_market = new_market.insert_fx(Arc::clone(fx));
@@ -386,7 +384,7 @@ impl MarketSnapshot {
         }
 
         // --- Volatility surfaces ---
-        if restore_flags.has(CurveRestoreFlags::VOL_BIT) {
+        if restore_flags.contains(CurveRestoreFlags::VOL) {
             new_market.replace_surfaces_mut(snapshot.surfaces.clone());
         } else {
             new_market.replace_surfaces_mut(current_market.surfaces_snapshot());
@@ -397,7 +395,7 @@ impl MarketSnapshot {
         // Drop semantic is intentional: a scalar present in `current_market` but
         // absent from `snapshot` must NOT appear in the result. This keeps factor
         // isolation correct for the attribution call paths.
-        if restore_flags.has(CurveRestoreFlags::SCALARS_BIT) {
+        if restore_flags.contains(CurveRestoreFlags::SCALARS) {
             for (id, price) in &snapshot.prices {
                 new_market = new_market.insert_price(id.as_str(), price.clone());
             }
