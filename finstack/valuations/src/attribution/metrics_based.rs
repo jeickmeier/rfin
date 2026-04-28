@@ -422,6 +422,15 @@ pub fn attribute_pnl_metrics_based(
             funding_cost: None,
             theta: Some(attribution.carry),
         });
+    } else {
+        tracing::warn!(
+            instrument_id = instrument.id(),
+            "Metrics-based attribution: carry metrics unavailable"
+        );
+        attribution.meta.notes.push(format!(
+            "Metrics-based attribution: carry metrics unavailable for {}; carry left at zero",
+            instrument.id()
+        ));
     }
 
     // 2. Rates curves attribution (DV01)
@@ -1039,6 +1048,53 @@ mod tests {
         assert!((attribution.carry.amount() + 5.0).abs() < 1e-9);
         assert!((attribution.total_pnl.amount() + 5.0).abs() < 1e-9);
         assert!(attribution.residual_within_tolerance(0.01, 0.01));
+    }
+
+    #[test]
+    fn test_metrics_based_missing_carry_metrics_adds_note() {
+        let as_of_t0 = date!(2025 - 01 - 15);
+        let as_of_t1 = date!(2025 - 01 - 16);
+        let meta = finstack_core::config::results_meta(&FinstackConfig::default());
+
+        let instrument: Arc<dyn Instrument> = Arc::new(TestInstrument::new(
+            "TEST-NO-CARRY",
+            Money::new(1_000.0, Currency::USD),
+        ));
+
+        let val_t0 = ValuationResult::stamped_with_meta(
+            "TEST-NO-CARRY",
+            as_of_t0,
+            Money::new(1_000.0, Currency::USD),
+            meta.clone(),
+        );
+        let val_t1 = ValuationResult::stamped_with_meta(
+            "TEST-NO-CARRY",
+            as_of_t1,
+            Money::new(995.0, Currency::USD),
+            meta,
+        );
+
+        let attribution = attribute_pnl_metrics_based(
+            &instrument,
+            &MarketContext::new(),
+            &MarketContext::new(),
+            &val_t0,
+            &val_t1,
+            as_of_t0,
+            as_of_t1,
+        )
+        .expect("metrics-based attribution should succeed");
+
+        assert_eq!(attribution.carry.amount(), 0.0);
+        assert!(
+            attribution
+                .meta
+                .notes
+                .iter()
+                .any(|note| note.contains("carry metrics unavailable")),
+            "missing carry metrics should be visible in notes: {:?}",
+            attribution.meta.notes
+        );
     }
 
     #[test]

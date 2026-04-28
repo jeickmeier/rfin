@@ -191,6 +191,14 @@ pub fn measure_prepayment_shift(
     snapshot_t0: &ModelParamsSnapshot,
     snapshot_t1: &ModelParamsSnapshot,
 ) -> f64 {
+    if let Some(diagnostic) = prepayment_shift_diagnostic(snapshot_t0, snapshot_t1) {
+        tracing::warn!(
+            reason = diagnostic.reason,
+            "Model parameter prepayment shift defaulted to zero"
+        );
+        return diagnostic.shift;
+    }
+
     match (snapshot_t0, snapshot_t1) {
         (
             ModelParamsSnapshot::StructuredCredit {
@@ -222,10 +230,10 @@ pub fn measure_prepayment_shift(
                     // Direct CPR difference in basis points
                     (prep_t1.cpr - prep_t0.cpr) * 10000.0
                 }
-                _ => 0.0, // Mixed or unsupported model types
+                _ => 0.0, // guarded by diagnostic path above
             }
         }
-        _ => 0.0,
+        _ => 0.0, // guarded by diagnostic path above
     }
 }
 
@@ -236,6 +244,14 @@ pub fn measure_default_shift(
     snapshot_t0: &ModelParamsSnapshot,
     snapshot_t1: &ModelParamsSnapshot,
 ) -> f64 {
+    if let Some(diagnostic) = default_shift_diagnostic(snapshot_t0, snapshot_t1) {
+        tracing::warn!(
+            reason = diagnostic.reason,
+            "Model parameter default shift defaulted to zero"
+        );
+        return diagnostic.shift;
+    }
+
     match (snapshot_t0, snapshot_t1) {
         (
             ModelParamsSnapshot::StructuredCredit {
@@ -250,7 +266,7 @@ pub fn measure_default_shift(
             // CDR difference in basis points (works for both constant and SDA curves)
             (def_t1.cdr - def_t0.cdr) * 10000.0
         }
-        _ => 0.0,
+        _ => 0.0, // guarded by diagnostic path above
     }
 }
 
@@ -261,6 +277,14 @@ pub fn measure_recovery_shift(
     snapshot_t0: &ModelParamsSnapshot,
     snapshot_t1: &ModelParamsSnapshot,
 ) -> f64 {
+    if let Some(diagnostic) = recovery_shift_diagnostic(snapshot_t0, snapshot_t1) {
+        tracing::warn!(
+            reason = diagnostic.reason,
+            "Model parameter recovery shift defaulted to zero"
+        );
+        return diagnostic.shift;
+    }
+
     match (snapshot_t0, snapshot_t1) {
         (
             ModelParamsSnapshot::StructuredCredit {
@@ -275,7 +299,7 @@ pub fn measure_recovery_shift(
             // Direct recovery rate difference in percentage points
             (rec_t1.rate - rec_t0.rate) * 100.0
         }
-        _ => 0.0,
+        _ => 0.0, // guarded by diagnostic path above
     }
 }
 
@@ -286,6 +310,14 @@ pub fn measure_conversion_shift(
     snapshot_t0: &ModelParamsSnapshot,
     snapshot_t1: &ModelParamsSnapshot,
 ) -> f64 {
+    if let Some(diagnostic) = conversion_shift_diagnostic(snapshot_t0, snapshot_t1) {
+        tracing::warn!(
+            reason = diagnostic.reason,
+            "Model parameter conversion shift defaulted to zero"
+        );
+        return diagnostic.shift;
+    }
+
     match (snapshot_t0, snapshot_t1) {
         (
             ModelParamsSnapshot::Convertible {
@@ -300,10 +332,108 @@ pub fn measure_conversion_shift(
                     // Conversion ratio change as percentage
                     ((ratio_t1 - ratio_t0) / ratio_t0) * 100.0
                 }
-                _ => 0.0,
+                _ => 0.0, // guarded by diagnostic path above
             }
         }
-        _ => 0.0,
+        _ => 0.0, // guarded by diagnostic path above
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct ShiftDiagnostic {
+    shift: f64,
+    reason: &'static str,
+}
+
+fn prepayment_shift_diagnostic(
+    snapshot_t0: &ModelParamsSnapshot,
+    snapshot_t1: &ModelParamsSnapshot,
+) -> Option<ShiftDiagnostic> {
+    match (snapshot_t0, snapshot_t1) {
+        (
+            ModelParamsSnapshot::StructuredCredit {
+                prepayment_spec: prep_t0,
+                ..
+            },
+            ModelParamsSnapshot::StructuredCredit {
+                prepayment_spec: prep_t1,
+                ..
+            },
+        ) => {
+            use crate::cashflow::builder::specs::PrepaymentCurve;
+
+            match (&prep_t0.curve, &prep_t1.curve) {
+                (Some(PrepaymentCurve::Psa { .. }), Some(PrepaymentCurve::Psa { .. }))
+                | (None, None)
+                | (Some(PrepaymentCurve::Constant), Some(PrepaymentCurve::Constant)) => None,
+                _ => Some(ShiftDiagnostic {
+                    shift: 0.0,
+                    reason: "unsupported prepayment model type transition",
+                }),
+            }
+        }
+        _ => Some(ShiftDiagnostic {
+            shift: 0.0,
+            reason: "snapshot type mismatch for prepayment shift",
+        }),
+    }
+}
+
+fn default_shift_diagnostic(
+    snapshot_t0: &ModelParamsSnapshot,
+    snapshot_t1: &ModelParamsSnapshot,
+) -> Option<ShiftDiagnostic> {
+    match (snapshot_t0, snapshot_t1) {
+        (
+            ModelParamsSnapshot::StructuredCredit { .. },
+            ModelParamsSnapshot::StructuredCredit { .. },
+        ) => None,
+        _ => Some(ShiftDiagnostic {
+            shift: 0.0,
+            reason: "snapshot type mismatch for default shift",
+        }),
+    }
+}
+
+fn recovery_shift_diagnostic(
+    snapshot_t0: &ModelParamsSnapshot,
+    snapshot_t1: &ModelParamsSnapshot,
+) -> Option<ShiftDiagnostic> {
+    match (snapshot_t0, snapshot_t1) {
+        (
+            ModelParamsSnapshot::StructuredCredit { .. },
+            ModelParamsSnapshot::StructuredCredit { .. },
+        ) => None,
+        _ => Some(ShiftDiagnostic {
+            shift: 0.0,
+            reason: "snapshot type mismatch for recovery shift",
+        }),
+    }
+}
+
+fn conversion_shift_diagnostic(
+    snapshot_t0: &ModelParamsSnapshot,
+    snapshot_t1: &ModelParamsSnapshot,
+) -> Option<ShiftDiagnostic> {
+    match (snapshot_t0, snapshot_t1) {
+        (
+            ModelParamsSnapshot::Convertible {
+                conversion_spec: conv_t0,
+            },
+            ModelParamsSnapshot::Convertible {
+                conversion_spec: conv_t1,
+            },
+        ) => match (conv_t0.ratio, conv_t1.ratio) {
+            (Some(ratio_t0), Some(_)) if ratio_t0 != 0.0 => None,
+            _ => Some(ShiftDiagnostic {
+                shift: 0.0,
+                reason: "missing or zero conversion ratio for conversion shift",
+            }),
+        },
+        _ => Some(ShiftDiagnostic {
+            shift: 0.0,
+            reason: "snapshot type mismatch for conversion shift",
+        }),
     }
 }
 
@@ -372,5 +502,54 @@ mod tests {
         let shift = measure_recovery_shift(&params_t0, &params_t1);
         // Recovery rate increased from 60% to 65% (5 percentage points)
         assert!((shift - 5.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_measure_prepayment_shift_diagnostic_for_mismatched_snapshot_types() {
+        let params_t0 = ModelParamsSnapshot::StructuredCredit {
+            prepayment_spec: PrepaymentModelSpec::psa(1.0),
+            default_spec: DefaultModelSpec::constant_cdr(0.02),
+            recovery_spec: RecoveryModelSpec::with_lag(0.60, 12),
+        };
+        let params_t1 = ModelParamsSnapshot::Convertible {
+            conversion_spec: test_conversion_spec(None),
+        };
+
+        let diagnostic = prepayment_shift_diagnostic(&params_t0, &params_t1)
+            .expect("mismatched snapshots should produce a diagnostic");
+
+        assert_eq!(diagnostic.shift, 0.0);
+        assert!(diagnostic.reason.contains("snapshot type mismatch"));
+    }
+
+    #[test]
+    fn test_measure_conversion_shift_diagnostic_for_missing_ratios() {
+        let params_t0 = ModelParamsSnapshot::Convertible {
+            conversion_spec: test_conversion_spec(None),
+        };
+        let params_t1 = ModelParamsSnapshot::Convertible {
+            conversion_spec: test_conversion_spec(None),
+        };
+
+        let diagnostic = conversion_shift_diagnostic(&params_t0, &params_t1)
+            .expect("missing conversion ratios should produce a diagnostic");
+
+        assert_eq!(diagnostic.shift, 0.0);
+        assert!(diagnostic.reason.contains("conversion ratio"));
+    }
+
+    fn test_conversion_spec(ratio: Option<f64>) -> ConversionSpec {
+        use crate::instruments::fixed_income::convertible::{
+            AntiDilutionPolicy, ConversionPolicy, DividendAdjustment,
+        };
+
+        ConversionSpec {
+            ratio,
+            price: None,
+            policy: ConversionPolicy::Voluntary,
+            anti_dilution: AntiDilutionPolicy::None,
+            dividend_adjustment: DividendAdjustment::None,
+            dilution_events: Vec::new(),
+        }
     }
 }

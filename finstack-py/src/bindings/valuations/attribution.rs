@@ -45,7 +45,7 @@ use pyo3::types::PyDict;
 /// Returns
 /// -------
 /// str
-///     Pretty-printed JSON ``PnlAttribution`` payload.
+///     Compact JSON ``PnlAttribution`` payload.
 ///
 /// Examples
 /// --------
@@ -81,8 +81,8 @@ fn attribute_pnl(
     )
     .map_err(display_to_py)?;
 
-    let result = spec.execute().map_err(display_to_py)?;
-    serde_json::to_string_pretty(&result.attribution).map_err(display_to_py)
+    let result = py.detach(|| spec.execute()).map_err(display_to_py)?;
+    serde_json::to_string(&result.attribution).map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------
@@ -105,12 +105,12 @@ fn attribute_pnl(
 /// str
 ///     JSON-serialized ``AttributionResultEnvelope``.
 #[pyfunction]
-fn attribute_pnl_from_spec(spec_json: &str) -> PyResult<String> {
+fn attribute_pnl_from_spec(py: Python<'_>, spec_json: &str) -> PyResult<String> {
     use finstack_valuations::attribution::AttributionEnvelope;
 
     let envelope: AttributionEnvelope = serde_json::from_str(spec_json).map_err(display_to_py)?;
-    let result_envelope = envelope.execute().map_err(display_to_py)?;
-    serde_json::to_string_pretty(&result_envelope).map_err(display_to_py)
+    let result_envelope = py.detach(|| envelope.execute()).map_err(display_to_py)?;
+    serde_json::to_string(&result_envelope).map_err(display_to_py)
 }
 
 // ---------------------------------------------------------------------------
@@ -215,6 +215,13 @@ impl PyPnlAttribution {
     /// Serialize to pretty-printed JSON.
     fn to_json(&self) -> PyResult<String> {
         serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
+    }
+
+    /// Convert to the canonical Python dictionary shape.
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let json = serde_json::to_string(&self.inner).map_err(display_to_py)?;
+        let json_mod = py.import("json")?;
+        json_mod.call_method1("loads", (json,))
     }
 
     // --- Aggregate P&L fields (amount as f64) ---

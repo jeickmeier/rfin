@@ -267,6 +267,17 @@ pub fn attribute_pnl_waterfall_with_credit_model(
         }
         None => None,
     };
+    if credit_factor_model.is_some() && cascade.is_none() {
+        tracing::warn!(
+            instrument_id = instrument.id(),
+            method = "waterfall",
+            "Credit factor model supplied but credit cascade could not be planned"
+        );
+        attribution.meta.notes.push(format!(
+            "credit_factor_model supplied but no resolvable issuer/hazard cascade for {}; credit_factor_detail omitted",
+            instrument.id()
+        ));
+    }
     let mut credit_step_pnls: Vec<finstack_core::money::Money> = Vec::new();
 
     // Build hybrid market: start with all T₀, progressively apply T₁

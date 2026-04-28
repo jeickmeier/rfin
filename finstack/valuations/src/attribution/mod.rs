@@ -295,7 +295,9 @@
 //! - Risk decomposition and factor attribution: `docs/REFERENCES.md#meucci-risk-and-asset-allocation`
 
 pub(crate) mod credit_cascade;
+pub(crate) mod credit_decomposition;
 pub(crate) mod credit_factor;
+pub(crate) mod execution;
 pub(crate) mod factors;
 pub(crate) mod helpers;
 pub(crate) mod metrics_based;

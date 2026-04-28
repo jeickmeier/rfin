@@ -481,6 +481,10 @@ class PnlAttribution:
         """
         ...
 
+    def to_dict(self) -> dict[str, object]:
+        """Return the canonical attribution payload as a Python dict."""
+        ...
+
     @property
     def total_pnl(self) -> float:
         """Total P&L amount (val_t1 − val_t0)."""
@@ -651,7 +655,7 @@ def attribute_pnl(
         config: Optional config overrides (tolerance, metrics, bump sizes).
 
     Returns:
-        Pretty-printed JSON ``PnlAttribution`` payload.
+        Compact JSON ``PnlAttribution`` payload.
 
     Example:
         >>> attr_json = attribute_pnl(inst, mkt_t0, mkt_t1, "2025-01-15", "2025-01-16", "Parallel")
