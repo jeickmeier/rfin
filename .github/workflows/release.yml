@@ -19,7 +19,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Toolchain versions are pinned in mise.toml (single source of truth).
+# Managed toolchain versions are pinned in mise.toml.
 # CI uses jdx/mise-action@v2 to provision them, then runs raw commands.
 
 jobs:

@@ -11,8 +11,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Toolchain versions are pinned in mise.toml (single source of truth).
+# Managed toolchain versions are pinned in mise.toml.
 # CI uses jdx/mise-action@v2 to provision them, then runs raw commands.
+
+env:
+  UV_PYTHON_DOWNLOADS: never
 
 jobs:
   # ============================================
@@ -64,6 +67,9 @@ jobs:
           cache: true
           cache_save: false
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
       - name: Ensure rustfmt and clippy components
         run: rustup component add rustfmt clippy
 
@@ -73,7 +79,7 @@ jobs:
 
       - name: Set up Python environment
         run: |
-          uv venv
+          uv venv --python 3.12
           echo "${{ github.workspace }}/.venv/bin" >> $GITHUB_PATH
           uv sync --no-install-project
 
@@ -152,9 +158,12 @@ jobs:
         with:
           cache: true
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
       - name: Set up Python environment
         run: |
-          uv venv
+          uv venv --python 3.12
           echo "${{ github.workspace }}/.venv/bin" >> $GITHUB_PATH
           uv sync --no-install-project
 

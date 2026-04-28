@@ -1,6 +1,6 @@
 # Finstack developer environment & tasks
 # ---------------------------------------
-# Single source of truth for toolchain versions and developer tasks.
+# Single source of truth for managed tool versions and developer tasks.
 # Run `mise install` once to provision all tools, then `mise run <task>`
 # (or `mise r <task>`) to drive the workflow. `mise tasks` lists everything.
 #
@@ -12,9 +12,7 @@
 
 [tools]
 rust = { version = "1.91", components = "clippy,rustfmt", targets = "wasm32-unknown-unknown", profile = "minimal" }
-python = "3.12"
 node = "24"
-uv = "latest"
 "aqua:rustwasm/wasm-pack" = "latest"
 "cargo:cargo-nextest" = "latest"
 "cargo:cargo-llvm-cov" = "latest"
@@ -25,6 +23,7 @@ uv = "latest"
 CARGO_INCREMENTAL = "{{ env.CARGO_INCREMENTAL | default(value='1') }}"
 CARGO_HOME = "{{ env.CARGO_HOME | default(value=env.HOME ~ '/.cargo') }}"
 RUSTUP_HOME = "{{ env.RUSTUP_HOME | default(value=env.HOME ~ '/.rustup') }}"
+UV_PYTHON_DOWNLOADS = "{{ env.UV_PYTHON_DOWNLOADS | default(value='never') }}"
 
 # ─────────────────────────────────────────────────────────────────
 # Aggregate (all-*) — fan out across rust + python + wasm
@@ -137,7 +136,7 @@ run = "cargo update"
 
 [tasks.python-setup]
 description = "Initialize Python virtual environment"
-run = "uv venv"
+run = "uv venv --python 3.12 --allow-existing"
 
 [tasks.python-sync]
 description = "Sync Python dev dependencies (uv sync --group dev)"
