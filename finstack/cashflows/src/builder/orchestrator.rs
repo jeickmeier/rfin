@@ -49,7 +49,6 @@
 use super::schedule::{finalize_flows, CashFlowSchedule};
 use crate::builder::{AmortizationSpec, Notional};
 use crate::primitives::{CFKind, CashFlow};
-use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::decimal::{decimal_to_f64, f64_to_decimal};
 use finstack_core::market_data::term_structures::ForwardCurve;
@@ -63,10 +62,7 @@ use super::compiler::{
     CouponProgramPiece, CouponSpec, DateWindow, FixedSchedule, FloatSchedule, PaymentProgramPiece,
     PeriodicFee,
 };
-use super::emission::{
-    emit_amortization_on, emit_fees_on, emit_fixed_coupons_on, emit_float_coupons_on,
-    AmortizationParams,
-};
+use super::pipeline::{BuildContext, DateProcessor};
 use super::specs::{
     CouponType, FeeSpec, FixedCouponSpec, FixedWindow, FloatingCouponSpec, ScheduleParams,
     StepUpCouponSpec,
@@ -76,16 +72,16 @@ use tracing::debug;
 
 /// Internal state accumulated during schedule building.
 #[derive(Debug, Clone)]
-struct BuildState {
-    flows: Vec<CashFlow>,
-    outstanding_after: finstack_core::HashMap<Date, Decimal>,
+pub(super) struct BuildState {
+    pub(super) flows: Vec<CashFlow>,
+    pub(super) outstanding_after: finstack_core::HashMap<Date, Decimal>,
     /// Outstanding balance tracked as `Decimal` for accounting-grade precision.
     ///
     /// Using `Decimal` eliminates f64 accumulation drift that can exceed 1 bp
     /// relative error on very long-dated instruments with many small cashflows
     /// (e.g., 600+ period amortizers). Converted to f64 only at API boundaries
     /// when passing to emission functions that operate in f64 space.
-    outstanding: Decimal,
+    pub(super) outstanding: Decimal,
 }
 
 /// Principal event applied during schedule build (draws/repays).
@@ -93,7 +89,10 @@ struct BuildState {
 /// `delta` adjusts outstanding (positive increases, negative decreases).
 /// `cash` represents the cash leg (e.g., net of OID/fees). If `delta` differs
 /// from `cash`, the difference is interpreted as non-cash adjustments.
-/// `kind` classifies the cashflow (Notional/Amortization/etc.).
+/// `kind` classifies the emitted cashflow. `CFKind::Amortization` emits a
+/// positive principal-repayment cashflow; notional-like events emit as negative
+/// borrower draw cashflows. In all cases, `delta` remains the source of truth
+/// for outstanding balance movement.
 #[derive(Debug, Clone)]
 pub struct PrincipalEvent {
     /// Event date
@@ -107,27 +106,15 @@ pub struct PrincipalEvent {
 }
 
 #[derive(Debug, Clone)]
-struct AmortizationSetup {
-    amort_dates: finstack_core::HashSet<Date>,
-    step_remaining_map: Option<finstack_core::HashMap<Date, Money>>, // for StepRemaining
-    linear_delta: Option<f64>,                                       // for LinearTo
-    percent_per: Option<f64>, // for PercentOfOriginalPerPeriod
-}
-
-#[derive(Debug, Clone, Copy)]
-struct BuildContext<'a> {
-    ccy: Currency,
-    maturity: Date,
-    notional: &'a Notional,
-    fixed_schedules: &'a [FixedSchedule],
-    float_schedules: &'a [FloatSchedule],
-    periodic_fees: &'a [PeriodicFee],
-    fixed_fees: &'a [(Date, Money)],
-    principal_events: &'a [PrincipalEvent],
+pub(super) struct AmortizationSetup {
+    pub(super) amort_dates: finstack_core::HashSet<Date>,
+    pub(super) step_remaining_map: Option<finstack_core::HashMap<Date, Money>>, // for StepRemaining
+    pub(super) linear_delta: Option<f64>,                                       // for LinearTo
+    pub(super) percent_per: Option<f64>, // for PercentOfOriginalPerPeriod
 }
 
 /// Grouped inputs for collecting all relevant schedule dates.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 struct DateCollectionInputs<'a> {
     issue: Date,
     maturity: Date,
@@ -162,12 +149,13 @@ fn derive_amortization_setup(
     float_schedules: &[FloatSchedule],
 ) -> finstack_core::Result<AmortizationSetup> {
     // Determine base cadence schedule for linear/percent amortization by
-    // borrowing the first available schedule instead of cloning dates.
+    // borrowing the first available coupon leg. For multi-leg instruments with
+    // differing frequencies, amortization follows this first leg's cadence.
     let amort_base: Option<&[Date]> = match notional.amort {
         AmortizationSpec::LinearTo { .. } | AmortizationSpec::PercentOfOriginalPerPeriod { .. } => {
-            if let Some((_, ds, _, _)) = fixed_schedules.first() {
+            if let Some((_, _, ds, _, _)) = fixed_schedules.first() {
                 Some(ds.as_slice())
-            } else if let Some((_, ds, _)) = float_schedules.first() {
+            } else if let Some((_, _, ds, _)) = float_schedules.first() {
                 Some(ds.as_slice())
             } else {
                 None
@@ -316,172 +304,24 @@ fn collect_all_dates(inputs: &DateCollectionInputs<'_>) -> finstack_core::Result
     Ok(dates)
 }
 
-/// Processes cashflows for a single schedule date.
-struct DateProcessor<'a> {
-    ctx: &'a BuildContext<'a>,
-    amort_setup: &'a AmortizationSetup,
-    resolved_curves: &'a [Option<Arc<ForwardCurve>>],
-}
-
-impl<'a> DateProcessor<'a> {
-    fn new(
-        ctx: &'a BuildContext<'a>,
-        amort_setup: &'a AmortizationSetup,
-        resolved_curves: &'a [Option<Arc<ForwardCurve>>],
-    ) -> Self {
-        Self {
-            ctx,
-            amort_setup,
-            resolved_curves,
-        }
-    }
-
-    /// Emit fixed and floating coupons, returning total PIK amount to capitalize.
-    fn emit_coupons(&self, d: Date, state: &mut BuildState) -> finstack_core::Result<f64> {
-        let pik_f = emit_fixed_coupons_on(
-            d,
-            self.ctx.fixed_schedules,
-            &state.outstanding_after,
-            state.outstanding,
-            self.ctx.ccy,
-            &mut state.flows,
-        )?;
-        let pik_fl = emit_float_coupons_on(
-            d,
-            self.ctx.float_schedules,
-            &state.outstanding_after,
-            state.outstanding,
-            self.ctx.ccy,
-            self.resolved_curves,
-            &mut state.flows,
-        )?;
-        Ok(pik_f + pik_fl)
-    }
-
-    /// Emit amortization flows based on the amortization spec.
-    fn emit_amortization(&self, d: Date, state: &mut BuildState) -> finstack_core::Result<()> {
-        let amort_params = AmortizationParams {
-            ccy: self.ctx.ccy,
-            amort_dates: &self.amort_setup.amort_dates,
-            linear_delta: self.amort_setup.linear_delta,
-            percent_per: self.amort_setup.percent_per,
-            step_remaining_map: &self.amort_setup.step_remaining_map,
-        };
-        let before = decimal_to_f64(state.outstanding)?;
-        let mut outstanding_f64 = before;
-        emit_amortization_on(
-            d,
-            self.ctx.notional,
-            &mut outstanding_f64,
-            &amort_params,
-            d == self.ctx.maturity,
-            &mut state.flows,
-        )?;
-        let delta = outstanding_f64 - before;
-        if delta != 0.0 {
-            state.outstanding += f64_to_decimal(delta)?;
-        }
-        Ok(())
-    }
-
-    /// Emit fee flows (periodic and fixed).
-    fn emit_fees(&self, d: Date, state: &mut BuildState) -> finstack_core::Result<()> {
-        emit_fees_on(
-            d,
-            self.ctx.periodic_fees,
-            self.ctx.fixed_fees,
-            state.outstanding,
-            &state.outstanding_after,
-            self.ctx.ccy,
-            &mut state.flows,
-        )
-    }
-
-    /// Process custom principal events (draws/repays) for this date.
-    fn process_principal_events(
-        &self,
-        d: Date,
-        state: &mut BuildState,
-    ) -> finstack_core::Result<()> {
-        for ev in self.ctx.principal_events.iter().filter(|ev| ev.date == d) {
-            if ev.delta.amount() != 0.0 || ev.cash.amount() != 0.0 {
-                // Sign convention depends on flow kind:
-                // - Notional (draws): cash is inflow to borrower, flow is negative (funding outflow)
-                // - Amortization: cash is repayment, flow is positive (inflow to lender)
-                let flow_amount = match ev.kind {
-                    CFKind::Amortization => ev.cash.amount(),
-                    _ => -ev.cash.amount(),
-                };
-                state.flows.push(CashFlow {
-                    date: d,
-                    reset_date: None,
-                    amount: Money::new(flow_amount, ev.cash.currency()),
-                    kind: ev.kind,
-                    accrual_factor: 0.0,
-                    rate: None,
-                });
-                state.outstanding += f64_to_decimal(ev.delta.amount())?;
-            }
-        }
-        Ok(())
-    }
-
-    /// Handle maturity redemption: emit final principal repayment if outstanding > 0.
-    fn handle_maturity(&self, d: Date, state: &mut BuildState) -> finstack_core::Result<()> {
-        if d == self.ctx.maturity && state.outstanding > Decimal::ZERO {
-            let outstanding_f64 = decimal_to_f64(state.outstanding)?;
-            state.flows.push(CashFlow {
-                date: d,
-                reset_date: None,
-                amount: Money::new(outstanding_f64, self.ctx.ccy),
-                kind: CFKind::Notional,
-                accrual_factor: 0.0,
-                rate: None,
-            });
-            state.outstanding = Decimal::ZERO;
-        }
-        Ok(())
-    }
-
-    /// Process all stages for a single date.
-    fn process(&self, d: Date, mut state: BuildState) -> finstack_core::Result<BuildState> {
-        let pik_to_add = self.emit_coupons(d, &mut state)?;
-
-        self.emit_amortization(d, &mut state)?;
-
-        // PIK capitalizes after amortization for this date.
-        if pik_to_add > 0.0 {
-            state.outstanding += f64_to_decimal(pik_to_add)?;
-        }
-
-        self.emit_fees(d, &mut state)?;
-        self.process_principal_events(d, &mut state)?;
-        self.handle_maturity(d, &mut state)?;
-
-        state.outstanding_after.insert(d, state.outstanding);
-
-        Ok(state)
-    }
-}
-
 /// Builder for constructing cashflow schedules with validation.
 ///
 /// Provides a fluent API for building complex cashflow schedules with
 /// proper validation and business day adjustments.
 #[derive(Debug, Clone)]
 pub struct CashFlowBuilder {
-    notional: Option<Notional>,
-    issue: Option<Date>,
-    maturity: Option<Date>,
+    pub(super) notional: Option<Notional>,
+    pub(super) issue: Option<Date>,
+    pub(super) maturity: Option<Date>,
     /// Fee specifications. SmallVec<4> avoids heap allocation for typical instruments
     /// with ≤4 fee specs (commitment fee, facility fee, usage fee, admin fee).
-    fees: SmallVec<[FeeSpec; 4]>,
-    principal_events: Vec<PrincipalEvent>,
+    pub(super) fees: SmallVec<[FeeSpec; 4]>,
+    pub(super) principal_events: Vec<PrincipalEvent>,
     // Segmented programs (optional): coupon program and payment/PIK program
     pub(super) coupon_program: Vec<CouponProgramPiece>,
     pub(super) payment_program: Vec<PaymentProgramPiece>,
     // Sticky builder error for fluent APIs that cannot return Result.
-    pending_error: Option<finstack_core::Error>,
+    pub(super) pending_error: Option<finstack_core::Error>,
 }
 
 impl Default for CashFlowBuilder {
@@ -500,29 +340,6 @@ impl Default for CashFlowBuilder {
 }
 
 impl CashFlowBuilder {
-    fn record_pending_error(&mut self, error: finstack_core::Error) {
-        if self.pending_error.is_none() {
-            self.pending_error = Some(error);
-        }
-    }
-
-    fn decimal_from_f64_or_record_error(
-        &mut self,
-        method_name: &str,
-        field_name: &str,
-        value: f64,
-    ) -> Option<Decimal> {
-        match Decimal::try_from(value) {
-            Ok(decimal) => Some(decimal),
-            Err(_) => {
-                self.record_pending_error(finstack_core::Error::Validation(format!(
-                    "CashFlowBuilder::{method_name} could not convert {field_name}={value} to Decimal"
-                )));
-                None
-            }
-        }
-    }
-
     fn issue_maturity_error(method_name: &str) -> finstack_core::Error {
         InputError::NotFound {
             id: format!(
@@ -608,7 +425,7 @@ impl CashFlowBuilder {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct CompiledCashFlowPlan {
     notional: Notional,
     issue: Date,
@@ -620,138 +437,6 @@ struct CompiledCashFlowPlan {
     principal_events: Vec<PrincipalEvent>,
     dates: Vec<Date>,
     amort_setup: AmortizationSetup,
-}
-
-impl CashFlowBuilder {
-    /// Sets principal details and instrument horizon.
-    ///
-    /// This must be called before full-horizon coupon helpers such as
-    /// [`fixed_cf`](Self::fixed_cf), [`floating_cf`](Self::floating_cf), or
-    /// [`step_up_cf`](Self::step_up_cf). Those helpers infer their start and
-    /// end dates from this principal horizon.
-    ///
-    /// Calling this method clears any previously recorded sticky builder error.
-    /// It does not clear coupons, fees, or principal events already pushed onto
-    /// the builder, so prefer creating a fresh builder for a new instrument.
-    ///
-    /// # Arguments
-    ///
-    /// * `initial` - Initial outstanding principal and currency.
-    /// * `issue_date` - Contract issue or funding date.
-    /// * `maturity` - Contract maturity date.
-    ///
-    /// # Returns
-    ///
-    /// Mutable builder reference for fluent chaining.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_cashflows::builder::CashFlowSchedule;
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::dates::Date;
-    /// use finstack_core::money::Money;
-    /// use time::Month;
-    ///
-    /// let issue = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
-    /// let maturity = Date::from_calendar_date(2030, Month::January, 15).expect("valid date");
-    /// let mut builder = CashFlowSchedule::builder();
-    ///
-    /// let _ = builder.principal(Money::new(1_000_000.0, Currency::USD), issue, maturity);
-    /// ```
-    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
-    pub fn principal(&mut self, initial: Money, issue_date: Date, maturity: Date) -> &mut Self {
-        self.pending_error = None;
-        self.notional = Some(Notional {
-            initial,
-            amort: AmortizationSpec::None,
-        });
-        self.issue = Some(issue_date);
-        self.maturity = Some(maturity);
-        self
-    }
-
-    /// Configures amortization on the current notional.
-    ///
-    /// The amortization rule is attached to the notional previously set by
-    /// [`principal`](Self::principal). If no principal has been set, this method
-    /// is a no-op; missing principal is reported later by
-    /// [`build_with_curves`](Self::build_with_curves).
-    ///
-    /// # Arguments
-    ///
-    /// * `spec` - Principal paydown rule to apply during schedule generation.
-    ///
-    /// # Returns
-    ///
-    /// Mutable builder reference for fluent chaining.
-    ///
-    /// # Errors
-    ///
-    /// This method does not return errors directly. Validation failures such as
-    /// mismatched amortization currency, increasing remaining-principal paths,
-    /// or excessive custom principal are returned by the terminal build step.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_cashflows::builder::{AmortizationSpec, CashFlowSchedule};
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::dates::Date;
-    /// use finstack_core::money::Money;
-    /// use time::Month;
-    ///
-    /// let issue = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
-    /// let maturity = Date::from_calendar_date(2028, Month::January, 1).expect("valid date");
-    /// let mut builder = CashFlowSchedule::builder();
-    ///
-    /// let _ = builder
-    ///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
-    ///     .amortization(AmortizationSpec::LinearTo {
-    ///         final_notional: Money::new(0.0, Currency::USD),
-    ///     });
-    /// ```
-    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
-    pub fn amortization(&mut self, spec: AmortizationSpec) -> &mut Self {
-        if let Some(n) = &mut self.notional {
-            n.amort = spec;
-        }
-        self
-    }
-
-    /// Adds a single principal event.
-    ///
-    /// # Errors
-    ///
-    /// Records a pending error if `cash` is provided with a different currency
-    /// than `delta`. The error will be returned when `build_with_curves(...)` is called.
-    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
-    pub fn add_principal_event(
-        &mut self,
-        date: Date,
-        delta: Money,
-        cash: Option<Money>,
-        kind: CFKind,
-    ) -> &mut Self {
-        if self.pending_error.is_some() {
-            return self;
-        }
-        let cash_leg = cash.unwrap_or(delta);
-        if cash_leg.currency() != delta.currency() {
-            self.pending_error = Some(finstack_core::Error::CurrencyMismatch {
-                expected: delta.currency(),
-                actual: cash_leg.currency(),
-            });
-            return self;
-        }
-        self.principal_events.push(PrincipalEvent {
-            date,
-            delta,
-            cash: cash_leg,
-            kind,
-        });
-        self
-    }
 }
 
 impl CashFlowBuilder {
@@ -1177,82 +862,10 @@ impl CashFlowBuilder {
         )
     }
 
-    /// Convenience: fixed step-up program using boundary dates.
-    ///
-    /// Creates a series of fixed-rate coupon windows where the rate changes at
-    /// specified boundary dates. Common for step-up bonds where the coupon rate
-    /// increases over time to compensate for credit deterioration risk.
-    ///
-    /// # Arguments
-    ///
-    /// * `steps` - Boundary dates and rates: `&[(end_date, rate)]`
-    /// * `schedule` - Common schedule parameters (frequency, day count, etc.)
-    /// * `default_split` - Payment type (Cash, PIK, or Split) for all windows
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
-    /// use finstack_core::money::Money;
-    /// use finstack_cashflows::builder::{CashFlowSchedule, ScheduleParams, CouponType};
-    /// use time::Month;
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let issue = Date::from_calendar_date(2025, Month::January, 1)?;
-    /// let maturity = Date::from_calendar_date(2028, Month::January, 1)?;
-    ///
-    /// // Step-up bond: 4% for first year, 5% for second year, 6% thereafter
-    /// let steps = [
-    ///     (Date::from_calendar_date(2026, Month::January, 1)?, dec!(0.04)),
-    ///     (Date::from_calendar_date(2027, Month::January, 1)?, dec!(0.05)),
-    ///     (maturity, dec!(0.06)),
-    /// ];
-    ///
-    /// let schedule = CashFlowSchedule::builder()
-    ///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
-    ///     .fixed_stepup_decimal(
-    ///         &steps,
-    ///         ScheduleParams::quarterly_act360(),
-    ///         CouponType::Cash,
-    ///     )
-    ///     .build_with_curves(None)?;
-    ///
-    /// assert!(schedule.flows.len() > 0);
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// # Notes
-    ///
-    /// - Steps must be ordered by end date
-    /// - If the last step doesn't reach maturity, the last rate is extended
-    /// - All windows use the same schedule parameters
-    #[deprecated(note = "use fixed_stepup_decimal with Decimal rates")]
-    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
-    pub fn fixed_stepup(
-        &mut self,
-        steps: &[(Date, f64)],
-        schedule: ScheduleParams,
-        default_split: CouponType,
-    ) -> &mut Self {
-        let mut decimal_steps = Vec::with_capacity(steps.len());
-        for &(end, rate) in steps {
-            let Some(rate_decimal) =
-                self.decimal_from_f64_or_record_error("fixed_stepup", "rate", rate)
-            else {
-                return self;
-            };
-            decimal_steps.push((end, rate_decimal));
-        }
-        self.fixed_stepup_decimal(&decimal_steps, schedule, default_split)
-    }
-
     /// Convenience: fixed-rate step-up program with Decimal rates.
     ///
     /// Creates consecutive fixed coupon windows whose rate changes at the
-    /// supplied boundary dates. The f64 method is retained only as a
-    /// compatibility wrapper.
+    /// supplied boundary dates.
     #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn fixed_stepup_decimal(
         &mut self,
@@ -1278,104 +891,10 @@ impl CashFlowBuilder {
         self
     }
 
-    /// Convenience: floating margin step-up program.
-    ///
-    /// Creates a series of floating-rate coupon windows where the margin over
-    /// the floating index changes at specified boundary dates. Common for loans
-    /// where the credit spread increases over time.
-    ///
-    /// # Arguments
-    ///
-    /// * `steps` - Boundary dates and margins: `&[(end_date, margin_bps)]`
-    /// * `base_spec` - Canonical floating coupon spec; step margins replace its
-    ///   `rate_spec.spread_bp` for each window
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
-    /// use finstack_core::money::Money;
-    /// use finstack_core::types::CurveId;
-    /// use finstack_cashflows::builder::{
-    ///     CashFlowSchedule, CouponType, FloatingCouponSpec, FloatingRateSpec
-    /// };
-    /// use rust_decimal_macros::dec;
-    /// use time::Month;
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let issue = Date::from_calendar_date(2025, Month::January, 1)?;
-    /// let maturity = Date::from_calendar_date(2028, Month::January, 1)?;
-    ///
-    /// // Floating rate loan: SOFR + 200bps, stepping up to +300bps, then +400bps
-    /// let steps = [
-    ///     (Date::from_calendar_date(2026, Month::January, 1)?, dec!(200)),
-    ///     (Date::from_calendar_date(2027, Month::January, 1)?, dec!(300)),
-    ///     (maturity, dec!(400)),
-    /// ];
-    ///
-    /// let base = FloatingCouponSpec {
-    ///     coupon_type: CouponType::Cash,
-    ///     rate_spec: FloatingRateSpec {
-    ///         index_id: CurveId::new("USD-SOFR"),
-    ///         spread_bp: dec!(0),  // Overridden by steps
-    ///         gearing: dec!(1),
-    ///         gearing_includes_spread: true,
-    ///         index_floor_bp: None,
-    ///         all_in_cap_bp: None,
-    ///         all_in_floor_bp: None,
-    ///         index_cap_bp: None,
-    ///         reset_freq: Tenor::quarterly(),
-    ///         reset_lag_days: 2,
-    ///         dc: DayCount::Act360,
-    ///         bdc: BusinessDayConvention::ModifiedFollowing,
-    ///         calendar_id: "weekends_only".to_string(),
-    ///         fixing_calendar_id: None,
-    ///         end_of_month: false,
-    ///         payment_lag_days: 0,
-    ///         overnight_compounding: None,
-    ///         overnight_basis: None,
-    ///         fallback: Default::default(),
-    ///     },
-    ///     freq: Tenor::quarterly(),
-    ///     stub: StubKind::ShortFront,
-    /// };
-    ///
-    /// let schedule = CashFlowSchedule::builder()
-    ///     .principal(Money::new(5_000_000.0, Currency::USD), issue, maturity)
-    ///     .float_margin_stepup_decimal(&steps, base)
-    ///     .build_with_curves(None)?;
-    ///
-    /// assert!(schedule.flows.len() > 0);
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[deprecated(note = "use float_margin_stepup_decimal with Decimal margins")]
-    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
-    pub fn float_margin_stepup(
-        &mut self,
-        steps: &[(Date, f64)],
-        base_spec: FloatingCouponSpec,
-    ) -> &mut Self {
-        let mut decimal_steps = Vec::with_capacity(steps.len());
-        for &(end, margin_bp) in steps {
-            let Some(margin_decimal) = self.decimal_from_f64_or_record_error(
-                "float_margin_stepup",
-                "margin_bp",
-                margin_bp,
-            ) else {
-                return self;
-            };
-            decimal_steps.push((end, margin_decimal));
-        }
-        self.float_margin_stepup_decimal(&decimal_steps, base_spec)
-    }
-
     /// Convenience: floating margin step-up program with Decimal margins.
     ///
     /// Creates consecutive floating coupon windows whose margin over the
-    /// floating index changes at the supplied boundary dates. The f64 method
-    /// is retained only as a compatibility wrapper.
+    /// floating index changes at the supplied boundary dates.
     #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     pub fn float_margin_stepup_decimal(
         &mut self,
@@ -1631,7 +1150,7 @@ impl CompiledCashFlowPlan {
         let resolved_curves: Vec<Option<Arc<ForwardCurve>>> = if let Some(mkt) = curves {
             self.float_schedules
                 .iter()
-                .map(|(spec, _, _)| mkt.get_forward(spec.rate_spec.index_id.as_str()).ok())
+                .map(|(spec, _, _, _)| mkt.get_forward(spec.rate_spec.index_id.as_str()).ok())
                 .collect()
         } else {
             vec![None; self.float_schedules.len()]

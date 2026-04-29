@@ -17,9 +17,17 @@ use wasm_bindgen::JsValue;
 /// `err.message` rather than parsing ad-hoc strings.
 pub fn to_js_err(e: impl std::fmt::Display) -> JsValue {
     let msg = e.to_string();
-    let err = js_sys::Error::new(&msg);
-    err.set_name("FinstackError");
-    err.into()
+    #[cfg(target_arch = "wasm32")]
+    {
+        let err = js_sys::Error::new(&msg);
+        err.set_name("FinstackError");
+        err.into()
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = msg;
+        JsValue::NULL
+    }
 }
 
 // Native unit tests for `to_js_err` are limited because `js_sys::Error` only

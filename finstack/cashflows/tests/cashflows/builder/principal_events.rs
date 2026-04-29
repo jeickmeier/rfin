@@ -436,6 +436,55 @@ fn principal_event_repay_effect_on_outstanding() {
     );
 }
 
+#[test]
+fn principal_event_emitted_cashflow_sign_follows_kind() {
+    let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+    let draw_date = Date::from_calendar_date(2025, Month::April, 15).unwrap();
+    let repay_date = Date::from_calendar_date(2025, Month::July, 15).unwrap();
+
+    let init = Money::new(1_000_000.0, Currency::USD);
+
+    let mut builder = CashFlowSchedule::builder();
+    let _ = builder
+        .principal(init, issue, maturity)
+        .add_principal_event(
+            draw_date,
+            Money::new(100_000.0, Currency::USD),
+            Some(Money::new(100_000.0, Currency::USD)),
+            CFKind::Notional,
+        )
+        .add_principal_event(
+            repay_date,
+            Money::new(-50_000.0, Currency::USD),
+            Some(Money::new(50_000.0, Currency::USD)),
+            CFKind::Amortization,
+        );
+
+    let schedule = builder.build_with_curves(None).unwrap();
+    let draw_flow = schedule
+        .flows
+        .iter()
+        .find(|cf| cf.date == draw_date && cf.kind == CFKind::Notional)
+        .expect("draw flow emitted");
+    let repay_flow = schedule
+        .flows
+        .iter()
+        .find(|cf| cf.date == repay_date && cf.kind == CFKind::Amortization)
+        .expect("repayment flow emitted");
+
+    assert_eq!(draw_flow.amount.amount(), -100_000.0);
+    assert_eq!(repay_flow.amount.amount(), 50_000.0);
+
+    let outstanding = schedule.outstanding_by_date().unwrap();
+    let post_repay = outstanding
+        .iter()
+        .find(|(d, _)| *d == repay_date)
+        .map(|(_, m)| m.amount())
+        .unwrap();
+    assert!((post_repay - 1_050_000.0).abs() < 0.01);
+}
+
 // =============================================================================
 // Empty Events List
 // =============================================================================

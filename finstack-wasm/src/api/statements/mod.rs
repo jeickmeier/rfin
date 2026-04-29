@@ -173,12 +173,22 @@ mod tests {
 
     #[test]
     fn validate_financial_model_json_rejects_empty_periods() {
-        let model = finstack_statements::FinancialModelSpec::new("test", vec![]);
-        let json = serde_json::to_string(&model).expect("model should serialize to JSON");
-        assert!(
-            validate_financial_model_json(&json).is_err(),
-            "semantic validation should reject empty periods"
-        );
+        let mut model = finstack_statements::FinancialModelSpec::new("test", vec![]);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            assert!(
+                model.validate_semantics().is_err(),
+                "semantic validation should reject empty periods"
+            );
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            let json = serde_json::to_string(&model).expect("model should serialize to JSON");
+            assert!(
+                validate_financial_model_json(&json).is_err(),
+                "semantic validation should reject empty periods"
+            );
+        }
     }
 
     #[test]

@@ -81,11 +81,11 @@ pub(crate) fn finalize_flows(
 
     let mut cals: Vec<String> = fixed
         .iter()
-        .map(|(spec, _, _, _)| spec.calendar_id.clone())
+        .map(|(spec, _, _, _, _)| spec.calendar_id.clone())
         .chain(
             floating
                 .iter()
-                .map(|(spec, _, _)| spec.rate_spec.calendar_id.clone()),
+                .map(|(spec, _, _, _)| spec.rate_spec.calendar_id.clone()),
         )
         .collect();
     cals.sort_unstable();
@@ -97,9 +97,9 @@ pub(crate) fn finalize_flows(
         representation: CashflowRepresentation::default(),
     };
 
-    let out_dc = if let Some((spec, _, _, _)) = fixed.first() {
+    let out_dc = if let Some((spec, _, _, _, _)) = fixed.first() {
         spec.dc
-    } else if let Some((spec, _, _)) = floating.first() {
+    } else if let Some((spec, _, _, _)) = floating.first() {
         spec.rate_spec.dc
     } else {
         DayCount::Act365F
@@ -472,6 +472,7 @@ impl CashFlowSchedule {
     /// # Errors
     ///
     /// Returns error if:
+    /// - `meta.issue_date` is unset
     /// - Amortization or repayment exceeds current outstanding
     /// - Currency mismatch between flows and notional
     pub fn outstanding_by_date(&self) -> finstack_core::Result<Vec<(Date, Money)>> {
@@ -479,6 +480,12 @@ impl CashFlowSchedule {
         if self.flows.is_empty() {
             return Ok(result);
         }
+        let issue = self.meta.issue_date.ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "outstanding_by_date: schedule.meta.issue_date is required to identify the initial funding flow"
+                    .into(),
+            )
+        })?;
 
         let mut outstanding = self.notional.initial;
 
@@ -487,27 +494,6 @@ impl CashFlowSchedule {
         // earliest flow if there are pre-issue principal events.
         let mut initial_funding_skipped = false;
         let initial_amount = self.notional.initial.amount();
-        let initial_funding_candidate_count =
-            if self.meta.issue_date.is_none() && initial_amount != 0.0 {
-                self.flows
-                    .iter()
-                    .filter(|flow| {
-                        flow.kind == CFKind::Notional
-                            && flow.amount.amount() < 0.0
-                            && amounts_approx_equal(flow.amount.amount().abs(), initial_amount)
-                    })
-                    .count()
-            } else {
-                0
-            };
-        if initial_funding_candidate_count > 1 {
-            return Err(finstack_core::Error::Validation(
-                "outstanding_by_date: schedule.meta.issue_date is unset and multiple negative \
-                 notional flows match the initial notional; cannot identify initial funding \
-                 unambiguously"
-                    .into(),
-            ));
-        }
 
         let mut i = 0usize;
         while i < self.flows.len() {
@@ -521,16 +507,8 @@ impl CashFlowSchedule {
                     && self.flows[j].kind == CFKind::Notional
                     && self.flows[j].amount.amount() < 0.0
                     && initial_amount != 0.0
-                    && match self.meta.issue_date {
-                        Some(issue) => self.flows[j].date == issue,
-                        None => {
-                            initial_funding_candidate_count == 1
-                                && amounts_approx_equal(
-                                    self.flows[j].amount.amount().abs(),
-                                    initial_amount,
-                                )
-                        }
-                    };
+                    && self.flows[j].date == issue
+                    && amounts_approx_equal(self.flows[j].amount.amount().abs(), initial_amount);
                 if is_initial_funding {
                     initial_funding_skipped = true;
                 }
@@ -647,23 +625,11 @@ where
 
 /// Compare two amounts using relative epsilon for floating-point tolerance.
 ///
-/// Uses a relative tolerance of 1e-9 scaled by magnitude, with a minimum
-/// absolute tolerance of 1e-9 (from the `.max(1.0)` floor).
-///
-/// # Tolerance Bounds by Scale
-///
-/// | Notional     | Tolerance  |
-/// |--------------|------------|
-/// | $1B          | ~$1        |
-/// | $1M          | ~$0.001    |
-/// | $1K          | ~$0.000001 |
-/// | Near zero    | 1e-9       |
-///
-/// This is sufficient for detecting the initial funding flow while
-/// allowing for floating-point representation differences.
+/// Uses a relative tolerance of 1e-12 scaled by magnitude, with a minimum
+/// absolute tolerance of 1e-12 (from the `.max(1.0)` floor).
 pub(super) fn amounts_approx_equal(a: f64, b: f64) -> bool {
     let max_abs = a.abs().max(b.abs()).max(1.0);
-    (a - b).abs() < max_abs * 1e-9
+    (a - b).abs() < max_abs * 1e-12
 }
 
 fn apply_flow_to_outstanding(

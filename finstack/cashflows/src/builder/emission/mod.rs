@@ -52,7 +52,7 @@ pub(super) use fees::emit_fees_on;
 // Re-export helper utilities (internal to builder module)
 pub(super) use helpers::compute_reset_date;
 
-// Re-export inflation coupon emission for inflation-linked instruments.
+// Re-export the pre-computed inflation coupon adapter for inflation-linked instruments.
 pub use coupons::emit_inflation_coupons;
 
 // Re-export credit event emission (used by credit model tests)

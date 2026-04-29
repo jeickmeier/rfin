@@ -63,6 +63,8 @@
 pub(crate) mod compiler;
 pub mod emission;
 mod orchestrator;
+pub(crate) mod pipeline;
+mod principal;
 
 // Public modules
 pub mod calendar;
