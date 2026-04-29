@@ -8,6 +8,9 @@
 //!
 //! Unlike IRR/XIRR analysis (see [`xirr`](super::xirr)),
 //! this module uses term structures of discount factors from market data:
+//! [`DiscountCurve`](crate::market_data::term_structures::DiscountCurve) and
+//! the [`Discounting`](crate::market_data::traits::Discounting) trait are the
+//! canonical curve-side contracts for these present-value operations.
 //! ```text
 //! PV = Σ CF_i * DF(t_i)
 //!

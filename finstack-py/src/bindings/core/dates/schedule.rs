@@ -321,10 +321,19 @@ impl PyScheduleBuilder {
 
     /// Build the schedule.
     fn build(&self) -> PyResult<PySchedule> {
-        self.spec
-            .build()
-            .map(PySchedule::from_inner)
-            .map_err(core_to_py)
+        let schedule = self.spec.build().map_err(core_to_py)?;
+        if schedule.has_warnings() {
+            let warnings = schedule
+                .warnings
+                .iter()
+                .map(|w| w.to_string())
+                .collect::<Vec<_>>()
+                .join("; ");
+            return Err(PyValueError::new_err(format!(
+                "schedule build produced warnings; Python bindings fail closed: {warnings}"
+            )));
+        }
+        Ok(PySchedule::from_inner(schedule))
     }
 
     fn __repr__(&self) -> String {

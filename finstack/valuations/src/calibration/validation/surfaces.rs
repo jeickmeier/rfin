@@ -54,8 +54,7 @@ impl SurfaceValidator for VolSurface {
             let mut prev_expiry = 0.0_f64;
 
             for &expiry in expiries {
-                // Grid points are guaranteed in bounds
-                let vol = self.value_unchecked(expiry, *strike);
+                let vol = self.value_checked(expiry, *strike)?;
                 let total_var = vol * vol * expiry; // σ²T
 
                 // Check monotonicity of total variance
@@ -135,10 +134,9 @@ impl SurfaceValidator for VolSurface {
                 let k2 = strikes[i];
                 let k3 = strikes[i + 1];
 
-                // Grid points are guaranteed in bounds
-                let v1 = self.value_unchecked(expiry, k1);
-                let v2 = self.value_unchecked(expiry, k2);
-                let v3 = self.value_unchecked(expiry, k3);
+                let v1 = self.value_checked(expiry, k1)?;
+                let v2 = self.value_checked(expiry, k2)?;
+                let v3 = self.value_checked(expiry, k3)?;
 
                 // Convert to total variance for proper arbitrage check
                 let w1 = v1 * v1 * expiry;
@@ -214,8 +212,7 @@ impl SurfaceValidator for VolSurface {
 
         for &expiry in expiries {
             for strike in strikes {
-                // Grid points are guaranteed in bounds
-                let vol = self.value_unchecked(expiry, *strike);
+                let vol = self.value_checked(expiry, *strike)?;
 
                 // Volatility should be positive
                 if vol <= 0.0 {

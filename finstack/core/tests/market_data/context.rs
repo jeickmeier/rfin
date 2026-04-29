@@ -93,6 +93,36 @@ fn market_context_inserts_and_retrieves_curves() {
 }
 
 #[test]
+fn market_context_getters_accept_preparsed_curve_ids() {
+    let ctx = MarketContext::new()
+        .insert(sample_discount_curve("USD-OIS"))
+        .insert(sample_forward_curve("USD-LIBOR"))
+        .insert(sample_hazard_curve("CDX"));
+
+    assert_eq!(
+        ctx.get_discount_by_id(&CurveId::from("USD-OIS"))
+            .unwrap()
+            .id()
+            .as_str(),
+        "USD-OIS"
+    );
+    assert_eq!(
+        ctx.get_forward_by_id(&CurveId::from("USD-LIBOR"))
+            .unwrap()
+            .id()
+            .as_str(),
+        "USD-LIBOR"
+    );
+    assert_eq!(
+        ctx.get_hazard_by_id(&CurveId::from("CDX"))
+            .unwrap()
+            .id()
+            .as_str(),
+        "CDX"
+    );
+}
+
+#[test]
 fn market_context_typed_mut_variants_store_curves() {
     let discount = sample_discount_curve("USD-OIS");
     let forward = sample_forward_curve("USD-LIBOR");

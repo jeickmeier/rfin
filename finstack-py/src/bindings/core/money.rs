@@ -61,7 +61,8 @@ fn is_python_decimal(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
 
 /// Build a [`Money`] from a Python amount that may be `float`, `int`, or
 /// `decimal.Decimal`. `Decimal` inputs (including subclasses) preserve full
-/// precision; numeric inputs follow IEEE 754 semantics.
+/// precision; numeric inputs follow IEEE 754 semantics and later ``amount``
+/// accessors expose an ``f64`` view.
 fn money_from_amount(obj: &Bound<'_, PyAny>, ccy: Currency) -> PyResult<Money> {
     if is_python_decimal(obj)? {
         let d = decimal_from_py(obj)?;
@@ -79,7 +80,8 @@ impl PyMoney {
     ///
     /// ``amount`` may be a Python ``float``, ``int``, or ``decimal.Decimal``.
     /// ``Decimal`` inputs are parsed without going through ``f64``. Floats and
-    /// ints follow standard IEEE 754 rounding.
+    /// ints follow standard IEEE 754 rounding; returned numeric accessors are
+    /// finite ``float`` views of the internal Decimal amount.
     #[new]
     #[pyo3(text_signature = "(amount, currency)")]
     fn new(amount: &Bound<'_, PyAny>, currency: &Bound<'_, PyAny>) -> PyResult<Self> {

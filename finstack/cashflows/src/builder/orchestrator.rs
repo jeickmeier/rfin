@@ -862,6 +862,78 @@ impl CashFlowBuilder {
         )
     }
 
+    /// Convenience: fixed step-up program using boundary dates.
+    ///
+    /// Creates a series of fixed-rate coupon windows where the rate changes at
+    /// specified boundary dates. Common for step-up bonds where the coupon rate
+    /// increases over time to compensate for credit deterioration risk.
+    ///
+    /// # Arguments
+    ///
+    /// * `steps` - Boundary dates and rates: `&[(end_date, rate)]`
+    /// * `schedule` - Common schedule parameters (frequency, day count, etc.)
+    /// * `default_split` - Payment type (Cash, PIK, or Split) for all windows
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
+    /// use finstack_core::money::Money;
+    /// use finstack_cashflows::builder::{CashFlowSchedule, ScheduleParams, CouponType};
+    /// use rust_decimal_macros::dec;
+    /// use time::Month;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let issue = Date::from_calendar_date(2025, Month::January, 1)?;
+    /// let maturity = Date::from_calendar_date(2028, Month::January, 1)?;
+    ///
+    /// // Step-up bond: 4% for first year, 5% for second year, 6% thereafter
+    /// let steps = [
+    ///     (Date::from_calendar_date(2026, Month::January, 1)?, dec!(0.04)),
+    ///     (Date::from_calendar_date(2027, Month::January, 1)?, dec!(0.05)),
+    ///     (maturity, dec!(0.06)),
+    /// ];
+    ///
+    /// let schedule = CashFlowSchedule::builder()
+    ///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+    ///     .fixed_stepup_decimal(
+    ///         &steps,
+    ///         ScheduleParams::quarterly_act360(),
+    ///         CouponType::Cash,
+    ///     )
+    ///     .build_with_curves(None)?;
+    ///
+    /// assert!(schedule.flows.len() > 0);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Notes
+    ///
+    /// - Steps must be ordered by end date
+    /// - If the last step doesn't reach maturity, the last rate is extended
+    /// - All windows use the same schedule parameters
+    #[deprecated(note = "use fixed_stepup_decimal with Decimal rates")]
+    #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
+    pub fn fixed_stepup(
+        &mut self,
+        steps: &[(Date, f64)],
+        schedule: ScheduleParams,
+        default_split: CouponType,
+    ) -> &mut Self {
+        let mut decimal_steps = Vec::with_capacity(steps.len());
+        for &(end, rate) in steps {
+            let Some(rate_decimal) =
+                self.decimal_from_f64_or_record_error("fixed_stepup", "rate", rate)
+            else {
+                return self;
+            };
+            decimal_steps.push((end, rate_decimal));
+        }
+        self.fixed_stepup_decimal(&decimal_steps, schedule, default_split)
+    }
+
     /// Convenience: fixed-rate step-up program with Decimal rates.
     ///
     /// Creates consecutive fixed coupon windows whose rate changes at the

@@ -36,7 +36,7 @@
 //! // Transform independent standard normals to correlated
 //! let z = vec![1.0, 0.0]; // Independent N(0,1) shocks
 //! let mut z_corr = vec![0.0; 2];
-//! factor.apply(&z, &mut z_corr);
+//! factor.apply(&z, &mut z_corr).unwrap();
 //! // z_corr now contains correlated shocks with correlation 0.5
 //! ```
 //!
@@ -198,20 +198,26 @@ impl CorrelationFactor {
     /// Computes `z_corr = factor * z_indep` in original variable order. Both
     /// slices must have length `n`.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if `independent.len() != n` or `correlated.len() != n`.
-    pub fn apply(&self, independent: &[f64], correlated: &mut [f64]) {
-        assert_eq!(
-            independent.len(),
-            self.n,
-            "independent shocks length must equal factor dimension"
-        );
-        assert_eq!(
-            correlated.len(),
-            self.n,
-            "correlated output length must equal factor dimension"
-        );
+    /// Returns [`CholeskyError::DimensionMismatch`] if either slice length differs from `n`.
+    pub fn apply(
+        &self,
+        independent: &[f64],
+        correlated: &mut [f64],
+    ) -> std::result::Result<(), CholeskyError> {
+        if independent.len() != self.n {
+            return Err(CholeskyError::DimensionMismatch {
+                expected: self.n,
+                actual: independent.len(),
+            });
+        }
+        if correlated.len() != self.n {
+            return Err(CholeskyError::DimensionMismatch {
+                expected: self.n,
+                actual: correlated.len(),
+            });
+        }
         let n = self.n;
         for (i, out) in correlated.iter_mut().enumerate() {
             let mut sum = 0.0;
@@ -220,6 +226,7 @@ impl CorrelationFactor {
             }
             *out = sum;
         }
+        Ok(())
     }
 
     /// Construct directly from a pre-validated lower-triangular factor slice.
@@ -669,6 +676,11 @@ pub fn cholesky_solve(chol: &[f64], b: &[f64], x: &mut [f64]) -> Result<()> {
     if chol.len() != n * n || x.len() != n {
         return Err(crate::error::InputError::DimensionMismatch.into());
     }
+    let diagonal_scale = (0..n)
+        .map(|i| chol[i * n + i].abs())
+        .fold(0.0_f64, f64::max)
+        .max(f64::MIN_POSITIVE);
+    let singular_threshold = SINGULAR_THRESHOLD * diagonal_scale;
 
     // Forward substitution: Solve L y = b
     for i in 0..n {
@@ -677,7 +689,7 @@ pub fn cholesky_solve(chol: &[f64], b: &[f64], x: &mut [f64]) -> Result<()> {
             sum += chol[i * n + j] * x[j];
         }
         let diag = chol[i * n + i];
-        if diag.abs() < SINGULAR_THRESHOLD {
+        if diag.abs() < singular_threshold {
             return Err(crate::error::InputError::Invalid.into());
         }
         x[i] = (b[i] - sum) / diag;
@@ -691,7 +703,11 @@ pub fn cholesky_solve(chol: &[f64], b: &[f64], x: &mut [f64]) -> Result<()> {
             sum += chol[j * n + i] * x[j]; // L[j][i] is L^T[i][j]
         }
         // diag is the same L[i][i]
-        x[i] = (x[i] - sum) / chol[i * n + i];
+        let diag = chol[i * n + i];
+        if diag.abs() < singular_threshold {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+        x[i] = (x[i] - sum) / diag;
     }
 
     Ok(())
@@ -1019,10 +1035,25 @@ mod tests {
         let z = vec![0.0, 1.0];
         let mut z_corr = vec![0.0; 2];
 
-        f.apply(&z, &mut z_corr);
+        f.apply(&z, &mut z_corr).expect("dimension match");
 
         assert!((z_corr[0] - 0.5).abs() < 1e-12, "z_corr[0] = {}", z_corr[0]);
         assert!((z_corr[1] - 1.0).abs() < 1e-12, "z_corr[1] = {}", z_corr[1]);
+    }
+
+    #[test]
+    fn pivoted_cholesky_apply_returns_error_on_dimension_mismatch() {
+        let corr = vec![1.0, 0.5, 0.5, 1.0];
+        let f = cholesky_correlation(&corr, 2).expect("should succeed");
+        let mut z_corr = vec![0.0; 2];
+
+        match f.apply(&[1.0], &mut z_corr) {
+            Err(CholeskyError::DimensionMismatch { expected, actual }) => {
+                assert_eq!(expected, 2);
+                assert_eq!(actual, 1);
+            }
+            other => panic!("expected DimensionMismatch, got {other:?}"),
+        }
     }
 
     #[test]
@@ -1144,7 +1175,7 @@ mod tests {
         // apply() produces finite shocks of correct length.
         let z = vec![1.0, 0.0, -1.0];
         let mut out = vec![0.0; 3];
-        f.apply(&z, &mut out);
+        f.apply(&z, &mut out).expect("dimension match");
         assert!(out.iter().all(|x| x.is_finite()));
     }
 
@@ -1177,5 +1208,16 @@ mod tests {
         let res1 = a[2] * x[0] + a[3] * x[1] - b[1];
         assert!(res0.abs() < 1e-12, "residual[0] = {res0}");
         assert!(res1.abs() < 1e-12, "residual[1] = {res1}");
+    }
+
+    #[test]
+    fn cholesky_solve_uses_relative_diagonal_threshold_for_scaled_systems() {
+        let chol = vec![1.0e-12_f64];
+        let b = vec![2.0e-24_f64];
+        let mut x = vec![0.0_f64];
+
+        cholesky_solve(&chol, &b, &mut x).expect("scaled one-dimensional solve should succeed");
+
+        assert!((x[0] - 2.0).abs() < 1e-12, "x={}", x[0]);
     }
 }

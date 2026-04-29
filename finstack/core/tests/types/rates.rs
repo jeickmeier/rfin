@@ -275,6 +275,51 @@ fn non_finite_rate_arithmetic_panics() {
 }
 
 #[test]
+fn checked_rate_arithmetic_rejects_non_finite_results() {
+    let rate = Rate::from_percent(3.0);
+
+    assert!(rate.checked_mul(f64::NAN).is_err());
+    assert!(rate.checked_div(0.0).is_err());
+    assert_eq!(
+        rate.checked_add(Rate::from_percent(2.0))
+            .unwrap()
+            .as_percent(),
+        5.0
+    );
+    assert!(
+        (rate
+            .checked_sub(Rate::from_percent(2.0))
+            .unwrap()
+            .as_percent()
+            - 1.0)
+            .abs()
+            < 1e-12
+    );
+    assert_eq!(rate.checked_neg().unwrap().as_percent(), -3.0);
+}
+
+#[test]
+fn checked_bps_arithmetic_rejects_integer_overflow_and_zero_division() {
+    assert!(Bps::new(i32::MAX).checked_add(Bps::new(1)).is_err());
+    assert!(Bps::new(i32::MIN).checked_neg().is_err());
+    assert!(Bps::new(10).checked_div(0).is_err());
+    assert_eq!(Bps::new(10).checked_mul(3).unwrap(), Bps::new(30));
+}
+
+#[test]
+fn checked_percentage_arithmetic_rejects_non_finite_results() {
+    let pct = Percentage::new(10.0);
+
+    assert!(pct.checked_mul(f64::INFINITY).is_err());
+    assert!(pct.checked_div(0.0).is_err());
+    assert_eq!(
+        pct.checked_add(Percentage::new(2.5)).unwrap(),
+        Percentage::new(12.5)
+    );
+    assert_eq!(pct.checked_neg().unwrap(), Percentage::new(-10.0));
+}
+
+#[test]
 fn rate_edge_cases() {
     // Very small rates
     let tiny = Rate::from_bps(1);

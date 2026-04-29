@@ -495,7 +495,14 @@ impl HazardCurve {
 
         let shift = spread / (1.0 - recovery);
         for lambda in self.lambdas.iter_mut() {
-            *lambda = (*lambda + shift).max(0.0);
+            let shifted = *lambda + shift;
+            if shifted < 0.0 {
+                return Err(crate::error::InputError::UnsupportedBump {
+                    reason: "negative hazard rate after bump".to_string(),
+                }
+                .into());
+            }
+            *lambda = shifted;
         }
         self.rebuild_interp()
     }
@@ -507,12 +514,19 @@ impl HazardCurve {
     ///
     /// # Arguments
     /// * `shift` - Additive shift to all hazard rates (e.g., 0.0001 for +1bp).
-    ///   Negative shifts are clamped to zero to ensure non-negative hazard rates.
+    ///   Negative shifts that would make any hazard rate negative are rejected.
     pub fn with_parallel_bump(&self, shift: f64) -> crate::Result<HazardCurve> {
-        let shifted_points: Vec<(f64, f64)> = self
-            .knot_points()
-            .map(|(t, lambda)| (t, (lambda + shift).max(0.0)))
-            .collect();
+        let mut shifted_points = Vec::with_capacity(self.knots.len());
+        for (t, lambda) in self.knot_points() {
+            let shifted = lambda + shift;
+            if shifted < 0.0 {
+                return Err(crate::error::InputError::UnsupportedBump {
+                    reason: "negative hazard rate after bump".to_string(),
+                }
+                .into());
+            }
+            shifted_points.push((t, shifted));
+        }
 
         // Create a temporary ID for the bumped curve
         // In practice, the caller will manage IDs when building market contexts
@@ -1035,6 +1049,25 @@ mod tests {
         assert_eq!(hc.hazard_rate(-1.0), 0.01);
         assert_eq!(hc.hazard_rate(0.0), 0.01);
         assert_eq!(hc.hazard_rate(10.0), 0.02);
+    }
+
+    #[test]
+    fn parallel_bump_rejects_negative_shift_that_crosses_zero_hazard() {
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let curve = HazardCurve::builder("HY")
+            .base_date(base)
+            .knots([(1.0, 0.001), (5.0, 0.002)])
+            .build()
+            .expect("valid hazard curve");
+
+        let err = curve
+            .with_parallel_bump(-0.0015)
+            .expect_err("negative shifted hazard rate must be rejected");
+
+        assert!(
+            err.to_string().contains("negative hazard rate after bump"),
+            "unexpected error: {err}"
+        );
     }
 }
 

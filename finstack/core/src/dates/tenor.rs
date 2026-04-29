@@ -61,6 +61,11 @@ use crate::dates::{
 use crate::error::InputError;
 use time::Duration;
 
+const MAX_TENOR_YEARS: u32 = 200;
+const MAX_TENOR_DAYS: u32 = MAX_TENOR_YEARS * 366;
+const MAX_TENOR_WEEKS: u32 = MAX_TENOR_DAYS / 7;
+const MAX_TENOR_MONTHS: u32 = MAX_TENOR_YEARS * 12;
+
 /// Unit of a tenor period.
 #[derive(
     Debug,
@@ -322,6 +327,19 @@ impl Tenor {
             .into());
         };
         let unit = TenorUnit::from_char(unit_char)?;
+        let max_count = match unit {
+            TenorUnit::Days => MAX_TENOR_DAYS,
+            TenorUnit::Weeks => MAX_TENOR_WEEKS,
+            TenorUnit::Months => MAX_TENOR_MONTHS,
+            TenorUnit::Years => MAX_TENOR_YEARS,
+        };
+        if count > max_count {
+            return Err(InputError::InvalidTenor {
+                tenor: s.to_string(),
+                reason: format!("count exceeds maximum supported tenor of {MAX_TENOR_YEARS} years"),
+            }
+            .into());
+        }
 
         Ok(Self { count, unit })
     }
@@ -701,6 +719,14 @@ mod tests {
         assert!(Tenor::parse("0M").is_err()); // Zero count
         assert!(Tenor::parse("-1M").is_err()); // Negative (parsed as invalid)
         assert!(Tenor::parse("3MM").is_err()); // Multiple unit chars
+    }
+
+    #[test]
+    fn test_parse_rejects_unreasonably_large_tenors() {
+        assert!(Tenor::parse("201Y").is_err());
+        assert!(Tenor::parse("2401M").is_err());
+        assert!(Tenor::parse("10458W").is_err());
+        assert!(Tenor::parse("73201D").is_err());
     }
 
     #[test]

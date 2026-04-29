@@ -42,7 +42,7 @@ fn fill_shocks<R: RandomStream>(
     match hook {
         NoiseHook::Correlation(Some(cf)) => {
             rng.fill_std_normals(z_raw);
-            cf.apply(z_raw, z);
+            let _ = cf.apply(z_raw, z);
         }
         NoiseHook::Correlation(None) => rng.fill_std_normals(z),
         NoiseHook::InjectFbm {

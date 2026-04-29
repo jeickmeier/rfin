@@ -650,36 +650,11 @@ impl HestonParams {
             return None;
         }
 
-        let i = Complex64::i();
-
         let integrand_pair = |phi: f64| -> (f64, f64) {
-            if phi.abs() < 1e-10 {
-                return (0.0, 0.0);
-            }
-            let psi1 = self.char_func_j(1, phi, coords.x, coords.r, coords.q, coords.t);
-            let psi2 = self.char_func_j(2, phi, coords.x, coords.r, coords.q, coords.t);
-            let common = (-i * phi * coords.ln_k).exp() / (i * phi);
-            let v1 = if psi1.is_finite() {
-                let val = (common * psi1).re;
-                if val.is_finite() {
-                    val
-                } else {
-                    0.0
-                }
-            } else {
-                0.0
-            };
-            let v2 = if psi2.is_finite() {
-                let val = (common * psi2).re;
-                if val.is_finite() {
-                    val
-                } else {
-                    0.0
-                }
-            } else {
-                0.0
-            };
-            (v1, v2)
+            (
+                self.fourier_integrand(1, phi, coords),
+                self.fourier_integrand(2, phi, coords),
+            )
         };
 
         let panels = 8_usize;
@@ -765,26 +740,46 @@ impl HestonParams {
             return None;
         }
 
-        let i = Complex64::i();
-        let integrand = |phi: f64| -> f64 {
-            if phi.abs() < 1e-10 {
-                return 0.0;
-            }
-            let psi = self.char_func_j(j, phi, coords.x, coords.r, coords.q, coords.t);
-            if !psi.is_finite() {
-                return 0.0;
-            }
-            let exp_term = (-i * phi * coords.ln_k).exp();
-            let val = (exp_term * psi / (i * phi)).re;
-            if val.is_finite() {
-                val
-            } else {
-                0.0
-            }
-        };
+        let integrand = |phi: f64| -> f64 { self.fourier_integrand(j, phi, coords) };
 
         crate::math::integration::gauss_legendre_integrate_composite(integrand, lower, upper, 16, 8)
             .ok()
+    }
+
+    fn fourier_integrand(&self, j: u8, phi: f64, coords: HestonPjCoords) -> f64 {
+        if phi.abs() < 1e-10 {
+            return self.fourier_integrand_origin_limit(j, coords);
+        }
+
+        let i = Complex64::i();
+        let psi = self.char_func_j(j, phi, coords.x, coords.r, coords.q, coords.t);
+        if !psi.is_finite() {
+            return 0.0;
+        }
+        let exp_term = (-i * phi * coords.ln_k).exp();
+        let val = (exp_term * psi / (i * phi)).re;
+        if val.is_finite() {
+            val
+        } else {
+            0.0
+        }
+    }
+
+    fn fourier_integrand_origin_limit(&self, j: u8, coords: HestonPjCoords) -> f64 {
+        let h = 1.0e-5;
+        let psi_plus = self.char_func_j(j, h, coords.x, coords.r, coords.q, coords.t);
+        let psi_minus = self.char_func_j(j, -h, coords.x, coords.r, coords.q, coords.t);
+        if !(psi_plus.is_finite() && psi_minus.is_finite()) {
+            return 0.0;
+        }
+        let dpsi = (psi_plus - psi_minus) / (2.0 * h);
+        let first_log_moment = (dpsi / Complex64::i()).re;
+        let limit = first_log_moment - coords.ln_k;
+        if limit.is_finite() {
+            limit
+        } else {
+            0.0
+        }
     }
 
     fn integration_upper_limit(&self, t: f64) -> f64 {
@@ -1301,6 +1296,31 @@ mod tests {
         assert!(
             psi.is_finite(),
             "characteristic function should stay finite"
+        );
+    }
+
+    #[test]
+    fn heston_fourier_integrand_origin_uses_finite_limit() {
+        let p = HestonParams::new(0.04, 2.0, 0.04, 0.3, -0.5).expect("valid");
+        let coords = HestonPjCoords {
+            x: 100.0_f64.ln(),
+            ln_k: 100.0_f64.ln(),
+            r: 0.05,
+            q: 0.01,
+            t: 1.0,
+        };
+
+        let origin = p.fourier_integrand_origin_limit(1, coords);
+        let nearby = p.fourier_integrand(1, 1.0e-6, coords);
+
+        assert!(origin.is_finite());
+        assert!(
+            origin.abs() > 1.0e-6,
+            "origin limit should not be silently zero"
+        );
+        assert!(
+            (origin - nearby).abs() < 1.0e-3,
+            "origin={origin}, nearby={nearby}"
         );
     }
 

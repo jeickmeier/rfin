@@ -255,19 +255,6 @@ fn value_checked_matches_value_clamped_on_interior() {
     }
 }
 
-#[test]
-fn value_unchecked_matches_value_checked_on_interior() {
-    let (exp, strikes, vols) = sample_grid();
-    let surface = VolSurface::from_grid("S", &exp, &strikes, &vols).unwrap();
-    for &e in &exp {
-        for &k in &strikes {
-            let a = surface.value_checked(e, k).unwrap();
-            let b = surface.value_unchecked(e, k);
-            assert!((a - b).abs() < 1e-15, "grid-node mismatch");
-        }
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Rate / Percentage / Bps: TryFrom<f64> parity and NaN rejection
 // ---------------------------------------------------------------------------

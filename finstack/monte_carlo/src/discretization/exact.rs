@@ -243,7 +243,7 @@ impl Discretization<MultiGbmProcess> for ExactMultiGbmCorrelated {
         // Apply Cholesky factor to get correlated shocks in original asset order.
         // Dimensions are guaranteed by construction: cholesky_factor is dim×dim and
         // work_size() allocates 3*dim so z_corr has length dim.
-        self.cholesky_factor.apply(z, z_corr);
+        let _ = self.cholesky_factor.apply(z, z_corr);
 
         // Apply exact GBM formula for each component using correlated shocks
         // S_i(t+dt) = S_i(t) exp((μ_i - ½σ_i²)dt + σ_i√dt Z_corr_i)

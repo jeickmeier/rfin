@@ -53,6 +53,9 @@ impl Money {
 
     /// Numeric amount in major units as `f64`.
     ///
+    /// The Rust core stores money as `Decimal`; this getter exposes the finite
+    /// JavaScript number view for interop.
+    ///
     /// @returns Amount in major units (e.g. dollars, not cents).
     #[wasm_bindgen(getter, js_name = amount)]
     pub fn amount(&self) -> f64 {

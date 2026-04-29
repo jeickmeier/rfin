@@ -905,7 +905,7 @@ impl MultiFactorModel {
             out.len()
         );
 
-        self.cholesky_factor.apply(independent_z, out);
+        let _ = self.cholesky_factor.apply(independent_z, out);
         for (value, vol) in out.iter_mut().zip(self.volatilities.iter()) {
             *value *= *vol;
         }

@@ -4,7 +4,6 @@ use crate::errors::core_to_py;
 use finstack_core::types::{
     Attributes, Bps, CreditRating, CurveId, InstrumentId, Percentage, Rate,
 };
-use finstack_core::Error;
 use finstack_core::InputError;
 use finstack_core::NonFiniteKind;
 use pyo3::prelude::*;
@@ -109,38 +108,42 @@ impl PyRate {
 
     /// Add two rates: ``Rate(a) + Rate(b) == Rate(a + b)``.
     fn __add__(&self, other: PyRef<Self>) -> PyResult<Self> {
-        Ok(Self::from_inner(self.inner + other.inner))
+        self.inner
+            .checked_add(other.inner)
+            .map(Self::from_inner)
+            .map_err(core_to_py)
     }
 
     /// Subtract two rates: ``Rate(a) - Rate(b) == Rate(a - b)``.
     fn __sub__(&self, other: PyRef<Self>) -> PyResult<Self> {
-        Ok(Self::from_inner(self.inner - other.inner))
+        self.inner
+            .checked_sub(other.inner)
+            .map(Self::from_inner)
+            .map_err(core_to_py)
     }
 
     /// Multiply by a scalar ``float``.
     fn __mul__(&self, rhs: f64) -> PyResult<Self> {
-        let p = self.inner.as_decimal() * rhs;
-        Rate::try_from_decimal(p)
+        self.inner
+            .checked_mul(rhs)
             .map(Self::from_inner)
             .map_err(core_to_py)
     }
 
     /// Divide by a scalar ``float``; raises ``ValueError`` on zero divisor.
     fn __truediv__(&self, rhs: f64) -> PyResult<Self> {
-        if rhs == 0.0 {
-            return Err(core_to_py(Error::Validation(
-                "division by zero".to_string(),
-            )));
-        }
-        let q = self.inner.as_decimal() / rhs;
-        Rate::try_from_decimal(q)
+        self.inner
+            .checked_div(rhs)
             .map(Self::from_inner)
             .map_err(core_to_py)
     }
 
     /// Unary negation.
     fn __neg__(&self) -> PyResult<Self> {
-        Ok(Self::from_inner(-self.inner))
+        self.inner
+            .checked_neg()
+            .map(Self::from_inner)
+            .map_err(core_to_py)
     }
 }
 
@@ -209,33 +212,43 @@ impl PyBps {
     }
 
     /// Add two basis-point values.
-    fn __add__(&self, other: PyRef<Self>) -> Self {
-        Self::from_inner(self.inner + other.inner)
+    fn __add__(&self, other: PyRef<Self>) -> PyResult<Self> {
+        self.inner
+            .checked_add(other.inner)
+            .map(Self::from_inner)
+            .map_err(core_to_py)
     }
 
     /// Subtract two basis-point values.
-    fn __sub__(&self, other: PyRef<Self>) -> Self {
-        Self::from_inner(self.inner - other.inner)
+    fn __sub__(&self, other: PyRef<Self>) -> PyResult<Self> {
+        self.inner
+            .checked_sub(other.inner)
+            .map(Self::from_inner)
+            .map_err(core_to_py)
     }
 
     /// Multiply basis points by an integer scalar.
-    fn __mul__(&self, rhs: i32) -> Self {
-        Self::from_inner(self.inner * rhs)
+    fn __mul__(&self, rhs: i32) -> PyResult<Self> {
+        self.inner
+            .checked_mul(rhs)
+            .map(Self::from_inner)
+            .map_err(core_to_py)
     }
 
     /// Divide basis points by an integer scalar; raises ``ValueError`` on zero.
     fn __truediv__(&self, rhs: i32) -> PyResult<Self> {
-        if rhs == 0 {
-            return Err(core_to_py(Error::Validation(
-                "division by zero".to_string(),
-            )));
-        }
-        Ok(Self::from_inner(self.inner / rhs))
+        self.inner
+            .checked_div(rhs)
+            .map(Self::from_inner)
+            .map_err(core_to_py)
     }
 
     /// Unary negation.
-    fn __neg__(&self) -> Self {
-        Self::from_inner(-self.inner)
+    fn __neg__(&self) -> PyResult<Self> {
+        self.inner
+            .checked_neg()
+            .map(Self::from_inner)
+            .map_err(core_to_py)
     }
 }
 
