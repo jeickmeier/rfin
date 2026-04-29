@@ -38,6 +38,31 @@ fn vol_bump(value: f64) -> BumpSpec {
     }
 }
 
+fn scaled_bucketed_vega_matrix(
+    raw_matrix: Vec<Vec<f64>>,
+    raw_total: f64,
+    target_total: f64,
+) -> (Vec<Vec<f64>>, f64) {
+    if target_total.abs() <= f64::EPSILON {
+        let zero_matrix = raw_matrix
+            .into_iter()
+            .map(|row| row.into_iter().map(|_| 0.0).collect())
+            .collect();
+        return (zero_matrix, 0.0);
+    }
+
+    let scale = if raw_total.abs() > f64::EPSILON {
+        target_total / raw_total
+    } else {
+        1.0
+    };
+    let matrix = raw_matrix
+        .into_iter()
+        .map(|row| row.into_iter().map(|v| v * scale).collect())
+        .collect();
+    (matrix, scale)
+}
+
 /// Key-rate vega calculator: bumps individual (expiry, strike) points.
 ///
 /// Calculates volatility sensitivity at individual points on the volatility surface
@@ -210,12 +235,8 @@ where
 
         let raw_total = raw_total.total();
 
-        // Normalize bucketed vegas so they partition the parallel vega
-        let scale = if raw_total.abs() > f64::EPSILON {
-            target_total / raw_total
-        } else {
-            1.0
-        };
+        // Normalize bucketed vegas so they partition the parallel vega.
+        let (matrix, scale) = scaled_bucketed_vega_matrix(raw_matrix, raw_total, target_total);
 
         // Warn if scale factor deviates significantly from 1.0, which may indicate
         // that the bucketed vega grid doesn't capture the true sensitivity distribution
@@ -233,11 +254,6 @@ where
                  instrument's strike/expiry relative to grid points."
             );
         }
-
-        let matrix: Vec<Vec<f64>> = raw_matrix
-            .into_iter()
-            .map(|row| row.into_iter().map(|v| v * scale).collect())
-            .collect();
 
         if debug {
             let sum_scaled: f64 = neumaier_sum(matrix.iter().flatten().copied());
@@ -271,5 +287,18 @@ where
 
     fn dependencies(&self) -> &[MetricId] {
         &[MetricId::Vega]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::scaled_bucketed_vega_matrix;
+
+    #[test]
+    fn zero_target_vega_forces_bucket_matrix_to_zero() {
+        let (matrix, scale) = scaled_bucketed_vega_matrix(vec![vec![10.0, -10.0]], 0.0, 0.0);
+
+        assert_eq!(scale, 0.0);
+        assert_eq!(matrix, vec![vec![0.0, 0.0]]);
     }
 }

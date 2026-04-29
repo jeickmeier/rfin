@@ -12,11 +12,11 @@ pub(crate) fn register_fx_digital_option_metrics(registry: &mut MetricRegistry) 
         registry: registry,
         instrument: InstrumentType::FxDigitalOption,
         metrics: [
-            (Delta, crate::metrics::OptionDeltaCalculator::<crate::instruments::FxDigitalOption>::default()),
-            (Gamma, crate::metrics::OptionGammaCalculator::<crate::instruments::FxDigitalOption>::default()),
-            (Vega, crate::metrics::OptionVegaCalculator::<crate::instruments::FxDigitalOption>::default()),
-            (Theta, crate::metrics::OptionThetaCalculator::<crate::instruments::FxDigitalOption>::default()),
-            (Rho, crate::metrics::OptionRhoCalculator::<crate::instruments::FxDigitalOption>::default()),
+            (Delta, crate::metrics::OptionGreekCalculator::<crate::instruments::FxDigitalOption>::delta()),
+            (Gamma, crate::metrics::OptionGreekCalculator::<crate::instruments::FxDigitalOption>::gamma()),
+            (Vega, crate::metrics::OptionGreekCalculator::<crate::instruments::FxDigitalOption>::vega()),
+            (Theta, crate::metrics::OptionGreekCalculator::<crate::instruments::FxDigitalOption>::theta()),
+            (Rho, crate::metrics::OptionGreekCalculator::<crate::instruments::FxDigitalOption>::rho()),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxDigitalOption,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),

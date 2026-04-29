@@ -194,7 +194,6 @@
 //! - **Positive theta**: Instrument gains value over time (e.g., short options, carry trades)
 //! - **Zero theta**: No time-dependent value change (rare)
 
-use crate::instruments::common_impl::traits::Instrument;
 use finstack_core::cashflow::CFKind;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt};
@@ -208,24 +207,27 @@ enum ThetaPeriod {
 }
 
 fn parse_theta_period(period: &str) -> Result<ThetaPeriod> {
-    let period = period.trim().to_uppercase();
-    if period.is_empty() {
-        return Err(finstack_core::Error::from(
-            finstack_core::InputError::Invalid,
+    let input = period.trim();
+    let period = input.to_uppercase();
+    if input.is_empty() {
+        return Err(finstack_core::Error::Validation(
+            "Theta period must not be empty".to_string(),
         ));
     }
 
     let (num_str, unit) = if let Some(pos) = period.find(|c: char| c.is_alphabetic()) {
         (&period[..pos], &period[pos..])
     } else {
-        return Err(finstack_core::Error::from(
-            finstack_core::InputError::Invalid,
-        ));
+        return Err(finstack_core::Error::Validation(format!(
+            "Theta period '{input}' must include a unit suffix (D, W, M, or Y)"
+        )));
     };
 
-    let num_i64: i64 = num_str
-        .parse()
-        .map_err(|_| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
+    let num_i64: i64 = num_str.parse().map_err(|_| {
+        finstack_core::Error::Validation(format!(
+            "Theta period '{input}' has invalid numeric value '{num_str}'"
+        ))
+    })?;
 
     if num_i64 < 0 {
         return Err(finstack_core::Error::Validation(format!(
@@ -237,14 +239,22 @@ fn parse_theta_period(period: &str) -> Result<ThetaPeriod> {
         "D" => Ok(ThetaPeriod::Days(num_i64)),
         "W" => Ok(ThetaPeriod::Days(num_i64 * 7)),
         "M" => Ok(ThetaPeriod::Months(i32::try_from(num_i64).map_err(
-            |_| finstack_core::Error::from(finstack_core::InputError::Invalid),
+            |_| {
+                finstack_core::Error::Validation(format!(
+                    "Theta period '{input}' month value is too large"
+                ))
+            },
         )?)),
         "Y" => Ok(ThetaPeriod::Years(i32::try_from(num_i64).map_err(
-            |_| finstack_core::Error::from(finstack_core::InputError::Invalid),
+            |_| {
+                finstack_core::Error::Validation(format!(
+                    "Theta period '{input}' year value is too large"
+                ))
+            },
         )?)),
-        _ => Err(finstack_core::Error::from(
-            finstack_core::InputError::Invalid,
-        )),
+        _ => Err(finstack_core::Error::Validation(format!(
+            "Theta period '{input}' has unsupported unit '{unit}' (expected D, W, M, or Y)"
+        ))),
     }
 }
 
@@ -303,15 +313,42 @@ pub(crate) fn calculate_theta_date(
 /// # Returns
 /// Sum of cashflow amounts in the period (converted to base currency)
 pub(crate) fn collect_cashflows_in_period(
-    instrument: &dyn Instrument,
+    instrument: &dyn crate::instruments::common_impl::traits::Instrument,
     curves: &finstack_core::market_data::context::MarketContext,
     start_date: Date,
     end_date: Date,
     base_currency: Currency,
 ) -> Result<f64> {
     let schedule = instrument.cashflow_schedule(curves, start_date)?;
+    collect_cashflows_from_flows(
+        &schedule.flows,
+        instrument.id(),
+        start_date,
+        end_date,
+        base_currency,
+    )
+}
+
+pub(crate) fn collect_cashflows_in_period_cached(
+    context: &mut crate::metrics::MetricContext,
+    start_date: Date,
+    end_date: Date,
+    base_currency: Currency,
+) -> Result<f64> {
+    let instrument_id = context.instrument.id().to_string();
+    let flows = context.tagged_cashflows_cached()?;
+    collect_cashflows_from_flows(flows, &instrument_id, start_date, end_date, base_currency)
+}
+
+fn collect_cashflows_from_flows(
+    flows: &[finstack_core::cashflow::CashFlow],
+    instrument_id: &str,
+    start_date: Date,
+    end_date: Date,
+    base_currency: Currency,
+) -> Result<f64> {
     let mut sum = 0.0;
-    for cf in &schedule.flows {
+    for cf in flows {
         if cf.date >= start_date
             && cf.date < end_date
             && !(cf.kind == CFKind::Notional && cf.amount.amount() < 0.0)
@@ -321,7 +358,7 @@ pub(crate) fn collect_cashflows_in_period(
                     "Theta cashflow currency mismatch: base={} but saw cashflow currency={} (instrument_id={})",
                     base_currency,
                     cf.amount.currency(),
-                    instrument.id(),
+                    instrument_id,
                 )));
             }
             sum += cf.amount.amount();
@@ -374,13 +411,8 @@ fn compute_theta_breakdown(context: &mut crate::metrics::MetricContext) -> Resul
         .instrument_value_with_scenario(&context.curves, rolled_date)?
         .amount();
 
-    let carry = collect_cashflows_in_period(
-        context.instrument.as_ref(),
-        &context.curves,
-        context.as_of,
-        rolled_date,
-        base_ccy,
-    )?;
+    let start_date = context.as_of;
+    let carry = collect_cashflows_in_period_cached(context, start_date, rolled_date, base_ccy)?;
 
     let roll_down = rolled_pv - base_pv;
 
@@ -542,6 +574,16 @@ mod tests {
         assert_eq!(
             rolled_1y,
             Date::from_calendar_date(2026, Month::January, 1).expect("expected date")
+        );
+    }
+
+    #[test]
+    fn invalid_theta_period_error_includes_input() {
+        let err = calculate_theta_date(test_date(), "12Q", None).expect_err("bad unit should fail");
+
+        assert!(
+            err.to_string().contains("12Q"),
+            "theta period error should include the offending input, got: {err}"
         );
     }
 

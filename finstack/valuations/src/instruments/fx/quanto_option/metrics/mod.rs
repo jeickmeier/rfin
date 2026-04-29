@@ -19,19 +19,19 @@ pub fn register_quanto_option_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: InstrumentType::QuantoOption,
         metrics: [
-            (Delta, crate::metrics::OptionDeltaCalculator::<crate::instruments::fx::quanto_option::QuantoOption>::default()),
-            (Gamma, crate::metrics::OptionGammaCalculator::<crate::instruments::fx::quanto_option::QuantoOption>::default()),
-            (Vega, crate::metrics::OptionVegaCalculator::<crate::instruments::fx::quanto_option::QuantoOption>::default()),
-            (Rho, crate::metrics::OptionRhoCalculator::<crate::instruments::fx::quanto_option::QuantoOption>::default()),
-            (ForeignRho, crate::metrics::OptionForeignRhoCalculator::<crate::instruments::fx::quanto_option::QuantoOption>::default()),
+            (Delta, crate::metrics::OptionGreekCalculator::<crate::instruments::fx::quanto_option::QuantoOption>::delta()),
+            (Gamma, crate::metrics::OptionGreekCalculator::<crate::instruments::fx::quanto_option::QuantoOption>::gamma()),
+            (Vega, crate::metrics::OptionGreekCalculator::<crate::instruments::fx::quanto_option::QuantoOption>::vega()),
+            (Rho, crate::metrics::OptionGreekCalculator::<crate::instruments::fx::quanto_option::QuantoOption>::rho()),
+            (ForeignRho, crate::metrics::OptionGreekCalculator::<crate::instruments::fx::quanto_option::QuantoOption>::foreign_rho()),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::fx::quanto_option::QuantoOption,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::fx::quanto_option::QuantoOption,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Vanna, crate::metrics::OptionVannaCalculator::<crate::instruments::fx::quanto_option::QuantoOption>::default()),
-            (Volga, crate::metrics::OptionVolgaCalculator::<crate::instruments::fx::quanto_option::QuantoOption>::default()),
+            (Vanna, crate::metrics::OptionGreekCalculator::<crate::instruments::fx::quanto_option::QuantoOption>::vanna()),
+            (Volga, crate::metrics::OptionGreekCalculator::<crate::instruments::fx::quanto_option::QuantoOption>::volga()),
         ]
     }
 

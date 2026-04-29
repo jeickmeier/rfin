@@ -5,7 +5,6 @@
 
 use crate::instruments::common_impl::helpers::instrument_to_arc;
 use crate::instruments::common_impl::traits::Instrument;
-use crate::metrics::core::registry::StrictMode;
 use crate::metrics::risk::MarketHistory;
 use crate::metrics::sensitivities::config::format_bucket_label_cow;
 use crate::metrics::{standard_registry, MetricContext, MetricId};
@@ -480,7 +479,6 @@ fn calculate_var_taylor(
 struct BucketedSeries {
     per_curve: HashMap<String, HashMap<String, f64>>,
     fallback: HashMap<String, f64>,
-    per_curve_total: HashMap<String, f64>,
 }
 
 impl BucketedSeries {
@@ -491,10 +489,6 @@ impl BucketedSeries {
             }
         }
         self.fallback.get(bucket).copied()
-    }
-
-    fn curve_total(&self, curve_id: &str) -> Option<f64> {
-        self.per_curve_total.get(curve_id).copied()
     }
 }
 
@@ -659,7 +653,7 @@ fn compute_taylor_sensitivities(
     context.set_scenario_overrides(instrument.scenario_overrides().cloned());
     context.set_pricer_dispatch(pricing_model, pricer_registry);
 
-    let metrics = [
+    let candidate_metrics = [
         MetricId::BucketedDv01,
         MetricId::Dv01,
         MetricId::BucketedCs01,
@@ -671,8 +665,12 @@ fn compute_taylor_sensitivities(
         MetricId::EquityShares,
         MetricId::Vega,
     ];
+    let metrics: Vec<MetricId> = candidate_metrics
+        .into_iter()
+        .filter(|metric_id| registry.is_applicable(metric_id, instrument_type))
+        .collect();
 
-    let computed = registry.compute_with_mode(&metrics, &mut context, StrictMode::BestEffort)?;
+    let computed = registry.compute(&metrics, &mut context)?;
 
     let dv01 = collect_bucketed_series(&context.computed_series, MetricId::BucketedDv01.as_str());
     let cs01 = collect_bucketed_series(&context.computed_series, MetricId::BucketedCs01.as_str());
@@ -747,7 +745,6 @@ fn taylor_pnl_for_scenario(
                 let dv01 = sensitivities
                     .dv01
                     .get(curve_id.as_str(), bucket.as_ref())
-                    .or_else(|| sensitivities.dv01.curve_total(curve_id.as_str()))
                     .ok_or_else(|| {
                         missing_taylor_sensitivity_error("DV01", curve_id.as_str(), bucket.as_ref())
                     })?;
@@ -764,7 +761,6 @@ fn taylor_pnl_for_scenario(
                 let cs01 = sensitivities
                     .cs01
                     .get(curve_id.as_str(), bucket.as_ref())
-                    .or_else(|| sensitivities.cs01.curve_total(curve_id.as_str()))
                     .ok_or_else(|| {
                         missing_taylor_sensitivity_error("CS01", curve_id.as_str(), bucket.as_ref())
                     })?;
@@ -793,8 +789,12 @@ fn taylor_pnl_for_scenario(
                 strike,
             } => {
                 if sensitivities.vega_rel.abs() > 0.0 {
-                    let _ = (base_market, surface_id, expiry_years, strike);
-                    pnl += sensitivities.vega_rel * (shift.shift / 0.01);
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Historical VaR Taylor approximation does not support ImpliedVol point shocks with aggregate Vega (surface='{}', expiry_years={}, strike={}). Use full revaluation or a bucketed-vol Taylor implementation.",
+                        surface_id.as_str(),
+                        expiry_years,
+                        strike
+                    )));
                 }
             }
         }
@@ -859,20 +859,6 @@ fn collect_bucketed_series(
                 entry.insert(bucket.clone(), *value);
             }
         }
-    }
-
-    if result.fallback.is_empty() && !result.per_curve.is_empty() {
-        for series in result.per_curve.values() {
-            for (bucket, value) in series {
-                *result.fallback.entry(bucket.clone()).or_insert(0.0) += *value;
-            }
-        }
-    }
-
-    for (curve_id, series) in &result.per_curve {
-        result
-            .per_curve_total
-            .insert(curve_id.clone(), series.values().sum());
     }
 
     result
@@ -1269,7 +1255,7 @@ mod tests {
     }
 
     #[test]
-    fn test_taylor_vol_pnl_scales_vega_per_vol_point() {
+    fn test_taylor_vol_pnl_rejects_aggregate_vega_for_vol_point() {
         let as_of = sample_as_of();
         let base_market = MarketContext::new().insert_surface(
             VolSurface::from_grid(
@@ -1296,17 +1282,44 @@ mod tests {
             ..Default::default()
         };
 
-        let pnl = taylor_pnl_for_scenario(
+        let err = taylor_pnl_for_scenario(
             &sensitivities,
             &base_market,
             &scenario,
             &mut HashMap::default(),
         )
-        .expect("vol-only Taylor scenario should price");
+        .expect_err("Taylor VaR should not apply aggregate Vega to a vol point");
 
         assert!(
-            (pnl - 250.0).abs() < 1e-12,
-            "Taylor vol P&L should scale vega per 1 vol point: expected 250.0, got {pnl}"
+            err.to_string().contains("ImpliedVol") && err.to_string().contains("EQ-VOL"),
+            "unsupported vol Taylor error should identify the surface, got: {err}"
+        );
+    }
+
+    #[test]
+    fn taylor_sensitivity_build_preserves_calculator_error() {
+        let as_of = sample_as_of();
+        let bond = standard_bond("MISSING-CURVE-BOND", as_of, date!(2029 - 01 - 01));
+        let err = match compute_taylor_sensitivities(
+            &bond,
+            &MarketContext::new(),
+            as_of,
+            Money::new(100.0, Currency::USD),
+            None,
+            None,
+        ) {
+            Ok(_) => panic!("Taylor sensitivity build should fail on missing market inputs"),
+            Err(err) => err,
+        };
+
+        let msg = err.to_string();
+        assert!(
+            !msg.contains("Historical VaR missing required metric"),
+            "Taylor sensitivity errors should preserve calculator context, got: {msg}"
+        );
+        assert!(
+            msg.contains("USD-TREASURY") || msg.contains("curve") || msg.contains("not found"),
+            "Taylor sensitivity error should identify the missing curve, got: {msg}"
         );
     }
 
@@ -1343,7 +1356,7 @@ mod tests {
     }
 
     #[test]
-    fn taylor_rate_shift_uses_same_curve_total_when_bucket_is_missing() -> Result<()> {
+    fn taylor_rate_shift_errors_when_same_curve_bucket_is_missing() {
         let as_of = sample_as_of();
         let base_market = MarketContext::new();
         let scenario = MarketScenario::new(
@@ -1360,29 +1373,26 @@ mod tests {
         curve_buckets.insert("5y".to_string(), 30.0);
         let mut dv01_by_curve = HashMap::default();
         dv01_by_curve.insert("USD-LIBOR-3M".to_string(), curve_buckets);
-        let mut per_curve_total = HashMap::default();
-        per_curve_total.insert("USD-LIBOR-3M".to_string(), 30.0);
         let sensitivities = TaylorSensitivities {
             dv01: BucketedSeries {
                 per_curve: dv01_by_curve,
                 fallback: HashMap::default(),
-                per_curve_total,
             },
             ..Default::default()
         };
 
-        let pnl = taylor_pnl_for_scenario(
+        let err = taylor_pnl_for_scenario(
             &sensitivities,
             &base_market,
             &scenario,
             &mut HashMap::default(),
-        )?;
+        )
+        .expect_err("missing tenor bucket should not fall back to same-curve total");
 
         assert!(
-            (pnl - 30.0).abs() < 1e-12,
-            "missing bucket should fall back to same-curve total only, got {pnl}"
+            err.to_string().contains("USD-LIBOR-3M") && err.to_string().contains("7y"),
+            "missing sensitivity error should identify curve and bucket, got: {err}"
         );
-        Ok(())
     }
 
     #[test]
@@ -1470,27 +1480,19 @@ mod tests {
         );
         let history = MarketHistory::new(as_of, 1, vec![scenario]);
 
-        let full = calculate_var_dyn(
-            &[&option as &dyn Instrument],
-            &base_market,
-            &history,
-            as_of,
-            &VarConfig::var_95(),
-        )?;
-        let taylor = calculate_var_dyn(
+        let err = calculate_var_dyn(
             &[&option as &dyn Instrument],
             &base_market,
             &history,
             as_of,
             &VarConfig::var_95().with_method(VarMethod::TaylorApproximation),
-        )?;
+        )
+        .expect_err("Taylor VaR should reject aggregate Vega for point vol shocks");
 
-        let full_pnl = full.pnl_distribution[0];
-        let taylor_pnl = taylor.pnl_distribution[0];
-        let rel_diff = (taylor_pnl - full_pnl).abs() / full_pnl.abs().max(1.0);
+        let msg = err.to_string();
         assert!(
-            rel_diff < 0.10,
-            "Taylor vol P&L ({taylor_pnl}) should track full revaluation ({full_pnl}) for small shocks"
+            msg.contains("ImpliedVol") && msg.contains("EURUSD-VOL"),
+            "Taylor vol rejection should identify the vol surface, got: {msg}"
         );
 
         Ok(())

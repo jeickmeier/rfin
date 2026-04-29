@@ -97,10 +97,9 @@ pub(crate) use yield_dv01::YieldDv01Calculator;
 /// register_bond_metrics(&mut registry);
 /// ```
 pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
-    use crate::metrics::sensitivities::cross_factor::{
-        CreditBumperFactory, CrossFactorCalculator, CrossFactorPair, RatesBumperFactory,
+    use crate::metrics::{
+        make_credit_bumper, make_rates_bumper, CrossFactorCalculator, CrossFactorPair, MetricId,
     };
-    use crate::metrics::MetricId;
     use crate::pricer::InstrumentType;
     use std::sync::Arc;
 
@@ -108,8 +107,8 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
         MetricId::CrossGammaRatesCredit,
         Arc::new(CrossFactorCalculator::new(
             CrossFactorPair::RatesCredit,
-            Arc::new(RatesBumperFactory),
-            Arc::new(CreditBumperFactory),
+            make_rates_bumper,
+            make_credit_bumper,
         )),
         &[InstrumentType::Bond],
     );

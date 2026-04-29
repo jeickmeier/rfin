@@ -18,8 +18,8 @@ pub(crate) fn register_vol_index_option_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: InstrumentType::VolatilityIndexOption,
         metrics: [
-            (Delta, crate::metrics::OptionDeltaCalculator::<crate::instruments::equity::vol_index_option::VolatilityIndexOption>::default()),
-            (Vega, crate::metrics::OptionVegaCalculator::<crate::instruments::equity::vol_index_option::VolatilityIndexOption>::default()),
+            (Delta, crate::metrics::OptionGreekCalculator::<crate::instruments::equity::vol_index_option::VolatilityIndexOption>::delta()),
+            (Vega, crate::metrics::OptionGreekCalculator::<crate::instruments::equity::vol_index_option::VolatilityIndexOption>::vega()),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::equity::vol_index_option::VolatilityIndexOption,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),

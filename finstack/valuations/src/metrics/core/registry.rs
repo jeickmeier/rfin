@@ -11,40 +11,6 @@ use crate::pricer::InstrumentType;
 use finstack_core::HashMap;
 use std::sync::Arc;
 
-/// Metric computation mode.
-///
-/// Controls how the registry handles errors during metric calculation.
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// use finstack_valuations::metrics::core::registry::StrictMode;
-///
-/// // Strict mode (default): fails fast on any error
-/// let mode = StrictMode::Strict;
-///
-/// // Best effort mode: continues on errors, logging warnings
-/// let mode = StrictMode::BestEffort;
-/// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum StrictMode {
-    /// Strict mode: return error on first failure.
-    ///
-    /// Any missing metric, non-applicable metric, or calculation failure
-    /// will immediately return an error with diagnostic information.
-    /// This is the recommended mode for production use.
-    Strict,
-
-    /// Best effort mode: continue on errors and omit missing values.
-    ///
-    /// Missing metrics, non-applicable metrics, and calculation failures
-    /// will be logged as warnings and left unset so downstream callers can
-    /// apply an explicit fallback policy when needed.
-    /// Use this mode when you explicitly want to handle partial results
-    /// and tolerate missing or failing metrics.
-    BestEffort,
-}
-
 /// Registry for metric calculators.
 ///
 /// Manages metric calculators with dependency resolution, caching, and batch
@@ -270,21 +236,10 @@ impl MetricRegistry {
         metric_ids: &[MetricId],
         context: &mut MetricContext,
     ) -> finstack_core::Result<HashMap<MetricId, f64>> {
-        self.compute_with_mode(metric_ids, context, StrictMode::Strict)
-    }
-
-    /// Internal method to compute metrics with explicit mode control.
-    pub(crate) fn compute_with_mode(
-        &self,
-        metric_ids: &[MetricId],
-        context: &mut MetricContext,
-        mode: StrictMode,
-    ) -> finstack_core::Result<HashMap<MetricId, f64>> {
         let _span = tracing::debug_span!(
             "metric_registry.compute",
             metric_count = metric_ids.len(),
             instrument_type = %context.instrument.key(),
-            mode = ?mode,
         )
         .entered();
 
@@ -302,23 +257,13 @@ impl MetricRegistry {
             // Check if metric is registered
             let Some(entry) = self.entries.get(&metric_id) else {
                 if metric_ids.contains(&metric_id) {
-                    match mode {
-                        StrictMode::Strict => {
-                            return Err(finstack_core::Error::unknown_metric(
-                                metric_id.as_str(),
-                                self.available_metrics()
-                                    .iter()
-                                    .map(|m| m.as_str().to_string())
-                                    .collect(),
-                            ));
-                        }
-                        StrictMode::BestEffort => {
-                            tracing::warn!(
-                                metric_id = %metric_id.as_str(),
-                                "Metric not registered; omitting value in best-effort mode"
-                            );
-                        }
-                    }
+                    return Err(finstack_core::Error::unknown_metric(
+                        metric_id.as_str(),
+                        self.available_metrics()
+                            .iter()
+                            .map(|m| m.as_str().to_string())
+                            .collect(),
+                    ));
                 }
                 continue;
             };
@@ -326,21 +271,10 @@ impl MetricRegistry {
             // Check if calculator exists for this instrument type
             let Some(calc) = entry.get_for(instrument_type) else {
                 if metric_ids.contains(&metric_id) {
-                    match mode {
-                        StrictMode::Strict => {
-                            return Err(finstack_core::Error::metric_not_applicable(
-                                metric_id.as_str(),
-                                instrument_type.to_string(),
-                            ));
-                        }
-                        StrictMode::BestEffort => {
-                            tracing::warn!(
-                                metric_id = %metric_id.as_str(),
-                                %instrument_type,
-                                "Metric not applicable to instrument type; omitting value in best-effort mode"
-                            );
-                        }
-                    }
+                    return Err(finstack_core::Error::metric_not_applicable(
+                        metric_id.as_str(),
+                        instrument_type.to_string(),
+                    ));
                 }
                 continue;
             };
@@ -350,21 +284,12 @@ impl MetricRegistry {
                 Ok(value) => {
                     context.computed.insert(metric_id, value);
                 }
-                Err(err) => match mode {
-                    StrictMode::Strict => {
-                        return Err(finstack_core::Error::metric_calculation_failed(
-                            metric_id.as_str(),
-                            err,
-                        ));
-                    }
-                    StrictMode::BestEffort => {
-                        tracing::warn!(
-                            metric_id = %metric_id.as_str(),
-                            error = %err,
-                            "Metric calculation failed; omitting value in best-effort mode"
-                        );
-                    }
-                },
+                Err(err) => {
+                    return Err(finstack_core::Error::metric_calculation_failed(
+                        metric_id.as_str(),
+                        err,
+                    ));
+                }
             }
         }
 
@@ -722,44 +647,6 @@ mod tests {
     }
 
     #[test]
-    fn test_best_effort_mode_omits_missing_and_failed_metrics() {
-        let mut registry = MetricRegistry::new();
-
-        // Register one calculator that succeeds and one that fails
-        registry.register_metric(
-            MetricId::Dv01,
-            Arc::new(SuccessCalculator {
-                value: 100.0,
-                deps: Vec::new(),
-            }),
-            &[],
-        );
-        registry.register_metric(MetricId::Convexity, Arc::new(FailCalculator), &[]);
-
-        let mut context = create_test_context();
-
-        // Request both metrics in best-effort mode
-        let result = registry.compute_with_mode(
-            &[MetricId::Dv01, MetricId::Convexity, MetricId::Ytm], // Ytm is unknown
-            &mut context,
-            StrictMode::BestEffort,
-        );
-
-        assert!(result.is_ok());
-        let results = result.unwrap();
-
-        // Dv01 should succeed with correct value
-        assert_eq!(results.get(&MetricId::Dv01), Some(&100.0));
-
-        // Failed and unknown metrics should be omitted rather than synthesized.
-        assert!(!results.contains_key(&MetricId::Convexity));
-        assert!(!context.computed.contains_key(&MetricId::Convexity));
-
-        assert!(!results.contains_key(&MetricId::Ytm));
-        assert!(!context.computed.contains_key(&MetricId::Ytm));
-    }
-
-    #[test]
     fn test_circular_dependency_detection() {
         let mut registry = MetricRegistry::new();
 
@@ -892,51 +779,10 @@ mod tests {
         let mut context = create_test_context();
 
         // Compute should resolve dependencies correctly
-        let result = registry.compute_with_mode(&[metric_a], &mut context, StrictMode::BestEffort);
+        let result = registry.compute(&[metric_a], &mut context);
 
         assert!(result.is_ok());
         // If we got here, dependencies were resolved in correct order
-    }
-
-    #[test]
-    fn test_mixed_success_and_failure_best_effort() {
-        let mut registry = MetricRegistry::new();
-
-        // Register multiple metrics with different outcomes
-        registry.register_metric(
-            MetricId::Dv01,
-            Arc::new(SuccessCalculator {
-                value: 100.0,
-                deps: Vec::new(),
-            }),
-            &[],
-        );
-        registry.register_metric(MetricId::Convexity, Arc::new(FailCalculator), &[]);
-        registry.register_metric(
-            MetricId::Theta,
-            Arc::new(SuccessCalculator {
-                value: 50.0,
-                deps: Vec::new(),
-            }),
-            &[],
-        );
-
-        let mut context = create_test_context();
-
-        // Best-effort should compute successful metrics and fallback for failed ones
-        let result = registry.compute_with_mode(
-            &[MetricId::Dv01, MetricId::Convexity, MetricId::Theta],
-            &mut context,
-            StrictMode::BestEffort,
-        );
-
-        assert!(result.is_ok());
-        let results = result.unwrap();
-
-        assert_eq!(results.get(&MetricId::Dv01), Some(&100.0));
-        assert_eq!(results.get(&MetricId::Theta), Some(&50.0));
-        assert!(!results.contains_key(&MetricId::Convexity));
-        assert!(!context.computed.contains_key(&MetricId::Convexity));
     }
 
     #[test]

@@ -114,6 +114,11 @@ impl MetricCalculator for BreakevenCalculator {
         match config.mode {
             BreakevenMode::Linear => Ok(-carry_total / sensitivity),
             BreakevenMode::Iterative => {
+                if config.target == BreakevenTarget::BaseCorrelation {
+                    return Err(finstack_core::Error::Validation(
+                        "BreakevenMode::Iterative is unsupported for BaseCorrelation because no scalar base-correlation bump API exists".to_string(),
+                    ));
+                }
                 iterative_breakeven(context, carry_total, sensitivity, &config)
             }
         }
@@ -401,6 +406,41 @@ mod tests {
         );
         let result = BreakevenCalculator.calculate(&mut ctx).expect("breakeven");
         assert!((result - 5.0).abs() < 1e-10, "got {result}");
+    }
+
+    #[test]
+    fn test_linear_breakeven_base_correlation_target() {
+        let mut ctx = context_with_carry_and_sensitivity(
+            0.25,
+            -0.02,
+            BreakevenTarget::BaseCorrelation,
+            BreakevenMode::Linear,
+        );
+
+        let result = BreakevenCalculator.calculate(&mut ctx).expect("breakeven");
+
+        assert!((result - 12.5).abs() < 1e-10, "got {result}");
+    }
+
+    #[test]
+    fn test_iterative_breakeven_base_correlation_is_explicitly_unsupported() {
+        let mut ctx = context_with_carry_and_sensitivity(
+            0.25,
+            -0.02,
+            BreakevenTarget::BaseCorrelation,
+            BreakevenMode::Iterative,
+        );
+
+        let err = BreakevenCalculator
+            .calculate(&mut ctx)
+            .expect_err("iterative base-correlation breakeven should be unsupported");
+
+        assert!(
+            err.to_string().contains("BaseCorrelation")
+                && err.to_string().contains("Iterative")
+                && err.to_string().contains("unsupported"),
+            "unexpected error: {err}"
+        );
     }
 
     #[test]

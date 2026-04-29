@@ -12,18 +12,18 @@ pub(crate) fn register_ir_future_option_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: InstrumentType::IrFutureOption,
         metrics: [
-            (Delta, crate::metrics::OptionDeltaCalculator::<
+            (Delta, crate::metrics::OptionGreekCalculator::<
                 crate::instruments::IrFutureOption,
-            >::default()),
-            (Gamma, crate::metrics::OptionGammaCalculator::<
+            >::delta()),
+            (Gamma, crate::metrics::OptionGreekCalculator::<
                 crate::instruments::IrFutureOption,
-            >::default()),
-            (Vega, crate::metrics::OptionVegaCalculator::<
+            >::gamma()),
+            (Vega, crate::metrics::OptionGreekCalculator::<
                 crate::instruments::IrFutureOption,
-            >::default()),
-            (Theta, crate::metrics::OptionThetaCalculator::<
+            >::vega()),
+            (Theta, crate::metrics::OptionGreekCalculator::<
                 crate::instruments::IrFutureOption,
-            >::default()),
+            >::theta()),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::IrFutureOption,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),

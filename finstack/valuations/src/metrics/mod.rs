@@ -206,7 +206,7 @@ mod shared;
 // Core surface (supported)
 pub use core::ids::{MetricGroup, MetricId};
 pub use core::registry::MetricRegistry;
-pub use core::traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};
+pub use core::traits::{MetricCalculator, MetricContext, Structured2D};
 /// Format a standard risk bucket (years) as a human-readable label.
 pub use sensitivities::config::format_bucket_label;
 pub use sensitivities::cross_factor::{CrossFactorCalculator, CrossFactorPair};
@@ -228,6 +228,9 @@ pub(crate) use sensitivities::carry_decomposition::{
     CarryComponentLookup, CarryDecompositionCalculator,
 };
 pub(crate) use sensitivities::config::from_finstack_config_or_default as resolve_sensitivities_config;
+pub(crate) use sensitivities::cross_factor::{
+    make_credit_bumper, make_fx_bumper, make_rates_bumper, make_spot_bumper, make_vol_bumper,
+};
 pub(crate) use sensitivities::cs01::{
     GenericBucketedCs01, GenericBucketedCs01Hazard, GenericParallelCs01, GenericParallelCs01Hazard,
 };
@@ -236,17 +239,13 @@ pub(crate) use sensitivities::fd_greeks::{
     GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga, HasDayCount,
     HasExpiry, HasPricingOverrides,
 };
-pub(crate) use sensitivities::option_greeks::{
-    OptionDeltaCalculator, OptionForeignRhoCalculator, OptionGammaCalculator, OptionRhoCalculator,
-    OptionThetaCalculator, OptionVannaCalculator, OptionVegaCalculator, OptionVolgaCalculator,
-};
+pub(crate) use sensitivities::option_greeks::OptionGreekCalculator;
 pub(crate) use sensitivities::rho::GenericRho;
 pub(crate) use sensitivities::theta::{
     calculate_theta_date, GenericThetaAny, ThetaComponentLookup,
 };
 pub(crate) use sensitivities::vega::KeyRateVega;
-pub(crate) use shared::df_end::GenericDfEndCalculator;
-pub(crate) use shared::df_start::GenericDfStartCalculator;
+pub(crate) use shared::df::{GenericDfEndCalculator, GenericDfStartCalculator};
 
 // -----------------------------------------------------------------------------
 // Macros

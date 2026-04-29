@@ -3,5 +3,4 @@
 //! These calculators rely on trait-based instrument metadata (e.g., `expiry()`,
 //! `effective_start_date()`) and `market_dependencies()` to avoid per-instrument boilerplate.
 
-pub(crate) mod df_end;
-pub(crate) mod df_start;
+pub(crate) mod df;

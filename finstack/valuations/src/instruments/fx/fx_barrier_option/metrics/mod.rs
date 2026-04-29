@@ -13,18 +13,18 @@ pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: InstrumentType::FxBarrierOption,
         metrics: [
-            (Delta, crate::metrics::OptionDeltaCalculator::<crate::instruments::FxBarrierOption>::default()),
-            (Gamma, crate::metrics::OptionGammaCalculator::<crate::instruments::FxBarrierOption>::default()),
-            (Vega, crate::metrics::OptionVegaCalculator::<crate::instruments::FxBarrierOption>::default()),
-            (Rho, crate::metrics::OptionRhoCalculator::<crate::instruments::FxBarrierOption>::default()),
+            (Delta, crate::metrics::OptionGreekCalculator::<crate::instruments::FxBarrierOption>::delta()),
+            (Gamma, crate::metrics::OptionGreekCalculator::<crate::instruments::FxBarrierOption>::gamma()),
+            (Vega, crate::metrics::OptionGreekCalculator::<crate::instruments::FxBarrierOption>::vega()),
+            (Rho, crate::metrics::OptionGreekCalculator::<crate::instruments::FxBarrierOption>::rho()),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxBarrierOption,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxBarrierOption,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Vanna, crate::metrics::OptionVannaCalculator::<crate::instruments::FxBarrierOption>::default()),
-            (Volga, crate::metrics::OptionVolgaCalculator::<crate::instruments::FxBarrierOption>::default()),
+            (Vanna, crate::metrics::OptionGreekCalculator::<crate::instruments::FxBarrierOption>::vanna()),
+            (Volga, crate::metrics::OptionGreekCalculator::<crate::instruments::FxBarrierOption>::volga()),
         ]
     }
 }

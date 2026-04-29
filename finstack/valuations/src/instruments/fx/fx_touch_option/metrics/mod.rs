@@ -14,10 +14,10 @@ pub(crate) fn register_fx_touch_option_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: InstrumentType::FxTouchOption,
         metrics: [
-            (Delta, crate::metrics::OptionDeltaCalculator::<crate::instruments::FxTouchOption>::default()),
-            (Gamma, crate::metrics::OptionGammaCalculator::<crate::instruments::FxTouchOption>::default()),
-            (Vega, crate::metrics::OptionVegaCalculator::<crate::instruments::FxTouchOption>::default()),
-            (Rho, crate::metrics::OptionRhoCalculator::<crate::instruments::FxTouchOption>::default()),
+            (Delta, crate::metrics::OptionGreekCalculator::<crate::instruments::FxTouchOption>::delta()),
+            (Gamma, crate::metrics::OptionGreekCalculator::<crate::instruments::FxTouchOption>::gamma()),
+            (Vega, crate::metrics::OptionGreekCalculator::<crate::instruments::FxTouchOption>::vega()),
+            (Rho, crate::metrics::OptionGreekCalculator::<crate::instruments::FxTouchOption>::rho()),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxTouchOption,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),

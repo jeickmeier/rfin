@@ -26,11 +26,11 @@ pub(crate) fn register_commodity_option_metrics(registry: &mut MetricRegistry) {
         instrument: InstrumentType::CommodityOption,
         metrics: [
             // Forward-based greeks implemented via provider traits on CommodityOption.
-            (Delta, crate::metrics::OptionDeltaCalculator::<crate::instruments::CommodityOption>::default()),
-            (Gamma, crate::metrics::OptionGammaCalculator::<crate::instruments::CommodityOption>::default()),
-            (Vega, crate::metrics::OptionVegaCalculator::<crate::instruments::CommodityOption>::default()),
-            (Vanna, crate::metrics::OptionVannaCalculator::<crate::instruments::CommodityOption>::default()),
-            (Volga, crate::metrics::OptionVolgaCalculator::<crate::instruments::CommodityOption>::default()),
+            (Delta, crate::metrics::OptionGreekCalculator::<crate::instruments::CommodityOption>::delta()),
+            (Gamma, crate::metrics::OptionGreekCalculator::<crate::instruments::CommodityOption>::gamma()),
+            (Vega, crate::metrics::OptionGreekCalculator::<crate::instruments::CommodityOption>::vega()),
+            (Vanna, crate::metrics::OptionGreekCalculator::<crate::instruments::CommodityOption>::vanna()),
+            (Volga, crate::metrics::OptionGreekCalculator::<crate::instruments::CommodityOption>::volga()),
         ]
     }
 

@@ -25,14 +25,20 @@ metrics/
 │   ├── registry.rs              # MetricRegistry for calculator management
 │   ├── registration_macro.rs   # Convenience macros for registration
 │   └── finite_difference.rs    # FD utilities and standard bump sizes
-└── sensitivities/               # Sensitivity metrics (risk)
-    ├── mod.rs                   # Sensitivity module exports
-    ├── dv01.rs                  # Interest rate sensitivity (DV01)
-    ├── cs01.rs                  # Credit spread sensitivity (CS01)
-    ├── vega.rs                  # Volatility sensitivity (Vega)
-    ├── theta.rs                 # Time decay (Theta)
-    ├── fd_greeks.rs             # Generic finite difference Greeks
-    └── tests/                   # Sensitivity metric tests
+├── sensitivities/               # Sensitivity metrics
+│   ├── mod.rs                   # Sensitivity module exports
+│   ├── dv01.rs                  # Interest rate sensitivity (DV01)
+│   ├── cs01.rs                  # Credit spread sensitivity (CS01)
+│   ├── vega.rs                  # Volatility sensitivity (Vega)
+│   ├── theta.rs                 # Time decay (Theta)
+│   └── fd_greeks.rs             # Generic finite difference Greeks
+├── risk/                        # Historical VaR, ES, market history
+│   ├── hvar.rs                  # Metric calculators for HVaR and ES
+│   ├── market_history.rs        # Historical scenario storage/application
+│   ├── risk_factors.rs          # Scenario risk-factor definitions
+│   └── var_calculator.rs        # VaR engine
+└── shared/                      # Cross-instrument helper calculators
+    └── df.rs                    # Generic DF start/end calculators
 ```
 
 ## Key Features
@@ -106,7 +112,6 @@ pub struct MetricContext {
     pub computed: HashMap<MetricId, f64>,           // Scalar metrics
     pub computed_series: HashMap<MetricId, Vec<(String, f64)>>,  // 1D bucketed
     pub computed_matrix: HashMap<MetricId, Structured2D>,        // 2D bucketed
-    pub computed_tensor3: HashMap<MetricId, Structured3D>,       // 3D bucketed
     pub cashflows: Option<Vec<(Date, Money)>>,     // Cached cashflows
     // ... other cached data
 }
@@ -114,11 +119,10 @@ pub struct MetricContext {
 
 ### 5. Bucketed Metrics
 
-Support for multi-dimensional risk metrics:
+Support for bucketed risk metrics:
 
 - **1D bucketed**: Key-rate DV01, CS01 by tenor
 - **2D structured**: Vega surface (expiry × strike)
-- **3D structured**: Advanced risk grids
 
 ```rust
 // Store bucketed DV01 by tenor
@@ -396,6 +400,11 @@ PE fund metrics, DCF valuation, repo analytics, inflation-linked bond metrics, V
 | `hvar` | Historical VaR at confidence level | Currency | Portfolio | Historical Value-at-Risk |
 | `expected_shortfall` | E[loss given loss > VaR] | Currency | Portfolio | Expected shortfall (CVaR) |
 
+`hvar` and `expected_shortfall` share the same scenario distribution only when
+both metrics are requested in the same registry pass. If `expected_shortfall` is
+computed by itself, it recomputes the VaR distribution rather than reusing a
+previous pass.
+
 ## How to Add a New Metric
 
 ### Step 1: Choose Standard or Custom
@@ -530,7 +539,7 @@ mod tests {
 
 ### Step 6: Document the Metric
 
-Add comprehensive documentation to `METRICS.md`:
+Add comprehensive documentation to this README's Standard Metric Reference:
 
 ```markdown
 ## MyNewMetric
@@ -829,7 +838,6 @@ proptest! {
 
 ## See Also
 
-- **`METRICS.md`**: Comprehensive documentation of all metrics including formulas, conventions, and examples
 - **`core/traits.rs`**: Core trait definitions and interfaces
 - **`core/registry.rs`**: Registry implementation and dependency resolution
 - **Documentation standards**: `.cursor/rules/rust/documentation.mdc`
@@ -840,7 +848,7 @@ When adding new metrics:
 
 1. Follow the step-by-step guide above
 2. Add comprehensive tests
-3. Update `METRICS.md` with metric documentation
+3. Update this README's metric reference with metric documentation
 4. Ensure all lints pass: `mise run all-lint`
 5. Ensure all tests pass: `mise run rust-test`
 6. Add examples showing realistic usage

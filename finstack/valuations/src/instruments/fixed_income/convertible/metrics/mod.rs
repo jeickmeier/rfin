@@ -29,11 +29,10 @@ use crate::metrics::MetricRegistry;
 
 /// Register convertible bond metrics into the registry.
 pub(crate) fn register_convertible_metrics(registry: &mut MetricRegistry) {
-    use crate::metrics::sensitivities::cross_factor::{
-        CreditBumperFactory, CrossFactorCalculator, CrossFactorPair, RatesBumperFactory,
-        SpotBumperFactory, VolBumperFactory,
+    use crate::metrics::{
+        make_credit_bumper, make_rates_bumper, make_spot_bumper, make_vol_bumper,
+        CrossFactorCalculator, CrossFactorPair, MetricId,
     };
-    use crate::metrics::MetricId;
     use crate::pricer::InstrumentType;
     use std::sync::Arc;
 
@@ -83,8 +82,8 @@ pub(crate) fn register_convertible_metrics(registry: &mut MetricRegistry) {
         MetricId::CrossGammaSpotVol,
         Arc::new(CrossFactorCalculator::new(
             CrossFactorPair::SpotVol,
-            Arc::new(SpotBumperFactory),
-            Arc::new(VolBumperFactory),
+            make_spot_bumper,
+            make_vol_bumper,
         )),
         &[InstrumentType::Convertible],
     );
@@ -92,8 +91,8 @@ pub(crate) fn register_convertible_metrics(registry: &mut MetricRegistry) {
         MetricId::CrossGammaSpotCredit,
         Arc::new(CrossFactorCalculator::new(
             CrossFactorPair::SpotCredit,
-            Arc::new(SpotBumperFactory),
-            Arc::new(CreditBumperFactory),
+            make_spot_bumper,
+            make_credit_bumper,
         )),
         &[InstrumentType::Convertible],
     );
@@ -101,8 +100,8 @@ pub(crate) fn register_convertible_metrics(registry: &mut MetricRegistry) {
         MetricId::CrossGammaRatesCredit,
         Arc::new(CrossFactorCalculator::new(
             CrossFactorPair::RatesCredit,
-            Arc::new(RatesBumperFactory),
-            Arc::new(CreditBumperFactory),
+            make_rates_bumper,
+            make_credit_bumper,
         )),
         &[InstrumentType::Convertible],
     );

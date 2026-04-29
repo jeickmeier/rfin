@@ -501,6 +501,7 @@ where
 
         let mut series: Vec<(std::borrow::Cow<'static, str>, f64)> = Vec::new();
         let mut total = 0.0;
+        let mut scratch = base_ctx.clone();
 
         for t in buckets {
             let label = super::config::format_bucket_label_cow(t);
@@ -510,8 +511,13 @@ where
             let bumped_down =
                 bump_hazard_shift(hazard_ref, &BumpRequest::Tenors(vec![(t, -bump_bp)]))?;
 
-            let pv_up = context.reprice_raw(&base_ctx.clone().insert(bumped_up), as_of)?;
-            let pv_down = context.reprice_raw(&base_ctx.clone().insert(bumped_down), as_of)?;
+            scratch.insert_mut(bumped_up);
+            let pv_up = context.reprice_raw(&scratch, as_of)?;
+            scratch.insert_mut(std::sync::Arc::clone(&hazard));
+
+            scratch.insert_mut(bumped_down);
+            let pv_down = context.reprice_raw(&scratch, as_of)?;
+            scratch.insert_mut(std::sync::Arc::clone(&hazard));
 
             let cs01 = sensitivity_central_diff(pv_up, pv_down, bump_bp);
             series.push((label, cs01));

@@ -68,12 +68,24 @@ fn validate_spot(spot: f64, greek_name: &str) -> Result<()> {
     Ok(())
 }
 
-/// Compute the absolute bump size with a minimum floor.
+#[derive(Debug, Clone, Copy)]
+struct SpotBump {
+    relative: f64,
+    absolute: f64,
+}
+
+/// Compute a spot bump whose applied relative shock matches the absolute denominator.
 ///
-/// Returns `max(spot * bump_pct, MIN_ABSOLUTE_BUMP)` to ensure numerical stability.
+/// Returns the configured relative bump unless its absolute spot move is smaller
+/// than [`MIN_ABSOLUTE_BUMP`]. In that case the relative bump is increased so
+/// the market scenario and finite-difference denominator use the same move.
 #[inline]
-fn safe_bump_size(spot: f64, bump_pct: f64) -> f64 {
-    (spot * bump_pct).abs().max(MIN_ABSOLUTE_BUMP)
+fn effective_spot_bump(spot: f64, bump_pct: f64) -> SpotBump {
+    let signed_relative = bump_pct.signum() * (spot * bump_pct).abs().max(MIN_ABSOLUTE_BUMP) / spot;
+    SpotBump {
+        relative: signed_relative,
+        absolute: (spot * signed_relative).abs(),
+    }
 }
 
 /// Guard against NaN / ±Inf leaking out of finite-difference calculations.
@@ -374,8 +386,8 @@ where
         // Fixed bump size from `FinstackConfig` (user-facing, reproducible).
         let bump_pct = defaults.spot_bump_pct;
 
-        // Use safe bump size with minimum floor to prevent division by zero
-        let bump_size = safe_bump_size(current_spot, bump_pct);
+        // Use the same effective bump in the market and denominator.
+        let bump = effective_spot_bump(current_spot, bump_pct);
 
         // Common Random Numbers: same seed for all scenarios ensures variance reduction.
         let seeded_instrument = clone_with_crn_seed(instrument);
@@ -386,7 +398,7 @@ where
             &mut scratch,
             &seeded_instrument,
             as_of,
-            Some((spot_id, bump_pct)),
+            Some((spot_id, bump.relative)),
             None,
         )?;
         let pv_down = eval_raw_with_scratch_bumps(
@@ -394,12 +406,12 @@ where
             &mut scratch,
             &seeded_instrument,
             as_of,
-            Some((spot_id, -bump_pct)),
+            Some((spot_id, -bump.relative)),
             None,
         )?;
 
         // Central difference: delta = (PV_up - PV_down) / (2 * bump_size)
-        let delta = (pv_up - pv_down) / (2.0 * bump_size);
+        let delta = (pv_up - pv_down) / (2.0 * bump.absolute);
 
         ensure_finite(delta, "fd_delta")
     }
@@ -458,8 +470,8 @@ where
         // Fixed bump size from `FinstackConfig` (user-facing, reproducible).
         let bump_pct = defaults.spot_bump_pct;
 
-        // Use safe bump size with minimum floor to prevent division by zero
-        let bump_size = safe_bump_size(current_spot, bump_pct);
+        // Use the same effective bump in the market and denominator.
+        let bump = effective_spot_bump(current_spot, bump_pct);
 
         // Use the 3-point central difference formula directly:
         //
@@ -478,7 +490,7 @@ where
             &mut scratch,
             &seeded_instrument,
             as_of,
-            Some((spot_id, bump_pct)),
+            Some((spot_id, bump.relative)),
             None,
         )?;
 
@@ -487,11 +499,11 @@ where
             &mut scratch,
             &seeded_instrument,
             as_of,
-            Some((spot_id, -bump_pct)),
+            Some((spot_id, -bump.relative)),
             None,
         )?;
 
-        let gamma = (pv_up - 2.0 * base_pv + pv_down) / (bump_size * bump_size);
+        let gamma = (pv_up - 2.0 * base_pv + pv_down) / (bump.absolute * bump.absolute);
 
         ensure_finite(gamma, "fd_gamma")
     }
@@ -716,7 +728,8 @@ where
         // Bump sizes with minimum floor for numerical stability
         let (spot_bump_pct, vol_bump_abs) = (defaults.spot_bump_pct, defaults.vol_bump_pct);
 
-        let h_abs = safe_bump_size(current_spot, spot_bump_pct); // absolute spot change
+        let spot_bump = effective_spot_bump(current_spot, spot_bump_pct);
+        let h_abs = spot_bump.absolute; // absolute spot change
         let k_abs = vol_bump_abs; // absolute vol change (vol points)
 
         let seeded_instrument = clone_with_crn_seed(instrument);
@@ -727,7 +740,7 @@ where
             &mut scratch,
             &seeded_instrument,
             as_of,
-            Some((spot_id, spot_bump_pct)),
+            Some((spot_id, spot_bump.relative)),
             Some((vol_surface_id.as_str(), k_abs)),
         )?;
         let v_pm = eval_raw_with_scratch_bumps(
@@ -735,7 +748,7 @@ where
             &mut scratch,
             &seeded_instrument,
             as_of,
-            Some((spot_id, spot_bump_pct)),
+            Some((spot_id, spot_bump.relative)),
             Some((vol_surface_id.as_str(), -k_abs)),
         )?;
         let v_mp = eval_raw_with_scratch_bumps(
@@ -743,7 +756,7 @@ where
             &mut scratch,
             &seeded_instrument,
             as_of,
-            Some((spot_id, -spot_bump_pct)),
+            Some((spot_id, -spot_bump.relative)),
             Some((vol_surface_id.as_str(), k_abs)),
         )?;
         let v_mm = eval_raw_with_scratch_bumps(
@@ -751,7 +764,7 @@ where
             &mut scratch,
             &seeded_instrument,
             as_of,
-            Some((spot_id, -spot_bump_pct)),
+            Some((spot_id, -spot_bump.relative)),
             Some((vol_surface_id.as_str(), -k_abs)),
         )?;
 
@@ -1229,18 +1242,18 @@ mod tests {
     }
 
     #[test]
-    fn safe_bump_size_applies_minimum_floor() {
-        // Very small spot should still produce a usable bump size
+    fn spot_bump_applies_minimum_floor_to_applied_relative_bump() {
+        // Very small spot should apply a relative bump that matches the floored denominator.
         let tiny_spot = 1e-12;
         let bump_pct = 0.01;
-        let bump = super::safe_bump_size(tiny_spot, bump_pct);
+        let bump = super::effective_spot_bump(tiny_spot, bump_pct);
 
-        // Should be floored at MIN_ABSOLUTE_BUMP
+        // The market bump and finite-difference denominator should agree.
+        assert_eq!(bump.absolute, super::MIN_ABSOLUTE_BUMP);
+        assert_eq!(bump.relative, super::MIN_ABSOLUTE_BUMP / tiny_spot);
         assert!(
-            bump >= super::MIN_ABSOLUTE_BUMP,
-            "bump {} should be >= MIN_ABSOLUTE_BUMP {}",
-            bump,
-            super::MIN_ABSOLUTE_BUMP
+            (tiny_spot * bump.relative - bump.absolute).abs() < f64::EPSILON,
+            "applied relative bump should reproduce absolute denominator"
         );
     }
 

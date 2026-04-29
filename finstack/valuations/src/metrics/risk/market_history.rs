@@ -117,29 +117,19 @@ fn key_rate_bp_bump(curve_id: &CurveId, tenor_years: f64, shift: f64) -> (CurveI
 fn find_triangular_neighbors(tenor: f64) -> (f64, f64) {
     let buckets = &crate::metrics::sensitivities::config::STANDARD_BUCKETS_YEARS;
 
-    // Find the closest bucket index
-    let mut closest_idx = 0;
-    let mut min_dist = f64::MAX;
-    for (i, &b) in buckets.iter().enumerate() {
-        let dist = (tenor - b).abs();
-        if dist < min_dist {
-            min_dist = dist;
-            closest_idx = i;
+    let mut prev = 0.0;
+    for (i, &bucket) in buckets.iter().enumerate() {
+        if (tenor - bucket).abs() <= f64::EPSILON {
+            let next = buckets.get(i + 1).copied().unwrap_or(f64::INFINITY);
+            return (prev, next);
         }
+        if tenor < bucket {
+            return (prev, bucket);
+        }
+        prev = bucket;
     }
 
-    let prev = if closest_idx == 0 {
-        0.0
-    } else {
-        buckets[closest_idx - 1]
-    };
-    let next = if closest_idx == buckets.len() - 1 {
-        f64::INFINITY
-    } else {
-        buckets[closest_idx + 1]
-    };
-
-    (prev, next)
+    (prev, f64::INFINITY)
 }
 
 /// Historical market data for VaR calculation.
@@ -201,6 +191,14 @@ mod tests {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use time::macros::date;
+
+    #[test]
+    fn triangular_neighbors_surround_non_standard_tenor() {
+        let (prev, next) = find_triangular_neighbors(4.0);
+
+        assert_eq!(prev, 3.0);
+        assert_eq!(next, 5.0);
+    }
 
     #[test]
     fn test_market_scenario_creation() {

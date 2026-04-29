@@ -3,7 +3,9 @@
 //! Computes carry as a decomposition into coupon income, pull-to-par, roll-down,
 //! and optional funding cost.
 
-use crate::metrics::sensitivities::theta::{calculate_theta_date, collect_cashflows_in_period};
+use crate::metrics::sensitivities::theta::{
+    calculate_theta_date, collect_cashflows_in_period_cached,
+};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::DayCountContext;
 use finstack_core::market_data::context::MarketContext;
@@ -43,13 +45,9 @@ impl MetricCalculator for CarryDecompositionCalculator {
         let base_pv = context.base_value.amount();
         let base_ccy = context.base_value.currency();
 
-        let coupon_income = collect_cashflows_in_period(
-            context.instrument.as_ref(),
-            context.curves.as_ref(),
-            context.as_of,
-            rolled_date,
-            base_ccy,
-        )?;
+        let start_date = context.as_of;
+        let coupon_income =
+            collect_cashflows_in_period_cached(context, start_date, rolled_date, base_ccy)?;
 
         let curved_pv = context
             .instrument_value_with_scenario(context.curves.as_ref(), rolled_date)?
@@ -61,6 +59,10 @@ impl MetricCalculator for CarryDecompositionCalculator {
             let flat_pv = context.reprice_money(&flat_market, rolled_date)?.amount();
             flat_pv - base_pv
         } else {
+            tracing::warn!(
+                instrument_id = context.instrument.id(),
+                "Carry decomposition missing YTM dependency; setting pull_to_par to 0.0 and folding the remaining PV change into roll_down"
+            );
             0.0
         };
 
@@ -285,6 +287,20 @@ mod tests {
             "flat curve should have no roll-down"
         );
         assert!((total - pull_to_par).abs() < 1e-8);
+    }
+
+    #[test]
+    fn test_missing_ytm_keeps_pull_to_par_zero() {
+        let as_of = date!(2025 - 01 - 15);
+        let bond = zero_coupon_bond();
+        let market = MarketContext::new().insert(flat_discount_curve("USD-OIS", 0.05, as_of));
+        let mut context = context_for(bond, market, as_of, "1M", None);
+
+        CarryDecompositionCalculator
+            .calculate(&mut context)
+            .expect("carry decomposition should calculate without YTM");
+
+        assert_eq!(context.computed.get(&MetricId::PullToPar), Some(&0.0));
     }
 
     #[test]

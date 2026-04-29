@@ -12,27 +12,26 @@ use crate::metrics::MetricRegistry;
 
 /// Register FX option metrics with the registry.
 pub(crate) fn register_fx_option_metrics(registry: &mut MetricRegistry) {
-    use crate::metrics::sensitivities::cross_factor::{
-        CrossFactorCalculator, CrossFactorPair, FxBumperFactory, RatesBumperFactory,
-        VolBumperFactory,
+    use crate::metrics::{
+        make_fx_bumper, make_rates_bumper, make_vol_bumper, CrossFactorCalculator, CrossFactorPair,
+        MetricId,
     };
-    use crate::metrics::MetricId;
     use crate::pricer::InstrumentType;
     use std::sync::Arc;
 
     // Standard metrics for rho split by domestic/foreign.
     registry.register_metric(
         MetricId::Rho,
-        Arc::new(crate::metrics::OptionRhoCalculator::<
+        Arc::new(crate::metrics::OptionGreekCalculator::<
             crate::instruments::FxOption,
-        >::default()),
+        >::rho()),
         &[InstrumentType::FxOption],
     );
     registry.register_metric(
         MetricId::ForeignRho,
-        Arc::new(crate::metrics::OptionForeignRhoCalculator::<
+        Arc::new(crate::metrics::OptionGreekCalculator::<
             crate::instruments::FxOption,
-        >::default()),
+        >::foreign_rho()),
         &[InstrumentType::FxOption],
     );
 
@@ -40,8 +39,8 @@ pub(crate) fn register_fx_option_metrics(registry: &mut MetricRegistry) {
         MetricId::CrossGammaFxVol,
         Arc::new(CrossFactorCalculator::new(
             CrossFactorPair::FxVol,
-            Arc::new(FxBumperFactory),
-            Arc::new(VolBumperFactory),
+            make_fx_bumper,
+            make_vol_bumper,
         )),
         &[InstrumentType::FxOption],
     );
@@ -49,8 +48,8 @@ pub(crate) fn register_fx_option_metrics(registry: &mut MetricRegistry) {
         MetricId::CrossGammaFxRates,
         Arc::new(CrossFactorCalculator::new(
             CrossFactorPair::FxRates,
-            Arc::new(FxBumperFactory),
-            Arc::new(RatesBumperFactory),
+            make_fx_bumper,
+            make_rates_bumper,
         )),
         &[InstrumentType::FxOption],
     );
@@ -60,20 +59,20 @@ pub(crate) fn register_fx_option_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: InstrumentType::FxOption,
         metrics: [
-            (Delta, crate::metrics::OptionDeltaCalculator::<crate::instruments::FxOption>::default()),
-            (Gamma, crate::metrics::OptionGammaCalculator::<crate::instruments::FxOption>::default()),
-            (Vega, crate::metrics::OptionVegaCalculator::<crate::instruments::FxOption>::default()),
+            (Delta, crate::metrics::OptionGreekCalculator::<crate::instruments::FxOption>::delta()),
+            (Gamma, crate::metrics::OptionGreekCalculator::<crate::instruments::FxOption>::gamma()),
+            (Vega, crate::metrics::OptionGreekCalculator::<crate::instruments::FxOption>::vega()),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxOption,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             // Override universal theta (carry) with model theta for FX options.
-            (Theta, crate::metrics::OptionThetaCalculator::<crate::instruments::FxOption>::default()),
+            (Theta, crate::metrics::OptionGreekCalculator::<crate::instruments::FxOption>::theta()),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::FxOption,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Vanna, crate::metrics::OptionVannaCalculator::<crate::instruments::FxOption>::default()),
-            (Volga, crate::metrics::OptionVolgaCalculator::<crate::instruments::FxOption>::default()),
+            (Vanna, crate::metrics::OptionGreekCalculator::<crate::instruments::FxOption>::vanna()),
+            (Volga, crate::metrics::OptionGreekCalculator::<crate::instruments::FxOption>::volga()),
         ]
     }
 }
