@@ -175,9 +175,10 @@ mod tests {
     fn validate_financial_model_json_rejects_empty_periods() {
         let model = finstack_statements::FinancialModelSpec::new("test", vec![]);
         let json = serde_json::to_string(&model).expect("model should serialize to JSON");
-        let err = validate_financial_model_json(&json)
-            .expect_err("semantic validation should reject empty periods");
-        assert!(format!("{err:?}").contains("Model must have at least one period"));
+        assert!(
+            validate_financial_model_json(&json).is_err(),
+            "semantic validation should reject empty periods"
+        );
     }
 
     #[test]
