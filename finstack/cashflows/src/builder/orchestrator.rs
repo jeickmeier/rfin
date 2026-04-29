@@ -924,10 +924,12 @@ impl CashFlowBuilder {
     ) -> &mut Self {
         let mut decimal_steps = Vec::with_capacity(steps.len());
         for &(end, rate) in steps {
-            let Some(rate_decimal) =
-                self.decimal_from_f64_or_record_error("fixed_stepup", "rate", rate)
-            else {
-                return self;
+            let rate_decimal = match f64_to_decimal(rate) {
+                Ok(rate_decimal) => rate_decimal,
+                Err(error) => {
+                    self.pending_error = Some(error);
+                    return self;
+                }
             };
             decimal_steps.push((end, rate_decimal));
         }
