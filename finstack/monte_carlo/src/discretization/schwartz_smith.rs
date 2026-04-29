@@ -75,7 +75,7 @@ impl Discretization<SchwartzSmithProcess> for ExactSchwartzSmith {
         // Apply correlation to independent shocks via CorrelationFactor::apply.
         // This avoids manual slot indexing and is robust to future pivoting changes.
         let mut z_corr = [0.0; 2];
-        self.cholesky_factor.apply(z, &mut z_corr);
+        let _ = self.cholesky_factor.apply(z, &mut z_corr);
 
         // Exact solution for X (OU process)
         // X_{t+Δt} = X_t e^{-κ_X Δt} + σ_X √[(1-e^{-2κ_X Δt})/(2κ_X)] Z_X

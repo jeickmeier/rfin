@@ -59,22 +59,6 @@ fn test_vol_surface_value_clamped() {
 }
 
 #[test]
-fn test_vol_surface_value_unchecked_panics() {
-    let surface = VolSurface::builder("TEST")
-        .expiries(&[1.0, 2.0])
-        .strikes(&[90.0, 100.0, 110.0])
-        .row(&[0.2, 0.21, 0.22])
-        .row(&[0.19, 0.2, 0.21])
-        .build()
-        .unwrap();
-
-    // In-bounds should work
-    let v_checked = surface.value_checked(1.5, 100.0).unwrap();
-    let v_unchecked = surface.value_unchecked(1.5, 100.0);
-    assert!((v_unchecked - v_checked).abs() < 1e-15);
-}
-
-#[test]
 fn test_vol_surface_strike_interpolation() {
     let surface = VolSurface::builder("TEST")
         .expiries(&[1.0])

@@ -461,8 +461,9 @@ fn test_vol_surface_non_negative_after_parallel_shock() {
 
     for &expiry in &expiries {
         for &strike in &strikes {
-            // Grid points are guaranteed in bounds
-            let vol = surface.value_unchecked(expiry, strike);
+            let vol = surface
+                .value_checked(expiry, strike)
+                .expect("grid points are in bounds");
             assert!(
                 vol >= 0.0,
                 "Vol at (expiry={}, strike={}) is negative: {}",
@@ -528,8 +529,9 @@ fn test_vol_surface_non_negative_after_bucket_shock() {
 
     for &expiry in &expiries {
         for &strike in &strikes {
-            // Grid points are guaranteed in bounds
-            let vol = surface.value_unchecked(expiry, strike);
+            let vol = surface
+                .value_checked(expiry, strike)
+                .expect("grid points are in bounds");
             assert!(
                 vol >= 0.0,
                 "Vol at (expiry={}, strike={}) is negative after bucket shock: {}",

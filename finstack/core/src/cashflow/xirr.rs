@@ -676,6 +676,10 @@ pub struct IrrResult {
     pub sign_changes: usize,
     /// Whether multiple roots are possible (`sign_changes > 1`).
     pub multiple_roots_possible: bool,
+    /// Upper bound on economically meaningful real roots implied by cashflow signs.
+    pub root_count_upper_bound: usize,
+    /// Absolute distance of the selected root from zero.
+    pub selected_root_distance: f64,
 }
 
 /// Count the number of sign changes in a numeric sequence.
@@ -758,6 +762,8 @@ pub fn irr_detailed(cashflows: &[f64], guess: Option<f64>) -> crate::Result<IrrR
         rate,
         sign_changes,
         multiple_roots_possible: sign_changes > 1,
+        root_count_upper_bound: sign_changes,
+        selected_root_distance: rate.abs(),
     })
 }
 
@@ -805,6 +811,8 @@ pub fn xirr_detailed(
         rate,
         sign_changes,
         multiple_roots_possible: sign_changes > 1,
+        root_count_upper_bound: sign_changes,
+        selected_root_distance: rate.abs(),
     })
 }
 

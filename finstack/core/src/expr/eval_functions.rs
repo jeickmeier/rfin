@@ -127,8 +127,14 @@ impl CompiledExpr {
                 Err(_) => return Self::nan_output(len),
             };
             out.extend((0..len).map(|i| {
-                if i < n || base[i - n] == 0.0 {
+                if i < n {
                     f64::NAN
+                } else if base[i - n] == 0.0 {
+                    if base[i] == 0.0 {
+                        0.0
+                    } else {
+                        base[i].signum() * f64::INFINITY
+                    }
                 } else {
                     (base[i] / base[i - n]) - 1.0
                 }

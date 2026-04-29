@@ -59,18 +59,15 @@ fn survival_and_default_probabilities() {
 }
 
 #[test]
-fn hazard_shift_clamps_negative_rates() {
+fn hazard_shift_rejects_negative_rates() {
     let curve = HazardCurve::builder("HC")
         .base_date(base_date())
         .knots([(1.0, 0.01), (5.0, 0.02)])
         .build()
         .unwrap();
-    let shifted = curve.with_parallel_bump(-0.02).unwrap();
 
-    for (_, lambda) in shifted.knot_points() {
-        assert!(lambda >= 0.0);
-    }
-    assert!(shifted.sp(5.0) > curve.sp(5.0)); // lower hazard -> higher survival
+    let err = curve.with_parallel_bump(-0.02).unwrap_err();
+    assert!(err.to_string().contains("negative hazard rate after bump"));
 }
 
 // =============================================================================

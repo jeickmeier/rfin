@@ -359,6 +359,10 @@ impl Money {
     }
 
     /// Amount accessor (by value).
+    ///
+    /// This converts the internal [`Decimal`] representation to `f64` for
+    /// ergonomic display and binding use. Values outside the finite `f64`
+    /// range should avoid this lossy view and keep values on Decimal-backed APIs.
     #[inline]
     pub fn amount(&self) -> f64 {
         (*self).into_amount()

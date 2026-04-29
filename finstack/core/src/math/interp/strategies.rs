@@ -1,7 +1,10 @@
 //! Concrete interpolation strategy implementations.
 //!
-//! Provides strategy types for Linear, LogLinear, CubicHermite, and MonotoneConvex
-//! interpolation, encapsulating algorithm-specific precomputed data and evaluation logic.
+//! Provides strategy types for Linear, LogLinear, CubicHermite, MonotoneConvex,
+//! and specialized forward-rate interpolation. The public strategies are kept
+//! here because curve builders and calibration code select them by
+//! [`InterpStyle`](super::types::InterpStyle); less-common strategies should
+//! remain documented and covered by tests before being exposed through bindings.
 
 use super::{
     traits::InterpolationStrategy,

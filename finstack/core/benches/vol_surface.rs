@@ -126,10 +126,11 @@ fn bench_vol_surface_single_lookup(c: &mut Criterion) {
         })
     });
 
-    // Unchecked lookup (no error handling)
-    group.bench_function("lookup_unchecked", |b| {
+    group.bench_function("lookup_checked_in_bounds", |b| {
         b.iter(|| {
-            let vol = black_box(&surface).value_unchecked(black_box(1.25), black_box(97.5));
+            let vol = black_box(&surface)
+                .value_checked(black_box(1.25), black_box(97.5))
+                .expect("benchmark point is in bounds");
             black_box(vol);
         })
     });

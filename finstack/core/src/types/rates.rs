@@ -253,6 +253,34 @@ impl Rate {
     pub fn abs(self) -> Self {
         Self(self.0.abs())
     }
+
+    /// Add two rates, rejecting non-finite results.
+    pub fn checked_add(self, rhs: Self) -> Result<Self> {
+        Self::try_from_decimal(self.0 + rhs.0)
+    }
+
+    /// Subtract two rates, rejecting non-finite results.
+    pub fn checked_sub(self, rhs: Self) -> Result<Self> {
+        Self::try_from_decimal(self.0 - rhs.0)
+    }
+
+    /// Multiply by a scalar, rejecting non-finite results.
+    pub fn checked_mul(self, rhs: f64) -> Result<Self> {
+        Self::try_from_decimal(self.0 * rhs)
+    }
+
+    /// Divide by a scalar, rejecting zero divisors and non-finite results.
+    pub fn checked_div(self, rhs: f64) -> Result<Self> {
+        if rhs == 0.0 {
+            return Err(InputError::Invalid.into());
+        }
+        Self::try_from_decimal(self.0 / rhs)
+    }
+
+    /// Negate the rate, rejecting non-finite results.
+    pub fn checked_neg(self) -> Result<Self> {
+        Self::try_from_decimal(-self.0)
+    }
 }
 
 impl fmt::Display for Rate {
@@ -425,6 +453,49 @@ impl Bps {
     pub fn abs(self) -> Self {
         Self(self.0.abs())
     }
+
+    /// Add two basis-point values, rejecting integer overflow.
+    pub fn checked_add(self, rhs: Self) -> Result<Self> {
+        self.0
+            .checked_add(rhs.0)
+            .map(Self)
+            .ok_or_else(|| InputError::ConversionOverflow.into())
+    }
+
+    /// Subtract two basis-point values, rejecting integer overflow.
+    pub fn checked_sub(self, rhs: Self) -> Result<Self> {
+        self.0
+            .checked_sub(rhs.0)
+            .map(Self)
+            .ok_or_else(|| InputError::ConversionOverflow.into())
+    }
+
+    /// Multiply by an integer scalar, rejecting integer overflow.
+    pub fn checked_mul(self, rhs: i32) -> Result<Self> {
+        self.0
+            .checked_mul(rhs)
+            .map(Self)
+            .ok_or_else(|| InputError::ConversionOverflow.into())
+    }
+
+    /// Divide by an integer scalar, rejecting zero divisors.
+    pub fn checked_div(self, rhs: i32) -> Result<Self> {
+        if rhs == 0 {
+            return Err(InputError::Invalid.into());
+        }
+        self.0
+            .checked_div(rhs)
+            .map(Self)
+            .ok_or_else(|| InputError::ConversionOverflow.into())
+    }
+
+    /// Negate the basis-point value, rejecting integer overflow.
+    pub fn checked_neg(self) -> Result<Self> {
+        self.0
+            .checked_neg()
+            .map(Self)
+            .ok_or_else(|| InputError::ConversionOverflow.into())
+    }
 }
 
 impl fmt::Display for Bps {
@@ -596,6 +667,34 @@ impl Percentage {
     /// Get absolute value
     pub fn abs(self) -> Self {
         Self(self.0.abs())
+    }
+
+    /// Add two percentages, rejecting non-finite results.
+    pub fn checked_add(self, rhs: Self) -> Result<Self> {
+        Self::try_new(self.0 + rhs.0)
+    }
+
+    /// Subtract two percentages, rejecting non-finite results.
+    pub fn checked_sub(self, rhs: Self) -> Result<Self> {
+        Self::try_new(self.0 - rhs.0)
+    }
+
+    /// Multiply by a scalar, rejecting non-finite results.
+    pub fn checked_mul(self, rhs: f64) -> Result<Self> {
+        Self::try_new(self.0 * rhs)
+    }
+
+    /// Divide by a scalar, rejecting zero divisors and non-finite results.
+    pub fn checked_div(self, rhs: f64) -> Result<Self> {
+        if rhs == 0.0 {
+            return Err(InputError::Invalid.into());
+        }
+        Self::try_new(self.0 / rhs)
+    }
+
+    /// Negate the percentage, rejecting non-finite results.
+    pub fn checked_neg(self) -> Result<Self> {
+        Self::try_new(-self.0)
     }
 }
 

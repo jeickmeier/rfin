@@ -86,7 +86,7 @@ impl Discretization<RevolvingCreditProcess> for RevolvingCreditDiscretization {
             let z_corr_buf = &mut work[0..3];
             // Dimensions are guaranteed by construction: cholesky_factor is 3×3 and
             // z_corr_buf has length 3 matching the 3-factor process.
-            chol.apply(z, z_corr_buf);
+            let _ = chol.apply(z, z_corr_buf);
             z_corr_buf
         } else {
             // No correlation, use original shocks

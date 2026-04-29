@@ -133,7 +133,11 @@ fn measure_average_shift(
         let v0 = value_t0(t);
         let v1 = value_t1(t);
 
-        let shift = (v1 - v0) * scaling_factor;
+        let shift = if values_are_effectively_equal(v0, v1) {
+            0.0
+        } else {
+            (v1 - v0) * scaling_factor
+        };
         total_shift += shift;
         count += 1;
     }
@@ -142,6 +146,16 @@ fn measure_average_shift(
         return 0.0;
     }
     total_shift / count as f64
+}
+
+fn values_are_effectively_equal(a: f64, b: f64) -> bool {
+    const RELATIVE_EQUALITY_TOLERANCE: f64 = 1.0e-14;
+
+    if !(a.is_finite() && b.is_finite()) {
+        return false;
+    }
+    let scale = a.abs().max(b.abs()).max(1.0);
+    (a - b).abs() <= RELATIVE_EQUALITY_TOLERANCE * scale
 }
 
 /// Measure average parallel rate shift in discount curve (basis points).
@@ -349,9 +363,8 @@ pub fn measure_vol_surface_shift(
         let mid_idx = strikes.len() / 2;
         let strike = strikes[mid_idx];
 
-        // Grid points are guaranteed in bounds, use unchecked
-        let vol_t0 = surface_t0.value_unchecked(expiry, strike);
-        let vol_t1 = surface_t1.value_unchecked(expiry, strike);
+        let vol_t0 = surface_t0.value_checked(expiry, strike)?;
+        let vol_t1 = surface_t1.value_checked(expiry, strike)?;
 
         let shift_pct = (vol_t1 - vol_t0) * 100.0;
 
@@ -606,6 +619,13 @@ mod tests {
         );
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn average_shift_uses_relative_equality_for_large_magnitudes() {
+        let shift = measure_average_shift(&[1.0], 10_000.0, |_| 1.0e9, |_| 1.0e9 + 1.0e-6);
+
+        assert_eq!(shift, 0.0);
     }
 
     #[test]

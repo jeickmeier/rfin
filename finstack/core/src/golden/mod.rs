@@ -13,6 +13,11 @@
 //! - **Loaders** (`loader`): Functions to load suites from files or strings
 //! - **Comparisons** (`compare`): Assertion helpers with actionable error messages
 //!
+//! The stable public surface is the assertion/comparison layer (`assert_abs`,
+//! `assert_bp`, `assert_pct`, [`GoldenAssert`], and [`Tolerance`]). Loader and
+//! fixture metadata helpers remain public for existing tests, but they are
+//! intended primarily for crate-internal golden suites rather than runtime APIs.
+//!
 //! # Fixture Format
 //!
 //! Golden fixtures use a canonical JSON structure with provenance metadata:

@@ -92,6 +92,10 @@ impl Default for ExplainOpts {
 /// Traces are organized by type (calibration, pricing, waterfall) and contain
 /// a sequence of domain-specific entries. Traces can be serialized to JSON for
 /// inspection, debugging, or audit purposes.
+///
+/// Mutation is intentionally single-threaded through `&mut self`. If multiple
+/// workers need to append to one trace, wrap it in external synchronization and
+/// keep ordering semantics explicit at the call site.
 #[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct ExplanationTrace {
     /// Type of trace (e.g., "calibration", "pricing", "waterfall")

@@ -298,4 +298,31 @@ mod tests {
         let stats = &cache.stats;
         assert_eq!(stats.evictions, 1);
     }
+
+    #[test]
+    fn cache_manager_handles_concurrent_eviction_and_len_checks() {
+        let manager = CacheManager::new(1);
+        let mut handles = Vec::new();
+
+        for thread_id in 0..4_u64 {
+            let manager = manager.clone();
+            handles.push(std::thread::spawn(move || {
+                for offset in 0..32_u64 {
+                    let node_id = thread_id * 1_000 + offset;
+                    let data: Vec<f64> = (0..8_192).map(|i| i as f64 + node_id as f64).collect();
+                    let len = data.len();
+                    let result = CachedResult::Scalar(Arc::from(data.into_boxed_slice()));
+                    manager.put(node_id, result);
+                    if let Some(retrieved) = manager.get(node_id, len) {
+                        assert_eq!(retrieved.len(), len);
+                    }
+                    assert!(manager.get(node_id, len + 1).is_none());
+                }
+            }));
+        }
+
+        for handle in handles {
+            handle.join().expect("cache worker should not panic");
+        }
+    }
 }

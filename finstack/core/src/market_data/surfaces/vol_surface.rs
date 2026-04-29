@@ -28,8 +28,9 @@
 //!   Returns `Result<f64>` with explicit error for out-of-bounds coordinates.
 //! - [`value_clamped`](VolSurface::value_clamped) — Flat extrapolation: clamps
 //!   coordinates to grid bounds before interpolation. Safe, never panics.
-//! - [`value_unchecked`](VolSurface::value_unchecked) — **Panics** if coordinates
-//!   are out of bounds. Use only when bounds are guaranteed by caller.
+//!
+//! Prefer checked or clamped evaluation at API boundaries; there is no unchecked
+//! public evaluator.
 //!
 //! # Examples
 //! ```rust
@@ -224,57 +225,11 @@ impl VolSurface {
         (1.0 - t) * (1.0 - u) * q11 + t * (1.0 - u) * q21 + (1.0 - t) * u * q12 + t * u * q22
     }
 
-    /// Bilinear interpolation of vol for given expiry and strike.
-    ///
-    /// Returns `NaN` if `expiry` or `strike` is outside the grid bounds.
-    /// Prefer [`value_checked`](Self::value_checked) for explicit error handling
-    /// or [`value_clamped`](Self::value_clamped) for flat extrapolation to edge values.
-    pub fn value_unchecked(&self, expiry: f64, strike: f64) -> f64 {
-        self.value_checked(expiry, strike).unwrap_or(f64::NAN)
-    }
-
     /// Safe evaluation: returns `Err` if either coordinate is out of bounds.
     pub fn value_checked(&self, expiry: f64, strike: f64) -> crate::Result<f64> {
         let (ie0, exact_e) = self.value_indices(self.expiries.as_ref(), expiry)?;
         let (is0, exact_s) = self.value_indices(self.strikes.as_ref(), strike)?;
-        let n_strikes = self.strikes.len();
-        if exact_e && exact_s {
-            return Ok(self.vols[ie0 * n_strikes + is0]);
-        }
-        let ie1 = if exact_e { ie0 } else { ie0 + 1 };
-        let is1 = if exact_s { is0 } else { is0 + 1 };
-        let e0 = self.expiries[ie0];
-        let e1 = self.expiries[ie1];
-        let s0 = self.strikes[is0];
-        let s1 = self.strikes[is1];
-        let q11 = self.vols[ie0 * n_strikes + is0];
-        let q21 = self.vols[ie1 * n_strikes + is0];
-        let q12 = self.vols[ie0 * n_strikes + is1];
-        let q22 = self.vols[ie1 * n_strikes + is1];
-        let t = if exact_e {
-            0.0
-        } else {
-            (expiry - e0) / (e1 - e0)
-        };
-        let u = if exact_s {
-            0.0
-        } else {
-            (strike - s0) / (s1 - s0)
-        };
-        match self.interpolation_mode {
-            VolInterpolationMode::Vol => Ok(Self::bilinear(q11, q21, q12, q22, t, u)),
-            VolInterpolationMode::TotalVariance => {
-                let total_variance = Self::bilinear(
-                    e0 * q11 * q11,
-                    e1 * q21 * q21,
-                    e0 * q12 * q12,
-                    e1 * q22 * q22,
-                    t,
-                    u,
-                );
-                self.validate_total_variance(total_variance, expiry)
-            }
-        }
+        self.interpolate_from_segments(expiry, strike, ie0, is0, exact_e, exact_s)
     }
 
     /// Clamped evaluation: clamps to edge values when outside the grid.
@@ -309,13 +264,24 @@ impl VolSurface {
 
         let ie0 = locate_segment_unchecked(&self.expiries, expiry);
         let is0 = locate_segment_unchecked(&self.strikes, strike);
-        let n_strikes = self.strikes.len();
-
         #[allow(clippy::float_cmp)]
         let exact_e = self.expiries[ie0] == expiry;
         #[allow(clippy::float_cmp)]
         let exact_s = self.strikes[is0] == strike;
 
+        self.interpolate_from_segments(expiry, strike, ie0, is0, exact_e, exact_s)
+    }
+
+    fn interpolate_from_segments(
+        &self,
+        expiry: f64,
+        strike: f64,
+        ie0: usize,
+        is0: usize,
+        exact_e: bool,
+        exact_s: bool,
+    ) -> crate::Result<f64> {
+        let n_strikes = self.strikes.len();
         if exact_e && exact_s {
             return Ok(self.vols[ie0 * n_strikes + is0]);
         }
@@ -1185,8 +1151,6 @@ mod tests {
                 .abs()
                 < 1e-12
         );
-        // unchecked path (same behavior, but panics on OOB)
-        assert!((vs.value_unchecked(1.5, 95.0) - 0.2).abs() < 1e-12);
         // clamped path (below min strike/expiry uses flat extrapolation)
         assert!((vs.value_clamped(0.5, 80.0) - 0.2).abs() < 1e-12);
     }

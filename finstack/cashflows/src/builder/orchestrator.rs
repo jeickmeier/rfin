@@ -1196,6 +1196,7 @@ impl CashFlowBuilder {
     /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
     /// use finstack_core::money::Money;
     /// use finstack_cashflows::builder::{CashFlowSchedule, ScheduleParams, CouponType};
+    /// use rust_decimal_macros::dec;
     /// use time::Month;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {

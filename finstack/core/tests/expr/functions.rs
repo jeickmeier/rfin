@@ -258,6 +258,27 @@ mod shift_operations {
         assert!((result[2] - 3.0).abs() < 1e-12); // (4/1) - 1 = 3
         assert!((result[3] - 3.0).abs() < 1e-12); // (8/2) - 1 = 3
     }
+
+    #[test]
+    fn pct_change_distinguishes_zero_over_zero_from_nonzero_over_zero() {
+        let ctx = SimpleContext::new(["x"]).expect("unique columns");
+        let x = vec![0.0, 0.0, 2.0, 0.0];
+        let cols: Vec<&[f64]> = vec![x.as_slice()];
+
+        let pct_expr = CompiledExpr::new(Expr::call(
+            Function::PctChange,
+            vec![Expr::column("x"), Expr::literal(1.0)],
+        ));
+        let result = pct_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
+
+        assert!(result[0].is_nan());
+        assert_eq!(result[1], 0.0);
+        assert!(result[2].is_infinite() && result[2].is_sign_positive());
+        assert_eq!(result[3], -1.0);
+    }
 }
 
 // =============================================================================
