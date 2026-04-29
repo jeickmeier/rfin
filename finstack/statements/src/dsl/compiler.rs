@@ -2,21 +2,22 @@
 
 use crate::dsl::ast::{BinOp as StmtBinOp, StmtExpr, UnaryOp as StmtUnaryOp};
 use crate::error::Result;
+use crate::types::{NodeId, NodeValueType};
 use finstack_core::expr::{BinOp as CoreBinOp, Expr, Function, UnaryOp as CoreUnaryOp};
+use indexmap::IndexMap;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Dimension {
+    Unknown,
+    Scalar,
+    Monetary(finstack_core::currency::Currency),
+}
 
 /// Compile a [`StmtExpr`] into a core [`Expr`].
 ///
 /// Converts the statements DSL syntax into the shared expression engine
 /// representation used by the evaluator.
 ///
-/// # Limitations
-///
-/// TODO: No dimensional type checking is performed during compilation. The DSL
-/// allows adding/subtracting values with different currencies or mixing monetary
-/// amounts with unitless scalars. A future enhancement should propagate
-/// `NodeValueType` through the expression tree and reject dimensional mismatches
-/// (e.g., `USD_revenue + EUR_cost`) at build time. This requires threading the
-/// node type map from `ModelBuilder` into the compile pass.
 pub fn compile(ast: &StmtExpr) -> Result<Expr> {
     match ast {
         StmtExpr::Literal(val) => Ok(Expr::literal(*val)),
@@ -47,8 +48,7 @@ pub fn compile(ast: &StmtExpr) -> Result<Expr> {
                 )));
             }
 
-            let encoded = format!("__cs__{}__{}", component, instrument_or_total);
-            Ok(Expr::column(encoded))
+            Ok(Expr::cs_ref(component.clone(), instrument_or_total.clone()))
         }
 
         StmtExpr::BinOp { op, left, right } => compile_bin_op(*op, left, right),
@@ -63,6 +63,170 @@ pub fn compile(ast: &StmtExpr) -> Result<Expr> {
             else_expr,
         } => compile_if_then_else(condition, then_expr, else_expr),
     }
+}
+
+/// Validate dimensional compatibility for a formula AST.
+pub fn validate_dimensions(
+    ast: &StmtExpr,
+    node_types: &IndexMap<NodeId, NodeValueType>,
+) -> Result<()> {
+    infer_dimension(ast, node_types)?;
+    Ok(())
+}
+
+fn infer_dimension(
+    ast: &StmtExpr,
+    node_types: &IndexMap<NodeId, NodeValueType>,
+) -> Result<Dimension> {
+    match ast {
+        StmtExpr::Literal(_) => Ok(Dimension::Scalar),
+        StmtExpr::NodeRef(name) => Ok(node_types
+            .get(name)
+            .map(node_value_type_to_dimension)
+            .unwrap_or(Dimension::Unknown)),
+        StmtExpr::CSRef { .. } => Ok(Dimension::Unknown),
+        StmtExpr::UnaryOp { op, operand } => {
+            let dim = infer_dimension(operand, node_types)?;
+            match op {
+                StmtUnaryOp::Neg => Ok(dim),
+                StmtUnaryOp::Not => Ok(Dimension::Scalar),
+            }
+        }
+        StmtExpr::BinOp { op, left, right } => {
+            let left_dim = infer_dimension(left, node_types)?;
+            let right_dim = infer_dimension(right, node_types)?;
+            infer_bin_op_dimension(*op, left_dim, right_dim)
+        }
+        StmtExpr::Call { func, args } => infer_call_dimension(func, args, node_types),
+        StmtExpr::IfThenElse {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
+            infer_dimension(condition, node_types)?;
+            let then_dim = infer_dimension(then_expr, node_types)?;
+            let else_dim = infer_dimension(else_expr, node_types)?;
+            compatible_dimensions("if branches", then_dim, else_dim)
+        }
+    }
+}
+
+fn node_value_type_to_dimension(value_type: &NodeValueType) -> Dimension {
+    match value_type {
+        NodeValueType::Monetary { currency } => Dimension::Monetary(*currency),
+        NodeValueType::Scalar => Dimension::Scalar,
+    }
+}
+
+fn infer_bin_op_dimension(op: StmtBinOp, left: Dimension, right: Dimension) -> Result<Dimension> {
+    match op {
+        StmtBinOp::Add | StmtBinOp::Sub => {
+            compatible_dimensions("arithmetic operands", left, right)
+        }
+        StmtBinOp::Mul => multiply_dimensions(left, right),
+        StmtBinOp::Div => divide_dimensions(left, right),
+        StmtBinOp::Mod => require_scalar_operands("modulo", left, right),
+        StmtBinOp::Eq
+        | StmtBinOp::Ne
+        | StmtBinOp::Lt
+        | StmtBinOp::Le
+        | StmtBinOp::Gt
+        | StmtBinOp::Ge => {
+            compatible_dimensions("comparison operands", left, right)?;
+            Ok(Dimension::Scalar)
+        }
+        StmtBinOp::And | StmtBinOp::Or => require_scalar_operands("logical operands", left, right),
+    }
+}
+
+fn compatible_dimensions(context: &str, left: Dimension, right: Dimension) -> Result<Dimension> {
+    match (left, right) {
+        (Dimension::Unknown, _) | (_, Dimension::Unknown) => Ok(Dimension::Unknown),
+        (Dimension::Scalar, Dimension::Scalar) => Ok(Dimension::Scalar),
+        (Dimension::Monetary(lhs), Dimension::Monetary(rhs)) if lhs == rhs => {
+            Ok(Dimension::Monetary(lhs))
+        }
+        (Dimension::Monetary(lhs), Dimension::Monetary(rhs)) => Err(crate::error::Error::build(
+            format!("Dimensional mismatch in {context}: cannot combine {lhs} and {rhs}"),
+        )),
+        (Dimension::Scalar, Dimension::Monetary(ccy))
+        | (Dimension::Monetary(ccy), Dimension::Scalar) => Err(crate::error::Error::build(
+            format!("Dimensional mismatch in {context}: cannot combine scalar and {ccy}"),
+        )),
+    }
+}
+
+fn multiply_dimensions(left: Dimension, right: Dimension) -> Result<Dimension> {
+    match (left, right) {
+        (Dimension::Unknown, _) | (_, Dimension::Unknown) => Ok(Dimension::Unknown),
+        (Dimension::Scalar, Dimension::Scalar) => Ok(Dimension::Scalar),
+        (Dimension::Scalar, Dimension::Monetary(ccy))
+        | (Dimension::Monetary(ccy), Dimension::Scalar) => Ok(Dimension::Monetary(ccy)),
+        (Dimension::Monetary(lhs), Dimension::Monetary(rhs)) => Err(crate::error::Error::build(
+            format!("Dimensional mismatch in multiplication: cannot multiply {lhs} by {rhs}"),
+        )),
+    }
+}
+
+fn divide_dimensions(left: Dimension, right: Dimension) -> Result<Dimension> {
+    match (left, right) {
+        (Dimension::Unknown, _) | (_, Dimension::Unknown) => Ok(Dimension::Unknown),
+        (Dimension::Scalar, Dimension::Scalar) => Ok(Dimension::Scalar),
+        (Dimension::Monetary(ccy), Dimension::Scalar) => Ok(Dimension::Monetary(ccy)),
+        (Dimension::Monetary(lhs), Dimension::Monetary(rhs)) if lhs == rhs => Ok(Dimension::Scalar),
+        (Dimension::Monetary(lhs), Dimension::Monetary(rhs)) => Err(crate::error::Error::build(
+            format!("Dimensional mismatch in division: cannot divide {lhs} by {rhs}"),
+        )),
+        (Dimension::Scalar, Dimension::Monetary(ccy)) => Err(crate::error::Error::build(format!(
+            "Dimensional mismatch in division: cannot divide scalar by {ccy}"
+        ))),
+    }
+}
+
+fn require_scalar_operands(context: &str, left: Dimension, right: Dimension) -> Result<Dimension> {
+    match (left, right) {
+        (Dimension::Unknown, _) | (_, Dimension::Unknown) => Ok(Dimension::Scalar),
+        (Dimension::Scalar, Dimension::Scalar) => Ok(Dimension::Scalar),
+        _ => Err(crate::error::Error::build(format!(
+            "Dimensional mismatch in {context}: operands must be scalar"
+        ))),
+    }
+}
+
+fn infer_call_dimension(
+    func: &str,
+    args: &[StmtExpr],
+    node_types: &IndexMap<NodeId, NodeValueType>,
+) -> Result<Dimension> {
+    let arg_dims: Vec<_> = args
+        .iter()
+        .map(|arg| infer_dimension(arg, node_types))
+        .collect::<Result<Vec<_>>>()?;
+
+    match func {
+        "abs" | "lag" | "shift" | "cumsum" | "cummin" | "cummax" | "rolling_mean"
+        | "rolling_sum" | "rolling_min" | "rolling_max" | "mean" | "sum" | "median" | "ttm"
+        | "ltm" | "ytd" | "qtd" | "fiscal_ytd" | "annualize" | "coalesce" => {
+            combine_arg_dimensions(func, arg_dims)
+        }
+        "min" | "max" => arg_dims
+            .into_iter()
+            .try_fold(Dimension::Unknown, |acc, dim| {
+                compatible_dimensions(func, acc, dim)
+            }),
+        "sign" | "diff" | "pct_change" | "cumprod" | "rolling_std" | "rolling_var"
+        | "rolling_median" | "rolling_count" | "ewm_mean" | "ewm_std" | "ewm_var" | "std"
+        | "var" | "rank" | "quantile" | "annualize_rate" | "growth_rate" => Ok(Dimension::Scalar),
+        _ => Ok(Dimension::Unknown),
+    }
+}
+
+fn combine_arg_dimensions(context: &str, arg_dims: Vec<Dimension>) -> Result<Dimension> {
+    arg_dims
+        .into_iter()
+        .try_fold(Dimension::Unknown, |acc, dim| {
+            compatible_dimensions(context, acc, dim)
+        })
 }
 
 /// Compile binary operations.

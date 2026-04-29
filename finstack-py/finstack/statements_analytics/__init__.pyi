@@ -115,7 +115,7 @@ def run_monte_carlo(model_json: str, config_json: str) -> str:
 
     Args:
         model_json: JSON-serialized ``FinancialModelSpec``.
-        config_json: JSON-serialized ``MonteCarloConfig`` (``n_paths``, ``seed``, optional ``percentiles``).
+        config_json: JSON-serialized ``MonteCarloConfig`` (``n_paths``, ``seed``, optional ``percentiles`` and ``include_path_data``).
 
     Returns:
         JSON-serialized ``MonteCarloResults``.

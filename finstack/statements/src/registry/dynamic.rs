@@ -298,7 +298,7 @@ impl Registry {
         }
 
         for (metric_id, metric) in &metric_map {
-            let deps = self.extract_metric_dependencies(&metric.formula, &all_metric_ids);
+            let deps = self.extract_metric_dependencies(&metric.formula, &all_metric_ids)?;
             dependencies.insert(metric_id.to_owned(), deps);
         }
 
@@ -331,7 +331,7 @@ impl Registry {
         &self,
         formula: &str,
         all_metric_ids: &IndexSet<String>,
-    ) -> IndexSet<String> {
+    ) -> Result<IndexSet<String>> {
         crate::utils::formula::extract_identifiers(formula, all_metric_ids)
     }
 
@@ -375,7 +375,7 @@ impl Registry {
             .collect();
 
         // Extract direct dependencies
-        let deps = self.extract_metric_dependencies(&metric.definition.formula, &all_metric_ids);
+        let deps = self.extract_metric_dependencies(&metric.definition.formula, &all_metric_ids)?;
 
         // Recursively process each dependency
         for dep_id in deps {

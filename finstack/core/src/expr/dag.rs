@@ -374,7 +374,7 @@ impl DagBuilder {
         self.next_id += 1;
 
         let dependencies = match &expr.node {
-            ExprNode::Column(_) | ExprNode::Literal(_) => Vec::new(),
+            ExprNode::Column(_) | ExprNode::CSRef { .. } | ExprNode::Literal(_) => Vec::new(),
             ExprNode::Call(_, args) => args
                 .iter()
                 .map(|arg| self.process_expression(arg.clone()))
@@ -462,7 +462,7 @@ impl DagBuilder {
     /// Estimate the computational cost of an expression.
     fn estimate_cost(&self, expr: &Expr) -> usize {
         match &expr.node {
-            ExprNode::Column(_) => 1,
+            ExprNode::Column(_) | ExprNode::CSRef { .. } => 1,
             ExprNode::Literal(_) => 1,
             ExprNode::BinOp { .. } => 2, // Basic arithmetic/comparison/logical operations
             ExprNode::UnaryOp { .. } => 2,

@@ -99,10 +99,10 @@ pub struct ResultsMeta {
     #[serde(default)]
     pub numeric_mode: NumericMode,
 
-    /// Rounding context (if applicable).
+    /// Rounding context reserved for future fixed-point evaluation metadata.
     ///
-    /// This is reserved for future evaluator-level rounding configuration and
-    /// is currently `None` for all statement evaluations.
+    /// Kept in the wire format for forward compatibility; statement evaluation
+    /// currently runs in [`NumericMode::Float64`] and leaves this as `None`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rounding_context: Option<finstack_core::config::RoundingContext>,
 
@@ -136,7 +136,11 @@ pub enum NumericMode {
     /// f64 floating-point mode (current default)
     #[default]
     Float64,
-    /// Decimal fixed-point mode (future)
+    /// Reserved fixed-point mode.
+    ///
+    /// The variant remains in the serde/public API so saved result metadata can
+    /// evolve without renaming the enum. The evaluator currently emits
+    /// [`NumericMode::Float64`] only.
     Decimal,
 }
 

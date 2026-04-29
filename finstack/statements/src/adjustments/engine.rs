@@ -112,7 +112,12 @@ impl NormalizationEngine {
                     Error::eval(format!("Reference node '{}' not found", node_id))
                 })?;
 
-                let value = node_values.get(&period_id).unwrap_or(&0.0);
+                let value = node_values.get(&period_id).ok_or_else(|| {
+                    Error::eval(format!(
+                        "Reference node '{}' has no value for period {}",
+                        node_id, period_id
+                    ))
+                })?;
                 Ok(value * percentage)
             }
         }
@@ -226,6 +231,27 @@ mod tests {
         // Q1: Revenue 1000 * 0.05 = 50. EBITDA 100 + 50 = 150.
         assert_eq!(normalized[0].adjustments[0].raw_amount, 50.0);
         assert_eq!(normalized[0].final_value, 150.0);
+    }
+
+    #[test]
+    fn test_percentage_adjustment_errors_when_reference_period_missing() {
+        let mut results = mock_results();
+        results
+            .nodes
+            .get_mut("Revenue")
+            .expect("Revenue node should exist")
+            .shift_remove(&PeriodId::quarter(2025, 2));
+
+        let adj = Adjustment::percentage("perc1", "Perc 1", "Revenue", 0.05);
+        let config = NormalizationConfig::new("EBITDA")
+            .add_adjustment(adj)
+            .expect("unique adjustment id");
+
+        let err = NormalizationEngine::normalize(&results, &config)
+            .expect_err("missing reference period should fail");
+        assert!(err
+            .to_string()
+            .contains("Reference node 'Revenue' has no value for period 2025Q2"));
     }
 
     #[test]

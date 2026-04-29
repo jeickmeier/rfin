@@ -39,12 +39,15 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "WaterfallSpec",
             // Types
             "ForecastMethod",
+            "ForecastSpec",
             "NodeType",
             "NodeId",
             "NumericMode",
             "FinancialModelSpec",
             // Builder
             "ModelBuilder",
+            "MixedNodeBuilder",
+            "MetricRegistry",
             // Evaluator
             "StatementResult",
             "Evaluator",

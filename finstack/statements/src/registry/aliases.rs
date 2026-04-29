@@ -184,99 +184,18 @@ fn fuzzy_match(input: &str, candidates: &IndexSet<String>, threshold: f64) -> Op
     let normalized_input = normalize_string(input);
     candidates
         .iter()
-        .map(|c| (jaro_winkler(&normalized_input, &normalize_string(c)), c))
+        .map(|c| {
+            (
+                strsim::jaro_winkler(&normalized_input, &normalize_string(c)),
+                c,
+            )
+        })
         .filter(|(score, _)| *score >= threshold)
         .max_by(|a, b| {
             // Jaro-Winkler scores are always in [0, 1] and never NaN.
             a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
         })
         .map(|(_, name)| name.clone())
-}
-
-/// Jaro-Winkler similarity in [0.0, 1.0]. Gives a prefix bonus (up to 4 chars).
-fn jaro_winkler(s1: &str, s2: &str) -> f64 {
-    if s1 == s2 {
-        return 1.0;
-    }
-    if s1.is_empty() || s2.is_empty() {
-        return 0.0;
-    }
-
-    let jaro = jaro_similarity(s1, s2);
-    let prefix_len = s1
-        .chars()
-        .zip(s2.chars())
-        .take(4)
-        .take_while(|(c1, c2)| c1 == c2)
-        .count()
-        .min(4);
-
-    (jaro + (prefix_len as f64 * 0.1 * (1.0 - jaro))).min(1.0)
-}
-
-fn jaro_similarity(s1: &str, s2: &str) -> f64 {
-    let s1_chars: Vec<char> = s1.chars().collect();
-    let s2_chars: Vec<char> = s2.chars().collect();
-    let s1_len = s1_chars.len();
-    let s2_len = s2_chars.len();
-
-    if s1_len == 0 && s2_len == 0 {
-        return 1.0;
-    }
-    if s1_len == 0 || s2_len == 0 {
-        return 0.0;
-    }
-
-    let match_distance = if s1_len.max(s2_len) / 2 > 0 {
-        s1_len.max(s2_len) / 2 - 1
-    } else {
-        0
-    };
-
-    let s1_matches = &mut vec![false; s1_len];
-    let s2_matches = &mut vec![false; s2_len];
-
-    let mut matches = 0;
-    let mut transpositions = 0;
-
-    for (i, &c1) in s1_chars.iter().enumerate() {
-        let start = i.saturating_sub(match_distance);
-        let end = (i + match_distance + 1).min(s2_len);
-
-        for j in start..end {
-            if s2_matches[j] || c1 != s2_chars[j] {
-                continue;
-            }
-            s1_matches[i] = true;
-            s2_matches[j] = true;
-            matches += 1;
-            break;
-        }
-    }
-
-    if matches == 0 {
-        return 0.0;
-    }
-
-    let mut k = 0;
-    for (i, &matched) in s1_matches.iter().enumerate() {
-        if !matched {
-            continue;
-        }
-        while k < s2_matches.len() && !s2_matches[k] {
-            k += 1;
-        }
-        if k < s2_chars.len() && s1_chars[i] != s2_chars[k] {
-            transpositions += 1;
-        }
-        k += 1;
-    }
-
-    let matches_f = matches as f64;
-    (matches_f / s1_len as f64
-        + matches_f / s2_len as f64
-        + (matches_f - transpositions as f64 / 2.0) / matches_f)
-        / 3.0
 }
 
 #[cfg(test)]
@@ -378,17 +297,17 @@ mod tests {
     #[test]
     fn test_jaro_winkler() {
         // Exact match
-        assert_eq!(jaro_winkler("revenue", "revenue"), 1.0);
+        assert_eq!(strsim::jaro_winkler("revenue", "revenue"), 1.0);
 
         // High similarity
-        assert!(jaro_winkler("revenue", "revenu") > 0.95);
+        assert!(strsim::jaro_winkler("revenue", "revenu") > 0.95);
 
         // Low similarity
-        assert!(jaro_winkler("revenue", "xyz") < 0.5);
+        assert!(strsim::jaro_winkler("revenue", "xyz") < 0.5);
 
         // Prefix bonus
-        let score_prefix = jaro_winkler("revenue", "revenu");
-        let score_no_prefix = jaro_winkler("revenue", "evenue");
+        let score_prefix = strsim::jaro_winkler("revenue", "revenu");
+        let score_no_prefix = strsim::jaro_winkler("revenue", "evenue");
         assert!(score_prefix > score_no_prefix);
     }
 

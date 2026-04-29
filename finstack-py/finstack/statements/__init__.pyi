@@ -18,11 +18,14 @@ from finstack.core.money import Money
 
 __all__ = [
     "ForecastMethod",
+    "ForecastSpec",
     "NodeType",
     "NodeId",
     "NumericMode",
     "FinancialModelSpec",
     "ModelBuilder",
+    "MixedNodeBuilder",
+    "MetricRegistry",
     "StatementResult",
     "Evaluator",
     "parse_formula",
@@ -142,6 +145,51 @@ class ForecastMethod:
 
     def __repr__(self) -> str:
         """Return a debug representation of this forecast method."""
+        ...
+
+class ForecastSpec:
+    """Forecast configuration for a statement node."""
+
+    def __init__(self, method: ForecastMethod, params_json: str | None = None) -> None:
+        """Create a forecast spec from a method and optional JSON params."""
+        ...
+
+    @staticmethod
+    def forward_fill() -> ForecastSpec:
+        """Carry the last observed value forward."""
+        ...
+
+    @staticmethod
+    def growth(rate: float) -> ForecastSpec:
+        """Compound each future period by ``rate``."""
+        ...
+
+    @staticmethod
+    def curve(curve: list[float]) -> ForecastSpec:
+        """Use period-specific growth rates."""
+        ...
+
+    @staticmethod
+    def normal(mean: float, std_dev: float, seed: int) -> ForecastSpec:
+        """Use deterministic additive normal draws."""
+        ...
+
+    @staticmethod
+    def lognormal(mean: float, std_dev: float, seed: int) -> ForecastSpec:
+        """Use deterministic multiplicative log-normal draws."""
+        ...
+
+    @staticmethod
+    def from_json(json: str) -> ForecastSpec:
+        """Deserialize a forecast spec from JSON."""
+        ...
+
+    def to_json(self) -> str:
+        """Serialize this forecast spec to JSON."""
+        ...
+
+    def __repr__(self) -> str:
+        """Return a debug representation of this forecast spec."""
         ...
 
 class NodeType:
@@ -480,6 +528,14 @@ class ModelBuilder:
         """
         ...
 
+    def value_scalar(self, node_id: str, values: list[tuple[str, float]]) -> None:
+        """Add a scalar value node with explicit per-period values."""
+        ...
+
+    def value_money(self, node_id: str, values: list[tuple[str, Money]]) -> None:
+        """Add a monetary value node with explicit per-period values."""
+        ...
+
     def compute(self, node_id: str, formula: str) -> None:
         """Add a calculated node from a DSL formula.
 
@@ -501,6 +557,34 @@ class ModelBuilder:
         >>> b.periods("2025Q1..Q1", None)  # doctest: +SKIP
         >>> b.compute("margin", "revenue - cogs")  # doctest: +SKIP
         """
+        ...
+
+    def mixed(self, node_id: str) -> MixedNodeBuilder:
+        """Start configuring a mixed node and consume this builder until ``build`` returns."""
+        ...
+
+    def forecast(self, node_id: str, forecast_spec: ForecastSpec) -> None:
+        """Attach a forecast to an existing node or create a forecast-only mixed node."""
+        ...
+
+    def where_clause(self, where_clause: str) -> None:
+        """Attach a conditional expression to the last added node."""
+        ...
+
+    def with_meta(self, key: str, value_json: str) -> None:
+        """Add model-level metadata from a JSON payload."""
+        ...
+
+    def with_name_normalization(self) -> None:
+        """Enable standard accounting term alias normalization."""
+        ...
+
+    def with_builtin_metrics(self) -> None:
+        """Add all built-in statement metrics to the model."""
+        ...
+
+    def add_metric_from_registry(self, qualified_id: str, registry: MetricRegistry) -> None:
+        """Add one metric and its dependencies from a metric registry."""
         ...
 
     def add_bond(
@@ -567,6 +651,69 @@ class ModelBuilder:
         >>> b.periods("2025Q1..Q1", None)  # doctest: +SKIP
         >>> spec = b.build()  # doctest: +SKIP
         """
+        ...
+
+class MixedNodeBuilder:
+    """Fluent builder for a mixed statement node."""
+
+    def values(self, values: list[tuple[str, float]]) -> None:
+        """Set scalar explicit values."""
+        ...
+
+    def values_scalar(self, values: list[tuple[str, float]]) -> None:
+        """Set scalar explicit values."""
+        ...
+
+    def values_money(self, values: list[tuple[str, Money]]) -> None:
+        """Set monetary explicit values."""
+        ...
+
+    def forecast(self, forecast_spec: ForecastSpec) -> None:
+        """Set the forecast spec."""
+        ...
+
+    def formula(self, formula: str) -> None:
+        """Set the fallback formula."""
+        ...
+
+    def name(self, name: str) -> None:
+        """Set the display name."""
+        ...
+
+    def build(self) -> ModelBuilder:
+        """Attach the mixed node and return a ready model builder."""
+        ...
+
+class MetricRegistry:
+    """Reusable statement metric registry."""
+
+    def __init__(self) -> None:
+        """Create an empty registry."""
+        ...
+
+    @staticmethod
+    def with_builtins() -> MetricRegistry:
+        """Create a registry preloaded with built-in metrics."""
+        ...
+
+    def load_builtins(self) -> None:
+        """Load built-in metrics into this registry."""
+        ...
+
+    def load_from_json_str(self, json: str) -> None:
+        """Load metrics from a JSON document."""
+        ...
+
+    def load_from_json(self, path: str) -> None:
+        """Load metrics from a JSON file path."""
+        ...
+
+    def has(self, qualified_id: str) -> bool:
+        """Return whether a fully qualified metric exists."""
+        ...
+
+    def __len__(self) -> int:
+        """Return the number of metrics."""
         ...
 
 class StatementResult:

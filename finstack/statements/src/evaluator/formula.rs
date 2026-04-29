@@ -253,6 +253,7 @@ pub(crate) fn collect_expression_values_sorted(
 ) -> Result<Rc<BTreeMap<PeriodId, f64>>> {
     match &expr.node {
         ExprNode::Column(name) => return collect_historical_values_sorted(name, context),
+        ExprNode::CSRef { .. } => {}
         ExprNode::Literal(value) => {
             let mut values = BTreeMap::new();
             for period in context.historical_results.keys() {
@@ -287,7 +288,7 @@ pub(crate) fn collect_expression_values_sorted(
 /// safe to evaluate period-by-period without full history.
 fn has_aggregate(expr: &Expr) -> bool {
     match &expr.node {
-        ExprNode::Column(_) | ExprNode::Literal(_) => false,
+        ExprNode::Column(_) | ExprNode::CSRef { .. } | ExprNode::Literal(_) => false,
         ExprNode::Call(func, args) => {
             matches!(
                 func,
@@ -351,6 +352,7 @@ pub(crate) fn collect_expression_window_values(
         ExprNode::Column(name) => {
             return collect_rolling_window_values(name, context, window_size);
         }
+        ExprNode::CSRef { .. } => {}
         ExprNode::Literal(value) => {
             let total = context.historical_results.len() + 1;
             return Ok(vec![*value; window_size.min(total)]);
@@ -392,23 +394,14 @@ pub(crate) fn evaluate_expr(
 
     match &expr.node {
         ExprNode::Literal(val) => Ok(*val),
-        ExprNode::Column(name) => {
-            // Capital structure reference format: __cs__<component>__<instrument_or_total>.
-            // Parse without allocating a Vec of splits on every hot-path lookup.
-            if let Some(rest) = name.strip_prefix("__cs__") {
-                if let Some(idx) = rest.find("__") {
-                    let component = &rest[..idx];
-                    let instrument_or_total = &rest[idx + 2..];
-                    if !component.is_empty() && !instrument_or_total.is_empty() {
-                        return map_err_with_node(
-                            context.get_cs_value(component, instrument_or_total),
-                            node_id,
-                        );
-                    }
-                }
-            }
-            map_err_with_node(context.get_value(name), node_id)
-        }
+        ExprNode::CSRef {
+            component,
+            instrument_or_total,
+        } => map_err_with_node(
+            context.get_cs_value(component, instrument_or_total),
+            node_id,
+        ),
+        ExprNode::Column(name) => map_err_with_node(context.get_value(name), node_id),
         ExprNode::Call(func, args) => {
             crate::evaluator::formula_dispatch::evaluate_function(func, args, context, node_id)
         }

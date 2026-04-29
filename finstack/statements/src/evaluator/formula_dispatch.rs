@@ -119,15 +119,17 @@ pub(crate) fn evaluate_function(
         Function::Coalesce => {
             require_min_args("coalesce", args, 2, node_id)?;
 
+            let mut last_value = f64::NAN;
             for arg in args {
                 let value = evaluate_expr(arg, context, node_id)?;
+                last_value = value;
                 if !value.is_nan() {
                     return Ok(value);
                 }
             }
 
-            // If all values are NaN, return the last one
-            evaluate_expr(&args[args.len() - 1], context, node_id)
+            // If all values are NaN, return the last one.
+            Ok(last_value)
         }
     }
 }

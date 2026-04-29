@@ -10,7 +10,7 @@ use indexmap::IndexSet;
 /// Returns true if the character is NOT part of an identifier (alphanumeric or underscore).
 #[inline]
 fn is_identifier_boundary(c: char) -> bool {
-    !c.is_alphanumeric() && c != '_' && c != '-'
+    !c.is_alphanumeric() && c != '_'
 }
 
 /// Check if an identifier at a given position is standalone (not part of a larger identifier).
@@ -55,6 +55,33 @@ pub fn is_standalone_identifier(
     };
 
     before_ok && after_ok
+}
+
+/// Replace every standalone occurrence of one identifier in a formula.
+pub(crate) fn replace_standalone_identifier(
+    formula: &str,
+    identifier: &str,
+    replacement: &str,
+) -> String {
+    const MAX_REPLACE_ITERATIONS: usize = 1_000_000;
+    let mut result = formula.to_string();
+    let mut idx = 0;
+    let mut iterations = 0usize;
+    while let Some(pos) = result[idx..].find(identifier) {
+        iterations += 1;
+        if iterations > MAX_REPLACE_ITERATIONS {
+            break;
+        }
+        let abs_pos = idx + pos;
+        let end_pos = abs_pos + identifier.len();
+        if is_standalone_identifier(&result, abs_pos, end_pos, false) {
+            result.replace_range(abs_pos..end_pos, replacement);
+            idx = abs_pos + replacement.len();
+        } else {
+            idx = end_pos;
+        }
+    }
+    result
 }
 
 /// Extract ALL identifiers from a formula by parsing the AST.
@@ -194,59 +221,15 @@ fn collect_identifiers_from_ast(
 pub fn extract_identifiers(
     formula: &str,
     known_identifiers: &IndexSet<String>,
-) -> IndexSet<String> {
-    match parse_formula(formula) {
-        Ok(ast) => {
-            let mut identifiers = IndexSet::new();
-            collect_identifiers_from_ast(&ast, &mut identifiers, false);
+) -> crate::error::Result<IndexSet<String>> {
+    let ast = parse_formula(formula)?;
+    let mut identifiers = IndexSet::new();
+    collect_identifiers_from_ast(&ast, &mut identifiers, false);
 
-            identifiers
-                .into_iter()
-                .filter(|id| known_identifiers.contains(id))
-                .collect()
-        }
-        Err(e) => {
-            tracing::warn!("AST parse failed for formula, falling back to string scanner: {e}");
-            extract_identifiers_by_scanning(formula, known_identifiers)
-        }
-    }
-}
-
-fn extract_identifiers_by_scanning(
-    formula: &str,
-    known_identifiers: &IndexSet<String>,
-) -> IndexSet<String> {
-    let mut found = IndexSet::new();
-
-    for identifier in known_identifiers {
-        if formula.contains(identifier.as_str()) {
-            // Check each occurrence to see if it's standalone
-            let is_standalone = formula.match_indices(identifier.as_str()).any(|(idx, _)| {
-                let end_idx = idx + identifier.len();
-
-                // Check if it's part of a cs.* reference (should be excluded)
-                let is_cs_ref = if idx >= 3 {
-                    let prefix_start = idx.saturating_sub(3);
-                    formula[prefix_start..idx].ends_with("cs.")
-                } else {
-                    false
-                };
-
-                if is_cs_ref {
-                    return false;
-                }
-
-                // Check boundaries
-                is_standalone_identifier(formula, idx, end_idx, false)
-            });
-
-            if is_standalone {
-                found.insert(identifier.clone());
-            }
-        }
-    }
-
-    found
+    Ok(identifiers
+        .into_iter()
+        .filter(|id| known_identifiers.contains(id))
+        .collect())
 }
 
 /// Replace all occurrences of identifiers in a formula with qualified versions.
@@ -282,30 +265,9 @@ pub fn qualify_identifiers(
     let mut sorted: Vec<_> = identifiers.iter().cloned().collect();
     sorted.sort_by_key(|id| std::cmp::Reverse(id.len()));
 
-    // Replace each identifier with its qualified version
-    const MAX_REPLACE_ITERATIONS: usize = 1_000_000;
     for identifier in sorted {
         let qualified = format!("{}.{}", namespace, identifier);
-
-        let mut idx = 0;
-        let mut iterations = 0usize;
-        while let Some(pos) = result[idx..].find(&identifier) {
-            iterations += 1;
-            if iterations > MAX_REPLACE_ITERATIONS {
-                break;
-            }
-            let abs_pos = idx + pos;
-            let end_pos = abs_pos + identifier.len();
-
-            // Check if it's a standalone identifier
-            if is_standalone_identifier(&result, abs_pos, end_pos, false) {
-                // Replace this occurrence
-                result.replace_range(abs_pos..end_pos, &qualified);
-                idx = abs_pos + qualified.len();
-            } else {
-                idx = end_pos;
-            }
-        }
+        result = replace_standalone_identifier(&result, &identifier, &qualified);
     }
 
     result
@@ -348,7 +310,7 @@ mod tests {
         known.insert("cogs".to_string());
         known.insert("gross_profit".to_string());
 
-        let deps = extract_identifiers(formula, &known);
+        let deps = extract_identifiers(formula, &known).expect("formula should parse");
 
         assert_eq!(deps.len(), 2);
         assert!(deps.contains("revenue"));
@@ -363,7 +325,7 @@ mod tests {
         known.insert("revenue".to_string());
         known.insert("interest_expense".to_string());
 
-        let deps = extract_identifiers(formula, &known);
+        let deps = extract_identifiers(formula, &known).expect("formula should parse");
 
         assert_eq!(deps.len(), 1);
         assert!(deps.contains("revenue"));
@@ -377,7 +339,7 @@ mod tests {
         known.insert("ebitda".to_string());
         known.insert("ebitda_margin".to_string());
 
-        let deps = extract_identifiers(formula, &known);
+        let deps = extract_identifiers(formula, &known).expect("formula should parse");
 
         assert_eq!(deps.len(), 2);
         assert!(deps.contains("ebitda"));

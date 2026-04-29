@@ -36,6 +36,13 @@ pub struct Expr {
 pub enum ExprNode {
     /// Reference a column by name.
     Column(String),
+    /// Domain-specific capital-structure reference.
+    CSRef {
+        /// Capital-structure component.
+        component: String,
+        /// Instrument id or `total`.
+        instrument_or_total: String,
+    },
     /// Literal scalar value using the crate's numeric type alias.
     Literal(f64),
     /// Call a registered function with positional arguments.
@@ -121,6 +128,17 @@ impl Expr {
         }
     }
 
+    /// Create a new capital-structure reference.
+    pub fn cs_ref(component: impl Into<String>, instrument_or_total: impl Into<String>) -> Self {
+        Self {
+            id: None,
+            node: ExprNode::CSRef {
+                component: component.into(),
+                instrument_or_total: instrument_or_total.into(),
+            },
+        }
+    }
+
     /// Create a new literal value.
     pub fn literal(value: f64) -> Self {
         Self {
@@ -192,6 +210,14 @@ impl Hash for Expr {
                 0u8.hash(state);
                 name.hash(state);
             }
+            ExprNode::CSRef {
+                component,
+                instrument_or_total,
+            } => {
+                6u8.hash(state);
+                component.hash(state);
+                instrument_or_total.hash(state);
+            }
             ExprNode::Literal(val) => {
                 1u8.hash(state);
                 // Hash via raw f64 bits for determinism (covers NaN payloads)
@@ -231,6 +257,16 @@ impl PartialEq for Expr {
     fn eq(&self, other: &Self) -> bool {
         match (&self.node, &other.node) {
             (ExprNode::Column(a), ExprNode::Column(b)) => a == b,
+            (
+                ExprNode::CSRef {
+                    component: a_component,
+                    instrument_or_total: a_instrument,
+                },
+                ExprNode::CSRef {
+                    component: b_component,
+                    instrument_or_total: b_instrument,
+                },
+            ) => a_component == b_component && a_instrument == b_instrument,
             (ExprNode::Literal(a), ExprNode::Literal(b)) => {
                 // f64 equality via raw bits for deterministic NaN handling
                 (*a).to_bits() == (*b).to_bits()

@@ -8,11 +8,14 @@ from __future__ import annotations
 from finstack.finstack import statements as _statements
 
 ForecastMethod = _statements.ForecastMethod
+ForecastSpec = _statements.ForecastSpec
 NodeType = _statements.NodeType
 NodeId = _statements.NodeId
 NumericMode = _statements.NumericMode
 FinancialModelSpec = _statements.FinancialModelSpec
 ModelBuilder = _statements.ModelBuilder
+MixedNodeBuilder = _statements.MixedNodeBuilder
+MetricRegistry = _statements.MetricRegistry
 StatementResult = _statements.StatementResult
 Evaluator = _statements.Evaluator
 parse_formula = _statements.parse_formula
@@ -32,6 +35,9 @@ __all__: list[str] = [
     "Evaluator",
     "FinancialModelSpec",
     "ForecastMethod",
+    "ForecastSpec",
+    "MetricRegistry",
+    "MixedNodeBuilder",
     "ModelBuilder",
     "NodeId",
     "NodeType",

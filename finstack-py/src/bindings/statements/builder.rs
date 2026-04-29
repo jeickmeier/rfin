@@ -4,14 +4,14 @@
 //! the two states into a single class and track readiness at runtime.
 
 use super::capital_structure::PyWaterfallSpec;
-use super::types::PyFinancialModelSpec;
+use super::types::{PyFinancialModelSpec, PyForecastSpec};
 use crate::bindings::core::currency::PyCurrency;
 use crate::bindings::core::dates::utils::py_to_date;
 use crate::bindings::core::money::PyMoney;
 use crate::errors::{core_to_py, display_to_py};
 use finstack_core::dates::PeriodId;
 use finstack_core::money::fx::FxConversionPolicy;
-use finstack_statements::builder::ModelBuilder;
+use finstack_statements::builder::{MixedNodeBuilder, ModelBuilder};
 use finstack_statements::types::AmountOrScalar;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -33,6 +33,138 @@ pub struct PyModelBuilder {
 enum BuilderState {
     NeedPeriods(ModelBuilder<finstack_statements::builder::NeedPeriods>),
     Ready(ModelBuilder<finstack_statements::builder::Ready>),
+}
+
+/// Metric registry used to add reusable statement metrics to a model.
+#[pyclass(
+    name = "MetricRegistry",
+    module = "finstack.statements",
+    skip_from_py_object
+)]
+#[derive(Clone)]
+pub struct PyMetricRegistry {
+    inner: finstack_statements::registry::Registry,
+}
+
+#[pymethods]
+impl PyMetricRegistry {
+    /// Create an empty metric registry.
+    #[new]
+    fn new() -> Self {
+        Self {
+            inner: finstack_statements::registry::Registry::new(),
+        }
+    }
+
+    /// Create a registry preloaded with built-in metrics.
+    #[staticmethod]
+    fn with_builtins() -> PyResult<Self> {
+        let inner =
+            finstack_statements::registry::Registry::with_builtins().map_err(display_to_py)?;
+        Ok(Self { inner })
+    }
+
+    /// Load built-in metrics into this registry.
+    fn load_builtins(&mut self) -> PyResult<()> {
+        self.inner.load_builtins().map_err(display_to_py)
+    }
+
+    /// Load metrics from a JSON string.
+    fn load_from_json_str(&mut self, json: &str) -> PyResult<()> {
+        self.inner
+            .load_from_json_str(json)
+            .map(|_| ())
+            .map_err(display_to_py)
+    }
+
+    /// Load metrics from a JSON file path.
+    fn load_from_json(&mut self, path: &str) -> PyResult<()> {
+        self.inner.load_from_json(path).map_err(display_to_py)
+    }
+
+    /// Return whether a fully qualified metric exists.
+    fn has(&self, qualified_id: &str) -> bool {
+        self.inner.has(qualified_id)
+    }
+
+    /// Number of metrics in the registry.
+    fn __len__(&self) -> usize {
+        self.inner.len()
+    }
+}
+
+/// Fluent builder for a mixed statement node.
+#[pyclass(name = "MixedNodeBuilder", module = "finstack.statements")]
+pub struct PyMixedNodeBuilder {
+    inner: Option<MixedNodeBuilder>,
+}
+
+#[pymethods]
+impl PyMixedNodeBuilder {
+    /// Set scalar explicit values for the mixed node.
+    fn values(&mut self, values: Vec<(String, f64)>) -> PyResult<()> {
+        let builder = self.take()?;
+        let parsed = parse_scalar_values(values)?;
+        self.inner = Some(builder.values(&parsed));
+        Ok(())
+    }
+
+    /// Set scalar explicit values for the mixed node.
+    fn values_scalar(&mut self, values: Vec<(String, f64)>) -> PyResult<()> {
+        self.values(values)
+    }
+
+    /// Set monetary explicit values for the mixed node.
+    fn values_money(&mut self, values: Vec<(String, PyMoney)>) -> PyResult<()> {
+        let builder = self.take()?;
+        let parsed: Vec<(PeriodId, AmountOrScalar)> = values
+            .into_iter()
+            .map(|(p, money)| {
+                let pid: PeriodId = p.parse().map_err(core_to_py)?;
+                Ok((pid, AmountOrScalar::Amount(money.inner)))
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        self.inner = Some(builder.values(&parsed));
+        Ok(())
+    }
+
+    /// Set the forecast specification.
+    fn forecast(&mut self, forecast_spec: PyRef<'_, PyForecastSpec>) -> PyResult<()> {
+        let builder = self.take()?;
+        self.inner = Some(builder.forecast(forecast_spec.inner.clone()));
+        Ok(())
+    }
+
+    /// Set the fallback formula.
+    fn formula(&mut self, formula: &str) -> PyResult<()> {
+        let builder = self.take()?;
+        self.inner = Some(builder.formula(formula).map_err(display_to_py)?);
+        Ok(())
+    }
+
+    /// Set the human-readable name.
+    fn name(&mut self, name: &str) -> PyResult<()> {
+        let builder = self.take()?;
+        self.inner = Some(builder.name(name));
+        Ok(())
+    }
+
+    /// Build the mixed node and return a ready model builder.
+    fn build(&mut self) -> PyResult<PyModelBuilder> {
+        let builder = self.take()?;
+        let ready = builder.build().map_err(display_to_py)?;
+        Ok(PyModelBuilder {
+            inner: Some(BuilderState::Ready(ready)),
+        })
+    }
+}
+
+impl PyMixedNodeBuilder {
+    fn take(&mut self) -> PyResult<MixedNodeBuilder> {
+        self.inner
+            .take()
+            .ok_or_else(|| PyValueError::new_err("MixedNodeBuilder has already been consumed"))
+    }
 }
 
 #[pymethods]
@@ -81,15 +213,43 @@ impl PyModelBuilder {
     #[pyo3(text_signature = "($self, node_id, values)")]
     fn value(&mut self, node_id: &str, values: Vec<(String, f64)>) -> PyResult<()> {
         let state = self.take_ready()?;
-        let parsed: Vec<(PeriodId, AmountOrScalar)> = values
+        let parsed = parse_scalar_values(values)?;
+
+        let ready = state.value(node_id, &parsed);
+        self.inner = Some(BuilderState::Ready(ready));
+        Ok(())
+    }
+
+    /// Add a scalar value node with explicit period values.
+    #[pyo3(text_signature = "($self, node_id, values)")]
+    fn value_scalar(&mut self, node_id: &str, values: Vec<(String, f64)>) -> PyResult<()> {
+        let state = self.take_ready()?;
+        let parsed: Vec<(PeriodId, f64)> = values
             .into_iter()
             .map(|(p, v)| {
                 let pid: PeriodId = p.parse().map_err(core_to_py)?;
-                Ok((pid, AmountOrScalar::scalar(v)))
+                Ok((pid, v))
             })
             .collect::<PyResult<Vec<_>>>()?;
 
-        let ready = state.value(node_id, &parsed);
+        let ready = state.value_scalar(node_id, &parsed);
+        self.inner = Some(BuilderState::Ready(ready));
+        Ok(())
+    }
+
+    /// Add a monetary value node with explicit period values.
+    #[pyo3(text_signature = "($self, node_id, values)")]
+    fn value_money(&mut self, node_id: &str, values: Vec<(String, PyMoney)>) -> PyResult<()> {
+        let state = self.take_ready()?;
+        let parsed: Vec<(PeriodId, finstack_core::money::Money)> = values
+            .into_iter()
+            .map(|(p, money)| {
+                let pid: PeriodId = p.parse().map_err(core_to_py)?;
+                Ok((pid, money.inner))
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+
+        let ready = state.value_money(node_id, &parsed);
         self.inner = Some(BuilderState::Ready(ready));
         Ok(())
     }
@@ -106,6 +266,80 @@ impl PyModelBuilder {
     fn compute(&mut self, node_id: &str, formula: &str) -> PyResult<()> {
         let state = self.take_ready()?;
         let ready = state.compute(node_id, formula).map_err(display_to_py)?;
+        self.inner = Some(BuilderState::Ready(ready));
+        Ok(())
+    }
+
+    /// Start configuring a mixed node.
+    #[pyo3(text_signature = "($self, node_id)")]
+    fn mixed(&mut self, node_id: &str) -> PyResult<PyMixedNodeBuilder> {
+        let state = self.take_ready()?;
+        Ok(PyMixedNodeBuilder {
+            inner: Some(state.mixed(node_id)),
+        })
+    }
+
+    /// Attach a forecast specification to an existing or new node.
+    #[pyo3(text_signature = "($self, node_id, forecast_spec)")]
+    fn forecast(
+        &mut self,
+        node_id: &str,
+        forecast_spec: PyRef<'_, PyForecastSpec>,
+    ) -> PyResult<()> {
+        let state = self.take_ready()?;
+        let ready = state.forecast(node_id, forecast_spec.inner.clone());
+        self.inner = Some(BuilderState::Ready(ready));
+        Ok(())
+    }
+
+    /// Attach a where clause to the last added node.
+    #[pyo3(text_signature = "($self, where_clause)")]
+    fn where_clause(&mut self, where_clause: &str) -> PyResult<()> {
+        let state = self.take_ready()?;
+        let ready = state.where_clause(where_clause);
+        self.inner = Some(BuilderState::Ready(ready));
+        Ok(())
+    }
+
+    /// Add model-level metadata from a JSON payload.
+    #[pyo3(text_signature = "($self, key, value_json)")]
+    fn with_meta(&mut self, key: &str, value_json: &str) -> PyResult<()> {
+        let value: serde_json::Value = serde_json::from_str(value_json).map_err(display_to_py)?;
+        let state = self.take_ready()?;
+        let ready = state.with_meta(key, value);
+        self.inner = Some(BuilderState::Ready(ready));
+        Ok(())
+    }
+
+    /// Enable standard accounting name normalization.
+    #[pyo3(text_signature = "($self)")]
+    fn with_name_normalization(&mut self) -> PyResult<()> {
+        let state = self.take_ready()?;
+        let ready = state.with_name_normalization();
+        self.inner = Some(BuilderState::Ready(ready));
+        Ok(())
+    }
+
+    /// Add all built-in statement metrics.
+    #[pyo3(text_signature = "($self)")]
+    fn with_builtin_metrics(&mut self) -> PyResult<()> {
+        let state = self.take_ready()?;
+        let ready = state.with_builtin_metrics().map_err(display_to_py)?;
+        self.inner = Some(BuilderState::Ready(ready));
+        Ok(())
+    }
+
+    /// Add one metric and its dependencies from a registry.
+    #[pyo3(text_signature = "($self, qualified_id, registry)")]
+    fn add_metric_from_registry(
+        &mut self,
+        qualified_id: &str,
+        registry: PyRef<'_, PyMetricRegistry>,
+    ) -> PyResult<()> {
+        let state = self.take_ready()?;
+        let ready = state
+            .add_metric_from_registry(qualified_id, &registry.inner)
+            .map_err(display_to_py)?;
         self.inner = Some(BuilderState::Ready(ready));
         Ok(())
     }
@@ -342,5 +576,17 @@ impl PyModelBuilder {
 /// Register builder classes.
 pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyModelBuilder>()?;
+    m.add_class::<PyMixedNodeBuilder>()?;
+    m.add_class::<PyMetricRegistry>()?;
     Ok(())
+}
+
+fn parse_scalar_values(values: Vec<(String, f64)>) -> PyResult<Vec<(PeriodId, AmountOrScalar)>> {
+    values
+        .into_iter()
+        .map(|(p, v)| {
+            let pid: PeriodId = p.parse().map_err(core_to_py)?;
+            Ok((pid, AmountOrScalar::scalar(v)))
+        })
+        .collect()
 }

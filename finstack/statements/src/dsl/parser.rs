@@ -255,7 +255,11 @@ fn literal(input: &str) -> IResult<&str, StmtExpr> {
 
 // Identifier (node reference)
 fn identifier(input: &str) -> IResult<&str, StmtExpr> {
-    let (input, id_str) = identifier_string(input)?;
+    let (input, id_str) = if input.starts_with("cs.") {
+        cs_identifier_string(input)?
+    } else {
+        identifier_string(input)?
+    };
 
     // Check if this is a capital structure reference (cs.component.instrument_or_total)
     if id_str.starts_with("cs.") {
@@ -278,20 +282,29 @@ fn identifier(input: &str) -> IResult<&str, StmtExpr> {
     Ok((input, StmtExpr::NodeRef(NodeId::from(id_str.as_str()))))
 }
 
-// Identifier string (alphanumeric + underscore + dot + hyphen for instrument IDs).
+// Identifier string (alphanumeric + underscore + dot).
 //
-// **Ambiguity note:** Hyphens are allowed so that capital-structure instrument
-// IDs like `TL-1` and `cs.debt_balance.TL-1` can be referenced directly.
-// This means `revenue-cogs` will parse as a *single* identifier rather than
-// subtraction.  To express subtraction, surround the `-` operator with
-// whitespace: `revenue - cogs`.
+// Hyphens are intentionally excluded from ordinary identifiers so
+// `revenue-cogs` parses as subtraction. Capital-structure references use a
+// separate parser that permits hyphens in the instrument segment.
 fn identifier_string(input: &str) -> IResult<&str, String> {
     map(
         recognize(pair(
             take_while1(|c: char| c.is_alphabetic() || c == '_'),
-            nom::bytes::complete::take_while(|c: char| {
-                c.is_alphanumeric() || c == '_' || c == '.' || c == '-'
-            }),
+            nom::bytes::complete::take_while(|c: char| c.is_alphanumeric() || c == '_' || c == '.'),
+        )),
+        |s: &str| s.to_string(),
+    )
+    .parse(input)
+}
+
+fn cs_identifier_string(input: &str) -> IResult<&str, String> {
+    map(
+        recognize((
+            tag("cs."),
+            take_while1(|c: char| c.is_alphanumeric() || c == '_'),
+            char('.'),
+            take_while1(|c: char| c.is_alphanumeric() || c == '_' || c == '-'),
         )),
         |s: &str| s.to_string(),
     )

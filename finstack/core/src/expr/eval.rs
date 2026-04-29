@@ -370,6 +370,11 @@ impl CompiledExpr {
                 out[..len].copy_from_slice(&col_data[..len]);
                 out[len..].fill(f64::NAN);
             }
+            ExprNode::CSRef { .. } => {
+                return Err(crate::Error::Validation(
+                    "capital-structure references require the statements evaluator".to_string(),
+                ));
+            }
             ExprNode::Literal(val) => {
                 out.fill(*val);
             }

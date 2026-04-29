@@ -27,7 +27,7 @@ const RESERVED_DSL_IDENTIFIERS: &[&str] = &["if", "and", "or", "not", "true", "f
 /// `__` prefix is reserved for other internal use, and identifiers that
 /// collide with a DSL keyword or built-in function (see
 /// [`RESERVED_DSL_IDENTIFIERS`]) would shadow the language primitive.
-fn validate_node_id(node_id: &str) -> Result<()> {
+pub(crate) fn validate_node_id(node_id: &str) -> Result<()> {
     if node_id.contains("__cs__") {
         return Err(Error::build(format!(
             "Node ID '{}' contains reserved prefix '__cs__'. \
@@ -51,28 +51,6 @@ fn validate_node_id(node_id: &str) -> Result<()> {
     Ok(())
 }
 
-fn replace_standalone_identifier(formula: &str, identifier: &str, replacement: &str) -> String {
-    const MAX_REPLACE_ITERATIONS: usize = 1_000_000;
-    let mut result = formula.to_string();
-    let mut idx = 0;
-    let mut iterations = 0usize;
-    while let Some(pos) = result[idx..].find(identifier) {
-        iterations += 1;
-        if iterations > MAX_REPLACE_ITERATIONS {
-            break;
-        }
-        let abs_pos = idx + pos;
-        let end_pos = abs_pos + identifier.len();
-        if crate::utils::formula::is_standalone_identifier(&result, abs_pos, end_pos, false) {
-            result.replace_range(abs_pos..end_pos, replacement);
-            idx = abs_pos + replacement.len();
-        } else {
-            idx = end_pos;
-        }
-    }
-    result
-}
-
 fn normalize_formula_aliases(
     formula: &str,
     registry: &crate::registry::AliasRegistry,
@@ -89,7 +67,11 @@ fn normalize_formula_aliases(
             .or_else(|| registry.normalize_fuzzy(&identifier, available_nodes));
         if let Some(replacement) = replacement {
             if replacement != identifier {
-                normalized = replace_standalone_identifier(&normalized, &identifier, &replacement);
+                normalized = crate::utils::formula::replace_standalone_identifier(
+                    &normalized,
+                    &identifier,
+                    &replacement,
+                );
             }
         }
     }
@@ -596,16 +578,20 @@ impl ModelBuilder<Ready> {
         mut self,
         registry: &crate::registry::Registry,
     ) -> Result<Self> {
+        let mut namespace_cache: IndexMap<String, IndexSet<String>> = IndexMap::new();
         for (qualified_id, stored_metric) in registry.all_metrics() {
             let namespace = qualified_id.split('.').next().unwrap_or("");
             let formula = if namespace.is_empty() {
                 stored_metric.definition.formula.clone()
             } else {
-                self.qualify_metric_references(
+                let metrics_in_namespace = namespace_cache
+                    .entry(namespace.to_string())
+                    .or_insert_with(|| Self::metric_ids_in_namespace(registry, namespace));
+                Self::qualify_metric_references_with_namespace_set(
                     &stored_metric.definition.formula,
                     namespace,
-                    registry,
-                )?
+                    metrics_in_namespace,
+                )
             };
             self.insert_metric_node(qualified_id, stored_metric, formula);
         }
@@ -689,6 +675,7 @@ impl ModelBuilder<Ready> {
                 "Invalid qualified ID '{}'. Expected format: 'namespace.metric_id' (e.g., 'fin.gross_margin')",
                 qualified_id
             )))?;
+        let metrics_in_namespace = Self::metric_ids_in_namespace(registry, namespace);
 
         // Add all dependencies first (if not already added)
         for dep_id in dependencies {
@@ -696,11 +683,11 @@ impl ModelBuilder<Ready> {
                 let dep_metric = registry.get(&dep_id)?;
 
                 // Update formula to use qualified references for metrics in the same namespace
-                let formula = self.qualify_metric_references(
+                let formula = Self::qualify_metric_references_with_namespace_set(
                     &dep_metric.definition.formula,
                     namespace,
-                    registry,
-                )?;
+                    &metrics_in_namespace,
+                );
 
                 self.insert_metric_node(&dep_id, dep_metric, formula);
             }
@@ -711,11 +698,11 @@ impl ModelBuilder<Ready> {
             let stored_metric = registry.get(qualified_id)?;
 
             // Update formula to use qualified references for metrics in the same namespace
-            let formula = self.qualify_metric_references(
+            let formula = Self::qualify_metric_references_with_namespace_set(
                 &stored_metric.definition.formula,
                 namespace,
-                registry,
-            )?;
+                &metrics_in_namespace,
+            );
 
             self.insert_metric_node(qualified_id, stored_metric, formula);
         }
@@ -724,29 +711,27 @@ impl ModelBuilder<Ready> {
     }
 
     /// Replace unqualified metric references with qualified ones in a formula.
-    fn qualify_metric_references(
-        &self,
-        formula: &str,
-        namespace: &str,
+    fn metric_ids_in_namespace(
         registry: &crate::registry::Registry,
-    ) -> Result<String> {
-        // Get all metrics in this namespace
-        let metrics_in_namespace: IndexSet<String> = registry
+        namespace: &str,
+    ) -> IndexSet<String> {
+        let prefix = format!("{namespace}.");
+        registry
             .namespace(namespace)
             .map(|(id, _)| {
                 // Extract unqualified ID
-                id.strip_prefix(&format!("{}.", namespace))
-                    .unwrap_or(id)
-                    .to_string()
+                id.strip_prefix(&prefix).unwrap_or(id).to_string()
             })
-            .collect();
+            .collect()
+    }
 
+    fn qualify_metric_references_with_namespace_set(
+        formula: &str,
+        namespace: &str,
+        metrics_in_namespace: &IndexSet<String>,
+    ) -> String {
         // Use shared utility to qualify identifiers
-        Ok(crate::utils::formula::qualify_identifiers(
-            formula,
-            &metrics_in_namespace,
-            namespace,
-        ))
+        crate::utils::formula::qualify_identifiers(formula, metrics_in_namespace, namespace)
     }
 
     /// Build the final model specification.
@@ -760,57 +745,6 @@ impl ModelBuilder<Ready> {
             nodes = self.nodes.len(),
         )
         .entered();
-
-        // Validate that we have at least one period
-        if self.periods.is_empty() {
-            return Err(Error::build("Model must have at least one period"));
-        }
-
-        // Validate all node IDs don't use reserved prefixes
-        for node_id in self.nodes.keys() {
-            validate_node_id(node_id.as_str())?;
-        }
-
-        // Validate node type / field consistency
-        for (node_id, node) in &self.nodes {
-            match node.node_type {
-                NodeType::Value => {
-                    if node.formula_text.is_some() {
-                        return Err(Error::build(format!(
-                            "Value node '{}' cannot have a formula — use Mixed or Calculated type",
-                            node_id
-                        )));
-                    }
-                }
-                NodeType::Calculated => {
-                    if node.values.is_some() {
-                        return Err(Error::build(format!(
-                            "Calculated node '{}' cannot have explicit values — use Mixed or Value type",
-                            node_id
-                        )));
-                    }
-                }
-                NodeType::Mixed => {}
-            }
-        }
-
-        // Validate where clauses at build time (catches syntax errors early)
-        for (node_id, node) in &self.nodes {
-            if let Some(where_text) = &node.where_text {
-                crate::dsl::parse_and_compile(where_text).map_err(|e| {
-                    Error::build(format!("Invalid where clause on node '{}': {}", node_id, e))
-                })?;
-            }
-        }
-
-        for node in self.nodes.values_mut() {
-            if let Some(values) = &node.values {
-                let inferred = crate::types::infer_series_value_type(values.values())?;
-                if node.value_type.is_none() {
-                    node.value_type = inferred;
-                }
-            }
-        }
 
         if let Some(alias_registry) = &self.alias_registry {
             let available_nodes: IndexSet<String> = self
@@ -835,27 +769,7 @@ impl ModelBuilder<Ready> {
         spec.nodes = self.nodes;
         spec.meta = self.meta;
         spec.capital_structure = self.capital_structure;
-
-        if let Some(cs) = &spec.capital_structure {
-            if let Some(waterfall) = &cs.waterfall {
-                waterfall.validate()?;
-            }
-        }
-
-        // Detect circular dependencies at build time.
-        // Graph construction may fail if formula references are not
-        // yet defined (partial models) — that is allowed, but if it
-        // succeeds we *must* verify no cycles exist.
-        match crate::evaluator::DependencyGraph::from_model(&spec) {
-            Ok(graph) => graph.detect_cycles()?,
-            Err(e) => {
-                tracing::debug!(
-                    model_id = %spec.id,
-                    error = %e,
-                    "Skipping cycle detection: dependency graph could not be built"
-                );
-            }
-        }
+        spec.validate_semantics()?;
 
         Ok(spec)
     }
@@ -1084,5 +998,36 @@ mod tests {
             .evaluate(&model)
             .expect("evaluation should succeed");
         assert_eq!(results.get("gross_profit", &period), Some(60_000.0));
+    }
+
+    #[test]
+    fn test_build_rejects_cross_currency_addition() {
+        let period = PeriodId::quarter(2025, 1);
+        let result = ModelBuilder::new("dimension-test")
+            .periods("2025Q1..Q1", None)
+            .expect("valid periods")
+            .value_money(
+                "usd_revenue",
+                &[(
+                    period,
+                    finstack_core::money::Money::new(100.0, finstack_core::currency::Currency::USD),
+                )],
+            )
+            .value_money(
+                "eur_cost",
+                &[(
+                    period,
+                    finstack_core::money::Money::new(40.0, finstack_core::currency::Currency::EUR),
+                )],
+            )
+            .compute("bad_total", "usd_revenue + eur_cost")
+            .expect("formula syntax is valid")
+            .build();
+
+        assert!(result.is_err());
+        assert!(result
+            .expect_err("cross-currency addition should fail")
+            .to_string()
+            .contains("Dimensional mismatch"));
     }
 }

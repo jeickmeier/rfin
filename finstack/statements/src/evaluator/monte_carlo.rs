@@ -44,6 +44,9 @@ pub struct MonteCarloConfig {
     /// Percentiles to compute in the closed interval [0, 1].
     #[serde(default)]
     pub percentiles: Vec<f64>,
+    /// Whether to include the long-format path table in serialized results.
+    #[serde(default)]
+    pub include_path_data: bool,
 }
 
 impl MonteCarloConfig {
@@ -53,6 +56,7 @@ impl MonteCarloConfig {
             n_paths,
             seed,
             percentiles: vec![0.05, 0.5, 0.95],
+            include_path_data: false,
         }
     }
 
@@ -60,6 +64,13 @@ impl MonteCarloConfig {
     #[must_use]
     pub fn with_percentiles(mut self, percentiles: Vec<f64>) -> Self {
         self.percentiles = percentiles;
+        self
+    }
+
+    /// Include the long-format path table in results.
+    #[must_use]
+    pub fn with_path_data(mut self, include_path_data: bool) -> Self {
+        self.include_path_data = include_path_data;
         self
     }
 }
@@ -190,6 +201,7 @@ pub(crate) struct MonteCarloAccumulator {
     forecast_periods: Vec<PeriodId>,
     forecast_set: HashSet<PeriodId>,
     path_values: IndexMap<String, IndexMap<PeriodId, Vec<(u32, f64)>>>,
+    include_path_data: bool,
     warnings: Vec<EvalWarning>,
     path_ids: Vec<u32>,
     periods: Vec<String>,
@@ -220,6 +232,7 @@ impl MonteCarloAccumulator {
             forecast_set: forecast_periods.iter().copied().collect(),
             forecast_periods,
             path_values: IndexMap::new(),
+            include_path_data: config.include_path_data,
             warnings: Vec::new(),
             path_ids: Vec::new(),
             periods: Vec::new(),
@@ -253,10 +266,12 @@ impl MonteCarloAccumulator {
                     .entry(period_id)
                     .or_default()
                     .push((path_idx as u32, value));
-                self.path_ids.push(path_idx as u32);
-                self.periods.push(period_id.to_string());
-                self.metrics.push(metric.clone());
-                self.values.push(value);
+                if self.include_path_data {
+                    self.path_ids.push(path_idx as u32);
+                    self.periods.push(period_id.to_string());
+                    self.metrics.push(metric.clone());
+                    self.values.push(value);
+                }
             }
         }
 
@@ -311,7 +326,7 @@ impl MonteCarloAccumulator {
             percentile_results.insert(metric.clone(), series);
         }
 
-        let path_data = if self.path_ids.is_empty() {
+        let path_data = if !self.include_path_data || self.path_ids.is_empty() {
             None
         } else {
             let mut metadata = IndexMap::new();
@@ -347,6 +362,7 @@ impl MonteCarloAccumulator {
         if self.expected_paths != other.expected_paths
             || self.percentiles != other.percentiles
             || self.forecast_periods != other.forecast_periods
+            || self.include_path_data != other.include_path_data
         {
             return Err(Error::eval(
                 "Monte Carlo accumulator merge mismatch across parallel partitions",
@@ -379,6 +395,7 @@ impl MonteCarloAccumulator {
             forecast_periods: self.forecast_periods.clone(),
             forecast_set: self.forecast_set.clone(),
             path_values: IndexMap::new(),
+            include_path_data: self.include_path_data,
             warnings: Vec::new(),
             path_ids: Vec::new(),
             periods: Vec::new(),
@@ -507,5 +524,38 @@ mod tests {
             .expect("path should be accepted");
         let results = accumulator.finish().expect("results should finish");
         assert_eq!(results.warnings.len(), 1);
+    }
+
+    #[test]
+    fn path_data_is_opt_in() {
+        let period = PeriodId::quarter(2025, 1);
+        let model = ModelBuilder::new("mc-path-data")
+            .periods("2025Q1..Q1", None)
+            .expect("valid periods")
+            .value("revenue", &[(period, AmountOrScalar::scalar(100.0))])
+            .build()
+            .expect("valid model");
+
+        let mut path = IndexMap::new();
+        path.insert(
+            "revenue".to_string(),
+            [(period, 100.0)].into_iter().collect(),
+        );
+
+        let default_config = MonteCarloConfig::new(1, 7);
+        let default_results =
+            aggregate_monte_carlo_paths(&model, &default_config, &[(path.clone(), Vec::new())])
+                .expect("default aggregation should finish");
+        assert!(default_results.path_data.is_none());
+        assert_eq!(
+            default_results.breach_probability("revenue", 50.0),
+            Some(1.0)
+        );
+
+        let opt_in_config = MonteCarloConfig::new(1, 7).with_path_data(true);
+        let opt_in_results =
+            aggregate_monte_carlo_paths(&model, &opt_in_config, &[(path, Vec::new())])
+                .expect("opt-in aggregation should finish");
+        assert!(opt_in_results.path_data.is_some());
     }
 }

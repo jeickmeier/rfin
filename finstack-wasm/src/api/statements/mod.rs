@@ -22,12 +22,13 @@ use wasm_bindgen::prelude::*;
 
 /// Validate a `FinancialModelSpec` JSON string.
 ///
-/// Deserializes the input against the model schema and returns
-/// the canonical (re-serialized) JSON.
+/// Deserializes the input against the model schema, runs semantic validation,
+/// and returns the canonical (re-serialized) JSON.
 #[wasm_bindgen(js_name = validateFinancialModelJson)]
 pub fn validate_financial_model_json(json: &str) -> Result<String, JsValue> {
-    let model: finstack_statements::FinancialModelSpec =
+    let mut model: finstack_statements::FinancialModelSpec =
         serde_json::from_str(json).map_err(to_js_err)?;
+    model.validate_semantics().map_err(to_js_err)?;
     serde_json::to_string(&model).map_err(to_js_err)
 }
 
@@ -156,15 +157,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn validate_financial_model_json_accepts_minimal_model() {
-        let model = finstack_statements::FinancialModelSpec::new("test", vec![]);
+    fn validate_financial_model_json_accepts_valid_model() {
+        let periods = finstack_core::dates::build_periods("2025Q1..Q1", None)
+            .expect("valid periods")
+            .periods;
+        let model = finstack_statements::FinancialModelSpec::new("test", periods);
         let json = serde_json::to_string(&model).expect("model should serialize to JSON");
         let out = validate_financial_model_json(&json)
-            .expect("validate_financial_model_json should accept minimal model");
+            .expect("validate_financial_model_json should accept valid model");
         let round_trip = serde_json::from_str::<finstack_statements::FinancialModelSpec>(&out)
             .expect("validated JSON should deserialize");
         assert_eq!(round_trip.id, "test");
         assert!(round_trip.nodes.is_empty());
+    }
+
+    #[test]
+    fn validate_financial_model_json_rejects_empty_periods() {
+        let model = finstack_statements::FinancialModelSpec::new("test", vec![]);
+        let json = serde_json::to_string(&model).expect("model should serialize to JSON");
+        let err = validate_financial_model_json(&json)
+            .expect_err("semantic validation should reject empty periods");
+        assert!(format!("{err:?}").contains("Model must have at least one period"));
     }
 
     #[test]

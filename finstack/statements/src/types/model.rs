@@ -1,6 +1,7 @@
 //! Financial model specification types.
 
-use crate::types::{NodeId, NodeSpec};
+use crate::error::{Error, Result};
+use crate::types::{NodeId, NodeSpec, NodeType};
 use finstack_core::dates::Period;
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -45,7 +46,9 @@ pub struct FinancialModelSpec {
     /// Schema version for forward compatibility.
     ///
     /// Validated on deserialize against `CURRENT_SCHEMA_VERSION`; unknown
-    /// versions fail deserialization rather than silently accepting drift.
+    /// versions fail deserialization rather than silently accepting drift. This
+    /// field is intentionally present even while only v1 exists so serialized
+    /// model stores have an explicit migration anchor.
     #[serde(
         default = "default_schema_version",
         deserialize_with = "deserialize_schema_version"
@@ -120,13 +123,112 @@ impl FinancialModelSpec {
     pub fn has_node(&self, node_id: &str) -> bool {
         self.nodes.contains_key(node_id)
     }
+
+    /// Validate model semantics that serde alone cannot enforce.
+    ///
+    /// This mirrors the terminal validation performed by the builder so JSON
+    /// entry points reject structurally invalid models before evaluation.
+    pub fn validate_semantics(&mut self) -> Result<()> {
+        if self.periods.is_empty() {
+            return Err(Error::build("Model must have at least one period"));
+        }
+
+        for node_id in self.nodes.keys() {
+            crate::builder::validate_node_id(node_id.as_str())?;
+        }
+
+        for (node_id, node) in &self.nodes {
+            match node.node_type {
+                NodeType::Value => {
+                    if node.formula_text.is_some() {
+                        return Err(Error::build(format!(
+                            "Value node '{}' cannot have a formula — use Mixed or Calculated type",
+                            node_id
+                        )));
+                    }
+                }
+                NodeType::Calculated => {
+                    if node.values.is_some() {
+                        return Err(Error::build(format!(
+                            "Calculated node '{}' cannot have explicit values — use Mixed or Value type",
+                            node_id
+                        )));
+                    }
+                }
+                NodeType::Mixed => {}
+            }
+        }
+
+        for node in self.nodes.values_mut() {
+            if let Some(values) = &node.values {
+                let inferred = crate::types::infer_series_value_type(values.values())?;
+                if node.value_type.is_none() {
+                    node.value_type = inferred;
+                }
+            }
+        }
+
+        let node_value_types: IndexMap<NodeId, crate::types::NodeValueType> = self
+            .nodes
+            .iter()
+            .filter_map(|(node_id, node)| {
+                node.value_type
+                    .map(|value_type| (node_id.clone(), value_type))
+            })
+            .collect();
+
+        for (node_id, node) in &self.nodes {
+            if let Some(formula) = &node.formula_text {
+                let ast = crate::dsl::parse_formula(formula).map_err(|e| {
+                    Error::build(format!("Invalid formula on node '{}': {}", node_id, e))
+                })?;
+                crate::dsl::compiler::validate_dimensions(&ast, &node_value_types).map_err(
+                    |e| Error::build(format!("Invalid formula on node '{}': {}", node_id, e)),
+                )?;
+                crate::dsl::compile(&ast).map_err(|e| {
+                    Error::build(format!("Invalid formula on node '{}': {}", node_id, e))
+                })?;
+            }
+
+            if let Some(where_text) = &node.where_text {
+                let ast = crate::dsl::parse_formula(where_text).map_err(|e| {
+                    Error::build(format!("Invalid where clause on node '{}': {}", node_id, e))
+                })?;
+                crate::dsl::compiler::validate_dimensions(&ast, &node_value_types).map_err(
+                    |e| Error::build(format!("Invalid where clause on node '{}': {}", node_id, e)),
+                )?;
+                crate::dsl::compile(&ast).map_err(|e| {
+                    Error::build(format!("Invalid where clause on node '{}': {}", node_id, e))
+                })?;
+            }
+        }
+
+        if let Some(cs) = &self.capital_structure {
+            if let Some(waterfall) = &cs.waterfall {
+                waterfall.validate()?;
+            }
+        }
+
+        match crate::evaluator::DependencyGraph::from_model(self) {
+            Ok(graph) => graph.detect_cycles()?,
+            Err(e) => {
+                tracing::debug!(
+                    model_id = %self.id,
+                    error = %e,
+                    "Skipping cycle detection: dependency graph could not be built"
+                );
+            }
+        }
+
+        Ok(())
+    }
 }
 
 fn default_schema_version() -> u32 {
     CURRENT_SCHEMA_VERSION
 }
 
-fn deserialize_schema_version<'de, D>(deserializer: D) -> Result<u32, D::Error>
+fn deserialize_schema_version<'de, D>(deserializer: D) -> std::result::Result<u32, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -135,7 +237,7 @@ where
     Ok(v)
 }
 
-fn validate_schema_version(v: u32) -> Result<(), String> {
+fn validate_schema_version(v: u32) -> std::result::Result<(), String> {
     if v == 0 || v > CURRENT_SCHEMA_VERSION {
         return Err(format!(
             "unsupported FinancialModelSpec schema_version {v}; this build understands versions 1..={CURRENT_SCHEMA_VERSION}"
@@ -152,7 +254,11 @@ pub struct CapitalStructureSpec {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub debt_instruments: Vec<DebtInstrumentSpec>,
 
-    /// Equity instruments (optional, future expansion)
+    /// Reserved equity instruments payloads.
+    ///
+    /// The field is currently not consumed by the waterfall engine. It is kept
+    /// as a serde-compatible extension point for callers already persisting
+    /// capital-structure JSON with equity-side metadata.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub equity_instruments: Vec<serde_json::Value>,
 

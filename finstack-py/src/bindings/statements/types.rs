@@ -1,6 +1,7 @@
 //! Python wrappers for statement model types and enums.
 
 use crate::errors::display_to_py;
+use indexmap::IndexMap;
 use pyo3::prelude::*;
 
 // ---------------------------------------------------------------------------
@@ -79,6 +80,98 @@ impl PyForecastMethod {
 
     fn __repr__(&self) -> String {
         format!("ForecastMethod({:?})", self.inner)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ForecastSpec
+// ---------------------------------------------------------------------------
+
+/// Forecast configuration for a statement model node.
+#[pyclass(
+    name = "ForecastSpec",
+    module = "finstack.statements",
+    skip_from_py_object
+)]
+#[derive(Clone)]
+pub struct PyForecastSpec {
+    pub(super) inner: finstack_statements::types::ForecastSpec,
+}
+
+#[pymethods]
+impl PyForecastSpec {
+    #[new]
+    #[pyo3(signature = (method, params_json=None), text_signature = "(method, params_json=None)")]
+    fn new(method: PyRef<'_, PyForecastMethod>, params_json: Option<&str>) -> PyResult<Self> {
+        let params = parse_params_json(params_json)?;
+        Ok(Self {
+            inner: finstack_statements::types::ForecastSpec {
+                method: method.inner,
+                params,
+            },
+        })
+    }
+
+    #[staticmethod]
+    fn forward_fill() -> Self {
+        Self {
+            inner: finstack_statements::types::ForecastSpec::forward_fill(),
+        }
+    }
+
+    #[staticmethod]
+    fn growth(rate: f64) -> Self {
+        Self {
+            inner: finstack_statements::types::ForecastSpec::growth(rate),
+        }
+    }
+
+    #[staticmethod]
+    fn curve(curve: Vec<f64>) -> Self {
+        Self {
+            inner: finstack_statements::types::ForecastSpec::curve(curve),
+        }
+    }
+
+    #[staticmethod]
+    fn normal(mean: f64, std_dev: f64, seed: u64) -> Self {
+        Self {
+            inner: finstack_statements::types::ForecastSpec::normal(mean, std_dev, seed),
+        }
+    }
+
+    #[staticmethod]
+    fn lognormal(mean: f64, std_dev: f64, seed: u64) -> Self {
+        Self {
+            inner: finstack_statements::types::ForecastSpec::lognormal(mean, std_dev, seed),
+        }
+    }
+
+    #[staticmethod]
+    #[pyo3(text_signature = "(json, /)")]
+    fn from_json(json: &str) -> PyResult<Self> {
+        let inner = serde_json::from_str(json).map_err(display_to_py)?;
+        Ok(Self { inner })
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner).map_err(display_to_py)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "ForecastSpec(method={:?}, params={})",
+            self.inner.method,
+            self.inner.params.len()
+        )
+    }
+}
+
+fn parse_params_json(params_json: Option<&str>) -> PyResult<IndexMap<String, serde_json::Value>> {
+    match params_json {
+        Some(json) => serde_json::from_str(json).map_err(display_to_py),
+        None => Ok(IndexMap::new()),
     }
 }
 
@@ -188,6 +281,7 @@ impl PyNumericMode {
 
     #[staticmethod]
     fn decimal() -> Self {
+        // Reserved for future Rust fixed-point statement evaluation.
         Self {
             inner: finstack_statements::evaluator::NumericMode::Decimal,
         }
@@ -219,8 +313,9 @@ impl PyFinancialModelSpec {
     #[staticmethod]
     #[pyo3(text_signature = "(json, /)")]
     fn from_json(json: &str) -> PyResult<Self> {
-        let inner: finstack_statements::FinancialModelSpec =
+        let mut inner: finstack_statements::FinancialModelSpec =
             serde_json::from_str(json).map_err(display_to_py)?;
+        inner.validate_semantics().map_err(display_to_py)?;
         Ok(Self { inner })
     }
 
@@ -279,6 +374,7 @@ impl PyFinancialModelSpec {
 /// Register type classes.
 pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyForecastMethod>()?;
+    m.add_class::<PyForecastSpec>()?;
     m.add_class::<PyNodeType>()?;
     m.add_class::<PyNodeId>()?;
     m.add_class::<PyNumericMode>()?;

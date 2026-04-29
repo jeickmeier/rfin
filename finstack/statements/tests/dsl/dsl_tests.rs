@@ -307,16 +307,12 @@ fn test_parse_complex_expression() {
 
 #[test]
 fn test_parse_whitespace_tolerance() {
-    // Note: "revenue-cogs" without spaces is parsed as a single identifier
-    // because hyphens are allowed in identifiers (for things like "BOND-001")
     let result1 = parse_formula("revenue-cogs").unwrap();
-    assert!(matches!(result1, StmtExpr::NodeRef(_)));
-
-    // With spaces, it's parsed as subtraction
     let result2 = parse_formula("revenue - cogs").unwrap();
     let result3 = parse_formula("revenue  -  cogs").unwrap();
 
     // These should parse to the same structure (subtraction)
+    assert_eq!(result1, result2);
     assert_eq!(result2, result3);
     assert!(matches!(result2, StmtExpr::BinOp { op: BinOp::Sub, .. }));
 }

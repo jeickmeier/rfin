@@ -320,15 +320,17 @@ fn test_compile_cs_reference() {
 
     let expr = parse_and_compile("cs.interest_expense.total").unwrap();
 
-    // Should compile to a Column expression with encoded name
+    // Should compile to a typed capital-structure reference.
     use finstack_core::expr::ExprNode;
     match &expr.node {
-        ExprNode::Column(name) => {
-            assert!(name.starts_with("__cs__"));
-            assert!(name.contains("interest_expense"));
-            assert!(name.contains("total"));
+        ExprNode::CSRef {
+            component,
+            instrument_or_total,
+        } => {
+            assert_eq!(component, "interest_expense");
+            assert_eq!(instrument_or_total, "total");
         }
-        _ => panic!("Expected Column node, got {:?}", expr.node),
+        _ => panic!("Expected CSRef node, got {:?}", expr.node),
     }
 }
 

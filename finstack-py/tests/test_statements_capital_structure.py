@@ -195,3 +195,66 @@ class TestModelBuilderCapitalStructure:
         b.value("x", [("2025Q1", 1.0)])
         model = b.build()
         assert '"B1"' in model.to_json()
+
+
+class TestModelBuilderForecasts:
+    def test_forecast_spec_json_roundtrip(self) -> None:
+        spec = statements.ForecastSpec.growth(0.05)
+        restored = statements.ForecastSpec.from_json(spec.to_json())
+        assert restored.to_json() == spec.to_json()
+
+    def test_value_scalar_and_forecast_build_model(self) -> None:
+        b = statements.ModelBuilder("forecast")
+        b.periods("2025Q1..Q4", "2025Q2")
+        b.value_scalar("revenue", [("2025Q1", 100.0), ("2025Q2", 110.0)])
+        b.forecast("revenue", statements.ForecastSpec.growth(0.05))
+        model = b.build()
+        js = model.to_json()
+        assert '"node_type":"mixed"' in js
+        assert '"forecast"' in js
+
+    def test_value_money_builds_monetary_node(self) -> None:
+        usd = Currency("USD")
+        b = statements.ModelBuilder("money")
+        b.periods("2025Q1..Q1", None)
+        b.value_money("revenue", [("2025Q1", Money(100.0, usd))])
+        js = b.build().to_json()
+        assert '"value_type":{"type":"monetary","currency":"USD"}' in js
+
+    def test_mixed_builder_returns_ready_builder(self) -> None:
+        b = statements.ModelBuilder("mixed")
+        b.periods("2025Q1..Q4", "2025Q1")
+        mixed = b.mixed("revenue")
+        mixed.values_scalar([("2025Q1", 100.0)])
+        mixed.forecast(statements.ForecastSpec.forward_fill())
+        mixed.formula("lag(revenue, 1)")
+        b = mixed.build()
+        model = b.build()
+        assert model.has_node("revenue")
+
+    def test_where_meta_and_builtin_metrics(self) -> None:
+        b = statements.ModelBuilder("metrics")
+        b.periods("2025Q1..Q1", None)
+        b.value("revenue", [("2025Q1", 100.0)])
+        b.value("cogs", [("2025Q1", 40.0)])
+        b.compute("bonus", "revenue * 0.01")
+        b.where_clause("revenue > 50")
+        b.with_meta("source", '{"system":"unit-test"}')
+        b.with_builtin_metrics()
+        model = b.build()
+        assert model.has_node("fin.gross_profit")
+        assert '"where_text":"revenue > 50"' in model.to_json()
+
+    def test_metric_registry_add_metric_from_registry(self) -> None:
+        registry = statements.MetricRegistry.with_builtins()
+        assert registry.has("fin.gross_profit")
+        b = statements.ModelBuilder("metric")
+        b.periods("2025Q1..Q1", None)
+        b.value("revenue", [("2025Q1", 100.0)])
+        b.value("cogs", [("2025Q1", 40.0)])
+        b.add_metric_from_registry("fin.gross_profit", registry)
+        assert b.build().has_node("fin.gross_profit")
+
+    def test_financial_model_from_json_runs_semantic_validation(self) -> None:
+        with pytest.raises(ValueError, match="Model must have at least one period"):
+            statements.FinancialModelSpec.from_json('{"id":"bad","periods":[],"nodes":{}}')

@@ -500,49 +500,4 @@ impl<State> ModelBuilder<State> {
         ensure_capital_structure(&mut self).waterfall = Some(waterfall_spec);
         self
     }
-
-    // Add a revolving credit facility to the capital structure specification.
-    // Commented out until revolving_credit module is implemented
-    /*
-    #[allow(clippy::too_many_arguments)]
-    pub fn add_revolving_credit(
-        mut self,
-        id: impl Into<String>,
-        credit_limit: Money,
-        initial_drawn: Money,
-        start_date: Date,
-        maturity_date: Date,
-        interest_spec: finstack_valuations::instruments::fixed_income::revolving_credit::InterestRateSpec,
-        fees: finstack_valuations::instruments::fixed_income::revolving_credit::RcfFeeSpec,
-        discount_curve_id: impl Into<String>,
-    ) -> Result<Self> {
-        let id_str = id.into();
-        let facility = finstack_valuations::instruments::RevolvingCreditFacility::new(
-            InstrumentId::new(&id_str),
-            credit_limit,
-            initial_drawn,
-            start_date,
-            maturity_date,
-            interest_spec,
-            fees,
-            CurveId::new(discount_curve_id),
-        );
-
-        let spec_json = serde_json::to_value(&facility).map_err(|e| {
-            crate::error::Error::build(format!(
-                "Failed to serialize revolving credit facility '{}': {}",
-                id_str, e
-            ))
-        })?;
-
-        ensure_capital_structure(&mut self)
-            .debt_instruments
-            .push(DebtInstrumentSpec::Generic {
-                id: id_str,
-                spec: spec_json,
-            });
-
-        Ok(self)
-    }
-    */
 }

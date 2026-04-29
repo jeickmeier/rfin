@@ -147,7 +147,7 @@ fn evaluate_scenario_set(model: &Bound<'_, PyAny>, scenario_set_json: &str) -> P
 ///     JSON-serialized ``FinancialModelSpec``.
 /// config_json : str
 ///     JSON-serialized ``MonteCarloConfig`` with ``n_paths``, ``seed``,
-///     and optional ``percentiles``.
+///     optional ``percentiles``, and optional ``include_path_data``.
 ///
 /// Returns
 /// -------
