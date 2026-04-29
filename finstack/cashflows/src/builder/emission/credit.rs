@@ -81,6 +81,17 @@ pub fn emit_default_on(
             continue;
         }
 
+        let recovery_lag_months = if defaulted * event.recovery_rate > 0.0 {
+            Some(i32::try_from(event.recovery_lag).map_err(|_| {
+                finstack_core::Error::Validation(format!(
+                    "recovery_lag = {} exceeds i32::MAX months",
+                    event.recovery_lag
+                ))
+            })?)
+        } else {
+            None
+        };
+
         // Default cashflow
         out.push(CashFlow {
             date: d,
@@ -95,7 +106,12 @@ pub fn emit_default_on(
         // Recovery cashflow (on future date)
         let recovery_amt = defaulted * event.recovery_rate;
         if recovery_amt > 0.0 {
-            let base_recovery_date = d.add_months(event.recovery_lag as i32);
+            let recovery_lag_months = recovery_lag_months.ok_or_else(|| {
+                finstack_core::Error::Validation(
+                    "recovery_lag validation missing for positive recovery".into(),
+                )
+            })?;
+            let base_recovery_date = d.add_months(recovery_lag_months);
 
             // Apply optional business-day adjustment if both BDC and calendar are provided.
             let recovery_date = if let (Some(bdc), Some(ref cal_id)) =
@@ -204,5 +220,34 @@ pub fn emit_prepayment_on(
             accrual_factor: 0.0,
             rate: None,
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use time::Month;
+
+    #[test]
+    fn emit_default_rejects_recovery_lag_that_exceeds_i32() {
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
+        let event = DefaultEvent {
+            default_date: d,
+            defaulted_amount: 100_000.0,
+            recovery_rate: 0.4,
+            recovery_lag: u32::MAX,
+            recovery_bdc: None,
+            recovery_calendar_id: None,
+            accrued_on_default: None,
+        };
+        let mut outstanding = 1_000_000.0;
+        let mut flows = Vec::new();
+
+        let err = emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows)
+            .expect_err("oversized recovery lag should fail");
+
+        assert!(err.to_string().contains("recovery_lag"));
+        assert_eq!(outstanding, 1_000_000.0);
+        assert!(flows.is_empty());
     }
 }

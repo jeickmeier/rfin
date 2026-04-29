@@ -1,8 +1,13 @@
 //! Coupon cashflow emission (fixed and floating).
 //!
-//! # Future Extensions
+//! # Inflation Adapter Scope
 //!
-//! TODO: Add explicit inflation-linked coupon emission logic. This would support:
+//! `emit_inflation_coupons` is intentionally a thin adapter from
+//! pre-indexed inflation coupon tuples into `CashFlow` values. Inflation index
+//! projection, interpolation, index-ratio calculation, and real/nominal
+//! decomposition belong in the instrument model that prepares those tuples.
+//!
+//! Future explicit inflation-linked coupon emission logic could support:
 //! - CPI-linked coupons with interpolation (e.g., 2-month or 3-month lag)
 //! - Index ratio calculations for principal adjustment
 //! - Real vs nominal rate decomposition
@@ -22,9 +27,12 @@ use crate::builder::specs::OvernightCompoundingMethod;
 
 use super::super::compiler::{FixedSchedule, FloatSchedule};
 use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date};
-use crate::builder::calendar::resolve_calendar_strict;
 
-/// Emit inflation-linked coupon cashflows.
+/// Append pre-computed inflation-linked coupon cashflows.
+///
+/// This function does not project CPI/RPI/HICP fixings or calculate index
+/// ratios. It preserves caller-computed indexed coupon amounts and tags them as
+/// [`CFKind::InflationCoupon`] for downstream valuation/reporting.
 ///
 /// Each tuple is `(payment_date, indexed_coupon_amount, accrual_factor, real_coupon_rate)`.
 pub fn emit_inflation_coupons(
@@ -194,10 +202,8 @@ pub(crate) fn emit_fixed_coupons_on(
 ) -> finstack_core::Result<f64> {
     let mut pik_to_add = 0.0;
 
-    for (spec, dates, prev_map, first_last) in fixed_schedules {
-        // Resolve calendar once per schedule (constant per spec.calendar_id)
-        let calendar = resolve_calendar_strict(&spec.calendar_id)?;
-
+    for (spec, calendar, dates, prev_map, first_last) in fixed_schedules {
+        let calendar = *calendar;
         // Early exit: skip schedules where `d` is outside the date range.
         // This reduces iteration from O(N × M) to O(N + M) for multi-window instruments.
         if let (Some(&first), Some(&last)) = (dates.first(), dates.last()) {
@@ -327,8 +333,7 @@ fn sample_overnight_rates_with_lookback(
     calendar: &dyn finstack_core::dates::HolidayCalendar,
 ) -> finstack_core::Result<(Vec<(f64, u32)>, u32)> {
     if lookback_bd == 0 {
-        let out = sample_overnight_rates(accrual_start, accrual_end, fwd, calendar);
-        return Ok(out);
+        return sample_overnight_rates(accrual_start, accrual_end, fwd, calendar);
     }
     let lookback_i32: i32 = i32::try_from(lookback_bd).map_err(|_| {
         finstack_core::Error::Validation(format!("lookback_days = {lookback_bd} exceeds i32::MAX"))
@@ -361,13 +366,11 @@ fn sample_overnight_rates_with_lookback(
             let t = if obs_date <= fwd_base {
                 0.0
             } else {
-                fwd_dc
-                    .year_fraction(
-                        fwd_base,
-                        obs_date,
-                        finstack_core::dates::DayCountContext::default(),
-                    )
-                    .unwrap_or(0.0)
+                fwd_dc.year_fraction(
+                    fwd_base,
+                    obs_date,
+                    finstack_core::dates::DayCountContext::default(),
+                )?
             };
             let overnight_dt = (days as f64) / fwd_dc_basis;
             let rate = fwd.rate_period(t, t + overnight_dt);
@@ -410,7 +413,7 @@ fn sample_overnight_rates(
     accrual_end: Date,
     fwd: &ForwardCurve,
     calendar: &dyn finstack_core::dates::HolidayCalendar,
-) -> (Vec<(f64, u32)>, u32) {
+) -> finstack_core::Result<(Vec<(f64, u32)>, u32)> {
     let fwd_dc = fwd.day_count();
     let fwd_base = fwd.base_date();
     // Day-count basis for converting calendar days to year fractions when
@@ -437,13 +440,11 @@ fn sample_overnight_rates(
             let t = if current <= fwd_base {
                 0.0
             } else {
-                fwd_dc
-                    .year_fraction(
-                        fwd_base,
-                        current,
-                        finstack_core::dates::DayCountContext::default(),
-                    )
-                    .unwrap_or(0.0)
+                fwd_dc.year_fraction(
+                    fwd_base,
+                    current,
+                    finstack_core::dates::DayCountContext::default(),
+                )?
             };
             // Use the average forward rate over the overnight tenor [t, t+1/basis]
             // rather than the instantaneous forward at t. For piecewise-constant
@@ -467,7 +468,7 @@ fn sample_overnight_rates(
     }
 
     let total_days = (accrual_end - accrual_start).whole_days().max(1) as u32;
-    (daily_rates, total_days)
+    Ok((daily_rates, total_days))
 }
 
 /// Emit floating coupon cashflows on a specific date.
@@ -494,12 +495,10 @@ pub(crate) fn emit_float_coupons_on(
 ) -> finstack_core::Result<f64> {
     let mut pik_to_add = 0.0;
 
-    for ((spec, dates, prev_map), resolved_curve) in
+    for ((spec, calendar, dates, prev_map), resolved_curve) in
         float_schedules.iter().zip(resolved_curves.iter())
     {
-        // Resolve calendar once per schedule (constant per spec.rate_spec.calendar_id)
-        let calendar = resolve_calendar_strict(&spec.rate_spec.calendar_id)?;
-
+        let calendar = *calendar;
         // Early exit: skip schedules where `d` is outside the date range.
         // This reduces iteration from O(N × M) to O(N + M) for multi-window instruments.
         if let (Some(&first), Some(&last)) = (dates.first(), dates.last()) {
@@ -598,7 +597,7 @@ pub(crate) fn emit_float_coupons_on(
                         _ => {
                             let (obs_start, obs_end) =
                                 observation_window(method, accrual_start, accrual_end, calendar)?;
-                            sample_overnight_rates(obs_start, obs_end, fwd, calendar)
+                            sample_overnight_rates(obs_start, obs_end, fwd, calendar)?
                         }
                     };
 
@@ -701,6 +700,7 @@ pub(crate) fn emit_float_coupons_on(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::builder::calendar::resolve_calendar_strict;
     use time::Month;
 
     #[test]
@@ -728,5 +728,48 @@ mod tests {
         assert_eq!(flows.len(), 2);
         assert_eq!(flows[0].kind, CFKind::InflationCoupon);
         assert_eq!(flows[1].amount.amount(), -12.5);
+    }
+
+    #[test]
+    fn sample_overnight_rates_propagates_day_count_errors() {
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let end = Date::from_calendar_date(2025, Month::January, 3).expect("valid date");
+        let curve = ForwardCurve::builder("TEST-ON", 1.0 / 360.0)
+            .base_date(base)
+            .day_count(finstack_core::dates::DayCount::ActActIsma)
+            .knots([(0.0, 0.05), (1.0, 0.05)])
+            .build()
+            .expect("valid forward curve");
+        let calendar = resolve_calendar_strict("weekends_only").expect("calendar registered");
+
+        let err = sample_overnight_rates(base, end, &curve, calendar)
+            .expect_err("Act/Act ISMA requires frequency context");
+
+        assert!(
+            err.to_string().contains("frequency") || err.to_string().contains("Invalid"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn sample_overnight_rates_with_lookback_propagates_day_count_errors() {
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let start = Date::from_calendar_date(2025, Month::January, 6).expect("valid date");
+        let end = Date::from_calendar_date(2025, Month::January, 7).expect("valid date");
+        let curve = ForwardCurve::builder("TEST-ON", 1.0 / 360.0)
+            .base_date(base)
+            .day_count(finstack_core::dates::DayCount::ActActIsma)
+            .knots([(0.0, 0.05), (1.0, 0.05)])
+            .build()
+            .expect("valid forward curve");
+        let calendar = resolve_calendar_strict("weekends_only").expect("calendar registered");
+
+        let err = sample_overnight_rates_with_lookback(start, end, 1, &curve, calendar)
+            .expect_err("Act/Act ISMA requires frequency context");
+
+        assert!(
+            err.to_string().contains("frequency") || err.to_string().contains("Invalid"),
+            "unexpected error: {err}"
+        );
     }
 }

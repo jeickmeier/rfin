@@ -21,11 +21,14 @@
 //! least two dates.
 
 use crate::builder::{AmortizationSpec, Notional};
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
+use finstack_core::dates::{
+    BusinessDayConvention, Date, DayCount, HolidayCalendar, StubKind, Tenor,
+};
 use finstack_core::money::Money;
 use finstack_core::InputError;
 use rust_decimal::Decimal;
 
+use super::calendar::resolve_calendar_strict;
 use super::date_generation::{build_dates, index_period_schedule, SchedulePeriod};
 use super::specs::{
     CouponType, FeeAccrualBasis, FeeBase, FeeSpec, FixedCouponSpec, FloatingCouponSpec,
@@ -72,6 +75,7 @@ fn build_dates_with_meta(
 /// [`compute_coupon_schedules`] and consumed by the emission pipeline.
 pub(crate) type FixedSchedule = (
     FixedCouponSpec,
+    &'static dyn HolidayCalendar,
     Vec<Date>,
     finstack_core::HashMap<Date, SchedulePeriod>,
     finstack_core::HashSet<Date>,
@@ -82,6 +86,7 @@ pub(crate) type FixedSchedule = (
 /// pipeline.
 pub(crate) type FloatSchedule = (
     FloatingCouponSpec,
+    &'static dyn HolidayCalendar,
     Vec<Date>,
     finstack_core::HashMap<Date, SchedulePeriod>,
 );
@@ -241,7 +246,7 @@ pub(super) struct PaymentProgramPiece {
     pub(super) split: CouponType, // Cash | PIK | Split
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(super) struct CompiledSchedules {
     pub(super) fixed_schedules: Vec<FixedSchedule>,
     pub(super) float_schedules: Vec<FloatSchedule>,
@@ -278,7 +283,7 @@ pub(super) fn collect_dates(
     set.insert(maturity);
 
     // Collect all fixed coupon dates (accrual boundaries + payment dates)
-    for (_, _, period_map, _) in fixed_schedules {
+    for (_, _, _, period_map, _) in fixed_schedules {
         for period in period_map.values() {
             set.insert(period.accrual_start);
             set.insert(period.accrual_end);
@@ -287,7 +292,7 @@ pub(super) fn collect_dates(
     }
 
     // Collect all floating coupon dates (accrual boundaries + payment dates)
-    for (_, _, period_map) in float_schedules {
+    for (_, _, _, period_map) in float_schedules {
         for period in period_map.values() {
             set.insert(period.accrual_start);
             set.insert(period.accrual_end);
@@ -466,12 +471,13 @@ pub(super) fn compute_coupon_schedules(
         if dates.is_empty() {
             return Err(InputError::TooFewPoints.into());
         }
+        let calendar = resolve_calendar_strict(&chosen_coupon.schedule.calendar_id)?;
 
         match &chosen_coupon.coupon {
             CouponSpec::Fixed { rate } => {
                 let spec =
                     FixedCouponSpec::from_parts(split, *rate, chosen_coupon.schedule.clone());
-                fixed_schedules.push((spec, dates.clone(), prev.clone(), first_or_last));
+                fixed_schedules.push((spec, calendar, dates.clone(), prev.clone(), first_or_last));
             }
             CouponSpec::StepUp {
                 initial_rate,
@@ -542,7 +548,7 @@ pub(super) fn compute_coupon_schedules(
                         group_rate,
                         chosen_coupon.schedule.clone(),
                     );
-                    fixed_schedules.push((spec, group_dates, group_prev, group_fol));
+                    fixed_schedules.push((spec, calendar, group_dates, group_prev, group_fol));
                 }
             }
             CouponSpec::Float { rate_spec } => {
@@ -553,7 +559,8 @@ pub(super) fn compute_coupon_schedules(
                     stub: chosen_coupon.schedule.stub,
                 };
                 spec.rate_spec.validate()?;
-                float_schedules.push((spec, dates, prev));
+                let calendar = resolve_calendar_strict(&spec.rate_spec.calendar_id)?;
+                float_schedules.push((spec, calendar, dates, prev));
             }
         }
     }

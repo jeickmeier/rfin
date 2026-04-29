@@ -243,15 +243,6 @@ pub fn aggregate_cashflows_checked(
     Ok(Money::new(acc.total(), target))
 }
 
-/// Deprecated alias for [`aggregate_cashflows_checked`].
-#[deprecated(note = "use aggregate_cashflows_checked")]
-pub fn aggregate_cashflows_precise_checked(
-    flows: &[crate::DatedFlow],
-    target: Currency,
-) -> finstack_core::Result<Money> {
-    aggregate_cashflows_checked(flows, target)
-}
-
 // =============================================================================
 // Pre-Period PV Aggregation
 // =============================================================================

@@ -24,21 +24,6 @@ use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::HolidayCalendar;
 use finstack_core::dates::{Date, DayCount, DayCountContext, Tenor};
 use finstack_core::money::Money;
-use tracing::warn;
-
-/// Maximum reasonable accrual factor for deriving issue date from coupon periods.
-///
-/// When the schedule does not include an explicit issue date flow, we derive it
-/// by working backwards from the first coupon date using the accrual factor.
-/// This constant bounds that calculation to prevent unreasonable results.
-///
-/// A value of 1.5 accommodates:
-/// - Standard periods: annual (1.0), semi-annual (0.5), quarterly (0.25)
-/// - Long stub periods: up to 18 months (1.5) which covers most bond structures
-///
-/// If accrual_factor exceeds this bound, we log a warning and fall back to
-/// using the first coupon date, which creates a zero-length first period.
-const MAX_REASONABLE_ACCRUAL_FACTOR: f64 = 1.5;
 
 /// Helper to advance a date by N business days.
 ///
@@ -315,8 +300,8 @@ fn is_coupon_kind(kind: CFKind, include_pik: bool) -> bool {
 fn derive_horizon_start(
     schedule: &CashFlowSchedule,
     first_bucket: &CouponBucket,
-    dc: DayCount,
-    strict_issue_date: bool,
+    _dc: DayCount,
+    _strict_issue_date: bool,
 ) -> finstack_core::Result<Date> {
     if let Some(issue) = schedule.meta.issue_date {
         return Ok(issue);
@@ -328,43 +313,11 @@ fn derive_horizon_start(
         }
     }
 
-    if strict_issue_date {
-        return Err(finstack_core::Error::Validation(
-            "AccrualConfig::strict_issue_date: schedule.meta.issue_date is unset and no \
-             flow precedes the first coupon date; cannot derive the first coupon period \
-             start without the inverse day-count approximation. Set meta.issue_date on \
-             the CashFlowSchedule."
-                .into(),
-        ));
-    }
-
-    let days_per_year = match dc {
-        DayCount::Thirty360 | DayCount::Act360 => 360.0,
-        _ => 365.0,
-    };
-
-    // This branch should be unreachable when schedules are built via
-    // `CashFlowBuilder` (which always sets `meta.issue_date`) or the RCF
-    // engine (which now sets `commitment_date`). Reaching it means a new
-    // construction path forgot to populate `meta.issue_date`. The resulting
-    // date is approximate (±1-2 day error for non-30/360 conventions).
-    warn!(
-        first_coupon_date = %first_bucket.date,
-        accrual_factor = ?first_bucket.accrual_factor,
-        day_count = ?dc,
-        "build_coupon_periods: meta.issue_date not set; deriving from accrual factor \
-         via inverse day count approximation (may be off by 1-2 days). \
-         Set meta.issue_date on the CashFlowSchedule to suppress this warning, or \
-         enable AccrualConfig::strict_issue_date to fail loudly."
-    );
-
-    Ok(match first_bucket.accrual_factor {
-        Some(af) if af > 0.0 && af <= MAX_REASONABLE_ACCRUAL_FACTOR => {
-            let days_to_subtract = (af * days_per_year).round() as i64;
-            first_bucket.date - time::Duration::days(days_to_subtract)
-        }
-        _ => first_bucket.date,
-    })
+    Err(finstack_core::Error::Validation(format!(
+        "AccrualConfig::strict_issue_date: schedule.meta.issue_date is unset and no flow \
+         precedes the first coupon date {}; set meta.issue_date on the CashFlowSchedule.",
+        first_bucket.date
+    )))
 }
 
 /// Build coupon buckets grouped by date from the schedule.
@@ -652,20 +605,6 @@ mod tests {
         Date::from_calendar_date(y, Month::try_from(m).unwrap(), d).unwrap()
     }
 
-    /// Assert that two dates are within a tolerance (in days).
-    fn assert_date_approx(actual: Date, expected: Date, tolerance_days: i64, msg: &str) {
-        let diff = (actual - expected).whole_days().abs();
-        assert!(
-            diff <= tolerance_days,
-            "{}: expected {} ± {} days, got {} (diff = {} days)",
-            msg,
-            expected,
-            tolerance_days,
-            actual,
-            diff
-        );
-    }
-
     fn legacy_derivation_config() -> AccrualConfig {
         AccrualConfig {
             strict_issue_date: false,
@@ -708,140 +647,16 @@ mod tests {
     // =========================================================================
 
     #[test]
-    fn test_issue_date_derivation_semi_annual_30_360() {
-        // Semi-annual bond with 30/360 day count
-        // First coupon: July 1, 2025, accrual_factor = 0.5 (6 months)
-        // Expected derived issue: ~Jan 1, 2025 (180 days before in 30/360)
+    fn test_missing_issue_date_errors_in_legacy_mode() {
         let schedule = make_test_schedule(
-            &[
-                (make_date(2025, 7, 1), 0.5), // First coupon
-                (make_date(2026, 1, 1), 0.5), // Second coupon
-            ],
+            &[(make_date(2025, 7, 1), 0.5), (make_date(2026, 1, 1), 0.5)],
             DayCount::Thirty360,
         );
 
         let cfg = legacy_derivation_config();
-        let periods = build_coupon_periods(&schedule, &cfg).expect("periods");
+        let err = build_coupon_periods(&schedule, &cfg).expect_err("missing issue date errors");
 
-        assert!(!periods.is_empty(), "Should have coupon periods");
-        let first_period = &periods[0];
-
-        // Derived issue date: July 1 - (0.5 × 360) = July 1 - 180 days ≈ Jan 2
-        // (Calendar days differ slightly from 30/360 convention)
-        assert_date_approx(
-            first_period.start,
-            make_date(2025, 1, 1),
-            2, // Allow 2 days tolerance for inverse approximation
-            "Derived issue date should be ~Jan 1, 2025",
-        );
-        assert_eq!(first_period.end, make_date(2025, 7, 1));
-    }
-
-    #[test]
-    fn test_issue_date_derivation_quarterly_act365() {
-        // Quarterly bond with ACT/365F day count
-        // First coupon: April 1, 2025, accrual_factor = 0.25 (3 months)
-        // Expected derived issue: ~Jan 1, 2025 (91 days before in ACT/365)
-        let schedule = make_test_schedule(
-            &[
-                (make_date(2025, 4, 1), 0.25), // First coupon
-                (make_date(2025, 7, 1), 0.25), // Second coupon
-            ],
-            DayCount::Act365F,
-        );
-
-        let cfg = legacy_derivation_config();
-        let periods = build_coupon_periods(&schedule, &cfg).expect("periods");
-
-        assert!(!periods.is_empty());
-        let first_period = &periods[0];
-
-        // Derived issue date: April 1 - (0.25 × 365) = April 1 - 91 days ≈ Dec 31 or Jan 1
-        // (Actual Jan 1 to Apr 1 = 90 days, so 91 gives Dec 31)
-        assert_date_approx(
-            first_period.start,
-            make_date(2025, 1, 1),
-            2, // Allow 2 days tolerance
-            "Derived issue date should be ~Jan 1, 2025",
-        );
-    }
-
-    #[test]
-    fn test_issue_date_derivation_long_stub() {
-        // Bond with 18-month long first stub (accrual_factor = 1.5)
-        // This is at the boundary of MAX_REASONABLE_ACCRUAL_FACTOR
-        let schedule = make_test_schedule(
-            &[
-                (make_date(2026, 7, 1), 1.5), // Long stub (18 months)
-                (make_date(2027, 1, 1), 0.5), // Regular coupon
-            ],
-            DayCount::Thirty360,
-        );
-
-        let cfg = legacy_derivation_config();
-        let periods = build_coupon_periods(&schedule, &cfg).expect("periods");
-
-        assert!(!periods.is_empty());
-        let first_period = &periods[0];
-
-        // Derived issue date: July 1, 2026 - (1.5 × 360) = July 1, 2026 - 540 days
-        // ≈ January 2025 (exact date depends on calendar vs day count)
-        assert_date_approx(
-            first_period.start,
-            make_date(2025, 1, 7),
-            2, // Allow 2 days tolerance
-            "Derived issue date for long stub",
-        );
-    }
-
-    #[test]
-    fn test_issue_date_derivation_fallback_zero_accrual_factor() {
-        // Edge case: accrual_factor = 0 (invalid, should fallback)
-        let schedule = make_test_schedule(
-            &[
-                (make_date(2025, 7, 1), 0.0), // Invalid accrual factor
-                (make_date(2026, 1, 1), 0.5),
-            ],
-            DayCount::Thirty360,
-        );
-
-        let cfg = legacy_derivation_config();
-        let periods = build_coupon_periods(&schedule, &cfg).expect("periods");
-
-        // With zero accrual factor, we hit fallback: first_bucket.date = July 1
-        // This creates a zero-length first period (start == end), which is skipped
-        // So we should only have one period (July 1 to Jan 1)
-        assert_eq!(
-            periods.len(),
-            1,
-            "Zero-length first period should be skipped"
-        );
-        assert_eq!(periods[0].start, make_date(2025, 7, 1));
-        assert_eq!(periods[0].end, make_date(2026, 1, 1));
-    }
-
-    #[test]
-    fn test_issue_date_derivation_fallback_excessive_accrual_factor() {
-        // Edge case: accrual_factor > MAX_REASONABLE_ACCRUAL_FACTOR (should fallback)
-        let schedule = make_test_schedule(
-            &[
-                (make_date(2025, 7, 1), 2.0), // > 1.5, triggers fallback
-                (make_date(2026, 1, 1), 0.5),
-            ],
-            DayCount::Thirty360,
-        );
-
-        let cfg = legacy_derivation_config();
-        let periods = build_coupon_periods(&schedule, &cfg).expect("periods");
-
-        // With excessive accrual factor, we hit fallback: first_bucket.date = July 1
-        // This creates a zero-length first period, which is skipped
-        assert_eq!(
-            periods.len(),
-            1,
-            "First period should be skipped due to fallback"
-        );
-        assert_eq!(periods[0].start, make_date(2025, 7, 1));
+        assert!(err.to_string().contains("issue_date"));
     }
 
     #[test]
@@ -881,22 +696,24 @@ mod tests {
     }
 
     #[test]
-    fn test_accrued_interest_uses_derived_issue_date() {
-        // Integration test: verify accrued interest calculation works with derived issue date
-        let schedule = make_test_schedule(
+    fn test_accrued_interest_uses_explicit_issue_date() {
+        // Integration test: accrued interest requires explicit issue metadata
+        // when outstanding balances are computed from the schedule.
+        let mut schedule = make_test_schedule(
             &[
                 (make_date(2025, 7, 1), 0.5), // First coupon July 1
                 (make_date(2026, 1, 1), 0.5), // Second coupon
             ],
             DayCount::Thirty360,
         );
+        schedule.meta.issue_date = Some(make_date(2025, 1, 1));
 
         // Calculate accrued at April 1 (halfway through first period)
         let as_of = make_date(2025, 4, 1);
         let accrued =
             accrued_interest_amount(&schedule, as_of, &legacy_derivation_config()).unwrap();
 
-        // With derived issue date Jan 1 and first coupon July 1:
+        // With explicit issue date Jan 1 and first coupon July 1:
         // - Period length: 180 days (30/360)
         // - Elapsed: 90 days (Jan 1 to Apr 1)
         // - Fraction: 90/180 = 0.5

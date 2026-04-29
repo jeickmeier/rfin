@@ -17,15 +17,14 @@ const BP_TO_RATE: Decimal = Decimal::from_parts(1, 0, 0, false, 4); // 0.0001
 // These propagate errors on NaN/Inf instead of silently collapsing to zero.
 use super::{decimal_to_f64, f64_to_decimal};
 
-/// Internal generic helper for fee emission.
+/// Emit a single revolving-credit fee cashflow.
 ///
 /// Creates a single fee cashflow with the specified kind if the computed fee amount
 /// is positive, otherwise returns an empty vector.
 ///
 /// Uses `Decimal` arithmetic throughout for consistency with the periodic fee
 /// emission path, avoiding f64 precision differences for large notionals.
-///
-fn emit_fee_generic(
+fn emit_revolving_fee_on(
     d: Date,
     base_amount: f64,
     fee_bp: f64,
@@ -54,105 +53,6 @@ fn emit_fee_generic(
     } else {
         Ok(None)
     }
-}
-
-/// Emit commitment fee cashflow (fee on undrawn balance).
-///
-/// Commitment fees are charged on the undrawn portion of a credit facility.
-/// Returns a single cashflow with `CFKind::CommitmentFee`.
-///
-/// # Arguments
-///
-/// * `d` - Payment date for the fee
-/// * `undrawn_balance` - Undrawn balance amount
-/// * `commitment_fee_bp` - Fee rate in basis points
-/// * `year_fraction` - Accrual period in years
-/// * `ccy` - Currency for the cashflow
-///
-/// # Returns
-///
-/// Optional cashflow (`None` if fee amount is zero)
-pub(crate) fn emit_commitment_fee_on(
-    d: Date,
-    undrawn_balance: f64,
-    commitment_fee_bp: f64,
-    year_fraction: f64,
-    ccy: Currency,
-) -> finstack_core::Result<Option<CashFlow>> {
-    emit_fee_generic(
-        d,
-        undrawn_balance,
-        commitment_fee_bp,
-        year_fraction,
-        ccy,
-        CFKind::CommitmentFee,
-    )
-}
-
-/// Emit usage fee cashflow (fee on drawn balance).
-///
-/// Usage fees are charged on the drawn portion of a credit facility.
-/// Returns a single cashflow with `CFKind::UsageFee`.
-///
-/// # Arguments
-///
-/// * `d` - Payment date for the fee
-/// * `drawn_balance` - Drawn balance amount
-/// * `usage_fee_bp` - Fee rate in basis points
-/// * `year_fraction` - Accrual period in years
-/// * `ccy` - Currency for the cashflow
-///
-/// # Returns
-///
-/// Optional cashflow (`None` if fee amount is zero)
-pub(crate) fn emit_usage_fee_on(
-    d: Date,
-    drawn_balance: f64,
-    usage_fee_bp: f64,
-    year_fraction: f64,
-    ccy: Currency,
-) -> finstack_core::Result<Option<CashFlow>> {
-    emit_fee_generic(
-        d,
-        drawn_balance,
-        usage_fee_bp,
-        year_fraction,
-        ccy,
-        CFKind::UsageFee,
-    )
-}
-
-/// Emit facility fee cashflow (fee on total commitment).
-///
-/// Facility fees are charged on the entire commitment amount regardless of utilization.
-/// Returns a single cashflow with `CFKind::FacilityFee`.
-///
-/// # Arguments
-///
-/// * `d` - Payment date for the fee
-/// * `commitment_amount` - Total commitment amount
-/// * `facility_fee_bp` - Fee rate in basis points
-/// * `year_fraction` - Accrual period in years
-/// * `ccy` - Currency for the cashflow
-///
-/// # Returns
-///
-/// Optional cashflow (`None` if fee amount is zero)
-pub(crate) fn emit_facility_fee_on(
-    d: Date,
-    commitment_amount: f64,
-    facility_fee_bp: f64,
-    year_fraction: f64,
-    ccy: Currency,
-) -> finstack_core::Result<Option<CashFlow>> {
-    emit_fee_generic(
-        d,
-        commitment_amount,
-        facility_fee_bp,
-        year_fraction,
-        ccy,
-        CFKind::FacilityFee,
-    )
 }
 
 /// Compute the time-weighted average of a value over a date range using a history map.
@@ -371,32 +271,35 @@ pub fn emit_revolving_credit_fees(
     flows: &mut Vec<CashFlow>,
     cfg: &RevolvingFeeEmissionConfig,
 ) -> finstack_core::Result<()> {
-    if let Some(cf) = emit_commitment_fee_on(
+    if let Some(cf) = emit_revolving_fee_on(
         cfg.payment_date,
         cfg.undrawn_balance,
         cfg.commitment_fee_bp,
         cfg.year_fraction,
         cfg.currency,
+        CFKind::CommitmentFee,
     )? {
         flows.push(cf);
     }
 
-    if let Some(cf) = emit_usage_fee_on(
+    if let Some(cf) = emit_revolving_fee_on(
         cfg.payment_date,
         cfg.drawn_balance,
         cfg.usage_fee_bp,
         cfg.year_fraction,
         cfg.currency,
+        CFKind::UsageFee,
     )? {
         flows.push(cf);
     }
 
-    if let Some(cf) = emit_facility_fee_on(
+    if let Some(cf) = emit_revolving_fee_on(
         cfg.payment_date,
         cfg.commitment_amount,
         cfg.facility_fee_bp,
         cfg.year_fraction,
         cfg.currency,
+        CFKind::FacilityFee,
     )? {
         flows.push(cf);
     }

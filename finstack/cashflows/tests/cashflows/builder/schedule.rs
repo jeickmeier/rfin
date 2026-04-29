@@ -15,7 +15,10 @@
 //! - `financial_tolerance(notional)`: For money amounts
 
 use crate::helpers::financial_tolerance;
-use finstack_cashflows::builder::specs::{CouponType, FeeSpec, FixedCouponSpec};
+use finstack_cashflows::builder::specs::{
+    CouponType, FeeSpec, FixedCouponSpec, FixedWindow, FloatingCouponSpec, FloatingRateFallback,
+    FloatingRateSpec,
+};
 use finstack_cashflows::builder::{AmortizationSpec, CashFlowSchedule};
 use finstack_core::cashflow::Discountable;
 use finstack_core::cashflow::{CFKind, CashFlow};
@@ -134,6 +137,79 @@ fn pik_capitalization_increases_outstanding() {
         .1
         .amount();
     assert!(last_before > init.amount());
+}
+
+#[test]
+fn linear_amortization_uses_first_coupon_leg_cadence() {
+    let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let switch = Date::from_calendar_date(2025, Month::July, 1).unwrap();
+    let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+    let init = Money::new(1_200.0, Currency::USD);
+
+    let monthly_fixed = FixedWindow {
+        rate: Decimal::try_from(0.05).expect("valid"),
+        schedule: finstack_cashflows::builder::ScheduleParams {
+            freq: Tenor::monthly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: "weekends_only".to_string(),
+            stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
+        },
+    };
+    let quarterly_float = FloatingCouponSpec {
+        coupon_type: CouponType::Cash,
+        rate_spec: FloatingRateSpec {
+            index_id: "USD-SOFR-3M".into(),
+            spread_bp: Decimal::try_from(200.0).expect("valid"),
+            gearing: Decimal::ONE,
+            gearing_includes_spread: true,
+            index_floor_bp: None,
+            all_in_cap_bp: None,
+            all_in_floor_bp: None,
+            index_cap_bp: None,
+            reset_freq: Tenor::quarterly(),
+            reset_lag_days: 0,
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: "weekends_only".to_string(),
+            fixing_calendar_id: None,
+            end_of_month: false,
+            payment_lag_days: 0,
+            overnight_compounding: None,
+            overnight_basis: None,
+            fallback: FloatingRateFallback::SpreadOnly,
+        },
+        freq: Tenor::quarterly(),
+        stub: StubKind::None,
+    };
+
+    let mut builder = CashFlowSchedule::builder();
+    let _ = builder
+        .principal(init, issue, maturity)
+        .amortization(AmortizationSpec::LinearTo {
+            final_notional: Money::new(0.0, Currency::USD),
+        })
+        .fixed_to_float(switch, monthly_fixed, quarterly_float, CouponType::Cash);
+    let schedule = builder.build_with_curves(None).unwrap();
+
+    let amortization_dates: Vec<Date> = schedule
+        .flows
+        .iter()
+        .filter(|flow| flow.kind == CFKind::Amortization)
+        .map(|flow| flow.date)
+        .collect();
+
+    assert!(!amortization_dates.is_empty());
+    assert!(
+        amortization_dates.iter().all(|date| *date <= switch),
+        "linear amortization should follow the first coupon leg cadence"
+    );
+    assert!(
+        !amortization_dates.contains(&maturity),
+        "the later floating leg cadence is not used for linear amortization"
+    );
 }
 
 // =============================================================================
@@ -384,7 +460,10 @@ fn outstanding_by_date_includes_prepayment() {
         }],
         notional: finstack_cashflows::builder::Notional::par(1_000.0, Currency::USD),
         day_count: DayCount::Act365F,
-        meta: finstack_cashflows::builder::schedule::CashFlowMeta::default(),
+        meta: finstack_cashflows::builder::schedule::CashFlowMeta {
+            issue_date: Some(prepay_date),
+            ..Default::default()
+        },
     };
 
     let outstanding = schedule.outstanding_by_date().unwrap();
@@ -421,7 +500,10 @@ fn outstanding_by_date_includes_defaulted_notional() {
         ],
         notional: finstack_cashflows::builder::Notional::par(1_000.0, Currency::USD),
         day_count: DayCount::Act365F,
-        meta: finstack_cashflows::builder::schedule::CashFlowMeta::default(),
+        meta: finstack_cashflows::builder::schedule::CashFlowMeta {
+            issue_date: Some(default_date),
+            ..Default::default()
+        },
     };
 
     let outstanding = schedule.outstanding_by_date().unwrap();
@@ -436,6 +518,54 @@ fn outstanding_by_date_includes_defaulted_notional() {
         "recovery should not restore outstanding, got {}",
         outstanding[1].1.amount()
     );
+}
+
+#[test]
+fn builder_created_schedule_sets_issue_date_for_outstanding_by_date() {
+    let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::July, 15).unwrap();
+    let init = Money::new(10_000.0, Currency::USD);
+    let fixed = FixedCouponSpec {
+        coupon_type: CouponType::Cash,
+        rate: Decimal::try_from(0.05).expect("valid"),
+        freq: Tenor::quarterly(),
+        dc: DayCount::Act365F,
+        bdc: BusinessDayConvention::Following,
+        calendar_id: "weekends_only".to_string(),
+        stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
+    };
+
+    let mut builder = CashFlowSchedule::builder();
+    let _ = builder.principal(init, issue, maturity).fixed_cf(fixed);
+    let schedule = builder.build_with_curves(None).unwrap();
+
+    assert_eq!(schedule.meta.issue_date, Some(issue));
+    assert!(schedule.outstanding_by_date().is_ok());
+}
+
+#[test]
+fn outstanding_by_date_requires_issue_date() {
+    let prepay_date = Date::from_calendar_date(2025, Month::March, 15).unwrap();
+    let schedule = finstack_cashflows::builder::schedule::CashFlowSchedule {
+        flows: vec![CashFlow {
+            date: prepay_date,
+            reset_date: None,
+            amount: Money::new(250.0, Currency::USD),
+            kind: CFKind::PrePayment,
+            accrual_factor: 0.0,
+            rate: None,
+        }],
+        notional: finstack_cashflows::builder::Notional::par(1_000.0, Currency::USD),
+        day_count: DayCount::Act365F,
+        meta: finstack_cashflows::builder::schedule::CashFlowMeta::default(),
+    };
+
+    let err = schedule
+        .outstanding_by_date()
+        .expect_err("issue_date is required");
+    assert!(err.to_string().contains("issue_date"));
 }
 
 #[test]
