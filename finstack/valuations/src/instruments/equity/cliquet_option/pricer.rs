@@ -356,7 +356,6 @@ impl CliquetOptionMcPricer {
         )?;
         let engine_config = McEngineConfig {
             num_paths: merged_cfg.num_paths,
-            seed,
             time_grid,
             target_ci_half_width: None,
             use_parallel: merged_cfg.use_parallel,

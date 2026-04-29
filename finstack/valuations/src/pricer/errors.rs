@@ -177,10 +177,10 @@ fn format_context(ctx: &PricingErrorContext) -> String {
 }
 
 /// Provide a more actionable error for MC-gated pricers in non-MC builds.
-pub(crate) fn actionable_unknown_pricer_message(_key: PricerKey) -> Option<String> {
+pub(crate) fn actionable_unknown_pricer_message(key: PricerKey) -> Option<String> {
     {
-        if _key.model.requires_mc_feature() {
-            let extra_hint = match (_key.instrument, _key.model) {
+        if key.model.requires_mc_feature() {
+            let extra_hint = match (key.instrument, key.model) {
                 (InstrumentType::BarrierOption, ModelKey::MonteCarloGBM)
                 | (InstrumentType::LookbackOption, ModelKey::MonteCarloGBM)
                 | (InstrumentType::FxBarrierOption, ModelKey::MonteCarloGBM) => {
@@ -193,7 +193,7 @@ pub(crate) fn actionable_unknown_pricer_message(_key: PricerKey) -> Option<Strin
             };
             return Some(format!(
                 "No pricer found for instrument={} model={}.{}",
-                _key.instrument, _key.model, extra_hint
+                key.instrument, key.model, extra_hint
             ));
         }
     }

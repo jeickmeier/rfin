@@ -447,15 +447,15 @@ mod tests {
         // Regression for C5: `factor_stress` previously multiplied by
         // `position.quantity` directly, which over-scaled Percentage
         // positions by 100x. Routing through `scale_factor` must make
-        // quantity=200.0/Percentage produce the same P&L as
-        // quantity=2.0/Units (both represent a 2.0 effective multiplier).
+        // quantity=50.0/Percentage produce the same P&L as
+        // quantity=0.5/Units (both represent a 0.5 effective multiplier).
         let Some((model_u, portfolio_u, market)) =
-            build_test_model_with_unit(2.0, PositionUnit::Units)
+            build_test_model_with_unit(0.5, PositionUnit::Units)
         else {
             panic!("units setup");
         };
         let Some((model_p, portfolio_p, _)) =
-            build_test_model_with_unit(200.0, PositionUnit::Percentage)
+            build_test_model_with_unit(50.0, PositionUnit::Percentage)
         else {
             panic!("percentage setup");
         };

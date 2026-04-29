@@ -1,10 +1,10 @@
-"""Monte Carlo GBM convenience bindings: engine, pricers, analytical helpers.
+"""Monte Carlo convenience bindings: engine, pricers, analytical helpers.
 
-Bindings for the GBM-oriented convenience subset of the
-``finstack-monte-carlo`` Rust crate. Advanced Rust process, discretization,
-RNG, and payoff types are not surfaced as standalone Python types yet;
-their parameters are passed directly as numeric arguments to the exposed
-pricer constructors and methods.
+Bindings for the core convenience subset of the ``finstack-monte-carlo`` Rust
+crate, including selected non-GBM process wrappers such as Heston. Advanced
+Rust process, discretization, RNG, and payoff types are not surfaced as
+standalone Python types yet; their parameters are passed directly as numeric
+arguments to the exposed pricer constructors and methods.
 
 Greek estimators (``fd_delta``, ``fd_delta_crn``, ``fd_gamma``,
 ``fd_gamma_crn``) and unbiased two-pass LSMC pricing
@@ -36,6 +36,8 @@ black_scholes_put = _mc.black_scholes_put
 
 price_european_call = _mc.price_european_call
 price_european_put = _mc.price_european_put
+price_heston_call = _mc.price_heston_call
+price_heston_put = _mc.price_heston_put
 
 # Finite-difference Greeks. The `_crn` variants compute true paired
 # common-random-number standard errors and are typically 1–2 orders of
@@ -66,4 +68,6 @@ __all__: list[str] = [
     "fd_gamma_crn",
     "price_european_call",
     "price_european_put",
+    "price_heston_call",
+    "price_heston_put",
 ]

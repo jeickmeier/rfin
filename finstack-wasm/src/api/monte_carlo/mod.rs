@@ -1,9 +1,10 @@
 //! WASM bindings for the `finstack-monte-carlo` crate.
 //!
-//! Provides the GBM convenience subset of the Rust Monte Carlo crate:
-//! European, Asian, and American option pricing plus Black-Scholes helpers.
-//! Advanced Rust process, discretization, RNG, payoff, and Greeks types are not
-//! standalone WASM types yet. Results are returned as serialized JSON objects.
+//! Provides the convenience subset of the Rust Monte Carlo crate: European,
+//! Asian, and American option pricing, Black-Scholes helpers, and selected
+//! non-GBM process wrappers. Advanced Rust process, discretization, RNG,
+//! payoff, and Greeks types are not standalone WASM types yet. Results are
+//! returned as serialized JSON objects.
 
 use std::str::FromStr;
 
@@ -137,6 +138,56 @@ pub fn price_european_put(
     serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
 }
 
+/// Price a European call under Heston stochastic volatility.
+#[allow(clippy::too_many_arguments)]
+#[wasm_bindgen(js_name = priceHestonCall)]
+pub fn price_heston_call(
+    spot: f64,
+    strike: f64,
+    rate: f64,
+    div_yield: f64,
+    kappa: f64,
+    theta: f64,
+    vol_of_vol: f64,
+    rho: f64,
+    v0: f64,
+    expiry: f64,
+    num_paths: usize,
+    seed: u64,
+    num_steps: Option<usize>,
+    currency: Option<String>,
+) -> Result<JsValue, JsValue> {
+    price_heston(
+        true, spot, strike, rate, div_yield, kappa, theta, vol_of_vol, rho, v0, expiry, num_paths,
+        seed, num_steps, currency,
+    )
+}
+
+/// Price a European put under Heston stochastic volatility.
+#[allow(clippy::too_many_arguments)]
+#[wasm_bindgen(js_name = priceHestonPut)]
+pub fn price_heston_put(
+    spot: f64,
+    strike: f64,
+    rate: f64,
+    div_yield: f64,
+    kappa: f64,
+    theta: f64,
+    vol_of_vol: f64,
+    rho: f64,
+    v0: f64,
+    expiry: f64,
+    num_paths: usize,
+    seed: u64,
+    num_steps: Option<usize>,
+    currency: Option<String>,
+) -> Result<JsValue, JsValue> {
+    price_heston(
+        false, spot, strike, rate, div_yield, kappa, theta, vol_of_vol, rho, v0, expiry, num_paths,
+        seed, num_steps, currency,
+    )
+}
+
 // ---------------------------------------------------------------------------
 // Analytical
 // ---------------------------------------------------------------------------
@@ -190,14 +241,14 @@ pub fn price_asian_call(
     num_steps: Option<usize>,
     currency: Option<String>,
 ) -> Result<JsValue, JsValue> {
-    use finstack_monte_carlo::payoff::asian::{AsianCall, AveragingMethod};
+    use finstack_monte_carlo::payoff::asian::{default_fixing_steps, AsianCall, AveragingMethod};
     use finstack_monte_carlo::pricer::path_dependent::{
         PathDependentPricer, PathDependentPricerConfig,
     };
 
     let ccy = resolve_currency(currency.as_deref())?;
     let steps = num_steps.unwrap_or(252);
-    let fixing_steps: Vec<usize> = (1..=steps).collect();
+    let fixing_steps = default_fixing_steps(steps);
     let payoff = AsianCall::new(strike, 1.0, AveragingMethod::Arithmetic, fixing_steps);
     let df = (-rate * expiry).exp();
     let config = PathDependentPricerConfig::new(num_paths).with_seed(seed);
@@ -225,14 +276,14 @@ pub fn price_asian_put(
     num_steps: Option<usize>,
     currency: Option<String>,
 ) -> Result<JsValue, JsValue> {
-    use finstack_monte_carlo::payoff::asian::{AsianPut, AveragingMethod};
+    use finstack_monte_carlo::payoff::asian::{default_fixing_steps, AsianPut, AveragingMethod};
     use finstack_monte_carlo::pricer::path_dependent::{
         PathDependentPricer, PathDependentPricerConfig,
     };
 
     let ccy = resolve_currency(currency.as_deref())?;
     let steps = num_steps.unwrap_or(252);
-    let fixing_steps: Vec<usize> = (1..=steps).collect();
+    let fixing_steps = default_fixing_steps(steps);
     let payoff = AsianPut::new(strike, 1.0, AveragingMethod::Arithmetic, fixing_steps);
     let df = (-rate * expiry).exp();
     let config = PathDependentPricerConfig::new(num_paths).with_seed(seed);
@@ -332,6 +383,88 @@ pub fn price_american_call(
     )
 }
 
+/// Two-pass unbiased American put price (training fit + out-of-sample pricing).
+#[allow(clippy::too_many_arguments)]
+#[wasm_bindgen(js_name = priceAmericanPutUnbiased)]
+pub fn price_american_put_unbiased(
+    spot: f64,
+    strike: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+    expiry: f64,
+    num_paths: usize,
+    seed: u64,
+    pricing_seed: u64,
+    num_steps: Option<usize>,
+    currency: Option<String>,
+    use_parallel: Option<bool>,
+    basis: Option<String>,
+    basis_degree: Option<usize>,
+) -> Result<JsValue, JsValue> {
+    use finstack_monte_carlo::pricer::lsmc::AmericanPut;
+
+    let exercise = AmericanPut::new(strike).map_err(to_js_err)?;
+    price_lsmc_gbm_unbiased(
+        spot,
+        strike,
+        rate,
+        div_yield,
+        vol,
+        expiry,
+        num_paths,
+        seed,
+        pricing_seed,
+        num_steps,
+        currency,
+        use_parallel,
+        basis,
+        basis_degree,
+        &exercise,
+    )
+}
+
+/// Two-pass unbiased American call price (training fit + out-of-sample pricing).
+#[allow(clippy::too_many_arguments)]
+#[wasm_bindgen(js_name = priceAmericanCallUnbiased)]
+pub fn price_american_call_unbiased(
+    spot: f64,
+    strike: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+    expiry: f64,
+    num_paths: usize,
+    seed: u64,
+    pricing_seed: u64,
+    num_steps: Option<usize>,
+    currency: Option<String>,
+    use_parallel: Option<bool>,
+    basis: Option<String>,
+    basis_degree: Option<usize>,
+) -> Result<JsValue, JsValue> {
+    use finstack_monte_carlo::pricer::lsmc::AmericanCall;
+
+    let exercise = AmericanCall::new(strike).map_err(to_js_err)?;
+    price_lsmc_gbm_unbiased(
+        spot,
+        strike,
+        rate,
+        div_yield,
+        vol,
+        expiry,
+        num_paths,
+        seed,
+        pricing_seed,
+        num_steps,
+        currency,
+        use_parallel,
+        basis,
+        basis_degree,
+        &exercise,
+    )
+}
+
 #[allow(clippy::too_many_arguments)]
 fn price_lsmc_gbm<E>(
     spot: f64,
@@ -352,9 +485,7 @@ fn price_lsmc_gbm<E>(
 where
     E: finstack_monte_carlo::pricer::lsmc::ImmediateExercise,
 {
-    use finstack_monte_carlo::pricer::basis::{
-        BasisFunctions, LaguerreBasis, NormalizedPolynomialBasis, PolynomialBasis,
-    };
+    use finstack_monte_carlo::pricer::basis::build_lsmc_basis_from_name;
     use finstack_monte_carlo::pricer::lsmc::{LsmcConfig, LsmcPricer};
 
     let defaults = finstack_monte_carlo::registry::embedded_defaults()
@@ -377,22 +508,73 @@ where
         .as_deref()
         .unwrap_or(defaults.basis.as_str())
         .to_ascii_lowercase();
-    let basis: Box<dyn BasisFunctions> = match basis_name.as_str() {
-        "laguerre" => Box::new(LaguerreBasis::try_new(degree, strike).map_err(to_js_err)?),
-        "polynomial" | "poly" => Box::new(PolynomialBasis::try_new(degree).map_err(to_js_err)?),
-        "normalized_polynomial" | "normalized" | "centered_polynomial" => {
-            Box::new(NormalizedPolynomialBasis::try_new(degree, strike, strike).map_err(to_js_err)?)
-        }
-        other => {
-            return Err(to_js_err(format!(
-                "unknown basis '{other}'; expected 'laguerre', 'polynomial', \
-                 or 'normalized_polynomial'"
-            )));
-        }
-    };
+    let basis = build_lsmc_basis_from_name(&basis_name, degree, strike).map_err(to_js_err)?;
 
     let est = pricer
-        .price(&process, spot, expiry, steps, exercise, &*basis, ccy, rate)
+        .price(&process, spot, expiry, steps, exercise, &basis, ccy, rate)
+        .map_err(to_js_err)?;
+    let result = McResultJs::from_estimate(&est);
+    serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn price_lsmc_gbm_unbiased<E>(
+    spot: f64,
+    strike: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+    expiry: f64,
+    num_paths: usize,
+    seed: u64,
+    pricing_seed: u64,
+    num_steps: Option<usize>,
+    currency: Option<String>,
+    use_parallel: Option<bool>,
+    basis: Option<String>,
+    basis_degree: Option<usize>,
+    exercise: &E,
+) -> Result<JsValue, JsValue>
+where
+    E: finstack_monte_carlo::pricer::lsmc::ImmediateExercise,
+{
+    use finstack_monte_carlo::pricer::basis::build_lsmc_basis_from_name;
+    use finstack_monte_carlo::pricer::lsmc::{LsmcConfig, LsmcPricer};
+
+    let defaults = finstack_monte_carlo::registry::embedded_defaults()
+        .map_err(|err| to_js_err(err.to_string()))?
+        .python_bindings
+        .lsmc
+        .clone();
+    let ccy = resolve_currency(currency.as_deref())?;
+    let steps = num_steps.unwrap_or(defaults.num_steps);
+    let exercise_dates: Vec<usize> = (1..=steps).collect();
+    let config = LsmcConfig::new(num_paths, exercise_dates, steps)
+        .map_err(to_js_err)?
+        .with_seed(seed)
+        .with_parallel(use_parallel.unwrap_or(false));
+    let pricer = LsmcPricer::new(config);
+    let process = GbmProcess::with_params(rate, div_yield, vol).map_err(to_js_err)?;
+
+    let degree = basis_degree.unwrap_or(defaults.basis_degree);
+    let basis_name = basis
+        .as_deref()
+        .unwrap_or(defaults.basis.as_str())
+        .to_ascii_lowercase();
+    let basis = build_lsmc_basis_from_name(&basis_name, degree, strike).map_err(to_js_err)?;
+
+    let est = pricer
+        .price_unbiased(
+            &process,
+            spot,
+            expiry,
+            steps,
+            exercise,
+            &basis,
+            ccy,
+            rate,
+            pricing_seed,
+        )
         .map_err(to_js_err)?;
     let result = McResultJs::from_estimate(&est);
     serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
@@ -401,6 +583,69 @@ where
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+#[allow(clippy::too_many_arguments)]
+fn price_heston(
+    is_call: bool,
+    spot: f64,
+    strike: f64,
+    rate: f64,
+    div_yield: f64,
+    kappa: f64,
+    theta: f64,
+    vol_of_vol: f64,
+    rho: f64,
+    v0: f64,
+    expiry: f64,
+    num_paths: usize,
+    seed: u64,
+    num_steps: Option<usize>,
+    currency: Option<String>,
+) -> Result<JsValue, JsValue> {
+    use finstack_monte_carlo::discretization::QeHeston;
+    use finstack_monte_carlo::engine::{McEngine, McEngineConfig};
+    use finstack_monte_carlo::payoff::vanilla::{EuropeanCall, EuropeanPut};
+    use finstack_monte_carlo::process::heston::HestonProcess;
+    use finstack_monte_carlo::rng::philox::PhiloxRng;
+    use finstack_monte_carlo::time_grid::TimeGrid;
+
+    let ccy = resolve_currency(currency.as_deref())?;
+    let steps = num_steps.unwrap_or(252);
+    let time_grid = TimeGrid::uniform(expiry, steps).map_err(to_js_err)?;
+    let engine = McEngine::new(McEngineConfig::new(num_paths, time_grid).with_parallel(false));
+    let rng = PhiloxRng::new(seed);
+    let process = HestonProcess::with_params(rate, div_yield, kappa, theta, vol_of_vol, rho, v0)
+        .map_err(to_js_err)?;
+    let disc = QeHeston::new();
+    let initial_state = [spot, v0];
+    let discount_factor = (-rate * expiry).exp();
+    let est = if is_call {
+        let payoff = EuropeanCall::new(strike, 1.0, steps);
+        engine.price(
+            &rng,
+            &process,
+            &disc,
+            &initial_state,
+            &payoff,
+            ccy,
+            discount_factor,
+        )
+    } else {
+        let payoff = EuropeanPut::new(strike, 1.0, steps);
+        engine.price(
+            &rng,
+            &process,
+            &disc,
+            &initial_state,
+            &payoff,
+            ccy,
+            discount_factor,
+        )
+    }
+    .map_err(to_js_err)?;
+    let result = McResultJs::from_estimate(&est);
+    serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
+}
 
 /// Resolve an optional currency string, defaulting to USD.
 fn resolve_currency(code: Option<&str>) -> Result<Currency, JsValue> {

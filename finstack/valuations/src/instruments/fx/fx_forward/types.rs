@@ -181,13 +181,11 @@ impl FxForward {
     /// - `contract_rate` is provided but is not positive
     /// - `spot_rate_override` is provided but is not positive
     pub fn validate(&self) -> Result<()> {
-        // Currencies must be different
-        validation::require_with(self.base_currency != self.quote_currency, || {
-            format!(
-                "FX forward base_currency ({}) must differ from quote_currency ({})",
-                self.base_currency, self.quote_currency
-            )
-        })?;
+        validation::validate_distinct_currencies(
+            self.base_currency,
+            self.quote_currency,
+            "FX forward",
+        )?;
 
         // Notional must be in base currency
         validation::require_with(self.notional.currency() == self.base_currency, || {

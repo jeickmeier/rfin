@@ -13,7 +13,9 @@
 //! - Cashflow amounts use the sign convention `positive = inflow`, `negative = outflow`.
 //! - Captured datasets may contain every path or only a sampled subset.
 
-use finstack_core::{Error, HashMap, Result};
+use std::collections::BTreeMap;
+
+use finstack_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
@@ -372,7 +374,7 @@ pub struct ProcessParams {
     pub process_type: String,
     /// Process parameters keyed by implementation-defined names such as `r`,
     /// `q`, `sigma`, `kappa`, or `theta`.
-    pub parameters: HashMap<String, f64>,
+    pub parameters: BTreeMap<String, f64>,
     /// Optional row-major `n x n` correlation matrix.
     pub correlation: Option<Vec<f64>>,
     /// Names describing the order of captured state-vector entries.
@@ -384,7 +386,7 @@ impl ProcessParams {
     pub fn new(process_type: impl Into<String>) -> Self {
         Self {
             process_type: process_type.into(),
-            parameters: HashMap::default(),
+            parameters: BTreeMap::default(),
             correlation: None,
             factor_names: Vec::new(),
         }
@@ -664,6 +666,22 @@ mod tests {
         assert_eq!(params.process_type, "GBM");
         assert_eq!(params.parameters.get("r"), Some(&0.05));
         assert_eq!(params.parameters.get("sigma"), Some(&0.2));
+    }
+
+    #[test]
+    fn test_process_params_serializes_parameters_in_key_order() {
+        let mut params = ProcessParams::new("Heston");
+        params.add_param("theta", 0.04);
+        params.add_param("kappa", 2.0);
+        params.add_param("sigma_v", 0.3);
+
+        let json = serde_json::to_string(&params).expect("serialize process params");
+
+        let kappa_idx = json.find("\"kappa\"").expect("kappa key present");
+        let sigma_idx = json.find("\"sigma_v\"").expect("sigma_v key present");
+        let theta_idx = json.find("\"theta\"").expect("theta key present");
+        assert!(kappa_idx < sigma_idx);
+        assert!(sigma_idx < theta_idx);
     }
 
     #[test]

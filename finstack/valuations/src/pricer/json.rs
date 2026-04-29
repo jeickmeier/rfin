@@ -5,7 +5,7 @@
 //! pricing overrides, parse the as-of date and model key, and dispatch through
 //! the standard pricer registry.
 
-use super::{standard_registry, ModelKey};
+use super::{shared_standard_registry, ModelKey, PricerRegistry};
 use crate::instruments::{Instrument, InstrumentEnvelope, InstrumentJson, MetricPricingOverrides};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
@@ -126,29 +126,17 @@ pub fn price_instrument_json(
     let instrument = parse_boxed_instrument_json(instrument_json, None)?;
     let as_of = parse_as_of_date(as_of)?;
     let model = resolve_model_key(instrument.as_ref(), model)?;
-    standard_registry()
-        .price_with_metrics(
-            instrument.as_ref(),
-            model,
-            market,
-            as_of,
-            &[],
-            Default::default(),
-        )
-        .map_err(Into::into)
-}
-
-/// Price a tagged instrument JSON payload and serialize the valuation result
-/// as compact JSON for host-language bindings.
-pub fn price_instrument_json_string(
-    instrument_json: &str,
-    market: &MarketContext,
-    as_of: &str,
-    model: &str,
-) -> finstack_core::Result<String> {
-    let result = price_instrument_json(instrument_json, market, as_of, model)?;
-    serde_json::to_string(&result)
-        .map_err(|e| Error::Validation(format!("invalid valuation result JSON: {e}")))
+    let registry = shared_standard_registry();
+    PricerRegistry::price_with_metrics_shared(
+        &registry,
+        instrument.as_ref(),
+        model,
+        market,
+        as_of,
+        &[],
+        Default::default(),
+    )
+    .map_err(Into::into)
 }
 
 /// Price a tagged instrument JSON payload with explicit metric requests.
@@ -197,38 +185,17 @@ pub fn price_instrument_json_with_metrics_and_history(
     } else {
         crate::instruments::PricingOptions::default()
     };
-    standard_registry()
-        .price_with_metrics(
-            instrument.as_ref(),
-            model,
-            market,
-            as_of,
-            &metric_ids,
-            pricing_options,
-        )
-        .map_err(Into::into)
-}
-
-/// Price a tagged instrument JSON payload with explicit metrics and serialize
-/// the valuation result as compact JSON for host-language bindings.
-pub fn price_instrument_json_with_metrics_string(
-    instrument_json: &str,
-    market: &MarketContext,
-    as_of: &str,
-    model: &str,
-    metrics: &[String],
-    pricing_options: Option<&str>,
-) -> finstack_core::Result<String> {
-    let result = price_instrument_json_with_metrics(
-        instrument_json,
+    let registry = shared_standard_registry();
+    PricerRegistry::price_with_metrics_shared(
+        &registry,
+        instrument.as_ref(),
+        model,
         market,
         as_of,
-        model,
-        metrics,
+        &metric_ids,
         pricing_options,
-    )?;
-    serde_json::to_string(&result)
-        .map_err(|e| Error::Validation(format!("invalid valuation result JSON: {e}")))
+    )
+    .map_err(Into::into)
 }
 
 /// Price a tagged instrument JSON payload and return one requested scalar
@@ -505,19 +472,6 @@ mod tests {
         )
         .expect("price");
         assert_eq!(result.instrument_id, "TEST-BOND");
-    }
-
-    #[test]
-    fn price_instrument_json_string_prices_bond() {
-        let json = price_instrument_json_string(
-            &bond_instrument_json(),
-            &market_context(),
-            "2024-01-01",
-            "discounting",
-        )
-        .expect("price");
-        let result: Value = serde_json::from_str(&json).expect("result json");
-        assert_eq!(result["instrument_id"], "TEST-BOND");
     }
 
     #[test]

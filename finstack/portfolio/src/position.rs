@@ -152,7 +152,8 @@ impl Position {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::InvalidInput`] if `quantity` is NaN or infinite.
+    /// Returns [`Error::InvalidInput`] if `quantity` is NaN or infinite, or if
+    /// `unit` is [`PositionUnit::Percentage`] and `quantity` exceeds `100.0`.
     ///
     /// # Examples
     ///
@@ -214,14 +215,11 @@ impl Position {
             );
         }
 
-        // Warn if percentage exceeds 100 (might indicate confusion with decimal form)
         if matches!(unit, PositionUnit::Percentage) && quantity > 100.0 {
-            tracing::warn!(
-                position_id = %pos_id,
-                quantity,
-                "Percentage quantity exceeds 100 - did you mean {}%?",
-                quantity
-            );
+            return Err(Error::invalid_input(format!(
+                "Percentage quantity must be <= 100.0, got: {} (position_id: {})",
+                quantity, pos_id
+            )));
         }
 
         Ok(Self {
@@ -631,5 +629,30 @@ mod tests {
         let unit = PositionUnit::Notional(Some(Currency::USD));
         let json = serde_json::to_string(&unit).expect("test should succeed");
         assert!(json.contains("notional"));
+    }
+
+    #[test]
+    fn percentage_quantity_above_one_hundred_is_rejected() {
+        let deposit = Deposit::builder()
+            .id("DEP_1M".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .start_date(date!(2024 - 01 - 01))
+            .maturity(date!(2024 - 02 - 01))
+            .day_count(finstack_core::dates::DayCount::Act360)
+            .discount_curve_id("USD".into())
+            .build()
+            .expect("test should succeed");
+
+        let err = Position::new(
+            "POS_001",
+            "FUND_A",
+            "DEP_1M",
+            Arc::new(deposit),
+            100.0001,
+            PositionUnit::Percentage,
+        )
+        .expect_err("percentage quantities above 100 should be invalid");
+
+        assert!(err.to_string().contains("Percentage quantity"));
     }
 }

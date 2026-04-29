@@ -5,7 +5,7 @@
 
 use super::{DealFees, DefaultAssumptions};
 use crate::instruments::fixed_income::structured_credit::assumptions::{
-    embedded_registry, StructuredCreditAssumptionRegistry,
+    embedded_registry_or_panic, StructuredCreditAssumptionRegistry,
 };
 use finstack_core::currency::Currency;
 use finstack_core::Result;
@@ -325,9 +325,8 @@ pub fn cmbs_standard_cpr() -> f64 {
     cmbs_assumptions().base_cpr_annual
 }
 
-#[allow(clippy::expect_used)]
 fn assumptions_registry() -> &'static StructuredCreditAssumptionRegistry {
-    embedded_registry().expect("embedded structured-credit assumptions registry should load")
+    embedded_registry_or_panic()
 }
 
 #[allow(clippy::expect_used)]

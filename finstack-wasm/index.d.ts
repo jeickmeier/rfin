@@ -914,7 +914,7 @@ export interface CorrelationNamespace {
 }
 
 // --- monte_carlo ----------------------------------------------------------
-// GBM convenience subset of finstack-monte-carlo. Advanced Rust process,
+// Convenience subset of finstack-monte-carlo. Advanced Rust process,
 // discretization, RNG, payoff, and Greeks types are not standalone WASM types.
 
 export interface MonteCarloNamespace {
@@ -942,6 +942,42 @@ export interface MonteCarloNamespace {
     numSteps?: number,
     currency?: string
   ): MonteCarloEstimateJson;
+  priceHestonCall(
+    spot: number,
+    strike: number,
+    rate: number,
+    divYield: number,
+    kappa: number,
+    theta: number,
+    volOfVol: number,
+    rho: number,
+    v0: number,
+    expiry: number,
+    numPaths: number,
+    seed: bigint,
+    numSteps?: number,
+    currency?: string
+  ): MonteCarloEstimateJson;
+  priceHestonPut(
+    spot: number,
+    strike: number,
+    rate: number,
+    divYield: number,
+    kappa: number,
+    theta: number,
+    volOfVol: number,
+    rho: number,
+    v0: number,
+    expiry: number,
+    numPaths: number,
+    seed: bigint,
+    numSteps?: number,
+    currency?: string
+  ): MonteCarloEstimateJson;
+  /**
+   * Price an arithmetic Asian call using post-initial fixings at steps
+   * `1..=numSteps`; the initial spot at step 0 is excluded.
+   */
   priceAsianCall(
     spot: number,
     strike: number,
@@ -954,6 +990,10 @@ export interface MonteCarloNamespace {
     numSteps?: number,
     currency?: string
   ): MonteCarloEstimateJson;
+  /**
+   * Price an arithmetic Asian put using post-initial fixings at steps
+   * `1..=numSteps`; the initial spot at step 0 is excluded.
+   */
   priceAsianPut(
     spot: number,
     strike: number,
@@ -990,6 +1030,38 @@ export interface MonteCarloNamespace {
     expiry: number,
     numPaths: number,
     seed: bigint,
+    numSteps?: number,
+    currency?: string,
+    useParallel?: boolean,
+    basis?: string,
+    basisDegree?: number
+  ): MonteCarloEstimateJson;
+  priceAmericanPutUnbiased(
+    spot: number,
+    strike: number,
+    rate: number,
+    divYield: number,
+    vol: number,
+    expiry: number,
+    numPaths: number,
+    seed: bigint,
+    pricingSeed: bigint,
+    numSteps?: number,
+    currency?: string,
+    useParallel?: boolean,
+    basis?: string,
+    basisDegree?: number
+  ): MonteCarloEstimateJson;
+  priceAmericanCallUnbiased(
+    spot: number,
+    strike: number,
+    rate: number,
+    divYield: number,
+    vol: number,
+    expiry: number,
+    numPaths: number,
+    seed: bigint,
+    pricingSeed: bigint,
     numSteps?: number,
     currency?: string,
     useParallel?: boolean,
@@ -1659,8 +1731,8 @@ export declare const statements_analytics: StatementsAnalyticsNamespace;
 // --- portfolio -------------------------------------------------------------
 
 export interface ScenarioRevalueResult {
-  valuation: string;
-  report: string;
+  valuation: Record<string, unknown>;
+  report: Record<string, unknown>;
 }
 
 /**
@@ -1693,6 +1765,11 @@ export interface PortfolioNamespace {
     asOf: string
   ): string;
   valuePortfolio(specJson: string, marketJson: string, strictRisk: boolean): string;
+  /**
+   * Fast-path valuation that reuses a built `Portfolio` handle.
+   * Skips the `PortfolioSpec` parse + `Portfolio::from_spec` rebuild cost.
+   */
+  valuePortfolioBuilt(portfolio: Portfolio, marketJson: string, strictRisk: boolean): string;
   aggregateFullCashflows(specJson: string, marketJson: string): string;
   /**
    * Fast-path cashflow aggregation that reuses a built `Portfolio` handle.
@@ -1704,8 +1781,19 @@ export interface PortfolioNamespace {
     scenarioJson: string,
     marketJson: string
   ): ScenarioRevalueResult;
+  /**
+   * Fast-path scenario application that reuses a built `Portfolio` handle.
+   * Returns structured JS objects for `valuation` and `report`.
+   */
+  applyScenarioAndRevalueBuilt(
+    portfolio: Portfolio,
+    scenarioJson: string,
+    marketJson: string
+  ): ScenarioRevalueResult;
   /** Optimize portfolio weights using the LP-based optimizer. */
   optimizePortfolio(specJson: string, marketJson: string): string;
+  /** Fast-path optimization that reuses a built `Portfolio` handle. */
+  optimizePortfolioBuilt(portfolio: Portfolio, paramsJson: string, marketJson: string): string;
   replayPortfolio(specJson: string, snapshotsJson: string, configJson: string): string;
   parametricVarDecomposition(
     positionIdsJson: string,

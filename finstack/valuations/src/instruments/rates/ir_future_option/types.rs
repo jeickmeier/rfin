@@ -373,19 +373,19 @@ impl crate::instruments::common_impl::traits::OptionGreeksProvider for IrFutureO
 
         match request.greek {
             OptionGreekKind::Delta => Ok(OptionGreeks {
-                delta: Some(self.option_delta(market, as_of)?),
+                delta: Some(OptionDeltaProvider::option_delta(self, market, as_of)?),
                 ..OptionGreeks::default()
             }),
             OptionGreekKind::Gamma => Ok(OptionGreeks {
-                gamma: Some(self.option_gamma(market, as_of)?),
+                gamma: Some(OptionGammaProvider::option_gamma(self, market, as_of)?),
                 ..OptionGreeks::default()
             }),
             OptionGreekKind::Vega => Ok(OptionGreeks {
-                vega: Some(self.option_vega(market, as_of)?),
+                vega: Some(OptionVegaProvider::option_vega(self, market, as_of)?),
                 ..OptionGreeks::default()
             }),
             OptionGreekKind::Theta => Ok(OptionGreeks {
-                theta: Some(self.option_theta(market, as_of)?),
+                theta: Some(OptionThetaProvider::option_theta(self, market, as_of)?),
                 ..OptionGreeks::default()
             }),
             _ => Ok(OptionGreeks::default()),

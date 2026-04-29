@@ -154,7 +154,6 @@ impl crate::pricer::Pricer for EquityOptionRoughHestonMcPricer {
         // Build engine and payoff
         let engine = finstack_monte_carlo::engine::McEngine::builder()
             .num_paths(num_paths)
-            .seed(seed_val)
             .time_grid(time_grid)
             .parallel(false)
             .build()

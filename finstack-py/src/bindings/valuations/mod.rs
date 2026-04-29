@@ -12,6 +12,7 @@ mod credit;
 mod credit_derivatives;
 mod credit_factor_model;
 mod exotic_rates;
+mod exotics;
 mod factor_model;
 mod fourier;
 mod fx;
@@ -158,6 +159,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     correlation::register(py, &m)?;
     credit::register(py, &m)?;
     credit_derivatives::register(py, &m)?;
+    exotics::register(py, &m)?;
     fx::register(py, &m)?;
 
     let all = PyList::new(
@@ -214,6 +216,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "correlation",
             "credit",
             "credit_derivatives",
+            "exotics",
             "fx",
         ],
     )?;

@@ -277,7 +277,6 @@ impl McEngine {
     ///
     /// let engine = McEngine::builder()
     ///     .num_paths(25_000)
-    ///     .seed(11)
     ///     .uniform_grid(1.0, 252)
     ///     .build()
     ///     .expect("valid Monte Carlo configuration");
@@ -384,7 +383,6 @@ impl McEngine {
     ///
     /// let engine = McEngine::builder()
     ///     .num_paths(2_000)
-    ///     .seed(5)
     ///     .uniform_grid(1.0, 12)
     ///     .path_capture(PathCaptureConfig::sample(100, 17).with_payoffs())
     ///     .build()

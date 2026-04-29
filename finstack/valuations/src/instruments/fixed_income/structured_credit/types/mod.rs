@@ -93,9 +93,7 @@ use crate::cashflow::traits::{schedule_from_classified_flows, ScheduleBuildOpts}
 use crate::constants::DECIMAL_TO_PERCENT;
 use crate::correlation::RecoverySpec as StochasticRecoverySpec;
 use crate::instruments::common_impl::traits::{Attributes, Instrument};
-use crate::instruments::fixed_income::structured_credit::assumptions::{
-    embedded_registry, StructuredCreditAssumptionRegistry,
-};
+use crate::instruments::fixed_income::structured_credit::assumptions::embedded_registry_or_panic;
 use crate::instruments::fixed_income::structured_credit::pricing::stochastic::pricer::{
     PricingMode, StochasticPricer, StochasticPricerConfig, StochasticPricingResult,
 };
@@ -141,8 +139,7 @@ pub struct MarketConditions {
 
 impl Default for MarketConditions {
     fn default() -> Self {
-        let (refi_rate, seasonal_factor) =
-            structured_credit_assumptions_registry().market_conditions();
+        let (refi_rate, seasonal_factor) = embedded_registry_or_panic().market_conditions();
         Self {
             refi_rate,
             original_rate: None,
@@ -268,21 +265,16 @@ impl Default for CreditModelConfig {
 
 impl CreditModelConfig {
     fn default_prepayment_spec() -> PrepaymentModelSpec {
-        structured_credit_assumptions_registry().default_prepayment_spec()
+        embedded_registry_or_panic().default_prepayment_spec()
     }
 
     fn default_default_spec() -> DefaultModelSpec {
-        structured_credit_assumptions_registry().default_default_spec()
+        embedded_registry_or_panic().default_default_spec()
     }
 
     fn default_recovery_spec() -> RecoveryModelSpec {
-        structured_credit_assumptions_registry().default_recovery_spec()
+        embedded_registry_or_panic().default_recovery_spec()
     }
-}
-
-#[allow(clippy::expect_used)]
-fn structured_credit_assumptions_registry() -> &'static StructuredCreditAssumptionRegistry {
-    embedded_registry().expect("embedded structured-credit assumptions registry should load")
 }
 
 // ============================================================================
@@ -800,7 +792,7 @@ impl StructuredCredit {
         }
 
         if let Some(psa_mult) = self.behavior_overrides.psa_speed_multiplier {
-            let psa_curve = structured_credit_assumptions_registry().psa_curve();
+            let psa_curve = embedded_registry_or_panic().psa_curve();
             let base_cpr = if seasoning <= psa_curve.ramp_months {
                 (seasoning as f64 / psa_curve.ramp_months as f64) * psa_curve.terminal_cpr
             } else {
@@ -819,7 +811,7 @@ impl StructuredCredit {
         }
 
         if let Some(sda_mult) = self.behavior_overrides.sda_speed_multiplier {
-            let sda_curve = structured_credit_assumptions_registry().sda_curve();
+            let sda_curve = embedded_registry_or_panic().sda_curve();
             let decline_period = sda_curve.peak_month as f64;
 
             let cdr = if seasoning <= sda_curve.peak_month {

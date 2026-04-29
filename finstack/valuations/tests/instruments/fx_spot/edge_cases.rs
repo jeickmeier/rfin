@@ -13,18 +13,20 @@ use finstack_valuations::{
 
 #[test]
 fn test_same_currency_pair() {
-    // Edge case: base and quote are the same currency
     let fx = FxSpot::new(InstrumentId::new("USDUSD"), Currency::USD, Currency::USD)
         .with_notional(Money::new(1_000_000.0, Currency::USD))
-        .unwrap()
+        .expect("notional should be accepted before pair validation")
         .with_rate(1.0)
-        .expect("test rate");
+        .expect("rate should be accepted before pair validation");
+    let err = fx
+        .value(&MarketContext::new(), test_date())
+        .expect_err("same-currency FX spot should be rejected");
 
-    let market = MarketContext::new();
-    let pv = fx.value(&market, test_date()).unwrap();
-
-    assert_eq!(pv.currency(), Currency::USD);
-    assert_approx_eq(pv.amount(), 1_000_000.0, EPSILON, "Same currency pair");
+    assert!(
+        err.to_string()
+            .contains("base_currency (USD) must differ from quote_currency (USD)"),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]

@@ -72,6 +72,8 @@ pub(crate) fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
     let mut has_strike_variance: bool = false;
     let mut has_optional_notional: bool = false;
     let mut has_optional_spot_rate: bool = false;
+    let mut has_base_currency: bool = false;
+    let mut has_quote_currency: bool = false;
 
     for attr in &input.attrs {
         if attr.path().is_ident("builder") {
@@ -150,13 +152,18 @@ pub(crate) fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
             if ident == format_ident!("strike_variance") {
                 has_strike_variance = true;
             }
+            if ident == format_ident!("base_currency") {
+                has_base_currency = true;
+            }
+            if ident == format_ident!("quote_currency") {
+                has_quote_currency = true;
+            }
             if ident == format_ident!("notional") && is_option_ty {
                 has_optional_notional = true;
             }
             if ident == format_ident!("spot_rate") && is_option_ty {
                 has_optional_spot_rate = true;
             }
-
             // Optional if Option<T> or the field is `attributes`
             if is_option_ty || ident == format_ident!("attributes") {
                 optional_fields.push((ident, ty));
@@ -357,6 +364,17 @@ pub(crate) fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
                 return ::core::result::Result::Err(finstack_core::Error::Validation(
                     "Builder validation failed: at least one of `notional` or `spot_rate` must be set".to_string()
                 ));
+            }
+        });
+    }
+    if has_base_currency && has_quote_currency {
+        post_build_checks.extend(quote! {
+            if __built.base_currency == __built.quote_currency {
+                return ::core::result::Result::Err(finstack_core::Error::Validation(format!(
+                    "Builder validation failed: base_currency ({}) must differ from quote_currency ({})",
+                    __built.base_currency,
+                    __built.quote_currency
+                )));
             }
         });
     }

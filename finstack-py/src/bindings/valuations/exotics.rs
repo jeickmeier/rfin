@@ -1,4 +1,4 @@
-//! Direct Python wrappers for FX valuation instruments.
+//! Direct Python wrappers for exotic valuation instruments.
 
 use crate::bindings::extract::extract_market;
 use crate::errors::display_to_py;
@@ -40,12 +40,12 @@ fn build_from_py(
     }
 
     let value = if let Some(spec) = spec {
-        py_to_json_value(py, spec, "FX instrument spec")?
+        py_to_json_value(py, spec, "exotic instrument spec")?
     } else if let Some(kwargs) = kwargs {
-        py_to_json_value(py, kwargs.as_any(), "FX instrument keyword fields")?
+        py_to_json_value(py, kwargs.as_any(), "exotic instrument keyword fields")?
     } else {
         return Err(PyValueError::new_err(
-            "FX instrument constructor requires a spec object, JSON string, or keyword fields",
+            "exotic instrument constructor requires a spec object, JSON string, or keyword fields",
         ));
     };
     canonical_instrument_json(type_tag, value).map_err(display_to_py)
@@ -56,8 +56,6 @@ fn from_json_payload(type_tag: &str, json: &str) -> PyResult<String> {
 }
 
 fn pretty_json(json: &str) -> PyResult<String> {
-    // `to_json` on the wrapper is informational/inspection-oriented; pretty
-    // printing here is fine and not on the hot path.
     pretty_instrument_json(json).map_err(display_to_py)
 }
 
@@ -98,9 +96,13 @@ fn metric_value(
     metric_value_from_instrument_json(json, &market, as_of, model, metric).map_err(display_to_py)
 }
 
-macro_rules! fx_class {
+macro_rules! exotic_class {
     ($py_name:literal, $rust_name:ident, $type_tag:literal) => {
-        #[pyclass(name = $py_name, module = "finstack.valuations.fx", skip_from_py_object)]
+        #[pyclass(
+            name = $py_name,
+            module = "finstack.valuations.exotics",
+            skip_from_py_object
+        )]
         #[derive(Clone)]
         pub(crate) struct $rust_name {
             json: String,
@@ -167,9 +169,9 @@ macro_rules! fx_class {
     };
 }
 
-macro_rules! fx_option_class {
+macro_rules! exotic_option_class {
     ($py_name:literal, $rust_name:ident, $type_tag:literal) => {
-        fx_class!($py_name, $rust_name, $type_tag);
+        exotic_class!($py_name, $rust_name, $type_tag);
 
         #[pymethods]
         impl $rust_name {
@@ -196,16 +198,6 @@ macro_rules! fx_option_class {
             #[pyo3(signature = (market, as_of, model="default"))]
             fn rho(&self, market: &Bound<'_, PyAny>, as_of: &str, model: &str) -> PyResult<f64> {
                 metric_value(&self.json, market, as_of, model, "rho")
-            }
-
-            #[pyo3(signature = (market, as_of, model="default"))]
-            fn foreign_rho(
-                &self,
-                market: &Bound<'_, PyAny>,
-                as_of: &str,
-                model: &str,
-            ) -> PyResult<f64> {
-                metric_value(&self.json, market, as_of, model, "foreign_rho")
             }
 
             #[pyo3(signature = (market, as_of, model="default"))]
@@ -241,59 +233,32 @@ macro_rules! fx_option_class {
     };
 }
 
-fx_class!("FxSpot", PyFxSpot, "fx_spot");
-fx_class!("FxForward", PyFxForward, "fx_forward");
-fx_class!("FxSwap", PyFxSwap, "fx_swap");
-fx_class!("Ndf", PyNdf, "ndf");
-fx_option_class!("FxOption", PyFxOption, "fx_option");
-fx_option_class!("FxDigitalOption", PyFxDigitalOption, "fx_digital_option");
-fx_option_class!("FxTouchOption", PyFxTouchOption, "fx_touch_option");
-fx_option_class!("FxBarrierOption", PyFxBarrierOption, "fx_barrier_option");
-fx_class!("FxVarianceSwap", PyFxVarianceSwap, "fx_variance_swap");
-fx_option_class!("QuantoOption", PyQuantoOption, "quanto_option");
+exotic_option_class!("AsianOption", PyAsianOption, "asian_option");
+exotic_option_class!("BarrierOption", PyBarrierOption, "barrier_option");
+exotic_option_class!("LookbackOption", PyLookbackOption, "lookback_option");
+exotic_class!("Basket", PyBasket, "basket");
 
-/// Register the `finstack.valuations.fx` submodule.
+/// Register the `finstack.valuations.exotics` submodule.
 pub(crate) fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
-    let m = PyModule::new(py, "fx")?;
-    m.setattr("__doc__", "Direct FX valuation instrument wrappers.")?;
+    let m = PyModule::new(py, "exotics")?;
+    m.setattr("__doc__", "Direct exotic valuation instrument wrappers.")?;
 
-    m.add_class::<PyFxSpot>()?;
-    m.add_class::<PyFxForward>()?;
-    m.add_class::<PyFxSwap>()?;
-    m.add_class::<PyNdf>()?;
-    m.add_class::<PyFxOption>()?;
-    m.add_class::<PyFxDigitalOption>()?;
-    m.add_class::<PyFxTouchOption>()?;
-    m.add_class::<PyFxBarrierOption>()?;
-    m.add_class::<PyFxVarianceSwap>()?;
-    m.add_class::<PyQuantoOption>()?;
+    m.add_class::<PyAsianOption>()?;
+    m.add_class::<PyBarrierOption>()?;
+    m.add_class::<PyLookbackOption>()?;
+    m.add_class::<PyBasket>()?;
 
     let all = PyList::new(
         py,
-        [
-            "FxSpot",
-            "FxForward",
-            "FxSwap",
-            "Ndf",
-            "FxOption",
-            "FxDigitalOption",
-            "FxTouchOption",
-            "FxBarrierOption",
-            "FxVarianceSwap",
-            "QuantoOption",
-        ],
+        ["AsianOption", "BarrierOption", "LookbackOption", "Basket"],
     )?;
     m.setattr("__all__", all)?;
 
     parent.add_submodule(&m)?;
-    parent.add("fx", &m)?;
+    parent.add("exotics", &m)?;
 
-    // Register the submodule under its fully-qualified path in `sys.modules`
-    // so that `import finstack.valuations.fx` works the same as attribute
-    // access on the parent. PyO3 sets `parent.__name__`; surface any failure
-    // to read it instead of silently using a wrong fallback.
     let parent_name: String = parent.getattr("__name__")?.extract()?;
-    let qual = format!("{parent_name}.fx");
+    let qual = format!("{parent_name}.exotics");
     m.setattr("__package__", &qual)?;
     let sys = PyModule::import(py, "sys")?;
     sys.getattr("modules")?.set_item(&qual, &m)?;

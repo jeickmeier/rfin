@@ -8,6 +8,7 @@ from finstack.core.market_data import MarketContext
 from finstack.valuations import correlation as correlation
 from finstack.valuations import credit as credit
 from finstack.valuations import credit_derivatives as credit_derivatives
+from finstack.valuations import exotics as exotics
 from finstack.valuations import fx as fx
 from finstack.valuations import instruments as instruments
 
@@ -15,6 +16,7 @@ __all__ = [
     "correlation",
     "credit",
     "credit_derivatives",
+    "exotics",
     "fx",
     "instruments",
     "CreditFactorModel",

@@ -5,7 +5,7 @@
 
 use super::enums::DealType;
 use crate::instruments::fixed_income::structured_credit::assumptions::{
-    embedded_registry, StructuredCreditAssumptionRegistry,
+    embedded_registry_or_panic, StructuredCreditAssumptionRegistry,
 };
 use crate::instruments::rates::irs::InterestRateSwap;
 use finstack_core::dates::{Date, Tenor};
@@ -339,9 +339,8 @@ impl DealConfig {
     }
 }
 
-#[allow(clippy::expect_used)]
 fn assumptions_registry() -> &'static StructuredCreditAssumptionRegistry {
-    embedded_registry().expect("embedded structured-credit assumptions registry should load")
+    embedded_registry_or_panic()
 }
 
 #[allow(clippy::expect_used)]

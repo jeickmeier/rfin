@@ -74,6 +74,82 @@
 //!     .expect("test should succeed");
 //! ```
 
+macro_rules! define_string_id {
+    ($(#[$meta:meta])* $vis:vis struct $name:ident;) => {
+        $(#[$meta])*
+        #[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+        #[repr(transparent)]
+        $vis struct $name(String);
+
+        impl $name {
+            /// Create a new identifier.
+            ///
+            /// # Arguments
+            ///
+            /// * `id` - The identifier string.
+            ///
+            /// # Returns
+            ///
+            /// A strongly typed identifier wrapping the supplied string.
+            pub fn new(id: impl Into<String>) -> Self {
+                Self(id.into())
+            }
+
+            /// Get the identifier as a string slice.
+            ///
+            /// # Returns
+            ///
+            /// Borrowed view of the underlying identifier without allocating.
+            #[inline]
+            pub fn as_str(&self) -> &str {
+                &self.0
+            }
+        }
+
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                self.0.fmt(f)
+            }
+        }
+
+        impl From<&str> for $name {
+            fn from(s: &str) -> Self {
+                Self(s.to_string())
+            }
+        }
+
+        impl From<String> for $name {
+            fn from(s: String) -> Self {
+                Self(s)
+            }
+        }
+
+        impl std::borrow::Borrow<str> for $name {
+            fn borrow(&self) -> &str {
+                &self.0
+            }
+        }
+
+        impl AsRef<str> for $name {
+            fn as_ref(&self) -> &str {
+                &self.0
+            }
+        }
+
+        impl PartialEq<&str> for $name {
+            fn eq(&self, other: &&str) -> bool {
+                self.0 == *other
+            }
+        }
+
+        impl PartialEq<str> for $name {
+            fn eq(&self, other: &str) -> bool {
+                self.0 == other
+            }
+        }
+    };
+}
+
 /// Portfolio-level PnL attribution and breakdowns.
 pub mod attribution;
 /// Book hierarchy and identifiers.

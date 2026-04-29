@@ -48,6 +48,11 @@ from __future__ import annotations
 
 from finstack.finstack import portfolio as _portfolio
 
+PortfolioError = _portfolio.PortfolioError
+FinstackValuationError = _portfolio.FinstackValuationError
+FinstackFxError = _portfolio.FinstackFxError
+FinstackOptimizationError = _portfolio.FinstackOptimizationError
+
 Portfolio = _portfolio.Portfolio
 PortfolioValuation = _portfolio.PortfolioValuation
 PortfolioResult = _portfolio.PortfolioResult
@@ -76,8 +81,12 @@ almgren_chriss_impact = _portfolio.almgren_chriss_impact
 kyle_lambda = _portfolio.kyle_lambda
 
 __all__: list[str] = [
+    "FinstackFxError",
+    "FinstackOptimizationError",
+    "FinstackValuationError",
     "Portfolio",
     "PortfolioCashflows",
+    "PortfolioError",
     "PortfolioResult",
     "PortfolioValuation",
     "aggregate_full_cashflows",

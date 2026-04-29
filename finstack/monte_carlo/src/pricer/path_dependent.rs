@@ -357,7 +357,6 @@ impl PathDependentPricer {
         // and path bookkeeping.
         let engine_config = McEngineConfig {
             num_paths: self.config.num_paths,
-            seed: self.config.seed,
             time_grid: time_grid.clone(),
             target_ci_half_width: None,
             use_parallel: false,
@@ -553,7 +552,6 @@ impl PathDependentPricer {
         // is rejected at validate_runtime.
         let engine_config = McEngineConfig {
             num_paths: self.config.num_paths,
-            seed: self.config.seed,
             time_grid,
             target_ci_half_width: None,
             use_parallel: self.config.use_parallel,
@@ -630,7 +628,6 @@ impl PathDependentPricer {
         // Create MC engine with path capture
         let engine_config = McEngineConfig {
             num_paths: self.config.num_paths,
-            seed: self.config.seed,
             time_grid,
             target_ci_half_width: None,
             use_parallel: self.config.use_parallel,
@@ -684,7 +681,6 @@ impl PathDependentPricer {
         let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
         let engine_config = McEngineConfig {
             num_paths: self.config.num_paths,
-            seed: self.config.seed,
             time_grid,
             target_ci_half_width: None,
             use_parallel: self.config.use_parallel,

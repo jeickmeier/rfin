@@ -173,13 +173,11 @@ impl Payoff for RecurringCashflowPayoff {
 fn test_engine_builder() {
     let engine = McEngine::builder()
         .num_paths(1000)
-        .seed(42)
         .uniform_grid(1.0, 100)
         .build()
         .expect("McEngine builder should succeed with valid test data");
 
     assert_eq!(engine.config().num_paths, 1000);
-    assert_eq!(engine.config().seed, 42);
 }
 
 #[test]
@@ -264,7 +262,6 @@ fn test_serial_vs_parallel_consistency() {
     let engine_serial = McEngine::builder()
         .num_paths(1000)
         .uniform_grid(1.0, 10)
-        .seed(42)
         .parallel(false)
         .build()
         .expect("McEngine builder should succeed with valid test data");
@@ -272,7 +269,6 @@ fn test_serial_vs_parallel_consistency() {
     let engine_parallel = McEngine::builder()
         .num_paths(1000)
         .uniform_grid(1.0, 10)
-        .seed(42)
         .parallel(true)
         .chunk_size(200)
         .build()
@@ -525,7 +521,6 @@ fn test_price_rejects_zero_paths() {
     let time_grid = TimeGrid::uniform(1.0, 1).expect("grid should build");
     let engine = McEngine::new(McEngineConfig {
         num_paths: 0,
-        seed: 42,
         time_grid,
         target_ci_half_width: None,
         use_parallel: false,
@@ -554,7 +549,6 @@ fn test_price_rejects_zero_chunk_size() {
     let time_grid = TimeGrid::uniform(1.0, 1).expect("grid should build");
     let engine = McEngine::new(McEngineConfig {
         num_paths: 10,
-        seed: 42,
         time_grid,
         target_ci_half_width: None,
         use_parallel: false,
@@ -606,7 +600,6 @@ fn test_price_rejects_initial_state_dimension_mismatch() {
 fn test_price_with_capture_rejects_invalid_sample_count() {
     let engine = McEngine::new(McEngineConfig {
         num_paths: 10,
-        seed: 42,
         time_grid: TimeGrid::uniform(1.0, 1).expect("grid should build"),
         target_ci_half_width: None,
         use_parallel: false,
@@ -635,7 +628,6 @@ fn test_price_with_capture_rejects_invalid_sample_count() {
 fn test_price_with_capture_rejects_antithetic_capture_combination() {
     let engine = McEngine::new(McEngineConfig {
         num_paths: 10,
-        seed: 42,
         time_grid: TimeGrid::uniform(1.0, 1).expect("grid should build"),
         target_ci_half_width: None,
         use_parallel: false,
@@ -665,7 +657,6 @@ fn test_price_rejects_parallel_auto_stop_configuration() {
     let time_grid = TimeGrid::uniform(1.0, 1).expect("grid should build");
     let engine = McEngine::new(McEngineConfig {
         num_paths: 10,
-        seed: 42,
         time_grid,
         target_ci_half_width: Some(0.01),
         use_parallel: true,
@@ -694,7 +685,6 @@ fn test_price_rejects_parallel_auto_stop_configuration() {
 fn test_price_with_capture_captures_initial_event_cashflows_and_payoff() {
     let engine = McEngine::new(McEngineConfig {
         num_paths: 1,
-        seed: 42,
         time_grid: TimeGrid::uniform(1.0, 1).expect("grid should build"),
         target_ci_half_width: None,
         use_parallel: false,
@@ -732,7 +722,6 @@ fn test_price_with_capture_captures_initial_event_cashflows_and_payoff() {
 fn test_price_with_capture_preserves_cashflows_across_multiple_timesteps() {
     let engine = McEngine::new(McEngineConfig {
         num_paths: 1,
-        seed: 42,
         time_grid: TimeGrid::uniform(1.0, 2).expect("grid should build"),
         target_ci_half_width: None,
         use_parallel: false,
@@ -783,7 +772,6 @@ fn test_price_with_capture_uses_actual_path_count_after_auto_stop() {
     let num_paths = super::pricing::AUTO_STOP_MIN_SAMPLES + 4_000;
     let engine = McEngine::new(McEngineConfig {
         num_paths,
-        seed: 42,
         time_grid: TimeGrid::uniform(1.0, 1).expect("grid should build"),
         target_ci_half_width: Some(0.01),
         use_parallel: false,
@@ -987,7 +975,6 @@ fn test_engine_antithetic_records_simulated_path_count() {
 
     let engine = McEngine::builder()
         .num_paths(requested)
-        .seed(7)
         .time_grid(grid.clone())
         .parallel(false)
         .build()
@@ -1009,7 +996,6 @@ fn test_engine_antithetic_records_simulated_path_count() {
 
     let engine_anti = McEngineBuilder::new()
         .num_paths(requested)
-        .seed(7)
         .time_grid(grid)
         .parallel(false)
         .antithetic(true)
@@ -1080,7 +1066,6 @@ mod correlation_regression {
     fn euler_heston_respects_rho() {
         let engine = McEngine::builder()
             .num_paths(20_000)
-            .seed(42)
             .uniform_grid(1.0, 50)
             .build()
             .expect("valid config");
@@ -1137,7 +1122,6 @@ mod correlation_regression {
     fn euler_matches_qe_heston_at_zero_rho() {
         let config = McEngine::builder()
             .num_paths(40_000)
-            .seed(7)
             .uniform_grid(1.0, 100)
             .build()
             .expect("valid config");
@@ -1219,7 +1203,6 @@ mod correlation_regression {
         let grid = uniform_grid(1.0, 50);
         let config = McEngineConfig {
             num_paths: 30_000,
-            seed: 11,
             time_grid: grid,
             target_ci_half_width: None,
             use_parallel: false,

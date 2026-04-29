@@ -45,6 +45,7 @@ use finstack_core::types::{CurveId, InstrumentId};
     serde::Deserialize,
     schemars::JsonSchema,
 )]
+#[builder(validate = CmsSwap::validate)]
 #[serde(deny_unknown_fields)]
 pub struct CmsSwap {
     /// Unique instrument identifier.
@@ -157,6 +158,43 @@ pub enum FundingLeg {
 }
 
 impl CmsSwap {
+    /// Validate CMS and funding leg schedule vectors.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if self.cms_fixing_dates.len() != self.cms_payment_dates.len()
+            || self.cms_fixing_dates.len() != self.cms_accrual_fractions.len()
+        {
+            return Err(finstack_core::Error::Validation(format!(
+                "CMS swap vectors must have equal length: fixing_dates={}, payment_dates={}, accrual_fractions={}",
+                self.cms_fixing_dates.len(),
+                self.cms_payment_dates.len(),
+                self.cms_accrual_fractions.len(),
+            )));
+        }
+
+        match &self.funding_leg {
+            FundingLeg::Fixed {
+                payment_dates,
+                accrual_fractions,
+                ..
+            }
+            | FundingLeg::Floating {
+                payment_dates,
+                accrual_fractions,
+                ..
+            } => {
+                if payment_dates.len() != accrual_fractions.len() {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "CMS swap funding leg vectors must have equal length: payment_dates={}, accrual_fractions={}",
+                        payment_dates.len(),
+                        accrual_fractions.len(),
+                    )));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Resolved fixed leg frequency (explicit > convention > default semi-annual).
     pub fn resolved_swap_fixed_freq(&self) -> Tenor {
         self.swap_fixed_freq
@@ -370,12 +408,8 @@ impl CmsSwap {
         let mut flows = Vec::new();
 
         for (i, &fixing_date) in self.cms_fixing_dates.iter().enumerate() {
-            let payment_date = self
-                .cms_payment_dates
-                .get(i)
-                .copied()
-                .unwrap_or(fixing_date);
-            let accrual_fraction = self.cms_accrual_fractions.get(i).copied().unwrap_or(0.0);
+            let payment_date = self.cms_payment_dates[i];
+            let accrual_fraction = self.cms_accrual_fractions[i];
 
             let swap_start = fixing_date;
             let swap_tenor_months = (self.cms_tenor * 12.0).round() as i32;
@@ -459,7 +493,7 @@ impl CmsSwap {
                 ..
             } => {
                 for (i, &payment_date) in payment_dates.iter().enumerate() {
-                    let accrual = accrual_fractions.get(i).copied().unwrap_or(0.0);
+                    let accrual = accrual_fractions[i];
                     let unsigned = rate * accrual * self.notional.amount();
                     let signed = match self.side {
                         crate::instruments::common_impl::parameters::legs::PayReceive::Pay => {
@@ -486,7 +520,7 @@ impl CmsSwap {
                     .copied()
                     .unwrap_or_else(|| payment_dates.first().copied().unwrap_or(as_of));
                 for (i, &payment_date) in payment_dates.iter().enumerate() {
-                    let accrual = accrual_fractions.get(i).copied().unwrap_or(0.0);
+                    let accrual = accrual_fractions[i];
                     let fwd_rate =
                         rate_period_on_dates(fwd_curve.as_ref(), prev_date, payment_date)?;
                     let unsigned = (fwd_rate + spread) * accrual * self.notional.amount();
@@ -539,16 +573,7 @@ impl crate::instruments::common_impl::traits::Instrument for CmsSwap {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        if self.cms_fixing_dates.len() != self.cms_payment_dates.len()
-            || self.cms_fixing_dates.len() != self.cms_accrual_fractions.len()
-        {
-            return Err(finstack_core::Error::Validation(format!(
-                "CMS swap vectors must have equal length: fixing_dates={}, payment_dates={}, accrual_fractions={}",
-                self.cms_fixing_dates.len(),
-                self.cms_payment_dates.len(),
-                self.cms_accrual_fractions.len(),
-            )));
-        }
+        self.validate()?;
         crate::instruments::rates::cms_swap::pricer::compute_pv(self, market, as_of)
     }
 
@@ -579,6 +604,7 @@ impl CashflowProvider for CmsSwap {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<CashFlowSchedule> {
+        self.validate()?;
         let maturity = self
             .cms_payment_dates
             .last()
@@ -647,6 +673,7 @@ mod tests {
 
     use super::*;
     use crate::cashflow::CashflowProvider;
+    use finstack_core::currency::Currency;
     use test_utils::{date, flat_discount_with_tenor, flat_forward_with_tenor, flat_vol_surface};
 
     #[test]
@@ -674,5 +701,62 @@ mod tests {
         );
         assert!(flows.iter().any(|(_, money)| money.amount() > 0.0));
         assert!(flows.iter().any(|(_, money)| money.amount() < 0.0));
+    }
+
+    #[test]
+    fn builder_rejects_misaligned_cms_leg_vectors() {
+        let result = CmsSwap::builder()
+            .id(InstrumentId::new("CMSSWAP-BAD-CMS"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .side(crate::instruments::common_impl::parameters::legs::PayReceive::Pay)
+            .cms_tenor(10.0)
+            .cms_fixing_dates(vec![date(2026, 3, 20), date(2026, 6, 20)])
+            .cms_payment_dates(vec![date(2026, 6, 20)])
+            .cms_accrual_fractions(vec![0.25, 0.25])
+            .cms_day_count(DayCount::Act365F)
+            .funding_leg(FundingLeg::Fixed {
+                rate: 0.03,
+                payment_dates: vec![date(2026, 6, 20), date(2026, 9, 20)],
+                accrual_fractions: vec![0.25, 0.25],
+                day_count: DayCount::Thirty360,
+            })
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .forward_curve_id(CurveId::new("USD-LIBOR-3M"))
+            .vol_surface_id(CurveId::new("USD-CMS10Y-VOL"))
+            .build();
+
+        assert!(
+            result.is_err(),
+            "CMS swap builder must reject CMS leg vector length mismatches"
+        );
+    }
+
+    #[test]
+    fn builder_rejects_misaligned_funding_leg_vectors() {
+        let result = CmsSwap::builder()
+            .id(InstrumentId::new("CMSSWAP-BAD-FUNDING"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .side(crate::instruments::common_impl::parameters::legs::PayReceive::Pay)
+            .cms_tenor(10.0)
+            .cms_fixing_dates(vec![date(2026, 3, 20)])
+            .cms_payment_dates(vec![date(2026, 6, 20)])
+            .cms_accrual_fractions(vec![0.25])
+            .cms_day_count(DayCount::Act365F)
+            .funding_leg(FundingLeg::Floating {
+                spread: 0.001,
+                payment_dates: vec![date(2026, 6, 20), date(2026, 9, 20)],
+                accrual_fractions: vec![0.25],
+                day_count: DayCount::Act360,
+                forward_curve_id: CurveId::new("USD-LIBOR-3M"),
+            })
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .forward_curve_id(CurveId::new("USD-LIBOR-3M"))
+            .vol_surface_id(CurveId::new("USD-CMS10Y-VOL"))
+            .build();
+
+        assert!(
+            result.is_err(),
+            "CMS swap builder must reject funding leg vector length mismatches"
+        );
     }
 }

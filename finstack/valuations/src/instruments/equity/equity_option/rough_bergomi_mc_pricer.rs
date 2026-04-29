@@ -212,11 +212,7 @@ impl crate::pricer::Pricer for EquityOptionRoughBergomiMcPricer {
         // Build discretization and fBM generator
         let disc =
             finstack_monte_carlo::discretization::rough_bergomi::RoughBergomiEuler::new(hurst_exp);
-        let fbm_config = finstack_monte_carlo::rng::fbm::FractionalNoiseConfig {
-            hurst,
-            generator_type: finstack_monte_carlo::rng::fbm::FbmGeneratorType::Auto,
-        };
-        let fbm_gen = finstack_monte_carlo::rng::fbm::create_fbm_generator(&times, &fbm_config)
+        let fbm_gen = finstack_monte_carlo::rng::fbm::create_fbm_generator(&times, hurst)
             .map_err(|e| crate::pricer::PricingError::from_core(e, err_ctx.clone()))?;
 
         let ccy = option_currency(equity_option);

@@ -23,30 +23,6 @@ pub struct McEngineConfig {
     /// reports both counts: `num_paths` for the statistical sample size and
     /// `num_simulated_paths` for the raw simulation work.
     pub num_paths: usize,
-    /// Caller-controlled seed: a metadata value that the **engine never reads
-    /// internally** but that callers conventionally pass to
-    /// [`PhiloxRng::new`](crate::rng::philox::PhiloxRng::new) when constructing
-    /// the `rng: &R` argument for [`McEngine::price`] /
-    /// [`McEngine::price_with_capture`].
-    ///
-    /// # Why is this here at all?
-    ///
-    /// Greek routines, bootstrap-style callers, and any code computing
-    /// finite-difference / common-random-number Greeks need a single shared
-    /// seed across multiple `price()` invocations. Storing the seed on the
-    /// config rather than burying it inside the engine lets the caller
-    /// re-instantiate the same `PhiloxRng` for each scenario (`base`, `up`,
-    /// `down`). The crate-internal `seed::derive_seed(instrument_id,
-    /// scenario)` helper produces deterministic values for this pattern.
-    ///
-    /// # Idiomatic use
-    ///
-    /// ```ignore
-    /// let cfg = McEngineConfig::new(num_paths, time_grid).with_seed(42);
-    /// let rng = PhiloxRng::new(cfg.seed);  // explicit; engine does not auto-build
-    /// engine.price(&rng, /* ... */)?;
-    /// ```
-    pub seed: u64,
     /// Time grid for discretization
     pub time_grid: TimeGrid,
     /// Optional target CI half-width for auto-stopping
@@ -76,13 +52,12 @@ impl McEngineConfig {
     ///
     /// # Returns
     ///
-    /// A configuration using registry-backed seed and parallel defaults, disabled
-    /// path capture, and no antithetic pairing.
+    /// A configuration using registry-backed parallel defaults, disabled path
+    /// capture, and registry-backed antithetic defaults.
     pub fn new(num_paths: usize, time_grid: TimeGrid) -> Self {
         let defaults = &crate::registry::embedded_defaults_or_panic().rust.engine;
         Self {
             num_paths,
-            seed: defaults.seed,
             time_grid,
             target_ci_half_width: None,
             use_parallel: defaults.use_parallel,
@@ -90,16 +65,6 @@ impl McEngineConfig {
             path_capture: PathCaptureConfig::default(),
             antithetic: defaults.antithetic,
         }
-    }
-
-    /// Record a seed value on the configuration for logging/reproducibility.
-    ///
-    /// This does not influence path generation; the engine's RNG is supplied
-    /// separately to [`McEngine::price`]. Use it together with
-    /// `PhiloxRng::new(seed)` if you want the two to agree.
-    pub fn with_seed(mut self, seed: u64) -> Self {
-        self.seed = seed;
-        self
     }
 
     /// Set the target 95% CI half-width for serial auto-stopping.
@@ -155,7 +120,6 @@ impl McEngineConfig {
 /// Builder for [`McEngine`] with ergonomic defaults.
 pub struct McEngineBuilder {
     num_paths: usize,
-    seed: u64,
     time_grid: Option<TimeGrid>,
     target_ci: Option<f64>,
     parallel: bool,
@@ -167,8 +131,8 @@ pub struct McEngineBuilder {
 impl McEngineBuilder {
     /// Create a builder with default settings.
     ///
-    /// The builder uses registry-backed path count, seed, and parallel
-    /// default, and no time grid. You must provide a valid grid via
+    /// The builder uses registry-backed path count and parallel defaults, and
+    /// no time grid. You must provide a valid grid via
     /// [`Self::time_grid`] or [`Self::uniform_grid`] before calling [`Self::build`].
     pub fn new() -> Self {
         let defaults = &crate::registry::embedded_defaults_or_panic()
@@ -176,7 +140,6 @@ impl McEngineBuilder {
             .engine_builder;
         Self {
             num_paths: defaults.num_paths,
-            seed: defaults.seed,
             time_grid: None,
             target_ci: None,
             parallel: defaults.use_parallel,
@@ -189,15 +152,6 @@ impl McEngineBuilder {
     /// Set the requested number of paths.
     pub fn num_paths(mut self, n: usize) -> Self {
         self.num_paths = n;
-        self
-    }
-
-    /// Record a seed value on the resulting configuration.
-    ///
-    /// This is metadata only; the RNG passed to [`McEngine::price`] actually
-    /// drives the simulation. See [`McEngineConfig::seed`] for the rationale.
-    pub fn seed(mut self, seed: u64) -> Self {
-        self.seed = seed;
         self
     }
 
@@ -279,7 +233,6 @@ impl McEngineBuilder {
 
         let config = McEngineConfig {
             num_paths: self.num_paths,
-            seed: self.seed,
             time_grid,
             target_ci_half_width: self.target_ci,
             use_parallel: self.parallel,

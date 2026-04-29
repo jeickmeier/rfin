@@ -261,7 +261,7 @@ pub fn value_portfolio_built(
 }
 
 /// Apply a scenario to an already-built [`Portfolio`] handle and revalue.
-/// Returns a JSON object with `valuation` and `report` string keys.
+/// Returns a JS object with structured `valuation` and `report` values.
 #[wasm_bindgen(js_name = applyScenarioAndRevalueBuilt)]
 pub fn apply_scenario_and_revalue_built(
     portfolio: &WasmPortfolio,
@@ -280,11 +280,9 @@ pub fn apply_scenario_and_revalue_built(
         &config,
     )
     .map_err(to_js_err)?;
-    let val_json = serde_json::to_string(&valuation).map_err(to_js_err)?;
-    let report_json = serde_json::to_string(&report).map_err(to_js_err)?;
     let out = serde_json::json!({
-        "valuation": val_json,
-        "report": report_json,
+        "valuation": valuation,
+        "report": report,
     });
     serde_wasm_bindgen::to_value(&out).map_err(to_js_err)
 }
@@ -316,7 +314,7 @@ pub fn optimize_portfolio_built(
 
 /// Apply a scenario to a portfolio and revalue.
 ///
-/// Returns a JSON object with `valuation` and `report` string keys.
+/// Returns a JS object with structured `valuation` and `report` values.
 #[wasm_bindgen(js_name = applyScenarioAndRevalue)]
 pub fn apply_scenario_and_revalue(
     spec_json: &str,
@@ -334,11 +332,9 @@ pub fn apply_scenario_and_revalue(
     let (valuation, report) =
         finstack_portfolio::scenarios::apply_and_revalue(&portfolio, &scenario, &market, &config)
             .map_err(to_js_err)?;
-    let val_json = serde_json::to_string(&valuation).map_err(to_js_err)?;
-    let report_json = serde_json::to_string(&report).map_err(to_js_err)?;
     let out = serde_json::json!({
-        "valuation": val_json,
-        "report": report_json,
+        "valuation": valuation,
+        "report": report,
     });
     serde_wasm_bindgen::to_value(&out).map_err(to_js_err)
 }

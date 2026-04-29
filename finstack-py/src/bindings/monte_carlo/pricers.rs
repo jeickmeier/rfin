@@ -170,10 +170,12 @@ impl PyPathDependentPricer {
         num_steps: Option<usize>,
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
-        use finstack_monte_carlo::payoff::asian::{AsianCall, AveragingMethod};
+        use finstack_monte_carlo::payoff::asian::{
+            default_fixing_steps, AsianCall, AveragingMethod,
+        };
         let ccy = resolve_currency(currency)?;
         let num_steps = num_steps.unwrap_or(py_mc_defaults()?.path_dependent_pricer.num_steps);
-        let fixing_steps: Vec<usize> = (1..=num_steps).collect();
+        let fixing_steps = default_fixing_steps(num_steps);
         let payoff = AsianCall::new(strike, 1.0, AveragingMethod::Arithmetic, fixing_steps);
         let df = (-rate * expiry).exp();
         self.run_gbm(
@@ -198,10 +200,12 @@ impl PyPathDependentPricer {
         num_steps: Option<usize>,
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
-        use finstack_monte_carlo::payoff::asian::{AsianPut, AveragingMethod};
+        use finstack_monte_carlo::payoff::asian::{
+            default_fixing_steps, AsianPut, AveragingMethod,
+        };
         let ccy = resolve_currency(currency)?;
         let num_steps = num_steps.unwrap_or(py_mc_defaults()?.path_dependent_pricer.num_steps);
-        let fixing_steps: Vec<usize> = (1..=num_steps).collect();
+        let fixing_steps = default_fixing_steps(num_steps);
         let payoff = AsianPut::new(strike, 1.0, AveragingMethod::Arithmetic, fixing_steps);
         let df = (-rate * expiry).exp();
         self.run_gbm(
@@ -276,94 +280,16 @@ pub struct PyLsmcPricer {
     num_paths: usize,
     seed: u64,
     use_parallel: bool,
-    basis: LsmcBasisKind,
+    basis: finstack_monte_carlo::pricer::basis::BasisKind,
     basis_degree: usize,
 }
 
-#[derive(Debug, Clone, Copy)]
-enum LsmcBasisKind {
-    Laguerre,
-    Polynomial,
-    NormalizedPolynomial,
-}
-
-impl LsmcBasisKind {
-    fn parse(name: &str) -> PyResult<Self> {
-        match name.to_ascii_lowercase().as_str() {
-            "laguerre" => Ok(Self::Laguerre),
-            "polynomial" | "poly" => Ok(Self::Polynomial),
-            "normalized_polynomial" | "normalized" | "centered_polynomial" => {
-                Ok(Self::NormalizedPolynomial)
-            }
-            other => Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "unknown basis '{other}'; expected one of 'laguerre', 'polynomial', \
-                 'normalized_polynomial'"
-            ))),
-        }
-    }
-
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Laguerre => "laguerre",
-            Self::Polynomial => "polynomial",
-            Self::NormalizedPolynomial => "normalized_polynomial",
-        }
-    }
-}
-
-/// Polymorphic basis wrapper so the pricer can accept multiple concrete
-/// implementations from Python without duplicating the inner pricing calls.
-enum AnyBasis {
-    Laguerre(finstack_monte_carlo::pricer::basis::LaguerreBasis),
-    Polynomial(finstack_monte_carlo::pricer::basis::PolynomialBasis),
-    NormalizedPolynomial(finstack_monte_carlo::pricer::basis::NormalizedPolynomialBasis),
-}
-
-impl finstack_monte_carlo::pricer::basis::BasisFunctions for AnyBasis {
-    fn num_basis(&self) -> usize {
-        match self {
-            Self::Laguerre(b) => b.num_basis(),
-            Self::Polynomial(b) => b.num_basis(),
-            Self::NormalizedPolynomial(b) => b.num_basis(),
-        }
-    }
-
-    fn evaluate(&self, state: f64, out: &mut [f64]) {
-        match self {
-            Self::Laguerre(b) => b.evaluate(state, out),
-            Self::Polynomial(b) => b.evaluate(state, out),
-            Self::NormalizedPolynomial(b) => b.evaluate(state, out),
-        }
-    }
-
-    fn evaluate_with_aux(&self, state: f64, aux: Option<f64>, out: &mut [f64]) {
-        match self {
-            Self::Laguerre(b) => b.evaluate_with_aux(state, aux, out),
-            Self::Polynomial(b) => b.evaluate_with_aux(state, aux, out),
-            Self::NormalizedPolynomial(b) => b.evaluate_with_aux(state, aux, out),
-        }
-    }
-}
-
 impl PyLsmcPricer {
-    fn build_basis(&self, strike: f64) -> PyResult<AnyBasis> {
-        use finstack_monte_carlo::pricer::basis::{
-            LaguerreBasis, NormalizedPolynomialBasis, PolynomialBasis,
-        };
+    fn build_basis(&self, strike: f64) -> PyResult<finstack_monte_carlo::pricer::basis::LsmcBasis> {
+        use finstack_monte_carlo::pricer::basis::build_lsmc_basis;
+
         let to_py = |e: String| pyo3::exceptions::PyValueError::new_err(e);
-        match self.basis {
-            LsmcBasisKind::Laguerre => LaguerreBasis::try_new(self.basis_degree, strike)
-                .map(AnyBasis::Laguerre)
-                .map_err(to_py),
-            LsmcBasisKind::Polynomial => PolynomialBasis::try_new(self.basis_degree)
-                .map(AnyBasis::Polynomial)
-                .map_err(to_py),
-            LsmcBasisKind::NormalizedPolynomial => {
-                NormalizedPolynomialBasis::try_new(self.basis_degree, strike, strike)
-                    .map(AnyBasis::NormalizedPolynomial)
-                    .map_err(to_py)
-            }
-        }
+        build_lsmc_basis(self.basis, self.basis_degree, strike).map_err(to_py)
     }
 }
 
@@ -385,7 +311,10 @@ impl PyLsmcPricer {
         basis_degree: Option<usize>,
     ) -> PyResult<Self> {
         let defaults = &py_mc_defaults()?.lsmc;
-        let basis = LsmcBasisKind::parse(basis.unwrap_or(defaults.basis.as_str()))?;
+        let basis = finstack_monte_carlo::pricer::basis::BasisKind::parse(
+            basis.unwrap_or(defaults.basis.as_str()),
+        )
+        .map_err(pyo3::exceptions::PyValueError::new_err)?;
         let basis_degree = basis_degree.unwrap_or(defaults.basis_degree);
         if basis_degree == 0 {
             return Err(pyo3::exceptions::PyValueError::new_err(

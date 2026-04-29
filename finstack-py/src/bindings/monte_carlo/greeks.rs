@@ -35,21 +35,16 @@ fn parse_option(name: &str) -> PyResult<OptionType> {
     }
 }
 
-fn build_engine(num_paths: usize, seed: u64, expiry: f64, num_steps: usize) -> PyResult<McEngine> {
+fn build_engine(num_paths: usize, expiry: f64, num_steps: usize) -> PyResult<McEngine> {
     let time_grid = TimeGrid::uniform(expiry, num_steps).map_err(core_to_py)?;
     let defaults = &registry::embedded_defaults_or_panic()
         .python_bindings
         .greeks;
-    Ok(McEngine::new(McEngineConfig {
-        num_paths,
-        seed,
-        time_grid,
-        target_ci_half_width: None,
-        use_parallel: defaults.use_parallel,
-        chunk_size: defaults.chunk_size,
-        path_capture: finstack_monte_carlo::engine::PathCaptureConfig::default(),
-        antithetic: defaults.antithetic,
-    }))
+    let config = McEngineConfig::new(num_paths, time_grid)
+        .with_parallel(defaults.use_parallel)
+        .with_chunk_size(defaults.chunk_size)
+        .with_antithetic(defaults.antithetic);
+    Ok(McEngine::new(config))
 }
 
 fn greek_defaults() -> &'static registry::PythonGreekDefaults {
@@ -94,7 +89,7 @@ fn fd_delta(
     let option_type = option_type.unwrap_or(&defaults.option_type);
     let ccy = resolve_currency(currency)?;
     let kind = parse_option(option_type)?;
-    let engine = build_engine(num_paths, seed, expiry, num_steps)?;
+    let engine = build_engine(num_paths, expiry, num_steps)?;
     let rng = PhiloxRng::new(seed);
     let gbm = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
     let disc = ExactGbm::new();
@@ -149,7 +144,7 @@ fn fd_delta_crn(
     let option_type = option_type.unwrap_or(&defaults.option_type);
     let ccy = resolve_currency(currency)?;
     let kind = parse_option(option_type)?;
-    let engine = build_engine(num_paths, seed, expiry, num_steps)?;
+    let engine = build_engine(num_paths, expiry, num_steps)?;
     let rng = PhiloxRng::new(seed);
     let gbm = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
     let disc = ExactGbm::new();
@@ -204,7 +199,7 @@ fn fd_gamma(
     let option_type = option_type.unwrap_or(&defaults.option_type);
     let ccy = resolve_currency(currency)?;
     let kind = parse_option(option_type)?;
-    let engine = build_engine(num_paths, seed, expiry, num_steps)?;
+    let engine = build_engine(num_paths, expiry, num_steps)?;
     let rng = PhiloxRng::new(seed);
     let gbm = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
     let disc = ExactGbm::new();
@@ -259,7 +254,7 @@ fn fd_gamma_crn(
     let option_type = option_type.unwrap_or(&defaults.option_type);
     let ccy = resolve_currency(currency)?;
     let kind = parse_option(option_type)?;
-    let engine = build_engine(num_paths, seed, expiry, num_steps)?;
+    let engine = build_engine(num_paths, expiry, num_steps)?;
     let rng = PhiloxRng::new(seed);
     let gbm = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
     let disc = ExactGbm::new();

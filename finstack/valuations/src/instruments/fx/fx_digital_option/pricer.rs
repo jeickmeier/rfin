@@ -1,17 +1,18 @@
 //! FX digital option pricer implementation.
 
-use crate::instruments::common_impl::helpers::zero_rate_from_df;
 use crate::instruments::common_impl::models::volatility::black::d1_d2;
 use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fx::fx_digital_option::types::{DigitalPayoutType, FxDigitalOption};
+use crate::instruments::fx::shared::{
+    collect_fx_option_inputs, FxOptionInputRequest, FxSpotSource,
+};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, DayCountContext};
+use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -122,59 +123,28 @@ impl FxDigitalOptionCalculator {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<(f64, f64, f64, f64, f64)> {
-        if as_of >= inst.expiry {
-            return self.collect_inputs_expired(inst, curves, as_of);
-        }
-
-        let domestic_disc = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
-        let foreign_disc = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
-
-        let t_vol = inst
-            .day_count
-            .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
-
-        // Date-based DF lookups; the resulting `r = -ln(df) / t_vol` then
-        // reconstructs the same DF in BS via `exp(-r * t_vol)`.
-        let df_d = domestic_disc.df_between_dates(as_of, inst.expiry)?;
-        let df_f = foreign_disc.df_between_dates(as_of, inst.expiry)?;
-        let r_d = zero_rate_from_df(df_d, t_vol, "FxDigitalOption domestic discount")?;
-        let r_f = zero_rate_from_df(df_f, t_vol, "FxDigitalOption foreign discount")?;
-
-        let fx_matrix = curves.fx().ok_or(finstack_core::Error::from(
-            finstack_core::InputError::NotFound {
-                id: "fx_matrix".to_string(),
-            },
-        ))?;
-        let spot = fx_matrix
-            .rate(FxQuery::new(inst.base_currency, inst.quote_currency, as_of))?
-            .rate;
-
-        let sigma = if let Some(impl_vol) = inst.pricing_overrides.market_quotes.implied_volatility
-        {
-            impl_vol
-        } else {
-            let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
-            vol_surface.value_clamped(t_vol, inst.strike)
-        };
-
-        Ok((spot, r_d, r_f, sigma, t_vol))
-    }
-
-    fn collect_inputs_expired(
-        &self,
-        inst: &FxDigitalOption,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> Result<(f64, f64, f64, f64, f64)> {
-        let fx_matrix = curves.fx().ok_or(finstack_core::Error::from(
-            finstack_core::InputError::NotFound {
-                id: "fx_matrix".to_string(),
-            },
-        ))?;
-        let spot = fx_matrix
-            .rate(FxQuery::new(inst.base_currency, inst.quote_currency, as_of))?
-            .rate;
-        Ok((spot, 0.0, 0.0, 0.0, 0.0))
+        let inputs = collect_fx_option_inputs(FxOptionInputRequest {
+            market: curves,
+            as_of,
+            base_currency: inst.base_currency,
+            quote_currency: inst.quote_currency,
+            expiry: inst.expiry,
+            day_count: inst.day_count,
+            domestic_discount_curve_id: &inst.domestic_discount_curve_id,
+            foreign_discount_curve_id: &inst.foreign_discount_curve_id,
+            vol_surface_id: inst.vol_surface_id.as_str(),
+            strike: inst.strike,
+            pricing_overrides: &inst.pricing_overrides,
+            spot_source: FxSpotSource::Matrix,
+            rate_context: "FxDigitalOption",
+        })?;
+        Ok((
+            inputs.spot,
+            inputs.r_domestic,
+            inputs.r_foreign,
+            inputs.sigma,
+            inputs.t,
+        ))
     }
 }
 

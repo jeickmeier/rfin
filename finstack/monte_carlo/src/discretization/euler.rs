@@ -73,7 +73,9 @@ impl<P: StochasticProcess> Discretization<P> for EulerMaruyama {
 /// ln(X_{t+Δt}) = ln(X_t) + (μ/X - ½(σ/X)²)Δt + (σ/X)√Δt Z
 /// ```
 ///
-/// This ensures positivity for processes like GBM (though exact GBM is preferred).
+/// This ensures positivity for processes with proportional diffusion. For plain
+/// GBM, prefer [`crate::discretization::exact::ExactGbm`], which uses the
+/// analytical transition and has no time-discretization error.
 #[derive(Debug, Clone, Default)]
 pub struct LogEuler;
 

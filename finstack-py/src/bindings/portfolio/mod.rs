@@ -31,6 +31,22 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "__doc__",
         "Portfolio construction, valuation, cashflows, scenarios, and metrics.",
     )?;
+    m.add(
+        "PortfolioError",
+        py.get_type::<crate::errors::PortfolioError>(),
+    )?;
+    m.add(
+        "FinstackValuationError",
+        py.get_type::<crate::errors::FinstackValuationError>(),
+    )?;
+    m.add(
+        "FinstackFxError",
+        py.get_type::<crate::errors::FinstackFxError>(),
+    )?;
+    m.add(
+        "FinstackOptimizationError",
+        py.get_type::<crate::errors::FinstackOptimizationError>(),
+    )?;
 
     types::register(py, &m)?;
     spec::register(py, &m)?;
@@ -41,6 +57,10 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     liquidity::register(py, &m)?;
 
     let exports = vec![
+        "PortfolioError",
+        "FinstackValuationError",
+        "FinstackFxError",
+        "FinstackOptimizationError",
         "Portfolio",
         "PortfolioValuation",
         "PortfolioResult",

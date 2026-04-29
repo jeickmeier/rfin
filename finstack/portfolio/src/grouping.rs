@@ -13,6 +13,7 @@ use indexmap::IndexMap;
 use std::collections::{HashMap, HashSet};
 
 const MAX_BOOK_GROUPING_RECURSION_DEPTH: usize = 512;
+const UNTAGGED_GROUP: &str = "_untagged";
 
 /// Group positions by a specific tag or attribute.
 ///
@@ -39,13 +40,13 @@ pub fn group_by_attribute<'a>(
             .attributes
             .get(attr_key)
             .and_then(|v| v.as_text())
-            .map(|s| s.to_string())
+            .map(str::to_owned)
         {
             groups.entry(attr_value).or_default().push(position);
         } else {
             // Positions without this attribute go into "untagged"
             groups
-                .entry("_untagged".to_string())
+                .entry(UNTAGGED_GROUP.to_owned())
                 .or_default()
                 .push(position);
         }
@@ -81,8 +82,8 @@ pub fn aggregate_by_attribute(
             .attributes
             .get(attr_key)
             .and_then(|v| v.as_text())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| "_untagged".to_string());
+            .map(str::to_owned)
+            .unwrap_or_else(|| UNTAGGED_GROUP.to_owned());
 
         if let Some(position_value) = valuation.position_values.get(&position.position_id) {
             let total = aggregated
@@ -128,8 +129,8 @@ pub fn aggregate_by_multiple_attributes(
                     .attributes
                     .get(attr_key)
                     .and_then(|v| v.as_text())
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| "_untagged".to_string())
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| UNTAGGED_GROUP.to_owned())
             })
             .collect();
 
@@ -360,6 +361,61 @@ mod tests {
         assert!(groups.contains_key("AA"));
         assert_eq!(groups.get("AAA").expect("test should succeed").len(), 1);
         assert_eq!(groups.get("AA").expect("test should succeed").len(), 1);
+    }
+
+    #[test]
+    fn group_by_attribute_uses_untagged_for_missing_and_non_text_values() {
+        let as_of = date!(2024 - 01 - 01);
+        let dep1 = Deposit::builder()
+            .id("DEP_1".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .start_date(as_of)
+            .maturity(date!(2024 - 02 - 01))
+            .day_count(finstack_core::dates::DayCount::Act360)
+            .discount_curve_id("USD".into())
+            .quote_rate_opt(Some(
+                rust_decimal::Decimal::try_from(0.045).expect("valid literal"),
+            ))
+            .build()
+            .expect("test should succeed");
+        let dep2 = Deposit::builder()
+            .id("DEP_2".into())
+            .notional(Money::new(500_000.0, Currency::USD))
+            .start_date(as_of)
+            .maturity(date!(2024 - 03 - 01))
+            .day_count(finstack_core::dates::DayCount::Act360)
+            .discount_curve_id("USD".into())
+            .quote_rate_opt(Some(
+                rust_decimal::Decimal::try_from(0.045).expect("valid literal"),
+            ))
+            .build()
+            .expect("test should succeed");
+
+        let missing = Position::new(
+            "POS_MISSING",
+            "ENTITY_A",
+            "DEP_1",
+            Arc::new(dep1),
+            1.0,
+            PositionUnit::Units,
+        )
+        .expect("test should succeed");
+        let numeric = Position::new(
+            "POS_NUMERIC",
+            "ENTITY_A",
+            "DEP_2",
+            Arc::new(dep2),
+            1.0,
+            PositionUnit::Units,
+        )
+        .expect("test should succeed")
+        .with_numeric_attribute("rating", 650.0);
+
+        let positions = vec![missing, numeric];
+        let groups = group_by_attribute(&positions, "rating");
+
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups.get("_untagged").map(Vec::len), Some(2));
     }
 
     #[test]

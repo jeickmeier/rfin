@@ -48,6 +48,7 @@ impl CmsSwapPricer {
         as_of: Date,
         convexity_scale: f64,
     ) -> Result<Money> {
+        inst.validate()?;
         let pv_cms = self.pv_cms_leg(inst, market, as_of, convexity_scale)?;
         let pv_funding = self.pv_funding_leg(inst, market, as_of)?;
 
@@ -83,12 +84,8 @@ impl CmsSwapPricer {
         let mut total_pv = 0.0;
 
         for (i, &fixing_date) in inst.cms_fixing_dates.iter().enumerate() {
-            let payment_date = inst
-                .cms_payment_dates
-                .get(i)
-                .copied()
-                .unwrap_or(fixing_date);
-            let accrual_fraction = inst.cms_accrual_fractions.get(i).copied().unwrap_or(0.0);
+            let payment_date = inst.cms_payment_dates[i];
+            let accrual_fraction = inst.cms_accrual_fractions[i];
 
             if payment_date <= as_of {
                 continue;
@@ -169,7 +166,7 @@ impl CmsSwapPricer {
                     if payment_date <= as_of {
                         continue;
                     }
-                    let accrual = accrual_fractions.get(i).copied().unwrap_or(0.0);
+                    let accrual = accrual_fractions[i];
                     let df =
                         relative_df_discount_curve(discount_curve.as_ref(), as_of, payment_date)?;
                     total_pv += rate * accrual * df * inst.notional.amount();
@@ -194,7 +191,7 @@ impl CmsSwapPricer {
                         prev_date = payment_date;
                         continue;
                     }
-                    let accrual = accrual_fractions.get(i).copied().unwrap_or(0.0);
+                    let accrual = accrual_fractions[i];
                     let fwd_rate =
                         rate_period_on_dates(fwd_curve.as_ref(), prev_date, payment_date)?;
                     let df =

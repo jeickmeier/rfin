@@ -94,6 +94,7 @@ use finstack_core::Result;
     serde::Deserialize,
     schemars::JsonSchema,
 )]
+#[builder(validate = FxSpot::validate_economics)]
 #[serde(deny_unknown_fields, try_from = "FxSpotUnchecked")]
 pub struct FxSpot {
     /// Unique identifier for the FX pair
@@ -380,6 +381,11 @@ impl FxSpot {
     }
 
     fn validate_economics(&self) -> finstack_core::Result<()> {
+        crate::instruments::common_impl::validation::validate_distinct_currencies(
+            self.base_currency,
+            self.quote_currency,
+            "FxSpot",
+        )?;
         if self.notional.currency() != self.base_currency {
             return Err(finstack_core::Error::CurrencyMismatch {
                 expected: self.base_currency,
@@ -740,6 +746,22 @@ mod tests {
         assert!(
             err_msg.contains("zero") || err_msg.contains("spot_rate"),
             "Error should mention zero rate"
+        );
+    }
+
+    #[test]
+    fn builder_rejects_same_base_and_quote_currency() {
+        let result = FxSpot::builder()
+            .id(InstrumentId::new("USDUSD"))
+            .base_currency(Currency::USD)
+            .quote_currency(Currency::USD)
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .attributes(Attributes::new())
+            .build();
+
+        assert!(
+            result.is_err(),
+            "FX spot builder must reject identical base and quote currencies"
         );
     }
 

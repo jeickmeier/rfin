@@ -71,6 +71,7 @@ fn default_fx_underlying(base_currency: Currency, quote_currency: Currency) -> F
     serde::Deserialize,
     schemars::JsonSchema,
 )]
+#[builder(validate = FxOption::validate)]
 #[serde(deny_unknown_fields)]
 pub struct FxOption {
     /// Unique instrument identifier
@@ -147,6 +148,22 @@ pub enum FxAtmDeltaConvention {
 }
 
 impl FxOption {
+    /// Validate FX option currency invariants.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        crate::instruments::common_impl::validation::validate_distinct_currencies(
+            self.base_currency,
+            self.quote_currency,
+            "FxOption",
+        )?;
+        if self.notional.currency() != self.base_currency {
+            return Err(finstack_core::Error::CurrencyMismatch {
+                expected: self.base_currency,
+                actual: self.notional.currency(),
+            });
+        }
+        Ok(())
+    }
+
     fn price_internal(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -505,11 +522,16 @@ impl crate::instruments::common_impl::traits::OptionGreeksProvider for FxOption 
                 })
             }
             OptionGreekKind::Vanna => Ok(OptionGreeks {
-                vanna: Some(self.option_vanna(market, as_of)?),
+                vanna: Some(OptionVannaProvider::option_vanna(self, market, as_of)?),
                 ..OptionGreeks::default()
             }),
             OptionGreekKind::Volga => Ok(OptionGreeks {
-                volga: Some(self.option_volga(market, as_of, request.require_base_pv()?)?),
+                volga: Some(OptionVolgaProvider::option_volga(
+                    self,
+                    market,
+                    as_of,
+                    request.require_base_pv()?,
+                )?),
                 ..OptionGreeks::default()
             }),
         }
@@ -666,3 +688,31 @@ crate::impl_empty_cashflow_provider!(
     FxOption,
     crate::cashflow::builder::CashflowRepresentation::Placeholder
 );
+
+#[cfg(test)]
+mod validation_tests {
+    use super::*;
+
+    #[test]
+    fn builder_rejects_same_base_and_quote_currency() {
+        let result = FxOption::builder()
+            .id(InstrumentId::new("FXOPT-USDUSD"))
+            .base_currency(Currency::USD)
+            .quote_currency(Currency::USD)
+            .strike(1.0)
+            .option_type(OptionType::Call)
+            .expiry(crate::instruments::common_impl::example_constants::FAR_EXPIRY)
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+            .foreign_discount_curve_id(CurveId::new("USD-OIS"))
+            .vol_surface_id(CurveId::new("USDUSD-VOL"))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build();
+
+        assert!(
+            result.is_err(),
+            "FX option builder must reject identical base and quote currencies"
+        );
+    }
+}

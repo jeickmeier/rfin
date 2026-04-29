@@ -8,7 +8,7 @@
 use crate::bindings::extract::{
     extract_market_ref, extract_portfolio_result_ref, extract_valuation_ref,
 };
-use crate::errors::display_to_py;
+use crate::errors::{display_to_py, portfolio_to_py};
 use pyo3::prelude::*;
 
 /// Parse a portfolio specification from JSON and return the canonical form.
@@ -28,7 +28,7 @@ pub fn parse_portfolio_spec(json_str: &str) -> PyResult<String> {
 pub fn build_portfolio_from_spec(spec_json: &str) -> PyResult<String> {
     let spec: finstack_portfolio::portfolio::PortfolioSpec =
         serde_json::from_str(spec_json).map_err(display_to_py)?;
-    let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(display_to_py)?;
+    let portfolio = finstack_portfolio::Portfolio::from_spec(spec).map_err(portfolio_to_py)?;
     let round_tripped = portfolio.to_spec();
     serde_json::to_string(&round_tripped).map_err(display_to_py)
 }
@@ -86,7 +86,7 @@ pub fn aggregate_metrics(
         .detach(|| {
             finstack_portfolio::metrics::aggregate_metrics(valuation_ref, ccy, market_ref, date)
         })
-        .map_err(display_to_py)?;
+        .map_err(portfolio_to_py)?;
     serde_json::to_string(&metrics).map_err(display_to_py)
 }
 

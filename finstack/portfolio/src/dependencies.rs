@@ -125,6 +125,19 @@ pub fn flatten_dependencies(deps: &MarketDependencies) -> HashSet<MarketFactorKe
     keys
 }
 
+fn finalize_dependency_map(
+    staged: HashMap<MarketFactorKey, HashSet<usize>>,
+) -> HashMap<MarketFactorKey, Vec<usize>> {
+    staged
+        .into_iter()
+        .map(|(key, indices)| {
+            let mut indices: Vec<_> = indices.into_iter().collect();
+            indices.sort_unstable();
+            (key, indices)
+        })
+        .collect()
+}
+
 /// Inverted index mapping market factor keys to affected position indices.
 ///
 /// Stored alongside the `position_index` on [`Portfolio`](crate::portfolio::Portfolio)
@@ -155,7 +168,7 @@ impl DependencyIndex {
     ///
     /// Newly built dependency index.
     pub fn build(positions: &[crate::position::Position]) -> Self {
-        let mut inner: HashMap<MarketFactorKey, Vec<usize>> = HashMap::default();
+        let mut staged: HashMap<MarketFactorKey, HashSet<usize>> = HashMap::default();
         let mut unresolved = Vec::new();
 
         for (idx, position) in positions.iter().enumerate() {
@@ -168,13 +181,11 @@ impl DependencyIndex {
             };
 
             for key in flatten_dependencies(&deps) {
-                let entry = inner.entry(key).or_default();
-                if !entry.contains(&idx) {
-                    entry.push(idx);
-                }
+                staged.entry(key).or_default().insert(idx);
             }
         }
 
+        let inner = finalize_dependency_map(staged);
         Self { inner, unresolved }
     }
 
@@ -320,5 +331,19 @@ mod tests {
         assert!(index.is_empty());
         assert_eq!(index.factor_count(), 0);
         assert!(index.unresolved().is_empty());
+    }
+
+    #[test]
+    fn finalize_dependency_map_sorts_and_deduplicates_indices() {
+        let key = MarketFactorKey::spot("SPX");
+        let mut staged: HashMap<MarketFactorKey, HashSet<usize>> = HashMap::default();
+        staged
+            .entry(key.clone())
+            .or_default()
+            .extend([3usize, 1, 3, 2]);
+
+        let finalized = finalize_dependency_map(staged);
+
+        assert_eq!(finalized.get(&key).map(Vec::as_slice), Some(&[1, 2, 3][..]));
     }
 }

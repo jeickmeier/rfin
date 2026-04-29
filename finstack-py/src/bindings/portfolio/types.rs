@@ -12,7 +12,7 @@ use pyo3::exceptions::PyKeyError;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 
-use crate::errors::display_to_py;
+use crate::errors::{display_to_py, portfolio_to_py};
 
 // ---------------------------------------------------------------------------
 // PyPortfolio
@@ -55,7 +55,7 @@ impl PyPortfolio {
     fn from_spec(spec_json: &str) -> PyResult<Self> {
         let spec: finstack_portfolio::portfolio::PortfolioSpec =
             serde_json::from_str(spec_json).map_err(display_to_py)?;
-        let inner = finstack_portfolio::Portfolio::from_spec(spec).map_err(display_to_py)?;
+        let inner = finstack_portfolio::Portfolio::from_spec(spec).map_err(portfolio_to_py)?;
         Ok(Self::from_inner(inner))
     }
 
@@ -347,7 +347,7 @@ impl PyPortfolioCashflows {
         let collapsed = self
             .inner
             .collapse_to_base_by_date_kind(market_ref, ccy, as_of_date)
-            .map_err(display_to_py)?;
+            .map_err(portfolio_to_py)?;
         serde_json::to_string(&collapsed).map_err(display_to_py)
     }
 

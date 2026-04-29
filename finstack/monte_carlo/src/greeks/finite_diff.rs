@@ -487,7 +487,6 @@ mod tests {
         let time_grid = TimeGrid::uniform(1.0, 50).expect("should succeed");
         let engine = McEngine::new(McEngineConfig {
             num_paths: 5_000,
-            seed: 42,
             time_grid,
             target_ci_half_width: None,
             use_parallel: false,
@@ -524,7 +523,6 @@ mod tests {
         let time_grid = TimeGrid::uniform(1.0, 50).expect("should succeed");
         let engine = McEngine::new(McEngineConfig {
             num_paths: 5_000,
-            seed: 42,
             time_grid,
             target_ci_half_width: None,
             use_parallel: false,
@@ -573,7 +571,6 @@ mod tests {
         let time_grid = TimeGrid::uniform(1.0, 50).expect("should succeed");
         let engine = McEngine::new(McEngineConfig {
             num_paths: 5_000,
-            seed: 42,
             time_grid,
             target_ci_half_width: None,
             use_parallel: false,
@@ -608,7 +605,6 @@ mod tests {
         let time_grid = TimeGrid::uniform(1.0, 50).expect("should succeed");
         let engine = McEngine::new(McEngineConfig {
             num_paths: 5_000,
-            seed: 42,
             time_grid,
             target_ci_half_width: None,
             use_parallel: false,

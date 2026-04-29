@@ -84,6 +84,7 @@ impl CmsOptionPricer {
     ) -> Result<Money> {
         use crate::instruments::common_impl::pricing::time::relative_df_discount_curve;
 
+        inst.validate()?;
         let mut total_pv = 0.0;
         let strike = inst.strike_f64()?;
         let discount_curve = curves.get_discount(inst.discount_curve_id.as_ref())?;
@@ -91,8 +92,8 @@ impl CmsOptionPricer {
         let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
 
         for (i, &fixing_date) in inst.fixing_dates.iter().enumerate() {
-            let payment_date = inst.payment_dates.get(i).copied().unwrap_or(fixing_date);
-            let accrual_fraction = inst.accrual_fractions.get(i).copied().unwrap_or(0.0);
+            let payment_date = inst.payment_dates[i];
+            let accrual_fraction = inst.accrual_fractions[i];
 
             if payment_date <= as_of {
                 continue; // Period expired

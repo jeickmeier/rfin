@@ -20,6 +20,7 @@ use rust_decimal::Decimal;
     serde::Deserialize,
     schemars::JsonSchema,
 )]
+#[builder(validate = CmsOption::validate)]
 #[serde(deny_unknown_fields)]
 pub struct CmsOption {
     /// Unique instrument identifier
@@ -86,6 +87,21 @@ pub struct CmsOption {
 }
 
 impl CmsOption {
+    /// Validate CMS option schedule vectors.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if self.fixing_dates.len() != self.payment_dates.len()
+            || self.fixing_dates.len() != self.accrual_fractions.len()
+        {
+            return Err(finstack_core::Error::Validation(format!(
+                "CMS option vectors must have equal length: fixing_dates={}, payment_dates={}, accrual_fractions={}",
+                self.fixing_dates.len(),
+                self.payment_dates.len(),
+                self.accrual_fractions.len(),
+            )));
+        }
+        Ok(())
+    }
+
     pub(crate) fn strike_f64(&self) -> finstack_core::Result<f64> {
         self.strike
             .to_f64()
@@ -279,17 +295,7 @@ impl crate::instruments::common_impl::traits::Instrument for CmsOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        // Validate vector lengths match (from_schedule guarantees this, but direct builder usage may not)
-        if self.fixing_dates.len() != self.payment_dates.len()
-            || self.fixing_dates.len() != self.accrual_fractions.len()
-        {
-            return Err(finstack_core::Error::Validation(format!(
-                "CMS option vectors must have equal length: fixing_dates={}, payment_dates={}, accrual_fractions={}",
-                self.fixing_dates.len(),
-                self.payment_dates.len(),
-                self.accrual_fractions.len(),
-            )));
-        }
+        self.validate()?;
         crate::instruments::rates::cms_option::pricer::compute_pv(self, market, as_of)
     }
 
@@ -326,3 +332,40 @@ crate::impl_empty_cashflow_provider!(
     CmsOption,
     crate::cashflow::builder::CashflowRepresentation::Placeholder
 );
+
+#[cfg(test)]
+mod validation_tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use time::Month;
+
+    fn test_date(month: Month, day: u8) -> Date {
+        Date::from_calendar_date(2026, month, day).expect("valid date")
+    }
+
+    #[test]
+    fn builder_rejects_misaligned_schedule_vectors() {
+        let result = CmsOption::builder()
+            .id(InstrumentId::new("CMSOPT-BAD"))
+            .strike(Decimal::try_from(0.025).expect("valid decimal"))
+            .cms_tenor(10.0)
+            .fixing_dates(vec![
+                test_date(Month::March, 20),
+                test_date(Month::June, 20),
+            ])
+            .payment_dates(vec![test_date(Month::June, 20)])
+            .accrual_fractions(vec![0.25, 0.25])
+            .option_type(OptionType::Call)
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .forward_curve_id(CurveId::new("USD-LIBOR-3M"))
+            .vol_surface_id(CurveId::new("USD-CMS10Y-VOL"))
+            .build();
+
+        assert!(
+            result.is_err(),
+            "CMS option builder must reject schedule vector length mismatches"
+        );
+    }
+}

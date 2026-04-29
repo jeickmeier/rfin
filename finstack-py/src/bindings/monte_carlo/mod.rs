@@ -1,10 +1,11 @@
 //! Python bindings for the `finstack-monte-carlo` crate.
 //!
-//! Exposes the GBM convenience subset of the Rust Monte Carlo crate: engine,
-//! European/Asian/LSMC pricers, and Black-Scholes formulas. Advanced Rust
-//! process, discretization, RNG, payoff, and Greeks types are intentionally not
-//! standalone Python types yet; their parameters are passed directly as numeric
-//! arguments to the exposed pricer constructors and methods.
+//! Exposes convenience pricing over the Rust Monte Carlo crate: engine,
+//! European/Asian/LSMC pricers, Black-Scholes formulas, and selected non-GBM
+//! process wrappers. Advanced Rust process, discretization, RNG, payoff, and
+//! Greeks types are intentionally not standalone Python types yet; their
+//! parameters are passed directly as numeric arguments to the exposed pricer
+//! constructors and methods.
 
 mod analytical;
 mod engine;
@@ -21,7 +22,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "monte_carlo")?;
     m.setattr(
         "__doc__",
-        "Monte Carlo GBM convenience bindings (finstack-monte-carlo).",
+        "Monte Carlo convenience bindings (finstack-monte-carlo).",
     )?;
 
     results::register(py, &m)?;
@@ -45,6 +46,8 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "black_scholes_put",
             "price_european_call",
             "price_european_put",
+            "price_heston_call",
+            "price_heston_put",
             "fd_delta",
             "fd_delta_crn",
             "fd_gamma",

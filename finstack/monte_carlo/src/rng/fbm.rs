@@ -386,62 +386,35 @@ impl FractionalNoiseGenerator for HybridFbm {
 }
 
 // ---------------------------------------------------------------------------
-// FbmGeneratorType enum and factory
+// Canonical auto-selecting factory
 // ---------------------------------------------------------------------------
 
-/// Selection of fBM generation algorithm.
-#[derive(Debug, Clone)]
-pub enum FbmGeneratorType {
-    /// Exact Cholesky decomposition (O(n³) setup, O(n²) per path).
-    Cholesky,
-    /// Hybrid scheme with configurable near-field window (O(n·b) per path).
-    Hybrid(HybridFbmConfig),
-    /// Auto-select: Cholesky for n < 200, Hybrid otherwise.
-    Auto,
-}
+/// Number of steps below which the auto factory uses exact Cholesky generation.
+pub const FBM_AUTO_CHOLESKY_MAX_STEPS: usize = 199;
 
-/// Configuration for fractional noise generation.
-#[derive(Debug, Clone)]
-pub struct FractionalNoiseConfig {
-    /// Hurst exponent H ∈ (0, 1), typically in (0, 0.5) for rough models.
-    pub hurst: f64,
-    /// Generator algorithm.
-    pub generator_type: FbmGeneratorType,
-}
-
-/// Create a fBM generator for the given time grid and configuration.
+/// Create a fBM generator for the given time grid and Hurst exponent.
 ///
-/// Selects between [`CholeskyFbm`] and [`HybridFbm`] based on the config's
-/// [`FbmGeneratorType`]. The `Auto` variant uses Cholesky for grids with
-/// fewer than 200 steps and Hybrid otherwise.
+/// Uses [`CholeskyFbm`] for grids with at most
+/// [`FBM_AUTO_CHOLESKY_MAX_STEPS`] steps and [`HybridFbm`] otherwise. Use the
+/// concrete constructors directly when an explicit algorithm is required.
 ///
 /// # Errors
 ///
 /// Returns [`Error::Validation`] if the time grid or Hurst exponent is invalid.
 pub fn create_fbm_generator(
     times: &[f64],
-    config: &FractionalNoiseConfig,
+    hurst: f64,
 ) -> Result<Box<dyn FractionalNoiseGenerator>> {
     let n = if times.len() >= 2 { times.len() - 1 } else { 0 };
 
-    match &config.generator_type {
-        FbmGeneratorType::Cholesky => Ok(Box::new(CholeskyFbm::new(times, config.hurst)?)),
-        FbmGeneratorType::Hybrid(hybrid_config) => Ok(Box::new(HybridFbm::new(
+    if n <= FBM_AUTO_CHOLESKY_MAX_STEPS {
+        Ok(Box::new(CholeskyFbm::new(times, hurst)?))
+    } else {
+        Ok(Box::new(HybridFbm::new(
             times,
-            config.hurst,
-            hybrid_config.clone(),
-        )?)),
-        FbmGeneratorType::Auto => {
-            if n < 200 {
-                Ok(Box::new(CholeskyFbm::new(times, config.hurst)?))
-            } else {
-                Ok(Box::new(HybridFbm::new(
-                    times,
-                    config.hurst,
-                    HybridFbmConfig::default(),
-                )?))
-            }
-        }
+            hurst,
+            HybridFbmConfig::default(),
+        )?))
     }
 }
 
@@ -661,47 +634,36 @@ mod tests {
     #[test]
     fn factory_auto_selects_cholesky_for_small_grid() {
         let times = uniform_grid(1.0, 50);
-        let config = FractionalNoiseConfig {
-            hurst: 0.3,
-            generator_type: FbmGeneratorType::Auto,
-        };
-        let gen = create_fbm_generator(&times, &config).unwrap();
+        let gen = create_fbm_generator(&times, 0.3).unwrap();
         assert_eq!(gen.num_steps(), 50);
     }
 
     #[test]
     fn factory_auto_selects_hybrid_for_large_grid() {
         let times = uniform_grid(1.0, 300);
-        let config = FractionalNoiseConfig {
-            hurst: 0.1,
-            generator_type: FbmGeneratorType::Auto,
-        };
-        let gen = create_fbm_generator(&times, &config).unwrap();
+        let gen = create_fbm_generator(&times, 0.1).unwrap();
         assert_eq!(gen.num_steps(), 300);
     }
 
     #[test]
-    fn factory_explicit_cholesky() {
+    fn explicit_cholesky_constructor() {
         let times = uniform_grid(1.0, 20);
-        let config = FractionalNoiseConfig {
-            hurst: 0.4,
-            generator_type: FbmGeneratorType::Cholesky,
-        };
-        let gen = create_fbm_generator(&times, &config).unwrap();
+        let gen = CholeskyFbm::new(&times, 0.4).unwrap();
         assert_eq!(gen.num_steps(), 20);
         assert!((gen.hurst() - 0.4).abs() < 1e-14);
     }
 
     #[test]
-    fn factory_explicit_hybrid() {
+    fn explicit_hybrid_constructor() {
         let times = uniform_grid(1.0, 100);
-        let config = FractionalNoiseConfig {
-            hurst: 0.15,
-            generator_type: FbmGeneratorType::Hybrid(HybridFbmConfig {
+        let gen = HybridFbm::new(
+            &times,
+            0.15,
+            HybridFbmConfig {
                 near_field_size: Some(15),
-            }),
-        };
-        let gen = create_fbm_generator(&times, &config).unwrap();
+            },
+        )
+        .unwrap();
         assert_eq!(gen.num_steps(), 100);
     }
 }

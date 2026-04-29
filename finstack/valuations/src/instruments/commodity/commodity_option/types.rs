@@ -424,9 +424,8 @@ impl CommodityOption {
                 // Build MC engine
                 let seed = mc_params.seed.unwrap_or(42);
                 let time_grid = TimeGrid::uniform(t, mc_params.n_steps)?;
-                let engine_config = McEngineConfig::new(mc_params.n_paths, time_grid)
-                    .with_seed(seed)
-                    .with_parallel(true);
+                let engine_config =
+                    McEngineConfig::new(mc_params.n_paths, time_grid).with_parallel(true);
                 let engine = McEngine::new(engine_config);
 
                 let rng = PhiloxRng::new(seed);
@@ -973,23 +972,28 @@ impl crate::instruments::common_impl::traits::OptionGreeksProvider for Commodity
 
         match request.greek {
             OptionGreekKind::Delta => Ok(OptionGreeks {
-                delta: Some(self.option_delta(market, as_of)?),
+                delta: Some(OptionDeltaProvider::option_delta(self, market, as_of)?),
                 ..OptionGreeks::default()
             }),
             OptionGreekKind::Gamma => Ok(OptionGreeks {
-                gamma: Some(self.option_gamma(market, as_of)?),
+                gamma: Some(OptionGammaProvider::option_gamma(self, market, as_of)?),
                 ..OptionGreeks::default()
             }),
             OptionGreekKind::Vega => Ok(OptionGreeks {
-                vega: Some(self.option_vega(market, as_of)?),
+                vega: Some(OptionVegaProvider::option_vega(self, market, as_of)?),
                 ..OptionGreeks::default()
             }),
             OptionGreekKind::Vanna => Ok(OptionGreeks {
-                vanna: Some(self.option_vanna(market, as_of)?),
+                vanna: Some(OptionVannaProvider::option_vanna(self, market, as_of)?),
                 ..OptionGreeks::default()
             }),
             OptionGreekKind::Volga => Ok(OptionGreeks {
-                volga: Some(self.option_volga(market, as_of, request.require_base_pv()?)?),
+                volga: Some(OptionVolgaProvider::option_volga(
+                    self,
+                    market,
+                    as_of,
+                    request.require_base_pv()?,
+                )?),
                 ..OptionGreeks::default()
             }),
             _ => Ok(OptionGreeks::default()),

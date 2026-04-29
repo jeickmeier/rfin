@@ -185,6 +185,7 @@ impl CmsReplicationPricer {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<Money> {
+        inst.validate()?;
         let mut total_pv = 0.0;
 
         let strike = inst.strike_f64()?;
@@ -196,8 +197,8 @@ impl CmsReplicationPricer {
         let m = tenor_to_m(inst.resolved_swap_fixed_freq());
 
         for (i, &fixing_date) in inst.fixing_dates.iter().enumerate() {
-            let payment_date = inst.payment_dates.get(i).copied().unwrap_or(fixing_date);
-            let accrual_fraction = inst.accrual_fractions.get(i).copied().unwrap_or(0.0);
+            let payment_date = inst.payment_dates[i];
+            let accrual_fraction = inst.accrual_fractions[i];
 
             if payment_date <= as_of {
                 continue; // Period already settled

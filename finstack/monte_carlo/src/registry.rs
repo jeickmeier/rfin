@@ -82,8 +82,6 @@ pub struct PricerRuntimeDefaults {
 /// Generic engine runtime defaults.
 #[derive(Debug, Clone, Deserialize)]
 pub struct EngineDefaults {
-    /// Root RNG seed.
-    pub seed: u64,
     /// Whether parallel execution is requested by default.
     pub use_parallel: bool,
     /// Parallel chunk size.
@@ -97,8 +95,6 @@ pub struct EngineDefaults {
 pub struct EngineBuilderDefaults {
     /// Number of Monte Carlo paths.
     pub num_paths: usize,
-    /// Root RNG seed.
-    pub seed: u64,
     /// Whether parallel execution is requested by default.
     pub use_parallel: bool,
     /// Parallel chunk size.
@@ -383,7 +379,7 @@ fn validate_file(file: &DefaultsFile) -> Result<()> {
         "rust.engine_builder",
         &PricerRuntimeDefaults {
             num_paths: file.rust.engine_builder.num_paths,
-            seed: file.rust.engine_builder.seed,
+            seed: 0,
             use_parallel: file.rust.engine_builder.use_parallel,
         },
     )?;
@@ -436,7 +432,6 @@ fn validate_runtime(label: &str, defaults: &PricerRuntimeDefaults) -> Result<()>
 }
 
 fn validate_engine(label: &str, defaults: &EngineDefaults) -> Result<()> {
-    let _seed = defaults.seed;
     let _parallel = defaults.use_parallel;
     let _antithetic = defaults.antithetic;
     validate_chunk_size(&format!("{label}.chunk_size"), defaults.chunk_size)

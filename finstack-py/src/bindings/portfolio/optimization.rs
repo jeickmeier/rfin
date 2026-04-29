@@ -6,7 +6,7 @@
 //! scheme must be provided through ``opt_spec_json``.
 
 use crate::bindings::extract::extract_market_ref;
-use crate::errors::display_to_py;
+use crate::errors::{display_to_py, portfolio_to_py};
 use pyo3::prelude::*;
 
 /// Optimize a portfolio from a JSON specification.
@@ -32,7 +32,7 @@ fn optimize_portfolio(spec_json: &str, market: &Bound<'_, PyAny>) -> PyResult<St
     let market = extract_market_ref(market)?;
     let config = finstack_core::config::FinstackConfig::default();
     let result = finstack_portfolio::optimization::optimize_from_spec(&spec, &market, &config)
-        .map_err(display_to_py)?;
+        .map_err(portfolio_to_py)?;
     serde_json::to_string(&result).map_err(display_to_py)
 }
 

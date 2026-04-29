@@ -17,6 +17,57 @@ use serde::{Deserialize, Serialize};
 /// parallel repricing.
 const REVALUE_AFFECTED_PARALLEL_MIN_AFFECTED: usize = 64;
 
+/// Minimum number of positions before full portfolio valuation uses Rayon.
+const VALUE_PORTFOLIO_PARALLEL_MIN_POSITIONS: usize = 64;
+
+/// Portfolio config extension key for selective-repricing debug checks.
+pub const PORTFOLIO_SELECTIVE_REPRICING_EXTENSION_KEY: &str = "portfolio.selective_repricing.v1";
+
+const SELECTIVE_REPRICING_VERIFY_TOL: f64 = 1e-10;
+
+fn should_value_portfolio_use_parallel(position_count: usize) -> bool {
+    position_count >= VALUE_PORTFOLIO_PARALLEL_MIN_POSITIONS
+}
+
+fn should_verify_selective_repricing(config: &FinstackConfig) -> bool {
+    config
+        .extensions
+        .get(PORTFOLIO_SELECTIVE_REPRICING_EXTENSION_KEY)
+        .and_then(|value| value.get("verify_full_eval"))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+}
+
+fn verify_selective_repricing_matches_full(
+    selective: &PortfolioValuation,
+    full: &PortfolioValuation,
+) -> Result<()> {
+    let total_delta = (selective.total_base_ccy.amount() - full.total_base_ccy.amount()).abs();
+    if total_delta > SELECTIVE_REPRICING_VERIFY_TOL {
+        return Err(Error::invalid_input(format!(
+            "Selective repricing verification failed: total delta {total_delta} exceeds tolerance {SELECTIVE_REPRICING_VERIFY_TOL}"
+        )));
+    }
+
+    for (position_id, full_value) in &full.position_values {
+        let selective_value = selective
+            .get_position_value(position_id.as_str())
+            .ok_or_else(|| {
+                Error::invalid_input(format!(
+                    "Selective repricing verification failed: missing position '{position_id}'"
+                ))
+            })?;
+        let delta = (selective_value.value_base.amount() - full_value.value_base.amount()).abs();
+        if delta > SELECTIVE_REPRICING_VERIFY_TOL {
+            return Err(Error::invalid_input(format!(
+                "Selective repricing verification failed for position '{position_id}': delta {delta} exceeds tolerance {SELECTIVE_REPRICING_VERIFY_TOL}"
+            )));
+        }
+    }
+
+    Ok(())
+}
+
 /// Result of valuing a single position.
 ///
 /// Holds both native-currency and base-currency valuations along with
@@ -321,6 +372,10 @@ pub fn value_portfolio(
     _config: &FinstackConfig,
     options: &PortfolioValuationOptions,
 ) -> Result<PortfolioValuation> {
+    if !should_value_portfolio_use_parallel(portfolio.positions.len()) {
+        return value_portfolio_serial(portfolio, market, _config, options);
+    }
+
     let metrics = resolve_metrics(options);
 
     use rayon::prelude::*;
@@ -488,7 +543,7 @@ fn value_single_position(
 pub fn revalue_affected(
     portfolio: &Portfolio,
     market: &MarketContext,
-    _config: &FinstackConfig,
+    config: &FinstackConfig,
     options: &PortfolioValuationOptions,
     prior: &PortfolioValuation,
     changed: &[crate::dependencies::MarketFactorKey],
@@ -576,7 +631,12 @@ pub fn revalue_affected(
         values
     };
 
-    assemble_valuation(position_values_vec, portfolio.base_ccy, portfolio.as_of)
+    let selective = assemble_valuation(position_values_vec, portfolio.base_ccy, portfolio.as_of)?;
+    if should_verify_selective_repricing(config) {
+        let full = value_portfolio(portfolio, market, config, options)?;
+        verify_selective_repricing_matches_full(&selective, &full)?;
+    }
+    Ok(selective)
 }
 
 #[cfg(test)]
@@ -591,6 +651,18 @@ mod tests {
     use finstack_valuations::instruments::rates::deposit::Deposit;
     use std::sync::Arc;
     use time::macros::date;
+
+    #[test]
+    fn small_portfolios_stay_on_serial_path() {
+        assert!(!should_value_portfolio_use_parallel(0));
+        assert!(!should_value_portfolio_use_parallel(1));
+        assert!(!should_value_portfolio_use_parallel(
+            VALUE_PORTFOLIO_PARALLEL_MIN_POSITIONS - 1
+        ));
+        assert!(should_value_portfolio_use_parallel(
+            VALUE_PORTFOLIO_PARALLEL_MIN_POSITIONS
+        ));
+    }
 
     #[test]
     fn test_value_single_position() {

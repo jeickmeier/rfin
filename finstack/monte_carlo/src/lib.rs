@@ -74,7 +74,6 @@
 //!
 //! let engine = McEngine::builder()
 //!     .num_paths(50_000)
-//!     .seed(7)
 //!     .uniform_grid(1.0, 252)
 //!     .build()
 //!     .expect("valid Monte Carlo configuration");
@@ -179,8 +178,8 @@ pub mod prelude {
     // per scheme. The prelude is a curated list on top of that.
     pub use super::discretization::{
         CheyetteRoughEuler, EulerMaruyama, ExactGbm, ExactHullWhite1F, ExactMultiGbm,
-        ExactMultiGbmCorrelated, ExactSchwartzSmith, JumpEuler, LogEuler, LogMilstein, Milstein,
-        QeCir, QeHeston, RoughBergomiEuler, RoughHestonHybrid,
+        ExactMultiGbmCorrelated, ExactSchwartzSmith, JumpEuler, LogMilstein, Milstein, QeCir,
+        QeHeston, RoughBergomiEuler, RoughHestonHybrid,
     };
 
     // --- Engine and configuration ---
@@ -190,9 +189,7 @@ pub mod prelude {
     pub use super::engine_fractional::simulate_path_fractional;
 
     // --- Fractional noise ---
-    pub use super::rng::fbm::{
-        create_fbm_generator, FbmGeneratorType, FractionalNoiseConfig, FractionalNoiseGenerator,
-    };
+    pub use super::rng::fbm::{create_fbm_generator, FractionalNoiseGenerator};
     // --- Pricing results ---
     pub use super::results::{MoneyEstimate, MonteCarloResult};
     pub use super::traits::Payoff;

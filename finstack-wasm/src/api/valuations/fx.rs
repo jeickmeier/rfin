@@ -4,7 +4,7 @@ use crate::utils::to_js_err;
 use finstack_valuations::pricer::{
     canonical_instrument_json, canonical_instrument_json_from_str,
     metric_value_from_instrument_json, present_standard_option_greeks_from_instrument_json,
-    pretty_instrument_json, price_instrument_json_string,
+    pretty_instrument_json, price_instrument_json,
 };
 use serde_json::{Map, Value};
 use wasm_bindgen::prelude::*;
@@ -37,8 +37,9 @@ fn price_payload(
 ) -> Result<String, JsValue> {
     let market: finstack_core::market_data::context::MarketContext =
         serde_json::from_str(market_json).map_err(to_js_err)?;
-    price_instrument_json_string(json, &market, as_of, model.as_deref().unwrap_or("default"))
-        .map_err(to_js_err)
+    let result = price_instrument_json(json, &market, as_of, model.as_deref().unwrap_or("default"))
+        .map_err(to_js_err)?;
+    serde_json::to_string(&result).map_err(to_js_err)
 }
 
 fn price_payload_with_metrics(

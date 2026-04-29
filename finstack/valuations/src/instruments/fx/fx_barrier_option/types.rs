@@ -23,6 +23,7 @@ use finstack_core::types::{CurveId, InstrumentId, PriceId};
     serde::Deserialize,
     schemars::JsonSchema,
 )]
+#[builder(validate = FxBarrierOption::validate)]
 #[serde(deny_unknown_fields)]
 pub struct FxBarrierOption {
     /// Unique instrument identifier
@@ -94,6 +95,22 @@ impl crate::instruments::common_impl::traits::CurveDependencies for FxBarrierOpt
 }
 
 impl FxBarrierOption {
+    /// Validate FX barrier option currency invariants.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        crate::instruments::common_impl::validation::validate_distinct_currencies(
+            self.base_currency,
+            self.quote_currency,
+            "FxBarrierOption",
+        )?;
+        if self.notional.currency() != self.base_currency {
+            return Err(finstack_core::Error::CurrencyMismatch {
+                expected: self.base_currency,
+                actual: self.notional.currency(),
+            });
+        }
+        Ok(())
+    }
+
     /// Create a canonical example FX barrier option (EURUSD up-and-out call).
     ///
     /// # Currency Conventions
@@ -399,27 +416,32 @@ impl crate::instruments::common_impl::traits::OptionGreeksProvider for FxBarrier
 
         match request.greek {
             OptionGreekKind::Delta => Ok(OptionGreeks {
-                delta: Some(self.option_delta(market, as_of)?),
+                delta: Some(OptionDeltaProvider::option_delta(self, market, as_of)?),
                 ..OptionGreeks::default()
             }),
             OptionGreekKind::Gamma => Ok(OptionGreeks {
-                gamma: Some(self.option_gamma(market, as_of)?),
+                gamma: Some(OptionGammaProvider::option_gamma(self, market, as_of)?),
                 ..OptionGreeks::default()
             }),
             OptionGreekKind::Vega => Ok(OptionGreeks {
-                vega: Some(self.option_vega(market, as_of)?),
+                vega: Some(OptionVegaProvider::option_vega(self, market, as_of)?),
                 ..OptionGreeks::default()
             }),
             OptionGreekKind::Rho => Ok(OptionGreeks {
-                rho_bp: Some(self.option_rho_bp(market, as_of)?),
+                rho_bp: Some(OptionRhoProvider::option_rho_bp(self, market, as_of)?),
                 ..OptionGreeks::default()
             }),
             OptionGreekKind::Vanna => Ok(OptionGreeks {
-                vanna: Some(self.option_vanna(market, as_of)?),
+                vanna: Some(OptionVannaProvider::option_vanna(self, market, as_of)?),
                 ..OptionGreeks::default()
             }),
             OptionGreekKind::Volga => Ok(OptionGreeks {
-                volga: Some(self.option_volga(market, as_of, request.require_base_pv()?)?),
+                volga: Some(OptionVolgaProvider::option_volga(
+                    self,
+                    market,
+                    as_of,
+                    request.require_base_pv()?,
+                )?),
                 ..OptionGreeks::default()
             }),
             _ => Ok(OptionGreeks::default()),
@@ -601,5 +623,35 @@ mod tests {
         obj.remove("fx_spot_id");
         let option: FxBarrierOption = serde_json::from_value(value).expect("deserialize");
         assert!(option.fx_spot_id.is_none());
+    }
+
+    #[test]
+    fn builder_rejects_same_base_and_quote_currency() {
+        use finstack_core::dates::DayCount;
+        use time::Month;
+
+        let result = FxBarrierOption::builder()
+            .id(InstrumentId::new("FXBAR-USDUSD"))
+            .strike(1.0)
+            .barrier(1.1)
+            .option_type(OptionType::Call)
+            .barrier_type(BarrierType::UpAndOut)
+            .expiry(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .base_currency(Currency::USD)
+            .quote_currency(Currency::USD)
+            .day_count(DayCount::Act365F)
+            .use_gobet_miri(false)
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+            .foreign_discount_curve_id(CurveId::new("USD-OIS"))
+            .vol_surface_id(CurveId::new("USDUSD-VOL"))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build();
+
+        assert!(
+            result.is_err(),
+            "FX barrier option builder must reject identical base and quote currencies"
+        );
     }
 }

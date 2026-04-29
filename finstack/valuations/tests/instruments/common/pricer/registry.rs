@@ -15,6 +15,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::*;
 use finstack_valuations::results::ValuationResult;
 use std::str::FromStr;
@@ -668,6 +669,67 @@ fn test_price_batch_matches_serial_results() {
     assert_eq!(batch_results.len(), serial_results.len());
     for (serial, batch) in serial_results.iter().zip(batch_results.iter()) {
         assert_pricing_result_eq(serial, batch);
+    }
+}
+
+#[test]
+fn test_shared_price_batch_with_metrics_matches_serial_results() {
+    let registry = shared_standard_registry();
+    let as_of = date!(2024 - 01 - 01);
+    let market = test_market(as_of);
+
+    let bond_one = Bond::fixed(
+        "BOND-METRIC-PAR-1",
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        date!(2026 - 01 - 01),
+        "USD-OIS",
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
+    let bond_two = Bond::fixed(
+        "BOND-METRIC-PAR-2",
+        Money::new(500_000.0, Currency::USD),
+        0.03,
+        as_of,
+        date!(2027 - 01 - 01),
+        "USD-OIS",
+    )
+    .expect("Bond::fixed should succeed with valid parameters");
+
+    let metrics = [MetricId::DirtyPrice];
+    let instruments: Vec<&dyn Instrument> = vec![&bond_one, &bond_two];
+    let serial_results: Vec<_> = instruments
+        .iter()
+        .map(|&instrument| {
+            PricerRegistry::price_with_metrics_shared(
+                &registry,
+                instrument,
+                ModelKey::Discounting,
+                &market,
+                as_of,
+                &metrics,
+                Default::default(),
+            )
+        })
+        .collect();
+    let batch_results = PricerRegistry::price_batch_shared(
+        &registry,
+        &instruments,
+        ModelKey::Discounting,
+        &market,
+        as_of,
+        &metrics,
+        Default::default(),
+    );
+
+    assert_eq!(batch_results.len(), serial_results.len());
+    for (serial, batch) in serial_results.iter().zip(batch_results.iter()) {
+        assert_pricing_result_eq(serial, batch);
+        assert_eq!(
+            serial.as_ref().expect("serial pricing should succeed").measures,
+            batch.as_ref().expect("batch pricing should succeed").measures
+        );
     }
 }
 

@@ -17,7 +17,7 @@
 //! - Basel IRB correlation formulas
 
 use crate::instruments::fixed_income::structured_credit::assumptions::{
-    embedded_registry, StructuredCreditAssumptionRegistry,
+    embedded_registry_or_panic, StructuredCreditAssumptionRegistry,
 };
 use finstack_core::Result;
 
@@ -128,9 +128,8 @@ pub(crate) fn cmbs_standard() -> CmbsCalibration {
     )
 }
 
-#[allow(clippy::expect_used)]
 fn assumptions_registry() -> &'static StructuredCreditAssumptionRegistry {
-    embedded_registry().expect("embedded structured-credit assumptions registry should load")
+    embedded_registry_or_panic()
 }
 
 #[allow(clippy::expect_used)]

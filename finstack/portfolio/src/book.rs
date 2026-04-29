@@ -6,84 +6,12 @@
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use std::borrow::Borrow;
-use std::fmt;
 
 use crate::types::PositionId;
 
-/// Book identifier.
-///
-/// A newtype wrapper around `String` that provides type safety for book identifiers,
-/// preventing accidental misuse of other ID types.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[repr(transparent)]
-pub struct BookId(String);
-
-impl BookId {
-    /// Create a new book identifier.
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - The identifier string.
-    ///
-    /// # Returns
-    ///
-    /// A strongly typed book identifier.
-    pub fn new(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-
-    /// Get the identifier as a string slice.
-    ///
-    /// # Returns
-    ///
-    /// Borrowed view of the underlying identifier.
-    #[inline]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl fmt::Display for BookId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl From<&str> for BookId {
-    fn from(s: &str) -> Self {
-        Self(s.to_string())
-    }
-}
-
-impl From<String> for BookId {
-    fn from(s: String) -> Self {
-        Self(s)
-    }
-}
-
-impl Borrow<str> for BookId {
-    fn borrow(&self) -> &str {
-        &self.0
-    }
-}
-
-impl AsRef<str> for BookId {
-    fn as_ref(&self) -> &str {
-        &self.0
-    }
-}
-
-impl PartialEq<&str> for BookId {
-    fn eq(&self, other: &&str) -> bool {
-        self.0 == *other
-    }
-}
-
-impl PartialEq<str> for BookId {
-    fn eq(&self, other: &str) -> bool {
-        self.0 == other
-    }
+define_string_id! {
+    /// Book identifier.
+    pub struct BookId;
 }
 
 /// A book represents a folder-like organizational unit within a portfolio.

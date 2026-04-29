@@ -107,7 +107,25 @@ pub struct CirProcess {
 
 impl CirProcess {
     /// Create a new CIR process.
+    ///
+    /// # Feller Condition Warning
+    ///
+    /// If the Feller condition (2κθ ≥ σ²) is violated, a warning is logged.
+    /// When violated, the process can reach zero with positive probability,
+    /// though the QE scheme handles this gracefully via truncation.
     pub fn new(params: CirParams) -> Self {
+        if !params.satisfies_feller() {
+            let feller_ratio = 2.0 * params.kappa * params.theta / (params.sigma * params.sigma);
+            tracing::warn!(
+                kappa = params.kappa,
+                theta = params.theta,
+                sigma = params.sigma,
+                feller_ratio = feller_ratio,
+                "CIR Feller condition violated (2κθ < σ²): process may reach zero. \
+                 Feller ratio = {:.4} (should be ≥ 1.0). QE scheme will truncate at zero.",
+                feller_ratio
+            );
+        }
         Self { params }
     }
 

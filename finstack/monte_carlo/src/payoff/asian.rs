@@ -12,6 +12,16 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use std::collections::HashSet;
 
+/// Default Asian fixing schedule for convenience pricers.
+///
+/// The engine emits an initial event at step `0` before any simulated move and
+/// then post-step events `1..=num_steps`. Binding-level convenience methods use
+/// the post-step schedule so the initial spot is not included as a fixing.
+#[must_use]
+pub fn default_fixing_steps(num_steps: usize) -> Vec<usize> {
+    (1..=num_steps).collect()
+}
+
 /// Asian averaging method.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AveragingMethod {

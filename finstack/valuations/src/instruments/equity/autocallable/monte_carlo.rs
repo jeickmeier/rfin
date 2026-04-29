@@ -166,8 +166,9 @@ impl AutocallablePayoff {
 
 impl Payoff for AutocallablePayoff {
     fn on_event(&mut self, state: &mut PathState) {
-        // Get spot value from state
-        let spot = state.spot().unwrap_or(0.0);
+        let Some(spot) = state.spot().filter(|spot| spot.is_finite() && *spot > 0.0) else {
+            return;
+        };
 
         // Track min/max for barrier checks
         self.min_spot_observed = self.min_spot_observed.min(spot);
@@ -200,10 +201,7 @@ impl Payoff for AutocallablePayoff {
             // Check if we're at the observation date (within epsilon for floating point)
             let is_at_maturity = (state.time - last_date).abs() < 1e-10 || state.time >= last_date;
             if is_at_maturity {
-                // Always update final_spot if we're at maturity
-                // This ensures we capture the spot at the exact maturity time
-                // Note: spot could be 0.0 if state.spot() returns None, which is fine
-                // But we should always set it to capture the actual spot value
+                // Always update final_spot if we're at maturity.
                 self.final_spot = spot;
             }
         } else {
@@ -366,6 +364,33 @@ mod tests {
             value.amount(),
             payoff.final_spot()
         );
+    }
+
+    #[test]
+    fn missing_spot_event_leaves_payoff_state_unchanged() {
+        let mut payoff = AutocallablePayoff::new(
+            vec![1.0],
+            vec![2.0],
+            vec![0.0],
+            0.75,
+            FinalPayoffType::Participation { rate: 1.0 },
+            1.0,
+            1.5,
+            100_000.0,
+            Currency::USD,
+            100.0,
+            vec![1.0],
+        )
+        .expect("test fixture is well-formed");
+
+        let mut state = PathState::new(100, 1.0);
+        payoff.on_event(&mut state);
+
+        assert_eq!(payoff.autocalled_at, None);
+        assert_eq!(payoff.next_obs_idx, 0);
+        assert_eq!(payoff.final_spot(), 0.0);
+        assert_eq!(payoff.min_spot_observed, f64::INFINITY);
+        assert_eq!(payoff.max_spot_observed, f64::NEG_INFINITY);
     }
 
     #[test]

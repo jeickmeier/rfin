@@ -78,13 +78,103 @@ pub struct OptionGreeks {
 /// requested [`OptionGreekKind`]. Callers should interpret `None` as "not
 /// supported for this instrument" rather than as a zero-valued greek.
 pub trait OptionGreeksProvider {
+    /// Return cash delta per instrument conventions.
+    fn option_delta(
+        &self,
+        _market: &MarketContext,
+        _as_of: Date,
+    ) -> finstack_core::Result<Option<f64>> {
+        Ok(None)
+    }
+
+    /// Return cash gamma per instrument conventions.
+    fn option_gamma(
+        &self,
+        _market: &MarketContext,
+        _as_of: Date,
+    ) -> finstack_core::Result<Option<f64>> {
+        Ok(None)
+    }
+
+    /// Return cash vega per instrument conventions (1 vol point).
+    fn option_vega(
+        &self,
+        _market: &MarketContext,
+        _as_of: Date,
+    ) -> finstack_core::Result<Option<f64>> {
+        Ok(None)
+    }
+
+    /// Return theta per instrument conventions.
+    fn option_theta(
+        &self,
+        _market: &MarketContext,
+        _as_of: Date,
+    ) -> finstack_core::Result<Option<f64>> {
+        Ok(None)
+    }
+
+    /// Return domestic rho per instrument conventions (per 1bp).
+    fn option_rho_bp(
+        &self,
+        _market: &MarketContext,
+        _as_of: Date,
+    ) -> finstack_core::Result<Option<f64>> {
+        Ok(None)
+    }
+
+    /// Return foreign/dividend rho per instrument conventions (per 1bp).
+    fn option_foreign_rho_bp(
+        &self,
+        _market: &MarketContext,
+        _as_of: Date,
+    ) -> finstack_core::Result<Option<f64>> {
+        Ok(None)
+    }
+
+    /// Return vanna per instrument conventions.
+    fn option_vanna(
+        &self,
+        _market: &MarketContext,
+        _as_of: Date,
+    ) -> finstack_core::Result<Option<f64>> {
+        Ok(None)
+    }
+
+    /// Return volga per instrument conventions.
+    fn option_volga(
+        &self,
+        _market: &MarketContext,
+        _as_of: Date,
+        _base_pv: f64,
+    ) -> finstack_core::Result<Option<f64>> {
+        Ok(None)
+    }
+
     /// Return the requested greek in a sparse [`OptionGreeks`] payload.
     fn option_greeks(
         &self,
         market: &MarketContext,
         as_of: Date,
         request: &OptionGreeksRequest,
-    ) -> finstack_core::Result<OptionGreeks>;
+    ) -> finstack_core::Result<OptionGreeks> {
+        let mut greeks = OptionGreeks::default();
+        match request.greek {
+            OptionGreekKind::Delta => greeks.delta = self.option_delta(market, as_of)?,
+            OptionGreekKind::Gamma => greeks.gamma = self.option_gamma(market, as_of)?,
+            OptionGreekKind::Vega => greeks.vega = self.option_vega(market, as_of)?,
+            OptionGreekKind::Theta => greeks.theta = self.option_theta(market, as_of)?,
+            OptionGreekKind::Rho => greeks.rho_bp = self.option_rho_bp(market, as_of)?,
+            OptionGreekKind::ForeignRho => {
+                greeks.foreign_rho_bp = self.option_foreign_rho_bp(market, as_of)?;
+            }
+            OptionGreekKind::Vanna => greeks.vanna = self.option_vanna(market, as_of)?,
+            OptionGreekKind::Volga => {
+                greeks.volga = self.option_volga(market, as_of, request.require_base_pv()?)?;
+            }
+        }
+        Ok(greeks)
+    }
 }
 
 // Single-greek helpers remain crate-private while instrument implementations
@@ -260,4 +350,41 @@ macro_rules! impl_equity_exotic_traits {
             }
         }
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Debug)]
+    struct DeltaOnlyProvider;
+
+    impl OptionGreeksProvider for DeltaOnlyProvider {
+        fn option_delta(
+            &self,
+            _market: &MarketContext,
+            _as_of: Date,
+        ) -> finstack_core::Result<Option<f64>> {
+            Ok(Some(42.0))
+        }
+    }
+
+    #[test]
+    fn provider_trait_dispatches_individual_greek_methods() {
+        let market = MarketContext::new();
+        let as_of = Date::from_calendar_date(2026, time::Month::January, 1).expect("valid date");
+        let greeks = DeltaOnlyProvider
+            .option_greeks(
+                &market,
+                as_of,
+                &OptionGreeksRequest {
+                    greek: OptionGreekKind::Delta,
+                    base_pv: None,
+                },
+            )
+            .expect("delta should compute");
+
+        assert_eq!(greeks.delta, Some(42.0));
+        assert_eq!(greeks.gamma, None);
+    }
 }

@@ -486,11 +486,11 @@ impl crate::instruments::common_impl::traits::OptionGreeksProvider for Volatilit
 
         match request.greek {
             OptionGreekKind::Delta => Ok(OptionGreeks {
-                delta: Some(self.option_delta(market, as_of)?),
+                delta: Some(OptionDeltaProvider::option_delta(self, market, as_of)?),
                 ..OptionGreeks::default()
             }),
             OptionGreekKind::Vega => Ok(OptionGreeks {
-                vega: Some(self.option_vega(market, as_of)?),
+                vega: Some(OptionVegaProvider::option_vega(self, market, as_of)?),
                 ..OptionGreeks::default()
             }),
             _ => Ok(OptionGreeks::default()),

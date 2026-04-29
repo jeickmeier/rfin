@@ -6,9 +6,7 @@
 //! assumptions for each legal payment period.
 
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::fixed_income::structured_credit::assumptions::{
-    embedded_registry, StructuredCreditAssumptionRegistry,
-};
+use crate::instruments::fixed_income::structured_credit::assumptions::embedded_registry;
 use crate::instruments::fixed_income::structured_credit::types::{
     Pool, PoolState, RecipientType, StructuredCredit, TrancheCashflows, TrancheSeniority,
     TrancheStructure, Waterfall,
@@ -162,7 +160,7 @@ pub(crate) fn run_simulation_with_source<S: PoolFlowSource + ?Sized>(
         tranches,
         instrument.closing_date,
         instrument.credit_model.recovery_spec.recovery_lag,
-    );
+    )?;
 
     // Create waterfall
     let waterfall = instrument.create_waterfall();
@@ -316,12 +314,11 @@ pub(crate) fn aggregate_tranche_cashflows(
 
     for result in full_results.values() {
         for (date, amount) in &result.cashflows {
-            flow_map
-                .entry(*date)
-                .and_modify(|existing| {
-                    *existing = existing.checked_add(*amount).unwrap_or(*existing)
-                })
-                .or_insert(*amount);
+            if let Some(existing) = flow_map.get_mut(date) {
+                *existing = existing.checked_add(*amount)?;
+            } else {
+                flow_map.insert(*date, *amount);
+            }
         }
     }
 
@@ -341,6 +338,51 @@ pub(crate) fn take_tranche_cashflows(
             id: format!("tranche:{}", tranche_id),
         })
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use time::Month;
+
+    fn empty_tranche_cashflows(id: &str, currency: Currency) -> TrancheCashflows {
+        TrancheCashflows {
+            tranche_id: id.to_string(),
+            cashflows: Vec::new(),
+            detailed_flows: Vec::new(),
+            interest_flows: Vec::new(),
+            principal_flows: Vec::new(),
+            pik_flows: Vec::new(),
+            writedown_flows: Vec::new(),
+            final_balance: Money::new(0.0, currency),
+            total_interest: Money::new(0.0, currency),
+            total_principal: Money::new(0.0, currency),
+            total_pik: Money::new(0.0, currency),
+            total_writedown: Money::new(0.0, currency),
+        }
+    }
+
+    #[test]
+    fn aggregate_tranche_cashflows_errors_on_incompatible_same_date_amounts() {
+        let pay_date = Date::from_calendar_date(2026, Month::January, 15).expect("valid date");
+        let mut usd = empty_tranche_cashflows("AAA", Currency::USD);
+        usd.cashflows
+            .push((pay_date, Money::new(100.0, Currency::USD)));
+
+        let mut eur = empty_tranche_cashflows("BBB", Currency::EUR);
+        eur.cashflows
+            .push((pay_date, Money::new(50.0, Currency::EUR)));
+
+        let mut results = HashMap::default();
+        results.insert(usd.tranche_id.clone(), usd);
+        results.insert(eur.tranche_id.clone(), eur);
+
+        let err = aggregate_tranche_cashflows(&results)
+            .expect_err("currency mismatch should not be silently dropped");
+
+        assert!(matches!(err, finstack_core::Error::CurrencyMismatch { .. }));
+    }
 }
 
 // ============================================================================
@@ -367,6 +409,7 @@ pub(crate) struct SimulationState<'a> {
     pool: &'a Pool,
     tranches: &'a TrancheStructure,
     closing_date: Date,
+    pool_balance_cleanup_threshold: f64,
     tranche_recipient_keys: Vec<RecipientType>,
     /// Whether reinvestment was active in the previous period.
     /// Used to detect the reinvestment-end transition and reconcile pool_outstanding.
@@ -399,8 +442,9 @@ impl<'a> SimulationState<'a> {
         tranches: &'a TrancheStructure,
         closing_date: Date,
         recovery_lag_months: u32,
-    ) -> Self {
+    ) -> Result<Self> {
         let base_ccy = pool.base_currency();
+        let pool_balance_cleanup_threshold = embedded_registry()?.pool_balance_cleanup_threshold();
 
         // Initialize results map for each tranche
         let results: HashMap<String, TrancheCashflows> = tranches
@@ -482,7 +526,7 @@ impl<'a> SimulationState<'a> {
                 .cmp(&tranches.tranches[a].seniority)
         });
 
-        Self {
+        Ok(Self {
             pool_state,
             pool_outstanding: total_pool_balance,
             recovery_queue: RecoveryQueue::new(),
@@ -495,6 +539,7 @@ impl<'a> SimulationState<'a> {
             pool,
             tranches,
             closing_date,
+            pool_balance_cleanup_threshold,
             tranche_recipient_keys,
             was_reinvestment_active: initial_reinvestment_active,
             cumulative_expected_loss: 0.0,
@@ -502,12 +547,11 @@ impl<'a> SimulationState<'a> {
             performing_pool_balance,
             loss_alloc_order,
             reserve_balance: pool.reserve_account,
-        }
+        })
     }
 
     fn is_pool_exhausted(&self) -> bool {
-        self.pool_outstanding.amount()
-            <= structured_credit_assumptions_registry().pool_balance_cleanup_threshold()
+        self.pool_outstanding.amount() <= self.pool_balance_cleanup_threshold
     }
 
     fn finalize(mut self) -> HashMap<String, TrancheCashflows> {
@@ -567,11 +611,6 @@ impl<'a> SimulationState<'a> {
 
         self.results
     }
-}
-
-#[allow(clippy::expect_used)]
-fn structured_credit_assumptions_registry() -> &'static StructuredCreditAssumptionRegistry {
-    embedded_registry().expect("embedded structured-credit assumptions registry should load")
 }
 
 // ============================================================================

@@ -13,6 +13,7 @@ from finstack.valuations import (
     correlation as correlation,
     credit as credit,
     credit_derivatives as credit_derivatives,
+    exotics as exotics,
     fx as fx,
     instruments as instruments,
 )
@@ -150,6 +151,7 @@ __all__: list[str] = [
     "decompose_period",
     "default_attribution_metrics",
     "default_waterfall_order",
+    "exotics",
     "fx",
     "instrument_cashflows",
     "instrument_cashflows_json",

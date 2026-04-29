@@ -14,7 +14,8 @@
 //! applied.  This discretization computes the Volterra integral at every step
 //! by summing over all previous steps — an O(n²) algorithm per path.  This is
 //! the simplest correct scheme; geometric-binning optimizations can be added
-//! later.
+//! later. Construction logs a warning for grids above 200 steps because the
+//! quadratic Volterra cost can dominate large production runs.
 //!
 //! # Work Buffer Layout
 //!
@@ -74,6 +75,8 @@ use super::super::traits::Discretization;
 /// At each time step the Volterra integral is evaluated by summing over all
 /// previous steps with the singular kernel `(t − s)^{α−1} / Γ(α)`.  This is
 /// O(n²) per path but exact (no binning approximation).
+/// Grids above 200 steps log a construction-time warning to make this cost
+/// visible before the simulation starts.
 ///
 /// The discretization must be constructed with the full time grid because the
 /// work buffer size depends on the number of steps, and the kernel evaluation
@@ -93,6 +96,8 @@ pub struct RoughHestonHybrid {
 }
 
 impl RoughHestonHybrid {
+    const LARGE_GRID_WARNING_STEPS: usize = 200;
+
     /// Create a new rough Heston discretization for the given time grid.
     ///
     /// # Arguments
@@ -122,6 +127,14 @@ impl RoughHestonHybrid {
         let inv_gamma_alpha = 1.0 / gamma_alpha;
 
         let num_steps = times.len() - 1;
+        if num_steps > Self::LARGE_GRID_WARNING_STEPS {
+            tracing::warn!(
+                num_steps,
+                estimated_kernel_ops_per_path = num_steps.saturating_mul(num_steps + 1) / 2,
+                "RoughHestonHybrid evaluates the Volterra integral with O(n²) work per path; \
+                 consider this cost before running large path counts"
+            );
+        }
         let dt_grid: Vec<f64> = times.windows(2).map(|w| w[1] - w[0]).collect();
 
         Ok(Self {

@@ -16,7 +16,6 @@ fn test_path_capture_all() {
     let time_grid = TimeGrid::uniform(1.0, 10).unwrap();
     let config = McEngineConfig {
         num_paths: 100,
-        seed: 42,
         time_grid,
         target_ci_half_width: None,
         use_parallel: false,
@@ -34,7 +33,6 @@ fn test_path_capture_sample() {
     let time_grid = TimeGrid::uniform(1.0, 10).unwrap();
     let config = McEngineConfig {
         num_paths: 1000,
-        seed: 42,
         time_grid,
         target_ci_half_width: None,
         use_parallel: false,

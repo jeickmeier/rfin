@@ -2,157 +2,16 @@
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use std::borrow::Borrow;
 use std::fmt;
 
-/// Entity identifier (company, fund, etc.)
-///
-/// A newtype wrapper around `String` that provides type safety for entity identifiers,
-/// preventing accidental misuse of position IDs where entity IDs are expected.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[repr(transparent)]
-pub struct EntityId(String);
-
-impl EntityId {
-    /// Create a new entity identifier.
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - The identifier string.
-    ///
-    /// # Returns
-    ///
-    /// A strongly typed entity identifier wrapping the supplied string.
-    pub fn new(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-
-    /// Get the identifier as a string slice.
-    ///
-    /// # Returns
-    ///
-    /// Borrowed view of the underlying identifier without allocating.
-    #[inline]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
+define_string_id! {
+    /// Entity identifier (company, fund, etc.)
+    pub struct EntityId;
 }
 
-impl fmt::Display for EntityId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl From<&str> for EntityId {
-    fn from(s: &str) -> Self {
-        Self(s.to_string())
-    }
-}
-
-impl From<String> for EntityId {
-    fn from(s: String) -> Self {
-        Self(s)
-    }
-}
-
-impl Borrow<str> for EntityId {
-    fn borrow(&self) -> &str {
-        &self.0
-    }
-}
-
-impl AsRef<str> for EntityId {
-    fn as_ref(&self) -> &str {
-        &self.0
-    }
-}
-
-impl PartialEq<&str> for EntityId {
-    fn eq(&self, other: &&str) -> bool {
-        self.0 == *other
-    }
-}
-
-impl PartialEq<str> for EntityId {
-    fn eq(&self, other: &str) -> bool {
-        self.0 == other
-    }
-}
-
-/// Position identifier.
-///
-/// A newtype wrapper around `String` that provides type safety for position identifiers,
-/// preventing accidental misuse of entity IDs where position IDs are expected.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[repr(transparent)]
-pub struct PositionId(String);
-
-impl PositionId {
-    /// Create a new position identifier.
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - The identifier string.
-    ///
-    /// # Returns
-    ///
-    /// A strongly typed position identifier wrapping the supplied string.
-    pub fn new(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-
-    /// Get the identifier as a string slice.
-    ///
-    /// # Returns
-    ///
-    /// Borrowed view of the underlying identifier without allocating.
-    #[inline]
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl fmt::Display for PositionId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl From<&str> for PositionId {
-    fn from(s: &str) -> Self {
-        Self(s.to_string())
-    }
-}
-
-impl From<String> for PositionId {
-    fn from(s: String) -> Self {
-        Self(s)
-    }
-}
-
-impl Borrow<str> for PositionId {
-    fn borrow(&self) -> &str {
-        &self.0
-    }
-}
-
-impl AsRef<str> for PositionId {
-    fn as_ref(&self) -> &str {
-        &self.0
-    }
-}
-
-impl PartialEq<&str> for PositionId {
-    fn eq(&self, other: &&str) -> bool {
-        self.0 == *other
-    }
-}
-
-impl PartialEq<str> for PositionId {
-    fn eq(&self, other: &str) -> bool {
-        self.0 == other
-    }
+define_string_id! {
+    /// Position identifier.
+    pub struct PositionId;
 }
 
 /// Constant for the dummy entity used for standalone instruments.
@@ -410,6 +269,11 @@ impl AttributeTest {
     ///
     /// Returns `false` if the key is absent or types are incompatible
     /// (e.g., ordering comparison on text).
+    ///
+    /// Numeric equality and inequality use an absolute/relative tolerance
+    /// (`1e-12` / `1e-9`) to avoid float-representation noise. Numeric
+    /// ordering comparisons (`<`, `<=`, `>`, `>=`) are exact so tier and
+    /// constraint boundaries do not shift because of tolerance.
     pub fn evaluate(&self, attributes: &IndexMap<String, AttributeValue>) -> bool {
         let Some(attr) = attributes.get(&self.key) else {
             return false;
@@ -556,6 +420,16 @@ mod tests {
         assert!(AttributeTest::numeric("score", ComparisonOp::Eq, 650.0).evaluate(&attrs));
         assert!(!AttributeTest::numeric("score", ComparisonOp::Ne, 650.0).evaluate(&attrs));
         assert!(AttributeTest::numeric("score", ComparisonOp::Gt, 600.0).evaluate(&attrs));
+    }
+
+    #[test]
+    fn numeric_eq_uses_tolerance_but_ordering_is_exact() {
+        let attrs = IndexMap::from([("score".to_string(), AttributeValue::Number(600.0 + 1e-10))]);
+
+        assert!(AttributeTest::numeric("score", ComparisonOp::Eq, 600.0).evaluate(&attrs));
+        assert!(!AttributeTest::numeric("score", ComparisonOp::Ne, 600.0).evaluate(&attrs));
+        assert!(AttributeTest::numeric("score", ComparisonOp::Gt, 600.0).evaluate(&attrs));
+        assert!(!AttributeTest::numeric("score", ComparisonOp::Le, 600.0).evaluate(&attrs));
     }
 
     #[test]

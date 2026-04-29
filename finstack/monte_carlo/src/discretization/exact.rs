@@ -69,9 +69,16 @@ impl ExactMultiGbm {
     }
 }
 
-fn recover_rate_coefficients<P: StochasticProcess>(
-    process: &P,
+struct RateRecoveryContext<'a, P> {
+    process: &'a P,
     t: f64,
+    probe_state: &'a mut [f64],
+    probe_drift: &'a mut [f64],
+    probe_diffusion: &'a mut [f64],
+}
+
+fn recover_rate_coefficients<P: StochasticProcess>(
+    ctx: &mut RateRecoveryContext<'_, P>,
     x: &[f64],
     drift: f64,
     diffusion: f64,
@@ -81,18 +88,17 @@ fn recover_rate_coefficients<P: StochasticProcess>(
         return (drift / x[index], diffusion / x[index]);
     }
 
-    let mut probe_state = x.to_vec();
-    probe_state[index] = if x[index].is_sign_negative() {
+    ctx.probe_state.copy_from_slice(x);
+    ctx.probe_state[index] = if x[index].is_sign_negative() {
         -1.0
     } else {
         1.0
     };
-    let mut probe_drift = vec![0.0; x.len()];
-    let mut probe_diffusion = vec![0.0; x.len()];
-    process.drift(t, &probe_state, &mut probe_drift);
-    process.diffusion(t, &probe_state, &mut probe_diffusion);
+    ctx.process.drift(ctx.t, ctx.probe_state, ctx.probe_drift);
+    ctx.process
+        .diffusion(ctx.t, ctx.probe_state, ctx.probe_diffusion);
 
-    (probe_drift[index], probe_diffusion[index])
+    (ctx.probe_drift[index], ctx.probe_diffusion[index])
 }
 
 impl<P> Discretization<P> for ExactMultiGbm
@@ -102,11 +108,21 @@ where
     fn step(&self, process: &P, _t: f64, dt: f64, x: &mut [f64], z: &[f64], work: &mut [f64]) {
         let dim = process.dim();
 
-        // Get drift and diffusion coefficients
-        let (drift_vec, diff_vec) = work.split_at_mut(dim);
+        // Work buffer layout: drift, diffusion, probe state, probe drift, probe diffusion.
+        let (drift_vec, rest) = work.split_at_mut(dim);
+        let (diff_vec, rest) = rest.split_at_mut(dim);
+        let (probe_state, rest) = rest.split_at_mut(dim);
+        let (probe_drift, probe_diffusion) = rest.split_at_mut(dim);
 
         process.drift(_t, x, drift_vec);
         process.diffusion(_t, x, diff_vec);
+        let mut recovery_ctx = RateRecoveryContext {
+            process,
+            t: _t,
+            probe_state,
+            probe_drift,
+            probe_diffusion,
+        };
 
         // Apply exact GBM formula for each component
         // For diagonal diffusion: S_i(t+dt) = S_i(t) exp((μ_i - ½σ_i²)dt + σ_i√dt Z_i)
@@ -118,7 +134,7 @@ where
             }
 
             let (mu, sigma) =
-                recover_rate_coefficients(process, _t, x, drift_vec[i], diff_vec[i], i);
+                recover_rate_coefficients(&mut recovery_ctx, x, drift_vec[i], diff_vec[i], i);
 
             let drift_term = (mu - 0.5 * sigma * sigma) * dt;
             let diffusion_term = sigma * dt.sqrt() * z[i];
@@ -128,7 +144,7 @@ where
     }
 
     fn work_size(&self, process: &P) -> usize {
-        2 * process.dim() // drift + diffusion vectors
+        5 * process.dim() // drift + diffusion + subnormal probe buffers
     }
 }
 
@@ -206,13 +222,23 @@ impl Discretization<MultiGbmProcess> for ExactMultiGbmCorrelated {
         let dim = process.dim();
         assert_eq!(dim, self.dim, "Process dimension must match discretization");
 
-        // Split work buffer: [drift_vec | diff_vec | z_corr]
+        // Split work buffer: [drift_vec | diff_vec | z_corr | subnormal probe buffers]
         let (drift_vec, rest) = work.split_at_mut(dim);
         let (diff_vec, z_corr) = rest.split_at_mut(dim);
+        let (z_corr, rest) = z_corr.split_at_mut(dim);
+        let (probe_state, rest) = rest.split_at_mut(dim);
+        let (probe_drift, probe_diffusion) = rest.split_at_mut(dim);
 
         // Get drift and diffusion coefficients
         process.drift(_t, x, drift_vec);
         process.diffusion(_t, x, diff_vec);
+        let mut recovery_ctx = RateRecoveryContext {
+            process,
+            t: _t,
+            probe_state,
+            probe_drift,
+            probe_diffusion,
+        };
 
         // Apply Cholesky factor to get correlated shocks in original asset order.
         // Dimensions are guaranteed by construction: cholesky_factor is dim×dim and
@@ -229,7 +255,7 @@ impl Discretization<MultiGbmProcess> for ExactMultiGbmCorrelated {
             }
 
             let (mu, sigma) =
-                recover_rate_coefficients(process, _t, x, drift_vec[i], diff_vec[i], i);
+                recover_rate_coefficients(&mut recovery_ctx, x, drift_vec[i], diff_vec[i], i);
 
             let drift_term = (mu - 0.5 * sigma * sigma) * dt;
             let diffusion_term = sigma * dt.sqrt() * z_corr[i];
@@ -239,8 +265,8 @@ impl Discretization<MultiGbmProcess> for ExactMultiGbmCorrelated {
     }
 
     fn work_size(&self, process: &MultiGbmProcess) -> usize {
-        // drift + diffusion + correlated shocks
-        3 * process.dim()
+        // drift + diffusion + correlated shocks + subnormal probe buffers
+        6 * process.dim()
     }
 
     fn applies_correlation_internally(&self) -> bool {
@@ -541,7 +567,7 @@ mod tests {
         let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone())).unwrap();
 
         let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
-        assert_eq!(disc.work_size(&multi_gbm), 6); // 3 * 2 = 6 (drift + diffusion + z_corr)
+        assert_eq!(disc.work_size(&multi_gbm), 12); // 6 * 2 = 12, including subnormal probe buffers
     }
 
     #[test]

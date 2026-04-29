@@ -171,6 +171,7 @@ mod tests {
         assert!(round_trip.nodes.is_empty());
     }
 
+    #[cfg(target_arch = "wasm32")]
     #[test]
     fn validate_financial_model_json_rejects_empty_periods() {
         let model = finstack_statements::FinancialModelSpec::new("test", vec![]);

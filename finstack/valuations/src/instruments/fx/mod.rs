@@ -79,6 +79,7 @@ pub mod fx_variance_swap;
 pub mod ndf;
 /// Quanto option module - Cross-currency quanto options.
 pub mod quanto_option;
+pub(crate) mod shared;
 
 // Re-export primary types
 pub use fx_barrier_option::FxBarrierOption;

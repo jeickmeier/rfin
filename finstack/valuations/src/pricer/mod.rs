@@ -38,9 +38,9 @@ pub use json::{
     metric_value_from_instrument_json, parse_as_of_date, parse_boxed_instrument_json,
     parse_instrument_json, parse_model_key, present_metric_values_from_instrument_json,
     present_standard_option_greeks_from_instrument_json, pretty_instrument_json,
-    price_instrument_json, price_instrument_json_string, price_instrument_json_with_metrics,
-    price_instrument_json_with_metrics_and_history, price_instrument_json_with_metrics_string,
-    validate_instrument_json, STANDARD_OPTION_GREEKS,
+    price_instrument_json, price_instrument_json_with_metrics,
+    price_instrument_json_with_metrics_and_history, validate_instrument_json,
+    STANDARD_OPTION_GREEKS,
 };
 pub use keys::{InstrumentType, ModelKey, PricerKey};
 pub use registry::{expect_inst, Pricer, PricerRegistry};
@@ -62,7 +62,8 @@ use std::sync::{Arc, OnceLock};
 
 /// Register all standard pricers explicitly.
 ///
-/// This function registers all instrument pricers in a single, visible location.
+/// This function keeps the full registration list in one visible place while
+/// delegating concrete registration tables to the asset-class submodules below.
 /// This explicit approach provides better IDE support, easier debugging, and
 /// clearer dependency tracking compared to auto-registration.
 fn register_all_pricers(registry: &mut PricerRegistry) {
@@ -76,50 +77,14 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
     register_commodity_pricers(registry);
 }
 
-/// Register a minimal set of pricers for rates instruments.
-///
-/// Intended for environments (like WASM) where registering *all* pricers may be
-/// too memory intensive.
-pub fn register_rates_pricers(registry: &mut PricerRegistry) {
-    rates::register_rates_pricers(registry);
-}
-
-/// Register pricers for credit instruments.
-pub fn register_credit_pricers(registry: &mut PricerRegistry) {
-    credit::register_credit_pricers(registry);
-}
-
-/// Register pricers for equity instruments.
-pub fn register_equity_pricers(registry: &mut PricerRegistry) {
-    equity::register_equity_pricers(registry);
-}
-
-/// Register pricers for FX instruments.
-pub fn register_fx_pricers(registry: &mut PricerRegistry) {
-    fx::register_fx_pricers(registry);
-}
-
-/// Register pricers for additional fixed-income instruments (convertibles, MBS,
-/// revolving credit, term loans) not included in the minimal rates set.
-pub fn register_fixed_income_pricers(registry: &mut PricerRegistry) {
-    fixed_income::register_fixed_income_pricers(registry);
-}
-
-/// Register pricers for inflation instruments (swaps, caps/floors).
-pub fn register_inflation_pricers(registry: &mut PricerRegistry) {
-    inflation::register_inflation_pricers(registry);
-}
-
-/// Register pricers for exotic instruments (barriers, lookbacks, Asians,
-/// autocallables, quantos, cliquets, range accruals, Bermudan swaptions).
-pub fn register_exotic_pricers(registry: &mut PricerRegistry) {
-    exotics::register_exotic_pricers(registry);
-}
-
-/// Register pricers for commodity instruments.
-pub fn register_commodity_pricers(registry: &mut PricerRegistry) {
-    commodity::register_commodity_pricers(registry);
-}
+pub use commodity::register_commodity_pricers;
+pub use credit::register_credit_pricers;
+pub use equity::register_equity_pricers;
+pub use exotics::register_exotic_pricers;
+pub use fixed_income::register_fixed_income_pricers;
+pub use fx::register_fx_pricers;
+pub use inflation::register_inflation_pricers;
+pub use rates::register_rates_pricers;
 
 /// Build a standard pricer registry with all registered pricers.
 ///

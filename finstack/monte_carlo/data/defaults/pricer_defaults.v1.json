@@ -3,14 +3,12 @@
   "version": 1,
   "rust": {
     "engine": {
-      "seed": 42,
       "use_parallel": true,
       "chunk_size": 1000,
       "antithetic": false
     },
     "engine_builder": {
       "num_paths": 100000,
-      "seed": 42,
       "use_parallel": true,
       "chunk_size": 1000,
       "antithetic": false

@@ -1,16 +1,17 @@
 //! FX barrier option pricers (Monte Carlo and analytical).
 
-// Common imports for all pricers
-use crate::instruments::common_impl::helpers::zero_rate_from_df;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fx::fx_barrier_option::types::FxBarrierOption;
+use crate::instruments::fx::shared::{
+    collect_fx_option_inputs, resolve_fx_spot as resolve_shared_fx_spot, FxOptionInputRequest,
+    FxSpotSource,
+};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 
 // MC-specific imports
@@ -53,11 +54,7 @@ impl FxBarrierOptionMcPricer {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         validate_fx_barrier_currencies(inst)?;
 
-        let fx_spot = resolve_fx_spot(inst, curves, as_of)?;
-
-        let t = inst
-            .day_count
-            .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
+        let (fx_spot, t) = collect_fx_barrier_expiry_state(inst, curves, as_of)?;
         if t <= 0.0 {
             let per_unit = expired_barrier_value_per_unit(inst, fx_spot)?;
             return Ok(finstack_core::money::Money::new(
@@ -66,23 +63,8 @@ impl FxBarrierOptionMcPricer {
             ));
         }
 
-        // Domestic curve (discounting)
-        let disc_curve = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
-        let discount_factor = disc_curve.df_between_dates(as_of, inst.expiry)?;
-        let r_dom = zero_rate_from_df(discount_factor, t, "FxBarrierOption domestic discount")?;
-
-        // Foreign curve (risk-free rate for drift)
-        let for_curve = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
-        let df_for = for_curve.df_between_dates(as_of, inst.expiry)?;
-        let r_for = zero_rate_from_df(df_for, t, "FxBarrierOption foreign discount")?;
-
-        let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
-            &inst.pricing_overrides.market_quotes,
-            curves,
-            inst.vol_surface_id.as_str(),
-            t,
-            inst.strike,
-        )?;
+        let (_, r_dom, r_for, sigma, discount_factor) =
+            collect_fx_barrier_inputs(inst, curves, as_of)?;
 
         // For FX, drift is r_dom - r_for.
         // In GBM process param 'q' is subtracted from r to get drift (r-q).
@@ -255,13 +237,7 @@ fn expired_barrier_value_per_unit(inst: &FxBarrierOption, spot: f64) -> finstack
 /// - Notional is in foreign currency (base currency) - the amount of foreign currency
 ///   being bought/sold
 fn validate_fx_barrier_currencies(inst: &FxBarrierOption) -> finstack_core::Result<()> {
-    // Notional should be in foreign currency
-    if inst.notional.currency() != inst.base_currency {
-        return Err(finstack_core::Error::CurrencyMismatch {
-            expected: inst.base_currency,
-            actual: inst.notional.currency(),
-        });
-    }
+    inst.validate()?;
 
     let strike = inst.strike;
     if !strike.is_finite() || strike <= 0.0 {
@@ -293,33 +269,21 @@ fn resolve_fx_spot(
     curves: &MarketContext,
     as_of: Date,
 ) -> finstack_core::Result<f64> {
-    if let Some(spot_id) = inst.fx_spot_id.as_ref() {
-        let spot_scalar = curves.get_price(spot_id)?;
-        let fx_spot = crate::metrics::scalar_numeric_value(spot_scalar);
-        if !fx_spot.is_finite() || fx_spot <= 0.0 {
-            return Err(finstack_core::Error::Validation(format!(
-                "FxBarrierOption spot must be finite and > 0, got {}",
-                fx_spot
-            )));
-        }
-        return Ok(fx_spot);
-    }
-
-    let fx_matrix = curves.fx().ok_or_else(|| {
-        finstack_core::Error::from(finstack_core::InputError::NotFound {
-            id: "fx_matrix".to_string(),
-        })
-    })?;
-    let fx_spot = fx_matrix
-        .rate(FxQuery::new(inst.base_currency, inst.quote_currency, as_of))?
-        .rate;
-    if !fx_spot.is_finite() || fx_spot <= 0.0 {
-        return Err(finstack_core::Error::Validation(format!(
-            "FxBarrierOption spot must be finite and > 0, got {}",
-            fx_spot
-        )));
-    }
-    Ok(fx_spot)
+    resolve_shared_fx_spot(FxOptionInputRequest {
+        market: curves,
+        as_of,
+        base_currency: inst.base_currency,
+        quote_currency: inst.quote_currency,
+        expiry: inst.expiry,
+        day_count: inst.day_count,
+        domestic_discount_curve_id: &inst.domestic_discount_curve_id,
+        foreign_discount_curve_id: &inst.foreign_discount_curve_id,
+        vol_surface_id: inst.vol_surface_id.as_str(),
+        strike: inst.strike,
+        pricing_overrides: &inst.pricing_overrides,
+        spot_source: FxSpotSource::ScalarId(inst.fx_spot_id.as_ref()),
+        rate_context: "FxBarrierOption",
+    })
 }
 
 fn collect_fx_barrier_expiry_state(
@@ -344,31 +308,22 @@ fn collect_fx_barrier_inputs(
     // Validate currency semantics first
     validate_fx_barrier_currencies(inst)?;
 
-    // Vol surface time using instrument day count (typically ACT/365F for FX options)
-    let t = inst
-        .day_count
-        .year_fraction(as_of, inst.expiry, DayCountContext::default())?;
-
-    // Date-based DF lookups; the resulting `r = -ln(df) / t` then reconstructs
-    // exactly that DF when composed with `exp(-r * t)` in BS, regardless of
-    // the curve vs. vol-surface day-count conventions.
-    let disc_curve = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
-    let df_d = disc_curve.df_between_dates(as_of, inst.expiry)?;
-    let r_dom = zero_rate_from_df(df_d, t, "FxBarrierOption domestic discount")?;
-
-    let for_curve = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
-    let df_f = for_curve.df_between_dates(as_of, inst.expiry)?;
-    let r_for = zero_rate_from_df(df_f, t, "FxBarrierOption foreign discount")?;
-
-    let fx_spot = resolve_fx_spot(inst, curves, as_of)?;
-
-    let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
-        &inst.pricing_overrides.market_quotes,
-        curves,
-        inst.vol_surface_id.as_str(),
-        t,
-        inst.strike,
-    )?;
+    let inputs = collect_fx_option_inputs(FxOptionInputRequest {
+        market: curves,
+        as_of,
+        base_currency: inst.base_currency,
+        quote_currency: inst.quote_currency,
+        expiry: inst.expiry,
+        day_count: inst.day_count,
+        domestic_discount_curve_id: &inst.domestic_discount_curve_id,
+        foreign_discount_curve_id: &inst.foreign_discount_curve_id,
+        vol_surface_id: inst.vol_surface_id.as_str(),
+        strike: inst.strike,
+        pricing_overrides: &inst.pricing_overrides,
+        spot_source: FxSpotSource::ScalarId(inst.fx_spot_id.as_ref()),
+        rate_context: "FxBarrierOption",
+    })?;
+    let sigma = inputs.sigma;
     if !sigma.is_finite() || sigma < 0.0 {
         return Err(finstack_core::Error::Validation(format!(
             "FxBarrierOption volatility must be finite and non-negative, got {}",
@@ -376,7 +331,13 @@ fn collect_fx_barrier_inputs(
         )));
     }
 
-    Ok((fx_spot, r_dom, r_for, sigma, t))
+    Ok((
+        inputs.spot,
+        inputs.r_domestic,
+        inputs.r_foreign,
+        sigma,
+        inputs.t,
+    ))
 }
 
 /// FX Barrier option analytical pricer (continuous monitoring).

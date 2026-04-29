@@ -70,7 +70,6 @@ mod golden_tests {
         let engine = McEngine::builder()
             .num_paths(num_paths)
             .uniform_grid(t, num_steps)
-            .seed(42)
             .build()
             .expect("Failed to build MC engine");
 
@@ -289,7 +288,6 @@ mod golden_tests {
         let engine = McEngine::builder()
             .num_paths(num_paths)
             .uniform_grid(t, num_steps)
-            .seed(42)
             .build()
             .expect("Failed to build MC engine");
 
@@ -358,7 +356,6 @@ mod golden_tests {
         let engine = McEngine::builder()
             .num_paths(num_paths)
             .uniform_grid(t, num_steps)
-            .seed(12345)
             .build()
             .expect("Failed to build MC engine");
 

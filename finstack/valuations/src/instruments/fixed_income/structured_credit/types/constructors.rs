@@ -9,7 +9,7 @@ use super::{
     TrancheCoupon, TrancheSeniority, TrancheStructure,
 };
 use crate::instruments::fixed_income::structured_credit::assumptions::{
-    embedded_registry, StructuredCreditAssumptionRegistry,
+    embedded_registry_or_panic, StructuredCreditAssumptionRegistry,
 };
 use crate::instruments::fixed_income::structured_credit::types::setup::DefaultAssumptions;
 use finstack_core::dates::{Date, Tenor};
@@ -332,9 +332,8 @@ fn deal_config_from_registry(profile_id: &str) -> DealConfig {
     }
 }
 
-#[allow(clippy::expect_used)]
 fn assumptions_registry() -> &'static StructuredCreditAssumptionRegistry {
-    embedded_registry().expect("embedded structured-credit assumptions registry should load")
+    embedded_registry_or_panic()
 }
 
 #[allow(clippy::expect_used)]

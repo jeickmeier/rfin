@@ -31,9 +31,7 @@ use finstack_monte_carlo::pricer::lsq::solve_least_squares;
 use finstack_monte_carlo::process::cheyette_rough::{
     CheyetteRoughVolParams, CheyetteRoughVolProcess,
 };
-use finstack_monte_carlo::rng::fbm::{
-    create_fbm_generator, FbmGeneratorType, FractionalNoiseConfig,
-};
+use finstack_monte_carlo::rng::fbm::create_fbm_generator;
 use finstack_monte_carlo::rng::philox::PhiloxRng;
 use finstack_monte_carlo::time_grid::TimeGrid;
 use finstack_monte_carlo::traits::{Discretization, RandomStream};
@@ -294,11 +292,7 @@ impl BermudanSwaptionCheyetteRoughPricer {
         }
 
         // Create fBM generator for rough vol
-        let fbm_config = FractionalNoiseConfig {
-            hurst: hurst_val,
-            generator_type: FbmGeneratorType::Auto,
-        };
-        let fbm_gen = create_fbm_generator(&times, &fbm_config).map_err(|e| {
+        let fbm_gen = create_fbm_generator(&times, hurst_val).map_err(|e| {
             PricingError::model_failure_with_context(
                 format!("Failed to create fBM generator: {e}"),
                 PricingErrorContext::default(),

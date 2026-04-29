@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from finstack.core.market_data import MarketContext
+import pytest
 
 from finstack.portfolio import aggregate_full_cashflows
 
@@ -245,7 +246,11 @@ class TestPortfolioNamespace:
     def test_portfolio_exports(self) -> None:
         """Portfolio should export parsing, building, metric functions, and typed wrappers."""
         from finstack.portfolio import (  # noqa: F401
+            FinstackFxError,
+            FinstackOptimizationError,
+            FinstackValuationError,
             Portfolio,
+            PortfolioError,
             PortfolioResult,
             PortfolioValuation,
             aggregate_full_cashflows,
@@ -255,6 +260,31 @@ class TestPortfolioNamespace:
             portfolio_result_get_metric,
             portfolio_result_total_value,
         )
+
+    def test_portfolio_domain_errors_are_typed(self) -> None:
+        """Portfolio domain failures should expose a portfolio-specific exception."""
+        from finstack.portfolio import PortfolioError, build_portfolio_from_spec
+
+        spec_json = json.dumps({
+            "id": "bad_portfolio",
+            "name": "Bad",
+            "base_ccy": "USD",
+            "as_of": "2024-01-15",
+            "entities": {},
+            "positions": [
+                {
+                    "position_id": "P1",
+                    "entity_id": "MISSING",
+                    "instrument_id": "D1",
+                    "instrument_spec": None,
+                    "quantity": 1.0,
+                    "unit": "units",
+                }
+            ],
+        })
+
+        with pytest.raises(PortfolioError):
+            build_portfolio_from_spec(spec_json)
 
     def test_portfolio_full_cashflows_empty_portfolio(self) -> None:
         """Full cashflow ladder should be exposed and preserve the rich empty shape."""
@@ -383,3 +413,10 @@ class TestValuationsNamespace:
             "QuantoOption",
         ):
             assert hasattr(fx, name)
+
+    def test_valuations_exotics_namespace_exports(self) -> None:
+        """Direct exotic instruments should be available from valuations.exotics."""
+        from finstack.valuations import exotics
+
+        for name in ("AsianOption", "BarrierOption", "LookbackOption", "Basket"):
+            assert hasattr(exotics, name)

@@ -12,7 +12,10 @@ use finstack_core::money::Money;
 use finstack_portfolio::dependencies::MarketFactorKey;
 use finstack_portfolio::position::{Position, PositionUnit};
 use finstack_portfolio::types::Entity;
-use finstack_portfolio::valuation::{revalue_affected, value_portfolio, PortfolioValuationOptions};
+use finstack_portfolio::valuation::{
+    revalue_affected, value_portfolio, PortfolioValuationOptions,
+    PORTFOLIO_SELECTIVE_REPRICING_EXTENSION_KEY,
+};
 use finstack_portfolio::{Portfolio, PortfolioBuilder};
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_valuations::instruments::Instrument;
@@ -229,6 +232,38 @@ fn selective_reprice_matches_full_reprice_when_one_curve_changes() {
             "position {pid} mismatch"
         );
     }
+}
+
+#[test]
+fn selective_reprice_verify_full_eval_mode_matches_full_reprice() {
+    let portfolio = build_two_curve_portfolio();
+    let mut config = FinstackConfig::default();
+    config.extensions.insert(
+        PORTFOLIO_SELECTIVE_REPRICING_EXTENSION_KEY,
+        serde_json::json!({ "verify_full_eval": true }),
+    );
+    let options = PortfolioValuationOptions::default();
+
+    let base_market = two_curve_market();
+    let bumped_market = bumped_usd_market();
+
+    let base_val = value_portfolio(&portfolio, &base_market, &config, &Default::default()).unwrap();
+    let full_val =
+        value_portfolio(&portfolio, &bumped_market, &config, &Default::default()).unwrap();
+
+    let selective_val = revalue_affected(
+        &portfolio,
+        &bumped_market,
+        &config,
+        &options,
+        &base_val,
+        &[usd_discount_key()],
+    )
+    .unwrap();
+
+    assert!(
+        (full_val.total_base_ccy.amount() - selective_val.total_base_ccy.amount()).abs() < 1e-10
+    );
 }
 
 #[test]

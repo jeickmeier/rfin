@@ -1,8 +1,6 @@
 //! Pool characteristic metrics for structured credit.
 
-use crate::instruments::fixed_income::structured_credit::assumptions::{
-    embedded_registry, StructuredCreditAssumptionRegistry,
-};
+use crate::instruments::fixed_income::structured_credit::assumptions::embedded_registry;
 use crate::instruments::fixed_income::structured_credit::utils::rates::psa_to_cpr;
 use crate::instruments::fixed_income::structured_credit::StructuredCredit;
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -88,7 +86,7 @@ impl MetricCalculator for CprCalculator {
             }
 
             use super::super::super::types::DealType;
-            let registry = structured_credit_assumptions_registry();
+            let registry = embedded_registry()?;
             let assumptions =
                 registry.default_assumptions(registry.profile_id_for_deal_type(sc.deal_type))?;
             return Ok(match sc.deal_type {
@@ -137,21 +135,18 @@ impl MetricCalculator for CdrCalculator {
             }
 
             if let Some(sda_mult) = sc.behavior_overrides.sda_speed_multiplier {
-                return Ok(sda_to_cdr(
-                    sda_mult,
-                    deal_seasoning_month(sc, context.as_of),
-                ));
+                return sda_to_cdr(sda_mult, deal_seasoning_month(sc, context.as_of));
             }
 
             use super::super::super::types::DealType;
-            let registry = structured_credit_assumptions_registry();
+            let registry = embedded_registry()?;
             let assumptions =
                 registry.default_assumptions(registry.profile_id_for_deal_type(sc.deal_type))?;
             return Ok(match sc.deal_type {
                 DealType::RMBS => sda_to_cdr(
                     assumptions.sda_speed.unwrap_or(1.0),
                     deal_seasoning_month(sc, context.as_of),
-                ),
+                )?,
                 _ => assumptions.base_cdr_annual,
             });
         }
@@ -168,13 +163,13 @@ fn deal_seasoning_month(sc: &StructuredCredit, as_of: finstack_core::dates::Date
     }
 }
 
-fn sda_to_cdr(speed_multiplier: f64, month: u32) -> f64 {
+fn sda_to_cdr(speed_multiplier: f64, month: u32) -> Result<f64> {
     let speed_multiplier = speed_multiplier.max(0.0);
     if speed_multiplier == 0.0 {
-        return 0.0;
+        return Ok(0.0);
     }
 
-    let sda_curve = structured_credit_assumptions_registry().sda_curve();
+    let sda_curve = embedded_registry()?.sda_curve();
     let cdr = if month <= sda_curve.peak_month {
         (month as f64 / sda_curve.peak_month as f64) * sda_curve.peak_cdr
     } else if month <= sda_curve.peak_month * 2 {
@@ -186,10 +181,5 @@ fn sda_to_cdr(speed_multiplier: f64, month: u32) -> f64 {
         sda_curve.terminal_cdr
     };
 
-    (cdr * speed_multiplier).clamp(0.0, 1.0)
-}
-
-#[allow(clippy::expect_used)]
-fn structured_credit_assumptions_registry() -> &'static StructuredCreditAssumptionRegistry {
-    embedded_registry().expect("embedded structured-credit assumptions registry should load")
+    Ok((cdr * speed_multiplier).clamp(0.0, 1.0))
 }

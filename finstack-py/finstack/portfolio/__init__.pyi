@@ -5,8 +5,12 @@ from __future__ import annotations
 from finstack.core.market_data import MarketContext
 
 __all__ = [
+    "FinstackFxError",
+    "FinstackOptimizationError",
+    "FinstackValuationError",
     "Portfolio",
     "PortfolioCashflows",
+    "PortfolioError",
     "PortfolioResult",
     "PortfolioValuation",
     "aggregate_full_cashflows",
@@ -31,6 +35,18 @@ __all__ = [
     "amihud_illiquidity",
     "value_portfolio",
 ]
+
+class PortfolioError(ValueError):
+    """Portfolio validation or calculation failure."""
+
+class FinstackValuationError(PortfolioError):
+    """Portfolio valuation failure."""
+
+class FinstackFxError(PortfolioError):
+    """Portfolio FX conversion or market-data failure."""
+
+class FinstackOptimizationError(PortfolioError):
+    """Portfolio optimization failure."""
 
 class Portfolio:
     """Built runtime portfolio. Cheap to clone; pass directly to pipeline functions.

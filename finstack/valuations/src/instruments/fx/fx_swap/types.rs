@@ -137,12 +137,11 @@ impl TryFrom<FxSwapUnchecked> for FxSwap {
 impl FxSwap {
     /// Validate FX swap economics at construction boundaries.
     pub fn validate(&self) -> finstack_core::Result<()> {
-        if self.base_currency == self.quote_currency {
-            return Err(finstack_core::Error::Validation(format!(
-                "FxSwap base_currency ({}) must differ from quote_currency ({})",
-                self.base_currency, self.quote_currency
-            )));
-        }
+        crate::instruments::common_impl::validation::validate_distinct_currencies(
+            self.base_currency,
+            self.quote_currency,
+            "FxSwap",
+        )?;
         if self.base_notional.currency() != self.base_currency {
             return Err(finstack_core::Error::Validation(format!(
                 "FxSwap base_notional currency ({}) must match base_currency ({})",

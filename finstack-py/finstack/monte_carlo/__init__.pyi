@@ -1,7 +1,7 @@
-"""Monte Carlo GBM convenience bindings (``finstack-monte-carlo``).
+"""Monte Carlo convenience bindings (``finstack-monte-carlo``).
 
 Exposes simulation primitives: time grids, engine configuration, pricers,
-and closed-form Black-Scholes helpers for the GBM-oriented binding surface.
+closed-form Black-Scholes helpers, and selected non-GBM process wrappers.
 Advanced Rust process, discretization, RNG, payoff, and Greeks types are not
 surfaced as standalone Python types yet; their parameters are passed directly
 as numeric arguments to the exposed pricer constructors and methods.
@@ -25,6 +25,8 @@ __all__ = [
     "black_scholes_put",
     "price_european_call",
     "price_european_put",
+    "price_heston_call",
+    "price_heston_put",
 ]
 
 class MonteCarloResult:
@@ -938,7 +940,7 @@ class PathDependentPricer:
         num_steps: int | None = None,
         currency: str | None = None,
     ) -> MonteCarloResult:
-        """Price an arithmetic Asian call (fixings at every step).
+        """Price an arithmetic Asian call (post-initial fixings at every step).
 
         Args:
             spot: Spot.
@@ -947,7 +949,9 @@ class PathDependentPricer:
             div_yield: Dividend yield.
             vol: Volatility.
             expiry: Maturity in years.
-            num_steps: Steps, or None for the registry default.
+            num_steps: Steps, or None for the registry default. The default
+                fixing schedule is steps ``1..=num_steps`` and excludes the
+                initial spot at step ``0``.
             currency: ISO string or None for USD.
 
         Returns:
@@ -971,7 +975,7 @@ class PathDependentPricer:
         num_steps: int | None = None,
         currency: str | None = None,
     ) -> MonteCarloResult:
-        """Price an arithmetic Asian put (fixings at every step).
+        """Price an arithmetic Asian put (post-initial fixings at every step).
 
         Args:
             spot: Spot.
@@ -980,7 +984,9 @@ class PathDependentPricer:
             div_yield: Dividend yield.
             vol: Volatility.
             expiry: Maturity in years.
-            num_steps: Steps, or None for the registry default.
+            num_steps: Steps, or None for the registry default. The default
+                fixing schedule is steps ``1..=num_steps`` and excludes the
+                initial spot at step ``0``.
             currency: ISO string or None for USD.
 
         Returns:
@@ -1365,6 +1371,44 @@ def price_european_put(
         >>> price_european_put(100, 100, 0.05, 0.0, 0.2, 1.0, num_paths=2000).num_paths
         2000
     """
+    ...
+
+def price_heston_call(
+    spot: float,
+    strike: float,
+    rate: float,
+    div_yield: float,
+    kappa: float,
+    theta: float,
+    vol_of_vol: float,
+    rho: float,
+    v0: float,
+    expiry: float,
+    num_paths: int | None = None,
+    seed: int | None = None,
+    num_steps: int | None = None,
+    currency: str | None = None,
+) -> MonteCarloResult:
+    """Monte Carlo European call under Heston stochastic volatility."""
+    ...
+
+def price_heston_put(
+    spot: float,
+    strike: float,
+    rate: float,
+    div_yield: float,
+    kappa: float,
+    theta: float,
+    vol_of_vol: float,
+    rho: float,
+    v0: float,
+    expiry: float,
+    num_paths: int | None = None,
+    seed: int | None = None,
+    num_steps: int | None = None,
+    currency: str | None = None,
+) -> MonteCarloResult:
+    """Monte Carlo European put under Heston stochastic volatility."""
     ...
 
 def fd_delta(

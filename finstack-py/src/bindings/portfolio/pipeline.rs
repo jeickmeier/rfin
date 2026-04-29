@@ -8,7 +8,7 @@
 
 use crate::bindings::extract::{extract_market_ref, extract_portfolio_ref};
 use crate::bindings::portfolio::types::PyPortfolioCashflows;
-use crate::errors::display_to_py;
+use crate::errors::{display_to_py, portfolio_to_py};
 use pyo3::prelude::*;
 
 /// Value a portfolio.
@@ -61,7 +61,7 @@ fn value_portfolio(
                 &options,
             )
         })
-        .map_err(display_to_py)?;
+        .map_err(portfolio_to_py)?;
     serde_json::to_string(&valuation).map_err(display_to_py)
 }
 
@@ -93,7 +93,7 @@ fn aggregate_full_cashflows(
         .detach(|| {
             finstack_portfolio::cashflows::aggregate_full_cashflows(portfolio_ref, market_ref)
         })
-        .map_err(display_to_py)?;
+        .map_err(portfolio_to_py)?;
     Ok(PyPortfolioCashflows::from_inner(cashflows))
 }
 
@@ -134,7 +134,7 @@ fn apply_scenario_and_revalue(
                 &config,
             )
         })
-        .map_err(display_to_py)?;
+        .map_err(portfolio_to_py)?;
     let val_json = serde_json::to_string(&valuation).map_err(display_to_py)?;
     let report_json = serde_json::to_string(&report).map_err(display_to_py)?;
     Ok((val_json, report_json))

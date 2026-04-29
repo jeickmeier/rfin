@@ -1,17 +1,20 @@
 //! FX option pricer implementation using the Garman-Kohlhagen model.
 
-use crate::instruments::common_impl::helpers::{year_fraction, zero_rate_from_df};
 use crate::instruments::common_impl::models::{bs_greeks, bs_price};
 use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fx::fx_option::FxOption;
+use crate::instruments::fx::shared::{
+    collect_fx_option_inputs as collect_shared_fx_option_inputs,
+    collect_fx_option_inputs_no_vol as collect_shared_fx_option_inputs_no_vol,
+    FxOptionInputRequest, FxSpotSource,
+};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -88,16 +91,26 @@ fn npv(inst: &FxOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
     ))
 }
 
-/// Look up the FX spot via the market's FX matrix.
-fn fx_spot(inst: &FxOption, curves: &MarketContext, as_of: Date) -> Result<f64> {
-    let fx_matrix = curves.fx().ok_or(finstack_core::Error::from(
-        finstack_core::InputError::NotFound {
-            id: "fx_matrix".to_string(),
-        },
-    ))?;
-    Ok(fx_matrix
-        .rate(FxQuery::new(inst.base_currency, inst.quote_currency, as_of))?
-        .rate)
+fn input_request<'a>(
+    inst: &'a FxOption,
+    curves: &'a MarketContext,
+    as_of: Date,
+) -> FxOptionInputRequest<'a> {
+    FxOptionInputRequest {
+        market: curves,
+        as_of,
+        base_currency: inst.base_currency,
+        quote_currency: inst.quote_currency,
+        expiry: inst.expiry,
+        day_count: inst.day_count,
+        domestic_discount_curve_id: &inst.domestic_discount_curve_id,
+        foreign_discount_curve_id: &inst.foreign_discount_curve_id,
+        vol_surface_id: inst.vol_surface_id.as_str(),
+        strike: inst.strike,
+        pricing_overrides: &inst.pricing_overrides,
+        spot_source: FxSpotSource::Matrix,
+        rate_context: "FxOption",
+    }
 }
 
 /// Pricing inputs without volatility lookup. Used by IV solver and as a base
@@ -108,24 +121,8 @@ fn collect_inputs_no_vol(
     curves: &MarketContext,
     as_of: Date,
 ) -> Result<(f64, f64, f64, f64)> {
-    let spot = fx_spot(inst, curves, as_of)?;
-    if as_of >= inst.expiry {
-        return Ok((spot, 0.0, 0.0, 0.0));
-    }
-
-    let domestic_disc = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
-    let foreign_disc = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
-    // Date-based DF lookups bypass the curve's day-count year-fraction; the
-    // resulting `r = -ln(df) / t_vol` then reconstructs exactly that DF when
-    // composed with `exp(-r * t_vol)` in BS, regardless of curve vs. vol
-    // day-count conventions.
-    let df_d = domestic_disc.df_between_dates(as_of, inst.expiry)?;
-    let df_f = foreign_disc.df_between_dates(as_of, inst.expiry)?;
-    let t_vol = year_fraction(inst.day_count, as_of, inst.expiry)?;
-    let r_d = zero_rate_from_df(df_d, t_vol, "FxOption domestic discount")?;
-    let r_f = zero_rate_from_df(df_f, t_vol, "FxOption foreign discount")?;
-
-    Ok((spot, r_d, r_f, t_vol))
+    let inputs = collect_shared_fx_option_inputs_no_vol(input_request(inst, curves, as_of))?;
+    Ok((inputs.spot, inputs.r_domestic, inputs.r_foreign, inputs.t))
 }
 
 /// Full pricing inputs including volatility. Returns `(spot, r_d, r_f, sigma,
@@ -135,19 +132,14 @@ fn collect_inputs(
     curves: &MarketContext,
     as_of: Date,
 ) -> Result<(f64, f64, f64, f64, f64)> {
-    let (spot, r_d, r_f, t_vol) = collect_inputs_no_vol(inst, curves, as_of)?;
-    if as_of >= inst.expiry {
-        return Ok((spot, 0.0, 0.0, 0.0, 0.0));
-    }
-
-    let sigma = if let Some(impl_vol) = inst.pricing_overrides.market_quotes.implied_volatility {
-        impl_vol
-    } else {
-        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
-        vol_surface.value_clamped(t_vol, inst.strike)
-    };
-
-    Ok((spot, r_d, r_f, sigma, t_vol))
+    let inputs = collect_shared_fx_option_inputs(input_request(inst, curves, as_of))?;
+    Ok((
+        inputs.spot,
+        inputs.r_domestic,
+        inputs.r_foreign,
+        inputs.sigma,
+        inputs.t,
+    ))
 }
 
 fn implied_vol_impl(
@@ -299,13 +291,7 @@ fn validate_exercise_style(inst: &FxOption) -> Result<()> {
 
 #[inline]
 fn validate_currency(inst: &FxOption) -> Result<()> {
-    if inst.notional.currency() != inst.base_currency {
-        return Err(finstack_core::Error::CurrencyMismatch {
-            expected: inst.base_currency,
-            actual: inst.notional.currency(),
-        });
-    }
-    Ok(())
+    inst.validate()
 }
 
 #[derive(Debug, Clone, Copy, Default)]

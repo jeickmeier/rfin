@@ -1,4 +1,10 @@
-//! Sobol RNG re-exported from finstack_core with RandomStream integration.
+//! Sobol RNG re-exported from `finstack_core` with `RandomStream` integration.
+//!
+//! The underlying Joe-Kuo direction table supports dimensions up to
+//! [`MAX_SOBOL_DIMENSION`]. Monte Carlo callers must count every generated
+//! normal as one Sobol dimension, usually `num_steps * num_factors` before any
+//! Brownian-bridge reordering. Use [`SobolRng::try_new`] so excessive
+//! dimensions fail explicitly.
 
 use crate::traits::RandomStream;
 

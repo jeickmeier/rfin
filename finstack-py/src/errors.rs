@@ -16,6 +16,34 @@ pyo3::create_exception!(
     "Analytics validation or calculation failure (inherits ValueError)."
 );
 
+pyo3::create_exception!(
+    finstack.portfolio,
+    PortfolioError,
+    PyValueError,
+    "Portfolio validation or calculation failure (inherits ValueError)."
+);
+
+pyo3::create_exception!(
+    finstack.portfolio,
+    FinstackValuationError,
+    PortfolioError,
+    "Portfolio valuation failure (inherits PortfolioError)."
+);
+
+pyo3::create_exception!(
+    finstack.portfolio,
+    FinstackFxError,
+    PortfolioError,
+    "Portfolio FX conversion or market-data failure (inherits PortfolioError)."
+);
+
+pyo3::create_exception!(
+    finstack.portfolio,
+    FinstackOptimizationError,
+    PortfolioError,
+    "Portfolio optimization failure (inherits PortfolioError)."
+);
+
 /// Format an error and its full `source()` chain into a single string.
 ///
 /// PyO3 exceptions only carry a message, not a structured cause chain, so we
@@ -53,6 +81,28 @@ pub fn core_to_py(e: finstack_core::Error) -> PyErr {
 /// exception type.
 pub fn analytics_to_py(e: finstack_core::Error) -> PyErr {
     AnalyticsError::new_err(format_chain(&e))
+}
+
+/// Convert a `finstack_portfolio::Error` into a portfolio-domain Python exception.
+///
+/// The named subclasses preserve compatibility with callers catching
+/// `ValueError` or `PortfolioError`, while letting portfolio users distinguish
+/// valuation, FX/market-data, and optimization failures.
+pub fn portfolio_to_py(e: finstack_portfolio::Error) -> PyErr {
+    match e {
+        finstack_portfolio::Error::Core(core) => core_to_py(core),
+        err @ finstack_portfolio::Error::ValuationError { .. } => {
+            FinstackValuationError::new_err(format_chain(&err))
+        }
+        err @ (finstack_portfolio::Error::FxConversionFailed { .. }
+        | finstack_portfolio::Error::MissingMarketData(_)) => {
+            FinstackFxError::new_err(format_chain(&err))
+        }
+        err @ finstack_portfolio::Error::OptimizationError(_) => {
+            FinstackOptimizationError::new_err(format_chain(&err))
+        }
+        err => PortfolioError::new_err(format_chain(&err)),
+    }
 }
 
 /// Convert any `Display`-able error into a Python `ValueError`.

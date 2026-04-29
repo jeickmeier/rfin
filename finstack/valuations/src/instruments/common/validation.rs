@@ -118,6 +118,20 @@ pub(crate) fn validate_money_currency(
     })
 }
 
+/// Validate that an FX pair has distinct base and quote currencies.
+#[inline]
+pub(crate) fn validate_distinct_currencies(
+    base: Currency,
+    quote: Currency,
+    instrument_name: &str,
+) -> finstack_core::Result<()> {
+    require_with(base != quote, || {
+        format!(
+            "{instrument_name} base_currency ({base}) must differ from quote_currency ({quote})"
+        )
+    })
+}
+
 /// Validate that a floating-point value is finite.
 #[inline]
 pub(crate) fn validate_f64_finite(value: f64, context: &str) -> finstack_core::Result<()> {

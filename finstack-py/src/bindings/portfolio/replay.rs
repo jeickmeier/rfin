@@ -1,7 +1,7 @@
 //! Python binding for portfolio historical replay.
 
 use crate::bindings::extract::extract_portfolio_ref;
-use crate::errors::display_to_py;
+use crate::errors::{display_to_py, portfolio_to_py};
 use pyo3::prelude::*;
 
 /// Replay a portfolio through dated market snapshots.
@@ -23,6 +23,7 @@ use pyo3::prelude::*;
 ///     JSON-serialized ``ReplayResult``.
 #[pyfunction]
 fn replay_portfolio(
+    py: Python<'_>,
     portfolio: &Bound<'_, PyAny>,
     snapshots_json: &str,
     config_json: &str,
@@ -33,13 +34,17 @@ fn replay_portfolio(
     let timeline = finstack_portfolio::replay::ReplayTimeline::from_json_snapshots(snapshots_json)
         .map_err(display_to_py)?;
     let finstack_config = finstack_core::config::FinstackConfig::default();
-    let result = finstack_portfolio::replay::replay_portfolio(
-        &portfolio,
-        &timeline,
-        &config,
-        &finstack_config,
-    )
-    .map_err(display_to_py)?;
+    let portfolio_ref: &finstack_portfolio::Portfolio = &portfolio;
+    let result = py
+        .detach(|| {
+            finstack_portfolio::replay::replay_portfolio(
+                portfolio_ref,
+                &timeline,
+                &config,
+                &finstack_config,
+            )
+        })
+        .map_err(portfolio_to_py)?;
     serde_json::to_string(&result).map_err(display_to_py)
 }
 

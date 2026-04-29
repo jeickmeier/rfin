@@ -142,9 +142,8 @@ impl EuropeanPricer {
         P: Payoff,
     {
         let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
-        let engine_config = McEngineConfig::new(self.num_paths, time_grid)
-            .with_seed(self.seed)
-            .with_parallel(self.use_parallel);
+        let engine_config =
+            McEngineConfig::new(self.num_paths, time_grid).with_parallel(self.use_parallel);
         let engine = McEngine::new(engine_config);
 
         let rng = PhiloxRng::new(self.seed);

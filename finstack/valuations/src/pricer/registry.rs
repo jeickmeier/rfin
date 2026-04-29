@@ -71,6 +71,30 @@ pub struct PricerRegistry {
     pricers: HashMap<PricerKey, Arc<dyn Pricer>>,
 }
 
+#[derive(Clone, Default)]
+struct SharedPricingInputs {
+    registry: Option<Arc<PricerRegistry>>,
+    market: Option<Arc<Market>>,
+}
+
+struct PricingRequest<'a> {
+    instrument: &'a dyn Priceable,
+    model: ModelKey,
+    market: &'a Market,
+    as_of: finstack_core::dates::Date,
+    metrics: &'a [crate::metrics::MetricId],
+    options: crate::instruments::PricingOptions,
+}
+
+struct BatchPricingRequest<'a> {
+    instruments: &'a [&'a dyn Priceable],
+    model: ModelKey,
+    market: &'a Market,
+    as_of: finstack_core::dates::Date,
+    metrics: &'a [crate::metrics::MetricId],
+    options: crate::instruments::PricingOptions,
+}
+
 impl PricerRegistry {
     /// Create a new empty pricer registry.
     ///
@@ -82,9 +106,8 @@ impl PricerRegistry {
 
     /// Register a pricer for a specific (instrument type, model) combination.
     ///
-    /// If a pricer already exists for this key, it will be replaced (debug-asserted
-    /// against in non-release builds so accidental duplicate registration surfaces
-    /// early).
+    /// If a pricer already exists for this key, it will be replaced and a warning
+    /// will be emitted so duplicate registration is visible in release builds.
     pub fn register(
         &mut self,
         inst: InstrumentType,
@@ -92,10 +115,12 @@ impl PricerRegistry {
         pricer: impl Pricer + 'static,
     ) {
         let key = PricerKey::new(inst, model);
-        debug_assert!(
-            !self.pricers.contains_key(&key),
-            "Duplicate pricer registration for {key:?} -- this overwrites the existing pricer"
-        );
+        if self.pricers.contains_key(&key) {
+            tracing::warn!(
+                ?key,
+                "duplicate pricer registration overwrites the existing pricer"
+            );
+        }
         self.pricers.insert(key, Arc::new(pricer));
     }
 
@@ -149,7 +174,63 @@ impl PricerRegistry {
         metrics: &[crate::metrics::MetricId],
         options: crate::instruments::PricingOptions,
     ) -> PricingResult<crate::results::ValuationResult> {
+        self.price_with_metrics_impl(
+            PricingRequest {
+                instrument,
+                model,
+                market,
+                as_of,
+                metrics,
+                options,
+            },
+            SharedPricingInputs::default(),
+        )
+    }
+
+    /// Price an instrument through an already shared registry.
+    ///
+    /// This avoids cloning the registry when metric calculators need to reprice
+    /// through the same dispatch table.
+    pub fn price_with_metrics_shared(
+        registry: &Arc<Self>,
+        instrument: &dyn Priceable,
+        model: ModelKey,
+        market: &Market,
+        as_of: finstack_core::dates::Date,
+        metrics: &[crate::metrics::MetricId],
+        options: crate::instruments::PricingOptions,
+    ) -> PricingResult<crate::results::ValuationResult> {
+        let shared_market = (!metrics.is_empty()).then(|| Arc::new(market.clone()));
+        registry.as_ref().price_with_metrics_impl(
+            PricingRequest {
+                instrument,
+                model,
+                market,
+                as_of,
+                metrics,
+                options,
+            },
+            SharedPricingInputs {
+                registry: Some(Arc::clone(registry)),
+                market: shared_market,
+            },
+        )
+    }
+
+    fn price_with_metrics_impl(
+        &self,
+        request: PricingRequest<'_>,
+        shared: SharedPricingInputs,
+    ) -> PricingResult<crate::results::ValuationResult> {
         use crate::metrics::MetricId;
+        let PricingRequest {
+            instrument,
+            model,
+            market,
+            as_of,
+            metrics,
+            options,
+        } = request;
         let crate::instruments::PricingOptions {
             config: cfg,
             market_history,
@@ -185,10 +266,10 @@ impl PricerRegistry {
         }
 
         // --- Metrics pipeline ---
-        let market_arc = Arc::new(market.clone());
+        let market_arc = shared.market.unwrap_or_else(|| Arc::new(market.clone()));
         let err_ctx = PricingErrorContext::from_instrument(instrument).model(model);
         let needs_split = model != ModelKey::Discounting;
-        let pricer_registry = Arc::new(self.clone());
+        let pricer_registry = shared.registry.unwrap_or_else(|| Arc::new(self.clone()));
 
         if !needs_split {
             let mut enriched = crate::instruments::common_impl::helpers::build_with_metrics_dyn(
@@ -201,7 +282,7 @@ impl PricerRegistry {
                     cfg: cfg.clone(),
                     market_history: market_history.clone(),
                     pricing_model: Some(model),
-                    pricer_registry: Some(pricer_registry.clone()),
+                    pricer_registry: Some(Arc::clone(&pricer_registry)),
                 },
             )
             .map_err(|e| {
@@ -312,11 +393,85 @@ impl PricerRegistry {
         metrics: &[crate::metrics::MetricId],
         options: crate::instruments::PricingOptions,
     ) -> Vec<PricingResult<crate::results::ValuationResult>> {
+        let shared = if metrics.is_empty() {
+            SharedPricingInputs::default()
+        } else {
+            SharedPricingInputs {
+                registry: Some(Arc::new(self.clone())),
+                market: Some(Arc::new(market.clone())),
+            }
+        };
+        self.price_batch_impl(
+            BatchPricingRequest {
+                instruments,
+                model,
+                market,
+                as_of,
+                metrics,
+                options,
+            },
+            shared,
+        )
+    }
+
+    /// Price a batch through an already shared registry, preserving input order.
+    ///
+    /// The registry and market snapshot are shared across the batch's metric
+    /// pipeline instead of being cloned once per instrument.
+    pub fn price_batch_shared(
+        registry: &Arc<Self>,
+        instruments: &[&dyn Priceable],
+        model: ModelKey,
+        market: &Market,
+        as_of: finstack_core::dates::Date,
+        metrics: &[crate::metrics::MetricId],
+        options: crate::instruments::PricingOptions,
+    ) -> Vec<PricingResult<crate::results::ValuationResult>> {
+        let shared_market = (!metrics.is_empty()).then(|| Arc::new(market.clone()));
+        registry.as_ref().price_batch_impl(
+            BatchPricingRequest {
+                instruments,
+                model,
+                market,
+                as_of,
+                metrics,
+                options,
+            },
+            SharedPricingInputs {
+                registry: Some(Arc::clone(registry)),
+                market: shared_market,
+            },
+        )
+    }
+
+    fn price_batch_impl(
+        &self,
+        request: BatchPricingRequest<'_>,
+        shared: SharedPricingInputs,
+    ) -> Vec<PricingResult<crate::results::ValuationResult>> {
         use rayon::prelude::*;
+        let BatchPricingRequest {
+            instruments,
+            model,
+            market,
+            as_of,
+            metrics,
+            options,
+        } = request;
         instruments
             .par_iter()
             .map(|&instrument| {
-                self.price_with_metrics(instrument, model, market, as_of, metrics, options.clone())
+                self.price_with_metrics_impl(
+                    PricingRequest {
+                        instrument,
+                        model,
+                        market,
+                        as_of,
+                        metrics,
+                        options: options.clone(),
+                    },
+                    shared.clone(),
+                )
             })
             .collect()
     }

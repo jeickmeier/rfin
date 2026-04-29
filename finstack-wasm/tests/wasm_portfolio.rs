@@ -41,6 +41,18 @@ fn apply_scenario_and_revalue_empty_portfolio() {
     let market = empty_market_json();
     let result = apply_scenario_and_revalue(&spec, &scenario, &market).unwrap();
     let obj: serde_json::Value = serde_wasm_bindgen::from_value(result).unwrap();
-    assert!(obj["valuation"].as_str().is_some());
-    assert!(obj["report"].as_str().is_some());
+    assert!(obj["valuation"].is_object());
+    assert!(obj["report"].is_object());
+}
+
+#[wasm_bindgen_test]
+fn apply_scenario_and_revalue_built_empty_portfolio() {
+    let spec = portfolio_spec_json();
+    let portfolio = WasmPortfolio::from_spec(&spec).unwrap();
+    let scenario = build_scenario_spec("stress", "[]", None, None, 0).unwrap();
+    let market = empty_market_json();
+    let result = apply_scenario_and_revalue_built(&portfolio, &scenario, &market).unwrap();
+    let obj: serde_json::Value = serde_wasm_bindgen::from_value(result).unwrap();
+    assert!(obj["valuation"].is_object());
+    assert!(obj["report"].is_object());
 }

@@ -19,6 +19,117 @@ pub trait BasisFunctions: Send + Sync {
     }
 }
 
+/// Supported regression basis families for LSMC pricers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BasisKind {
+    /// Laguerre polynomials normalized by strike.
+    Laguerre,
+    /// Raw polynomial basis `{1, x, x², ...}`.
+    Polynomial,
+    /// Polynomial basis centered and scaled by a supplied reference level.
+    NormalizedPolynomial,
+}
+
+impl BasisKind {
+    /// Parse a user-facing basis alias.
+    ///
+    /// # Errors
+    ///
+    /// Returns a message listing the accepted basis names when `name` is not a
+    /// known alias.
+    pub fn parse(name: &str) -> Result<Self, String> {
+        match name.to_ascii_lowercase().as_str() {
+            "laguerre" => Ok(Self::Laguerre),
+            "polynomial" | "poly" => Ok(Self::Polynomial),
+            "normalized_polynomial" | "normalized" | "centered_polynomial" => {
+                Ok(Self::NormalizedPolynomial)
+            }
+            other => Err(format!(
+                "unknown basis '{other}'; expected one of 'laguerre', 'polynomial', \
+                 'normalized_polynomial'"
+            )),
+        }
+    }
+
+    /// Canonical registry/stub name for the basis family.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Laguerre => "laguerre",
+            Self::Polynomial => "polynomial",
+            Self::NormalizedPolynomial => "normalized_polynomial",
+        }
+    }
+}
+
+/// Concrete LSMC basis selected from a user-facing [`BasisKind`].
+pub enum LsmcBasis {
+    /// Laguerre basis.
+    Laguerre(LaguerreBasis),
+    /// Raw polynomial basis.
+    Polynomial(PolynomialBasis),
+    /// Normalized polynomial basis.
+    NormalizedPolynomial(NormalizedPolynomialBasis),
+}
+
+impl BasisFunctions for LsmcBasis {
+    fn num_basis(&self) -> usize {
+        match self {
+            Self::Laguerre(basis) => basis.num_basis(),
+            Self::Polynomial(basis) => basis.num_basis(),
+            Self::NormalizedPolynomial(basis) => basis.num_basis(),
+        }
+    }
+
+    fn evaluate(&self, state: f64, out: &mut [f64]) {
+        match self {
+            Self::Laguerre(basis) => basis.evaluate(state, out),
+            Self::Polynomial(basis) => basis.evaluate(state, out),
+            Self::NormalizedPolynomial(basis) => basis.evaluate(state, out),
+        }
+    }
+
+    fn evaluate_with_aux(&self, state: f64, aux: Option<f64>, out: &mut [f64]) {
+        match self {
+            Self::Laguerre(basis) => basis.evaluate_with_aux(state, aux, out),
+            Self::Polynomial(basis) => basis.evaluate_with_aux(state, aux, out),
+            Self::NormalizedPolynomial(basis) => basis.evaluate_with_aux(state, aux, out),
+        }
+    }
+}
+
+/// Build an LSMC basis from a parsed basis family.
+///
+/// `strike` supplies the normalization level for Laguerre and normalized
+/// polynomial bases.
+///
+/// # Errors
+///
+/// Returns validation errors from the selected concrete basis constructor.
+pub fn build_lsmc_basis(kind: BasisKind, degree: usize, strike: f64) -> Result<LsmcBasis, String> {
+    match kind {
+        BasisKind::Laguerre => LaguerreBasis::try_new(degree, strike).map(LsmcBasis::Laguerre),
+        BasisKind::Polynomial => PolynomialBasis::try_new(degree).map(LsmcBasis::Polynomial),
+        BasisKind::NormalizedPolynomial => {
+            NormalizedPolynomialBasis::try_new(degree, strike, strike)
+                .map(LsmcBasis::NormalizedPolynomial)
+        }
+    }
+}
+
+/// Parse a basis name and build the corresponding LSMC basis.
+///
+/// # Errors
+///
+/// Returns an error when the basis name or degree/strike inputs are invalid.
+pub fn build_lsmc_basis_from_name(
+    name: &str,
+    degree: usize,
+    strike: f64,
+) -> Result<LsmcBasis, String> {
+    build_lsmc_basis(BasisKind::parse(name)?, degree, strike)
+}
+
 /// Polynomial basis: {1, x, x², ...}.
 #[derive(Debug, Clone)]
 pub struct PolynomialBasis {

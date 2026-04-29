@@ -171,7 +171,6 @@ impl AsianOptionHestonMcPricer {
 
         let engine = McEngine::builder()
             .num_paths(num_paths)
-            .seed(seed_val)
             .time_grid(time_grid)
             .build()?;
 

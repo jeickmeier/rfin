@@ -10,9 +10,9 @@
 //!
 //! # Performance Note
 //!
-//! State keys are pre-computed and cached at construction time to avoid
-//! allocation overhead on the hot path. This is critical for performance
-//! when simulating millions of paths.
+//! State keys and basket-value scratch buffers are cached at construction time
+//! to avoid allocation overhead on the hot path. This is critical for
+//! performance when simulating millions of paths.
 
 use crate::traits::state_keys;
 use crate::traits::PathState;
@@ -63,6 +63,8 @@ pub struct BasketCall {
     pub currency: Currency,
     /// Pre-computed state keys for asset lookup (avoids allocation on hot path)
     spot_keys: Vec<&'static str>,
+    /// Reusable scratch space for terminal asset values.
+    asset_values: Vec<f64>,
 
     // State tracking (public for testing)
     /// Terminal basket value at maturity (public for testing)
@@ -96,13 +98,13 @@ impl BasketCall {
             maturity_step,
             currency,
             spot_keys: make_spot_keys(num_assets),
+            asset_values: Vec::with_capacity(num_assets),
             terminal_basket_value: 0.0,
         }
     }
 
-    /// Compute basket value from asset values.
-    pub fn compute_basket_value(&self, asset_values: &[f64]) -> f64 {
-        match self.basket_type {
+    fn compute_basket_value_for(basket_type: BasketType, asset_values: &[f64]) -> f64 {
+        match basket_type {
             BasketType::Sum => asset_values.iter().sum(),
             BasketType::Average => {
                 let sum: f64 = asset_values.iter().sum();
@@ -114,6 +116,11 @@ impl BasketCall {
                 .fold(f64::NEG_INFINITY, f64::max),
             BasketType::Min => asset_values.iter().copied().fold(f64::INFINITY, f64::min),
         }
+    }
+
+    /// Compute basket value from asset values.
+    pub fn compute_basket_value(&self, asset_values: &[f64]) -> f64 {
+        Self::compute_basket_value_for(self.basket_type, asset_values)
     }
 }
 
@@ -128,14 +135,15 @@ impl Payoff for BasketCall {
     fn on_event(&mut self, state: &mut PathState) {
         // Update terminal value if at maturity
         if state.step == self.maturity_step {
-            // Extract asset values using pre-cached keys (zero allocation)
-            let mut asset_values = Vec::with_capacity(self.num_assets);
+            // Extract asset values using pre-cached keys and scratch space.
+            self.asset_values.clear();
             for &key in &self.spot_keys {
                 let value = state.get(key).unwrap_or(0.0);
-                asset_values.push(value);
+                self.asset_values.push(value);
             }
 
-            self.terminal_basket_value = self.compute_basket_value(&asset_values);
+            self.terminal_basket_value =
+                Self::compute_basket_value_for(self.basket_type, &self.asset_values);
         }
     }
 
@@ -147,6 +155,7 @@ impl Payoff for BasketCall {
 
     fn reset(&mut self) {
         self.terminal_basket_value = 0.0;
+        self.asset_values.clear();
     }
 }
 
@@ -169,6 +178,8 @@ pub struct BasketPut {
     pub currency: Currency,
     /// Pre-computed state keys for asset lookup (avoids allocation on hot path)
     spot_keys: Vec<&'static str>,
+    /// Reusable scratch space for terminal asset values.
+    asset_values: Vec<f64>,
 
     // State tracking (public for testing)
     /// Terminal basket value at maturity (public for testing)
@@ -193,13 +204,13 @@ impl BasketPut {
             maturity_step,
             currency,
             spot_keys: make_spot_keys(num_assets),
+            asset_values: Vec::with_capacity(num_assets),
             terminal_basket_value: 0.0,
         }
     }
 
-    /// Compute basket value from asset values.
-    pub fn compute_basket_value(&self, asset_values: &[f64]) -> f64 {
-        match self.basket_type {
+    fn compute_basket_value_for(basket_type: BasketType, asset_values: &[f64]) -> f64 {
+        match basket_type {
             BasketType::Sum => asset_values.iter().sum(),
             BasketType::Average => {
                 let sum: f64 = asset_values.iter().sum();
@@ -212,6 +223,11 @@ impl BasketPut {
             BasketType::Min => asset_values.iter().copied().fold(f64::INFINITY, f64::min),
         }
     }
+
+    /// Compute basket value from asset values.
+    pub fn compute_basket_value(&self, asset_values: &[f64]) -> f64 {
+        Self::compute_basket_value_for(self.basket_type, asset_values)
+    }
 }
 
 impl Payoff for BasketPut {
@@ -222,14 +238,15 @@ impl Payoff for BasketPut {
     /// This default ensures that missing assets contribute zero to the basket value.
     fn on_event(&mut self, state: &mut PathState) {
         if state.step == self.maturity_step {
-            // Extract asset values using pre-cached keys (zero allocation)
-            let mut asset_values = Vec::with_capacity(self.num_assets);
+            // Extract asset values using pre-cached keys and scratch space.
+            self.asset_values.clear();
             for &key in &self.spot_keys {
                 let value = state.get(key).unwrap_or(0.0);
-                asset_values.push(value);
+                self.asset_values.push(value);
             }
 
-            self.terminal_basket_value = self.compute_basket_value(&asset_values);
+            self.terminal_basket_value =
+                Self::compute_basket_value_for(self.basket_type, &self.asset_values);
         }
     }
 
@@ -241,6 +258,7 @@ impl Payoff for BasketPut {
 
     fn reset(&mut self) {
         self.terminal_basket_value = 0.0;
+        self.asset_values.clear();
     }
 }
 
