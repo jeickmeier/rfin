@@ -23,7 +23,12 @@ from finstack.analytics import (
 
 def _fixture() -> dict[str, Any]:
     path = (
-        Path(__file__).resolve().parents[2] / "finstack" / "analytics" / "tests" / "fixtures" / "analytics_parity.json"
+        Path(__file__).resolve().parents[2]
+        / "finstack"
+        / "analytics"
+        / "tests"
+        / "fixtures"
+        / "api_invariants_data.json"
     )
     return json.loads(path.read_text())
 

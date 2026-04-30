@@ -1539,7 +1539,7 @@ fn full_sample_repaired_preserves_determinism() {
 fn generate_golden_artifact() {
     let golden_path = concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/tests/golden/credit_factor_model_v1.json"
+        "/tests/schema_fixtures/credit_factor_model_v1.json"
     );
 
     let cfg = CreditCalibrationConfig {
@@ -1570,7 +1570,7 @@ fn generate_golden_artifact() {
 
 /// Calibrate with the canonical fixture (Diagonal + Sample), serialize to
 /// pretty-printed JSON, and compare byte-for-byte against the checked-in
-/// golden file at `tests/golden/credit_factor_model_v1.json`.
+/// schema fixture at `tests/schema_fixtures/credit_factor_model_v1.json`.
 ///
 /// On first run after generating the golden file, this test confirms the
 /// file matches a fresh calibration. On subsequent runs it catches any
@@ -1579,7 +1579,7 @@ fn generate_golden_artifact() {
 fn golden_credit_factor_model_matches_checked_in_json() {
     let golden_path = concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/tests/golden/credit_factor_model_v1.json"
+        "/tests/schema_fixtures/credit_factor_model_v1.json"
     );
 
     let cfg = CreditCalibrationConfig {

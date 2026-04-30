@@ -36,11 +36,11 @@ mod tail_risk_api {
     }
 }
 
-mod analytics_parity_fixture {
+mod api_invariants_fixture {
     use super::*;
     use finstack_analytics::{benchmark, risk_metrics};
 
-    const PARITY_FIXTURE: &str = include_str!("fixtures/analytics_parity.json");
+    const API_INVARIANTS_FIXTURE: &str = include_str!("fixtures/api_invariants_data.json");
 
     #[derive(Deserialize)]
     struct Fixture {
@@ -78,7 +78,7 @@ mod analytics_parity_fixture {
     }
 
     fn fixture() -> Fixture {
-        serde_json::from_str(PARITY_FIXTURE).expect("analytics parity fixture should parse")
+        serde_json::from_str(API_INVARIANTS_FIXTURE).expect("API invariants fixture should parse")
     }
 
     fn assert_close(actual: f64, expected: f64) {
@@ -96,7 +96,7 @@ mod analytics_parity_fixture {
     }
 
     #[test]
-    fn rust_core_matches_analytics_parity_fixture() {
+    fn rust_core_matches_api_invariants_fixture() {
         let fixture = fixture();
         let expected = &fixture.expected;
 

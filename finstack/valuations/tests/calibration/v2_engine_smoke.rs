@@ -1,4 +1,7 @@
-//! Parity tests for Calibration v2.
+//! Smoke tests for Calibration v2 -- exercises the v2 engine on simple USD setups.
+//!
+//! Not a parity test against external references. See `tests/golden/calibration/`
+//! for external-reference goldens.
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor};

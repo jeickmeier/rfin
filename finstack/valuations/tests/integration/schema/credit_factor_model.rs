@@ -70,8 +70,8 @@ fn validate(instance: &Value, schema: &Value) -> Result<(), String> {
 fn credit_factor_model_schema_accepts_golden_artifact() {
     let schema = credit_factor_model_schema();
 
-    // The golden file is at tests/golden/credit_factor_model_v1.json
-    let golden_content = include_str!("../../golden/credit_factor_model_v1.json");
+    // The schema fixture is at tests/schema_fixtures/credit_factor_model_v1.json
+    let golden_content = include_str!("../../schema_fixtures/credit_factor_model_v1.json");
     let instance: Value =
         serde_json::from_str(golden_content).expect("golden artifact must be valid JSON");
 
@@ -91,7 +91,7 @@ fn credit_factor_model_schema_accepts_golden_artifact() {
 fn credit_factor_model_schema_rejects_wrong_schema_version() {
     let schema = credit_factor_model_schema();
 
-    let golden_content = include_str!("../../golden/credit_factor_model_v1.json");
+    let golden_content = include_str!("../../schema_fixtures/credit_factor_model_v1.json");
     let mut instance: Value =
         serde_json::from_str(golden_content).expect("golden artifact must be valid JSON");
 

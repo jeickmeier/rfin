@@ -55,9 +55,9 @@ tests/
 │   ├── failure_modes.rs    # Engine error handling
 │   ├── explainability.rs   # Explanation trace generation
 │   ├── validation.rs       # Curve and surface validation
-│   ├── parity_comprehensive.rs # All-types parity verification
+│   ├── quote_construction.rs # All-types quote construction verification
 │   ├── bloomberg_accuracy.rs # Bloomberg benchmark accuracy
-│   ├── v2_parity.rs        # V2 API parity tests
+│   ├── v2_engine_smoke.rs   # V2 API smoke tests
 │   ├── tolerances.rs       # Calibration-specific tolerances
 │   └── term_structures/    # Independent term structure property tests
 │       ├── mod.rs

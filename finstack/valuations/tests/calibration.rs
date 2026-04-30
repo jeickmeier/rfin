@@ -15,9 +15,9 @@
 //! - **failure_modes**: Engine error handling and failure scenarios
 //! - **explainability**: Explanation trace generation
 //! - **validation**: Curve and surface validation tests
-//! - **parity_comprehensive**: All-types calibration parity verification
+//! - **quote_construction**: All-types calibration quote construction verification
 //! - **bloomberg_accuracy**: Bloomberg benchmark accuracy tests
-//! - **v2_parity**: V2 API parity tests
+//! - **v2_engine_smoke**: V2 API smoke tests
 //! - **term_structures/**: Independent term structure property tests
 //!
 //! Run all calibration tests:

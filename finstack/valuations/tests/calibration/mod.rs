@@ -18,9 +18,9 @@
 //! - `failure_modes` - Engine error handling and failure scenarios
 //! - `explainability` - Explanation trace generation
 //! - `validation` - Curve and surface validation tests
-//! - `parity_comprehensive` - All quote types instrument construction verification
+//! - `quote_construction` - All quote types instrument construction verification
 //! - `bloomberg_accuracy` - Bloomberg benchmark accuracy tests
-//! - `v2_parity` - V2 API parity tests
+//! - `v2_engine_smoke` - V2 API smoke tests
 
 mod base_correlation;
 mod bloomberg_accuracy;
@@ -32,11 +32,11 @@ mod failure_modes;
 mod finstack_config;
 mod hazard_curve;
 mod inflation;
-mod parity_comprehensive;
+mod quote_construction;
 mod repricing;
 mod serialization;
 mod swaption_vol;
-mod v2_parity;
+mod v2_engine_smoke;
 mod validation;
 
 mod term_structures;

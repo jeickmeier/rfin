@@ -11,8 +11,8 @@ use serde::Deserialize;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_test::*;
 
-const ANALYTICS_PARITY_FIXTURE: &str =
-    include_str!("../../finstack/analytics/tests/fixtures/analytics_parity.json");
+const API_INVARIANTS_FIXTURE: &str =
+    include_str!("../../finstack/analytics/tests/fixtures/api_invariants_data.json");
 
 #[derive(Deserialize)]
 struct AnalyticsParityFixture {
@@ -64,8 +64,8 @@ struct WasmMultiFactorResult {
     residual_vol: f64,
 }
 
-fn analytics_parity_fixture() -> AnalyticsParityFixture {
-    serde_json::from_str(ANALYTICS_PARITY_FIXTURE).unwrap()
+fn api_invariants_fixture() -> AnalyticsParityFixture {
+    serde_json::from_str(API_INVARIANTS_FIXTURE).unwrap()
 }
 
 fn to_js<T: serde::Serialize>(value: &T) -> JsValue {
@@ -175,7 +175,7 @@ fn cagr_date_basis_rejects_non_positive_span() {
 
 #[wasm_bindgen_test]
 fn analytics_matches_shared_parity_fixture() {
-    let fixture = analytics_parity_fixture();
+    let fixture = api_invariants_fixture();
     let expected = &fixture.expected;
 
     let basis = WasmCagrBasis::factor(252.0);
@@ -230,7 +230,7 @@ fn analytics_matches_shared_parity_fixture() {
 
 #[wasm_bindgen_test]
 fn typed_array_inputs_match_shared_parity_fixture() {
-    let fixture = analytics_parity_fixture();
+    let fixture = api_invariants_fixture();
     let expected = &fixture.expected;
 
     assert_close(
