@@ -1,4 +1,4 @@
-"""Domain runner for `rates.irs` golden fixtures."""
+"""Domain runner for `rates.deposit` golden fixtures."""
 
 from __future__ import annotations
 
@@ -8,5 +8,5 @@ from .pricing_common import run_pricing_fixture
 
 
 def run(fixture: GoldenFixture) -> dict[str, float]:
-    """Run one IRS fixture through the Python bindings."""
+    """Run one deposit fixture through the Python bindings."""
     return run_pricing_fixture(fixture)

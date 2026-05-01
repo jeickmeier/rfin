@@ -1,0 +1,84 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "eurusd_fx_swap_3m",
+  "domain": "fx.fx_swap",
+  "description": "Synthetic EUR/USD 3M FX swap with explicit FX matrix and discount curves.",
+  "provenance": {
+    "as_of": "2026-04-30",
+    "source": "formula",
+    "source_detail": "Finstack canonical FX swap discounting calculation on deterministic synthetic EUR/USD market data",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-04-30",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-04-30",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; values captured from canonical pricing runner",
+    "screenshots": []
+  },
+  "inputs": {
+    "valuation_date": "2026-04-30",
+    "model": "discounting",
+    "metrics": ["dv01_domestic", "dv01_foreign"],
+    "instrument_json": {
+      "schema": "finstack.instrument/1",
+      "instrument": {
+        "type": "fx_swap",
+        "spec": {
+          "id": "EURUSD-FXSWAP-3M-GOLDEN",
+          "base_currency": "EUR",
+          "quote_currency": "USD",
+          "near_date": "2026-05-04",
+          "far_date": "2026-08-04",
+          "base_notional": {
+            "amount": "10000000",
+            "currency": "EUR"
+          },
+          "domestic_discount_curve_id": "USD-OIS",
+          "foreign_discount_curve_id": "EUR-OIS",
+          "near_rate": 1.1,
+          "far_rate": 1.105,
+          "attributes": {
+            "tags": ["golden"],
+            "meta": {}
+          }
+        }
+      }
+    },
+    "curves": {
+      "discount": [
+        {
+          "id": "USD-OIS",
+          "base_date": "2026-04-30",
+          "day_count": "act_365f",
+          "interp": "log_linear",
+          "knots": [[0.0, 1.0], [0.25, 0.99], [1.0, 0.9504]]
+        },
+        {
+          "id": "EUR-OIS",
+          "base_date": "2026-04-30",
+          "day_count": "act_365f",
+          "interp": "log_linear",
+          "knots": [[0.0, 1.0], [0.25, 0.992], [1.0, 0.95232]]
+        }
+      ],
+      "forward": []
+    },
+    "fx": [
+      {
+        "base": "EUR",
+        "quote": "USD",
+        "rate": 1.1
+      }
+    ]
+  },
+  "expected_outputs": {
+    "npv": 28453.284469692793,
+    "dv01_domestic": -275.47062049712986,
+    "dv01_foreign": 274.74677893445187
+  },
+  "tolerances": {
+    "npv": {"abs": 1e-6, "rel": 1e-12},
+    "dv01_domestic": {"abs": 1e-6, "rel": 1e-12},
+    "dv01_foreign": {"abs": 1e-6, "rel": 1e-12}
+  }
+}

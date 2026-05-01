@@ -29,7 +29,6 @@ def test_discover_fixtures_empty_dir() -> None:
 
 def test_run_golden_writes_comparison_csv() -> None:
     report = WORKSPACE_ROOT / "target/golden-reports/golden-comparisons.csv"
-    report.unlink(missing_ok=True)
 
     run_golden("pricing/irs/usd_sofr_5y_receive_fixed_swpm.json")
 

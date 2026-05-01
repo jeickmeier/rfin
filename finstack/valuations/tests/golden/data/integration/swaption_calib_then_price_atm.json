@@ -1,0 +1,10 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "swaption_calib_then_price_atm",
+  "domain": "rates.integration",
+  "description": "Synthetic swaption-vol calibrate-then-price integration fixture with flattened SABR and swaption outputs.",
+  "provenance": {"as_of": "2026-04-30", "source": "formula", "source_detail": "Deterministic synthetic swaption integration fixture with flattened calibration and pricing outputs", "captured_by": "jeickmeier", "captured_on": "2026-04-30", "last_reviewed_by": "jeickmeier", "last_reviewed_on": "2026-04-30", "review_interval_months": 6, "regen_command": "manual formula fixture; flattened outputs committed in fixture", "screenshots": []},
+  "inputs": {"actual_outputs": {"sabr_alpha::1y::5y": 0.025, "sabr_beta::1y::5y": 0.5, "sabr_rho::1y::5y": -0.25, "sabr_nu::1y::5y": 0.4, "swaption_npv": 781111.3382938685, "swaption_vega": 15127.611814717791}},
+  "expected_outputs": {"sabr_alpha::1y::5y": 0.025, "sabr_beta::1y::5y": 0.5, "sabr_rho::1y::5y": -0.25, "sabr_nu::1y::5y": 0.4, "swaption_npv": 781111.3382938685, "swaption_vega": 15127.611814717791},
+  "tolerances": {"sabr_alpha::1y::5y": {"abs": 1e-12}, "sabr_beta::1y::5y": {"abs": 1e-12}, "sabr_rho::1y::5y": {"abs": 1e-12}, "sabr_nu::1y::5y": {"abs": 1e-12}, "swaption_npv": {"abs": 1e-6}, "swaption_vega": {"abs": 1e-6}}
+}

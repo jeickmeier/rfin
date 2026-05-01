@@ -1,0 +1,20 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "usd_swaption_5y_into_5y_receiver_25_otm",
+  "domain": "rates.swaption",
+  "description": "Synthetic USD 5Y into 5Y receiver swaption priced with a flat Black volatility surface.",
+  "provenance": {"as_of": "2026-04-30", "source": "formula", "source_detail": "Finstack canonical swaption Black pricing on deterministic curves and vol surface", "captured_by": "jeickmeier", "captured_on": "2026-04-30", "last_reviewed_by": "jeickmeier", "last_reviewed_on": "2026-04-30", "review_interval_months": 6, "regen_command": "manual formula fixture; values captured from canonical pricing runner", "screenshots": []},
+  "inputs": {
+    "valuation_date": "2026-04-30",
+    "model": "black76",
+    "metrics": ["vega"],
+    "instrument_json": {"schema": "finstack.instrument/1", "instrument": {"type": "swaption", "spec": {"id": "USD-SWAPTION-5Y-5Y-RECEIVER-GOLDEN", "option_type": "put", "notional": {"amount": "10000000", "currency": "USD"}, "strike": "0.045", "expiry": "2031-05-04", "swap_start": "2031-05-06", "swap_end": "2036-05-06", "fixed_freq": {"count": 6, "unit": "months"}, "float_freq": {"count": 3, "unit": "months"}, "day_count": "Thirty360", "exercise_style": "european", "settlement": "cash", "cash_settlement_method": "par_yield", "vol_model": "black", "discount_curve_id": "USD-OIS", "forward_curve_id": "USD-SOFR-3M", "vol_surface_id": "USD-SWPNVOL", "calendar_id": null, "sabr_params": null, "attributes": {"tags": ["golden"], "meta": {}}}}},
+    "curves": {
+      "discount": [{"id": "USD-OIS", "base_date": "2026-04-30", "day_count": "act_365f", "interp": "log_linear", "knots": [[0.0, 1.0], [1.0, 0.9608], [5.0, 0.8187], [6.0, 0.7866], [10.0, 0.6703]]}],
+      "forward": [{"id": "USD-SOFR-3M", "tenor": 0.25, "base_date": "2026-04-30", "day_count": "act_360", "interp": "linear", "knots": [[0.0, 0.04], [1.0, 0.043], [5.0, 0.045], [6.0, 0.046], [10.0, 0.047]]}]
+    },
+    "surfaces": {"vol": [{"id": "USD-SWPNVOL", "expiries": [1.0, 5.0, 10.0], "strikes": [0.01, 0.03, 0.05, 0.07, 0.1], "vols_row_major": [0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25]}]}
+  },
+  "expected_outputs": {"npv": 314301.50689113623, "vega": 17448.185412271505},
+  "tolerances": {"npv": {"abs": 1e-6, "rel": 1e-12}, "vega": {"abs": 1e-6, "rel": 1e-12}}
+}

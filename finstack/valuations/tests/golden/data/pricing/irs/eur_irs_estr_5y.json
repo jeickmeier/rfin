@@ -1,0 +1,19 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "eur_irs_estr_5y",
+  "domain": "rates.irs",
+  "description": "Synthetic EUR ESTR 5Y pay-fixed interest rate swap on committed curves.",
+  "provenance": {"as_of": "2026-04-30", "source": "formula", "source_detail": "Finstack canonical IRS discounting calculation on deterministic synthetic EUR curves", "captured_by": "jeickmeier", "captured_on": "2026-04-30", "last_reviewed_by": "jeickmeier", "last_reviewed_on": "2026-04-30", "review_interval_months": 6, "regen_command": "manual formula fixture; values captured from canonical pricing runner", "screenshots": []},
+  "inputs": {
+    "valuation_date": "2026-04-30",
+    "model": "discounting",
+    "metrics": ["par_rate", "dv01"],
+    "instrument_json": {"schema": "finstack.instrument/1", "instrument": {"type": "interest_rate_swap", "spec": {"id": "EUR-IRS-ESTR-5Y-GOLDEN", "notional": {"amount": "10000000", "currency": "EUR"}, "side": "pay", "fixed": {"discount_curve_id": "EUR-ESTR", "rate": "0.032", "frequency": {"count": 1, "unit": "years"}, "day_count": "Thirty360", "bdc": "modified_following", "calendar_id": null, "stub": "None", "start": "2026-05-04", "end": "2031-05-04", "par_method": null, "compounding_simple": true}, "float": {"discount_curve_id": "EUR-ESTR", "forward_curve_id": "EUR-ESTR-3M", "spread_bp": "0", "frequency": {"count": 6, "unit": "months"}, "day_count": "Act360", "bdc": "modified_following", "calendar_id": null, "stub": "None", "reset_lag_days": 2, "start": "2026-05-04", "end": "2031-05-04", "compounding": "Simple"}, "attributes": {"tags": ["golden"], "meta": {}}}}},
+    "curves": {
+      "discount": [{"id": "EUR-ESTR", "base_date": "2026-04-30", "day_count": "act_365f", "interp": "log_linear", "knots": [[0.0, 1.0], [0.25, 0.99], [0.5, 0.9802], [1.0, 0.9608], [2.0, 0.9231], [5.0, 0.8187], [10.0, 0.6703], [12.0, 0.6065]]}],
+      "forward": [{"id": "EUR-ESTR-3M", "tenor": 0.25, "base_date": "2026-04-30", "day_count": "act_360", "interp": "linear", "knots": [[0.0, 0.04], [0.25, 0.041], [0.5, 0.042], [1.0, 0.043], [2.0, 0.044], [5.0, 0.045], [10.0, 0.046]]}]
+    }
+  },
+  "expected_outputs": {"npv": 567723.3131814222, "par_rate": 0.04478940829291595, "dv01": 4272.4096282684695},
+  "tolerances": {"npv": {"abs": 1e-6, "rel": 1e-12}, "par_rate": {"abs": 1e-12}, "dv01": {"abs": 1e-6, "rel": 1e-12}}
+}

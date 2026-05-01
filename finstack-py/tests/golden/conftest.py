@@ -2,15 +2,34 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 import csv
 import importlib
+import os
 from pathlib import Path
+import time
 from types import ModuleType
 
 from .schema import GoldenFixture
 from .tolerance import compare
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+REPORT_HEADER = [
+    "runner",
+    "fixture",
+    "metric",
+    "actual",
+    "expected",
+    "abs_diff",
+    "rel_diff",
+    "abs_tolerance",
+    "rel_tolerance",
+    "passed",
+    "tolerance_reason",
+]
+REPORT_LOCK_TIMEOUT_SECONDS = 30.0
+REPORT_LOCK_POLL_SECONDS = 0.01
 
 DATA_ROOTS = {
     "pricing": WORKSPACE_ROOT / "finstack/valuations/tests/golden/data",
@@ -21,7 +40,16 @@ DATA_ROOTS = {
 }
 
 _DOMAIN_RUNNERS = {
+    "fx.fx_swap": "pricing_fx_swap",
+    "rates.calibration.curves": "calibration_curves",
+    "rates.calibration.swaption_vol": "calibration_swaption_vol",
+    "rates.integration": "integration_rates",
+    "rates.cap_floor": "pricing_cap_floor",
+    "rates.deposit": "pricing_deposit",
+    "rates.fra": "pricing_fra",
     "rates.irs": "pricing_irs",
+    "rates.ir_future": "pricing_ir_future",
+    "rates.swaption": "pricing_swaption",
 }
 
 
@@ -86,25 +114,11 @@ def _write_comparison_csv(relative_path: str, results: list) -> None:
     """Write a dataframe-shaped comparison report for analyst review."""
     report_path = WORKSPACE_ROOT / "target/golden-reports/golden-comparisons.csv"
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    existing_rows = _existing_comparison_rows(report_path, "python", relative_path)
-    with report_path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.writer(handle)
-        writer.writerow([
-            "runner",
-            "fixture",
-            "metric",
-            "actual",
-            "expected",
-            "abs_diff",
-            "rel_diff",
-            "abs_tolerance",
-            "rel_tolerance",
-            "passed",
-            "tolerance_reason",
-        ])
-        writer.writerows(existing_rows)
-        for result in results:
-            writer.writerow([
+    with _report_lock(report_path):
+        existing_rows = _existing_comparison_rows(report_path, "python", relative_path)
+        rows = [REPORT_HEADER, *existing_rows]
+        rows.extend(
+            [
                 "python",
                 relative_path,
                 result.metric,
@@ -116,7 +130,43 @@ def _write_comparison_csv(relative_path: str, results: list) -> None:
                 "" if result.used_tolerance.rel is None else f"{result.used_tolerance.rel:.12f}",
                 str(result.passed).lower(),
                 result.used_tolerance.tolerance_reason or "",
-            ])
+            ]
+            for result in results
+        )
+        _write_report_atomically(report_path, rows)
+
+
+@contextmanager
+def _report_lock(report_path: Path) -> Iterator[None]:
+    """Acquire a process-wide lock for read/modify/write report updates."""
+    lock_path = report_path.with_suffix(".csv.lock")
+    deadline = time.monotonic() + REPORT_LOCK_TIMEOUT_SECONDS
+    fd: int | None = None
+    while fd is None:
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            if time.monotonic() >= deadline:
+                msg = f"timed out waiting for report lock {lock_path}"
+                raise TimeoutError(msg) from None
+            time.sleep(REPORT_LOCK_POLL_SECONDS)
+
+    try:
+        yield
+    finally:
+        os.close(fd)
+        lock_path.unlink(missing_ok=True)
+
+
+def _write_report_atomically(report_path: Path, rows: list[list[str]]) -> None:
+    temp_path = report_path.with_suffix(f".csv.{os.getpid()}.tmp")
+    try:
+        with temp_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerows(rows)
+        temp_path.replace(report_path)
+    finally:
+        temp_path.unlink(missing_ok=True)
 
 
 def _existing_comparison_rows(report_path: Path, runner: str, relative_path: str) -> list[list[str]]:

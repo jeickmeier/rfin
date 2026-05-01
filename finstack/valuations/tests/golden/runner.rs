@@ -3,7 +3,15 @@
 use crate::golden::schema::GoldenFixture;
 use crate::golden::tolerance::{compare, ComparisonResult};
 use std::collections::BTreeMap;
+use std::fs::OpenOptions;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::thread;
+use std::time::{Duration, Instant};
+
+const REPORT_HEADER: &str = "runner,fixture,metric,actual,expected,abs_diff,rel_diff,abs_tolerance,rel_tolerance,passed,tolerance_reason\n";
+const REPORT_LOCK_TIMEOUT: Duration = Duration::from_secs(30);
+const REPORT_LOCK_POLL: Duration = Duration::from_millis(10);
 
 /// One runner per fixture domain. Runners build canonical API inputs and extract metrics.
 pub trait DomainRunner {
@@ -14,7 +22,32 @@ pub trait DomainRunner {
 /// Dispatch a fixture to its domain runner by `domain` field.
 pub fn dispatch(fixture: &GoldenFixture) -> Result<Box<dyn DomainRunner>, String> {
     match fixture.domain.as_str() {
+        "rates.calibration.curves" => Ok(Box::new(
+            crate::golden::runners::calibration_curves::CalibrationCurvesRunner,
+        )),
+        "rates.calibration.swaption_vol" => Ok(Box::new(
+            crate::golden::runners::calibration_swaption_vol::CalibrationSwaptionVolRunner,
+        )),
+        "rates.integration" => Ok(Box::new(
+            crate::golden::runners::integration_rates::IntegrationRatesRunner,
+        )),
+        "fx.fx_swap" => Ok(Box::new(
+            crate::golden::runners::pricing_fx_swap::FxSwapRunner,
+        )),
+        "rates.cap_floor" => Ok(Box::new(
+            crate::golden::runners::pricing_cap_floor::CapFloorRunner,
+        )),
+        "rates.deposit" => Ok(Box::new(
+            crate::golden::runners::pricing_deposit::DepositRunner,
+        )),
+        "rates.fra" => Ok(Box::new(crate::golden::runners::pricing_fra::FraRunner)),
         "rates.irs" => Ok(Box::new(crate::golden::runners::pricing_irs::IrsRunner)),
+        "rates.ir_future" => Ok(Box::new(
+            crate::golden::runners::pricing_ir_future::IrFutureRunner,
+        )),
+        "rates.swaption" => Ok(Box::new(
+            crate::golden::runners::pricing_swaption::SwaptionRunner,
+        )),
         other => Err(format!("no runner registered for domain '{other}'")),
     }
 }
@@ -59,6 +92,7 @@ fn write_comparison_csv(path: &Path, results: &[ComparisonResult]) -> Result<(),
     }
 
     let fixture = fixture_relative_path(path)?;
+    let _lock = ReportLock::acquire(&report_path)?;
     let mut rows = existing_comparison_rows(&report_path, "rust", &fixture)?;
     for result in results {
         rows.push(format!(
@@ -83,16 +117,13 @@ fn write_comparison_csv(path: &Path, results: &[ComparisonResult]) -> Result<(),
         ));
     }
 
-    let mut csv = String::from(
-        "runner,fixture,metric,actual,expected,abs_diff,rel_diff,abs_tolerance,rel_tolerance,passed,tolerance_reason\n",
-    );
+    let mut csv = String::from(REPORT_HEADER);
     csv.push_str(&rows.join("\n"));
     if !rows.is_empty() {
         csv.push('\n');
     }
 
-    std::fs::write(&report_path, csv)
-        .map_err(|err| format!("write comparison report {report_path:?}: {err}"))
+    write_report_atomically(&report_path, csv)
 }
 
 fn comparison_report_path() -> PathBuf {
@@ -117,6 +148,50 @@ fn existing_comparison_rows(
         .filter(|line| !line.starts_with(&format!("{runner},{fixture},")))
         .map(str::to_string)
         .collect())
+}
+
+struct ReportLock {
+    path: PathBuf,
+}
+
+impl ReportLock {
+    fn acquire(report_path: &Path) -> Result<Self, String> {
+        let lock_path = report_path.with_extension("csv.lock");
+        let deadline = Instant::now() + REPORT_LOCK_TIMEOUT;
+
+        loop {
+            match OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&lock_path)
+            {
+                Ok(_) => return Ok(Self { path: lock_path }),
+                Err(err) if err.kind() == ErrorKind::AlreadyExists && Instant::now() < deadline => {
+                    thread::sleep(REPORT_LOCK_POLL);
+                }
+                Err(err) if err.kind() == ErrorKind::AlreadyExists => {
+                    return Err(format!("timed out waiting for report lock {lock_path:?}"));
+                }
+                Err(err) => return Err(format!("create report lock {lock_path:?}: {err}")),
+            }
+        }
+    }
+}
+
+impl Drop for ReportLock {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
+fn write_report_atomically(report_path: &Path, csv: String) -> Result<(), String> {
+    let temp_path = report_path.with_extension(format!("csv.{}.tmp", std::process::id()));
+    std::fs::write(&temp_path, csv)
+        .map_err(|err| format!("write temporary comparison report {temp_path:?}: {err}"))?;
+    std::fs::rename(&temp_path, report_path).map_err(|err| {
+        let _ = std::fs::remove_file(&temp_path);
+        format!("replace comparison report {report_path:?}: {err}")
+    })
 }
 
 fn fixture_relative_path(path: &Path) -> Result<String, String> {
@@ -175,7 +250,6 @@ mod tests {
             .join("tests/golden/data/pricing/irs/usd_sofr_5y_receive_fixed_swpm.json");
         let report_path =
             Path::new(manifest_dir).join("../../target/golden-reports/golden-comparisons.csv");
-        let _ = std::fs::remove_file(&report_path);
 
         run_golden_at_path(&fixture_path).expect("golden should pass and write CSV report");
 
