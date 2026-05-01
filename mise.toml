@@ -41,6 +41,13 @@ depends = ["rust-build", "python-build", "wasm-build"]
 description = "Run all tests (Rust + Python + WASM)"
 depends = ["rust-test", "python-test", "wasm-test"]
 
+[tasks.goldens-test]
+description = "Run golden tests (Rust + Python layers)"
+run = """
+cargo test -p finstack-valuations --test golden &&
+uv run pytest finstack-py/tests/golden -v
+"""
+
 [tasks.all-fmt]
 description = "Format + auto-fix Rust, Python, and WASM code (mutating)"
 depends = ["rust-fmt", "python-fmt", "wasm-fmt"]
