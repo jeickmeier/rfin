@@ -430,6 +430,7 @@ impl BasisSwap {
                 day_count: leg.day_count,
                 payment_lag_days: leg.payment_lag_days,
                 reset_lag_days: Some(leg.reset_lag_days),
+                adjust_accrual_dates: false,
             },
         )?;
 
@@ -516,6 +517,7 @@ impl BasisSwap {
                 day_count: leg.day_count,
                 payment_lag_days: leg.payment_lag_days,
                 reset_lag_days: Some(leg.reset_lag_days),
+                adjust_accrual_dates: false,
             },
         )?;
 

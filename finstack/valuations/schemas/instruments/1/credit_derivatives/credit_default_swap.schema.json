@@ -2235,7 +2235,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Optional OTC margin specification for VM/IM.\n\nFor cleared CDS (e.g., via ICE Clear Credit), use\n`OtcMarginSpec::ice_clear_credit()`. For bilateral CDS,\nuse `OtcMarginSpec::bilateral_simm()`."
+              "description": "Optional OTC margin specification for VM/IM.\n\nFor cleared CDS (e.g., via ICE Clear Credit), use\n`OtcMarginSpec::cleared(\"ICE\", Currency::USD)`. For bilateral\nCDS, use `OtcMarginSpec::bilateral_simm(...)`."
             },
             "notional": {
               "$ref": "#/$defs/Money",

@@ -39,6 +39,8 @@ pub struct BuildPeriodsParams<'a> {
     pub payment_lag_days: i32,
     /// Optional reset lag in business days before accrual start.
     pub reset_lag_days: Option<i32>,
+    /// Adjust accrual start/end boundaries with the business-day convention.
+    pub adjust_accrual_dates: bool,
 }
 
 fn build_day_count_ctx<'a>(
@@ -56,8 +58,13 @@ fn build_day_count_ctx<'a>(
 fn enrich_period(
     mut period: SchedulePeriod,
     params: &BuildPeriodsParams<'_>,
+    cal: &dyn finstack_core::dates::HolidayCalendar,
     dc_ctx: DayCountContext<'_>,
 ) -> finstack_core::Result<SchedulePeriod> {
+    if params.adjust_accrual_dates {
+        period.accrual_start = finstack_core::dates::adjust(period.accrual_start, params.bdc, cal)?;
+        period.accrual_end = finstack_core::dates::adjust(period.accrual_end, params.bdc, cal)?;
+    }
     period.accrual_year_fraction =
         params
             .day_count
@@ -78,7 +85,7 @@ fn enrich_period_schedule(
     let periods = schedule
         .periods
         .into_iter()
-        .map(|period| enrich_period(period, params, dc_ctx))
+        .map(|period| enrich_period(period, params, cal, dc_ctx))
         .collect::<finstack_core::Result<Vec<_>>>()?;
     Ok(PeriodSchedule {
         periods,
@@ -236,6 +243,7 @@ mod tests {
             day_count: DayCount::Act360,
             payment_lag_days: 2,
             reset_lag_days: Some(2),
+            adjust_accrual_dates: false,
         }
     }
 
@@ -255,6 +263,47 @@ mod tests {
         assert_eq!(
             single.accrual_year_fraction,
             scheduled.accrual_year_fraction
+        );
+    }
+
+    #[test]
+    fn build_periods_can_adjust_accrual_boundaries() {
+        let params = BuildPeriodsParams {
+            start: Date::from_calendar_date(2029, Month::May, 4).expect("valid date"),
+            end: Date::from_calendar_date(2030, Month::May, 4).expect("valid date"),
+            frequency: Tenor::annual(),
+            stub: StubKind::None,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: "usny",
+            end_of_month: false,
+            day_count: DayCount::Act360,
+            payment_lag_days: 2,
+            reset_lag_days: None,
+            adjust_accrual_dates: true,
+        };
+        let periods = build_periods(params).expect("periods");
+        assert_eq!(
+            periods[0].accrual_end,
+            Date::from_calendar_date(2030, Month::May, 6).expect("valid date")
+        );
+
+        let params = BuildPeriodsParams {
+            start: Date::from_calendar_date(2029, Month::May, 4).expect("valid date"),
+            end: Date::from_calendar_date(2030, Month::May, 4).expect("valid date"),
+            frequency: Tenor::annual(),
+            stub: StubKind::None,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: "usny",
+            end_of_month: false,
+            day_count: DayCount::Act360,
+            payment_lag_days: 2,
+            reset_lag_days: None,
+            adjust_accrual_dates: false,
+        };
+        let periods = build_periods(params).expect("periods");
+        assert_eq!(
+            periods[0].accrual_end,
+            Date::from_calendar_date(2030, Month::May, 4).expect("valid date")
         );
     }
 }

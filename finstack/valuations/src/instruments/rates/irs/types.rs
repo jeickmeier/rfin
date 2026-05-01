@@ -441,6 +441,21 @@ impl InterestRateSwap {
                 ));
             }
         }
+        if let crate::instruments::rates::irs::FloatingLegCompounding::CompoundedWithRateCutoff {
+            cutoff_days,
+        } = self.float.compounding
+        {
+            if cutoff_days < 0 {
+                return Err(finstack_core::Error::Validation(
+                    "Invalid rate cut-off days: must be non-negative.".into(),
+                ));
+            }
+            if cutoff_days > 31 {
+                return Err(finstack_core::Error::Validation(
+                    "Invalid rate cut-off days: too large.".into(),
+                ));
+            }
+        }
 
         // Validate fixed leg date range
         validation::validate_date_range_strict_with(

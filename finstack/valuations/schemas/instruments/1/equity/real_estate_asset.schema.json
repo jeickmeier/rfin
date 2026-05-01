@@ -1520,7 +1520,7 @@
           "additionalProperties": false,
           "properties": {
             "acquisition_cost": {
-              "description": "Optional one-time acquisition cost deducted at `as_of` in DCF valuation.\n\nThis is intended for closing costs, fees, and other transaction costs.",
+              "default": null,
               "format": "double",
               "type": [
                 "number",
@@ -1528,7 +1528,7 @@
               ]
             },
             "acquisition_costs": {
-              "description": "Optional detailed acquisition cost line items (positive outflows) deducted at `as_of`.",
+              "default": [],
               "items": {
                 "$ref": "#/$defs/Money"
               },
@@ -1543,15 +1543,14 @@
                   "type": "null"
                 }
               ],
-              "description": "Optional appraisal override value."
+              "default": null
             },
             "attributes": {
               "$ref": "#/$defs/Attributes",
-              "default": {},
-              "description": "Attributes for scenario selection and tagging"
+              "default": {}
             },
             "cap_rate": {
-              "description": "Capitalization rate for direct cap (annualized).",
+              "default": null,
               "format": "double",
               "type": [
                 "number",
@@ -1559,7 +1558,7 @@
               ]
             },
             "capex_schedule": {
-              "description": "Capital expenditure schedule (date, amount). Values are treated as **positive outflows**.\n\nWhen present, cashflows are valued as `NOI - CapEx` (unlevered net cash flow).",
+              "default": null,
               "items": {
                 "maxItems": 2,
                 "minItems": 2,
@@ -1580,19 +1579,16 @@
               ]
             },
             "currency": {
-              "$ref": "#/$defs/Currency",
-              "description": "Currency for valuation."
+              "$ref": "#/$defs/Currency"
             },
             "day_count": {
-              "$ref": "#/$defs/DayCount",
-              "description": "Day count convention for year fractions."
+              "$ref": "#/$defs/DayCount"
             },
             "discount_curve_id": {
-              "$ref": "#/$defs/Id",
-              "description": "Discount curve identifier (for risk attribution)."
+              "$ref": "#/$defs/Id"
             },
             "discount_rate": {
-              "description": "Discount rate for DCF (annualized).",
+              "default": null,
               "format": "double",
               "type": [
                 "number",
@@ -1600,7 +1596,7 @@
               ]
             },
             "disposition_cost_pct": {
-              "description": "Optional disposition cost percentage applied to terminal value.\n\nA value of `0.02` represents 2% selling costs. Must be in \\([0, 1)\\).",
+              "default": null,
               "format": "double",
               "type": [
                 "number",
@@ -1608,18 +1604,16 @@
               ]
             },
             "disposition_costs": {
-              "description": "Optional detailed disposition cost line items (positive outflows) deducted from terminal proceeds.",
+              "default": [],
               "items": {
                 "$ref": "#/$defs/Money"
               },
               "type": "array"
             },
             "id": {
-              "$ref": "#/$defs/Id",
-              "description": "Unique instrument identifier."
+              "$ref": "#/$defs/Id"
             },
             "noi_schedule": {
-              "description": "Net operating income schedule (date, amount).",
               "items": {
                 "maxItems": 2,
                 "minItems": 2,
@@ -1655,8 +1649,7 @@
                 "vol_bump_pct": null,
                 "vol_surface_extrapolation": "error",
                 "ytm_bump_decimal": null
-              },
-              "description": "Attributes for tagging and scenarios."
+              }
             },
             "property_type": {
               "anyOf": [
@@ -1667,7 +1660,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Optional property type classification (for reporting)."
+              "default": null
             },
             "purchase_price": {
               "anyOf": [
@@ -1678,10 +1671,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Optional purchase price (useful for IRR / cap rate metrics)."
+              "default": null
             },
             "sale_date": {
-              "description": "Optional sale/exit date that truncates the DCF horizon.\n\nWhen set, DCF only values unlevered flows up to and including `sale_date`.\nTerminal proceeds (if configured) are realized on `sale_date`.",
+              "default": null,
               "type": [
                 "string",
                 "null"
@@ -1696,10 +1689,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Optional explicit gross sale price (terminal proceeds), before disposition costs.\n\nWhen set, this takes precedence over `terminal_cap_rate` for terminal proceeds."
+              "default": null
             },
             "stabilized_noi": {
-              "description": "Optional stabilized NOI override for direct cap.",
+              "default": null,
               "format": "double",
               "type": [
                 "number",
@@ -1707,7 +1700,7 @@
               ]
             },
             "terminal_cap_rate": {
-              "description": "Optional terminal cap rate for DCF (uses last NOI).",
+              "default": null,
               "format": "double",
               "type": [
                 "number",
@@ -1715,7 +1708,7 @@
               ]
             },
             "terminal_growth_rate": {
-              "description": "Optional terminal growth rate used to project `NOI_{N+1}` for exit valuation.\n\nMarket convention for exit-cap terminal value is \\(TV = NOI_{N+1} / cap\\_rate\\_exit\\).\nWhen not provided, defaults to 0 (uses last NOI as-is).\nValidation range is \\([-100\\%, 20\\%]\\) to guard against configuration errors.",
+              "default": null,
               "format": "double",
               "type": [
                 "number",
@@ -1723,12 +1716,10 @@
               ]
             },
             "valuation_date": {
-              "description": "Valuation date (base date for discounting).",
               "type": "string"
             },
             "valuation_method": {
-              "$ref": "#/$defs/RealEstateValuationMethod",
-              "description": "Valuation method (DCF or DirectCap)."
+              "$ref": "#/$defs/RealEstateValuationMethod"
             }
           },
           "required": [

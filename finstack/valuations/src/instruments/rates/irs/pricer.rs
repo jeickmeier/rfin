@@ -51,6 +51,7 @@ impl InterestRateSwap {
             self.float.compounding,
             FloatingLegCompounding::CompoundedInArrears { .. }
                 | FloatingLegCompounding::CompoundedWithObservationShift { .. }
+                | FloatingLegCompounding::CompoundedWithRateCutoff { .. }
         ) && self.float.forward_curve_id == self.fixed.discount_curve_id
     }
 
@@ -86,13 +87,7 @@ impl InterestRateSwap {
             )?;
         let mut acc = NeumaierAccumulator::new();
         for flow in schedule.flows {
-            let payment_date =
-                crate::instruments::common_impl::pricing::swap_legs::add_payment_delay(
-                    flow.date,
-                    self.float.payment_lag_days,
-                    self.float.calendar_id.as_deref(),
-                )?;
-            let df = robust_relative_df(disc, as_of, payment_date)?;
+            let df = robust_relative_df(disc, as_of, flow.date)?;
             acc.add(flow.amount.amount() * df);
         }
         Ok(acc.total())
@@ -131,12 +126,10 @@ impl InterestRateSwap {
 
         // Convert cashflow schedule to LegPeriod iterator for shared pricing.
         //
-        // `cf.date` is the **accrual-end date** (see cashflow.rs module docs).
-        // `accrual_end` is used downstream by `pv_fixed_leg` → `add_payment_delay`
-        // to derive the actual payment date.  `accrual_start` is not used by the
-        // shared fixed-leg pricing path so it is set to `accrual_end` for
-        // simplicity.  The year fraction is pre-computed by the cashflow builder
-        // and stored in `cf.accrual_factor`.
+        // `fixed_leg_schedule` delegates to the cashflow builder, whose emitted
+        // fixed coupon `date` is already the adjusted payment date. The shared
+        // fixed-leg pricer expects that date in `accrual_end`, so pass
+        // `payment_lag_days = 0` below to avoid applying the lag twice.
         let periods = sched
             .flows
             .iter()
@@ -155,7 +148,7 @@ impl InterestRateSwap {
         let params = crate::instruments::common_impl::pricing::swap_legs::FixedLegParams {
             rate: decimal_to_f64(self.fixed.rate, "fixed leg rate")?,
             day_count: self.fixed.day_count,
-            payment_lag_days: self.fixed.payment_lag_days,
+            payment_lag_days: 0,
             calendar_id: self.fixed.calendar_id.clone(),
         };
 
@@ -221,7 +214,6 @@ impl InterestRateSwap {
         // `[reset_date, reset_date + index_tenor]` (an unadjusted tenor),
         // whereas an inlined projection over the BDC-adjusted accrual window
         // introduces small but compounding mismatches across the leg.
-        use crate::instruments::common_impl::pricing::swap_legs::add_payment_delay;
         use finstack_core::cashflow::CFKind;
 
         let disc = context.get_discount(self.fixed.discount_curve_id.as_ref())?;
@@ -237,11 +229,7 @@ impl InterestRateSwap {
             if flow.kind != CFKind::FloatReset {
                 continue;
             }
-            let payment_date = add_payment_delay(
-                flow.date,
-                self.float.payment_lag_days,
-                self.float.calendar_id.as_deref(),
-            )?;
+            let payment_date = flow.date;
             if payment_date <= as_of {
                 continue;
             }
@@ -326,7 +314,8 @@ pub(crate) fn compute_pv_raw(
     let pv_float = match irs.float.compounding {
         FloatingLegCompounding::Simple => irs.pv_float_leg(context, as_of)?,
         FloatingLegCompounding::CompoundedInArrears { .. }
-        | FloatingLegCompounding::CompoundedWithObservationShift { .. } => {
+        | FloatingLegCompounding::CompoundedWithObservationShift { .. }
+        | FloatingLegCompounding::CompoundedWithRateCutoff { .. } => {
             let proj = if irs.is_single_curve_ois() {
                 context
                     .get_forward(irs.float.forward_curve_id.as_ref())
@@ -397,16 +386,8 @@ mod tests {
         let schedule = full_signed_schedule_with_curves(swap, Some(ctx))?;
         schedule.flows.iter().try_fold(0.0, |acc, flow| {
             let payment_date = match flow.kind {
-                CFKind::Fixed | CFKind::Stub => add_payment_delay(
-                    flow.date,
-                    swap.fixed.payment_lag_days,
-                    swap.fixed.calendar_id.as_deref(),
-                )?,
-                CFKind::FloatReset => add_payment_delay(
-                    flow.date,
-                    swap.float.payment_lag_days,
-                    swap.float.calendar_id.as_deref(),
-                )?,
+                CFKind::Fixed | CFKind::Stub => flow.date,
+                CFKind::FloatReset => flow.date,
                 _ => flow.date,
             };
             let df = disc.df_between_dates(as_of, payment_date)?;

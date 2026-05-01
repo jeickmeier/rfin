@@ -2122,11 +2122,10 @@
           "additionalProperties": false,
           "properties": {
             "attributes": {
-              "$ref": "#/$defs/Attributes",
-              "description": "Attributes for scenario selection and tagging"
+              "$ref": "#/$defs/Attributes"
             },
             "discrete_dividends": {
-              "description": "Optional discrete cash dividends `(ex_date, amount)` for the underlying.\n\nWhen non-empty, pricing uses explicit period dividend pass-through and does\nnot add continuous-yield dividend return to avoid double counting.",
+              "default": [],
               "items": {
                 "maxItems": 2,
                 "minItems": 2,
@@ -2145,20 +2144,16 @@
             },
             "dividend_tax_rate": {
               "default": 0.0,
-              "description": "Dividend withholding tax rate for net return calculation.\n\nSpecifies the fraction of dividends withheld for tax (e.g., 0.15 for 15% withholding).\nWhen set to 0.0 (default), the TRS passes through 100% of dividends (gross return).\nWhen set to a positive value, the dividend return component is reduced:\n```text\nnet_dividend_return = gross_dividend_return × (1 - dividend_tax_rate)\n```\n\n# Market Context\n\nWithholding tax varies by jurisdiction and investor domicile:\n- US qualified dividends: typically 0% for domestic investors\n- US non-qualified: up to 30% for foreign investors (varies by treaty)\n- European: varies by country (15-30% typical)",
               "format": "double",
               "type": "number"
             },
             "financing": {
-              "$ref": "#/$defs/FinancingLegSpec",
-              "description": "Financing leg specification (curves, spread, day count)."
+              "$ref": "#/$defs/FinancingLegSpec"
             },
             "id": {
-              "$ref": "#/$defs/Id",
-              "description": "Unique instrument identifier."
+              "$ref": "#/$defs/Id"
             },
             "initial_level": {
-              "description": "Initial index level (if known, otherwise fetched from market).",
               "format": "double",
               "type": [
                 "number",
@@ -2174,11 +2169,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Optional OTC margin specification for VM/IM.\n\nEquity TRS use SIMM equity bucket for margin calculation."
+              "default": null
             },
             "notional": {
-              "$ref": "#/$defs/Money",
-              "description": "Notional amount for the swap."
+              "$ref": "#/$defs/Money"
             },
             "pricing_overrides": {
               "$ref": "#/$defs/PricingOverrides",
@@ -2199,20 +2193,16 @@
                 "vol_bump_pct": null,
                 "vol_surface_extrapolation": "error",
                 "ytm_bump_decimal": null
-              },
-              "description": "Attributes for scenario selection and tagging."
+              }
             },
             "schedule": {
-              "$ref": "#/$defs/TrsScheduleSpec",
-              "description": "Schedule specification (payment dates and frequency)."
+              "$ref": "#/$defs/TrsScheduleSpec"
             },
             "side": {
-              "$ref": "#/$defs/TrsSide",
-              "description": "Trade side (receive/pay total return)."
+              "$ref": "#/$defs/TrsSide"
             },
             "underlying": {
-              "$ref": "#/$defs/EquityUnderlyingParams",
-              "description": "Underlying equity parameters (spot ID, dividend yield, contract size)."
+              "$ref": "#/$defs/EquityUnderlyingParams"
             }
           },
           "required": [

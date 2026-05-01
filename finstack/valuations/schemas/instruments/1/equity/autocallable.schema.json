@@ -1546,11 +1546,9 @@
           "additionalProperties": false,
           "properties": {
             "attributes": {
-              "$ref": "#/$defs/Attributes",
-              "description": "Attributes for scenario selection and grouping"
+              "$ref": "#/$defs/Attributes"
             },
             "autocall_barriers": {
-              "description": "Autocall barrier levels (as ratios of initial spot, e.g., 1.0 = 100%).\n\nEach barrier corresponds to the observation date at the same index.\nIf spot ≥ barrier × initial_spot on the observation date, the product autocalls.",
               "items": {
                 "format": "double",
                 "type": "number"
@@ -1558,12 +1556,10 @@
               "type": "array"
             },
             "cap_level": {
-              "description": "Cap level for final payoff (maximum return)",
               "format": "double",
               "type": "number"
             },
             "coupons": {
-              "description": "Coupon amounts paid if observation barrier is met",
               "items": {
                 "format": "double",
                 "type": "number"
@@ -1571,12 +1567,10 @@
               "type": "array"
             },
             "day_count": {
-              "$ref": "#/$defs/DayCount",
-              "description": "Day count convention for interest calculations"
+              "$ref": "#/$defs/DayCount"
             },
             "discount_curve_id": {
-              "$ref": "#/$defs/Id",
-              "description": "Discount curve ID for present value calculations"
+              "$ref": "#/$defs/Id"
             },
             "div_yield_id": {
               "anyOf": [
@@ -1587,56 +1581,63 @@
                   "type": "null"
                 }
               ],
-              "description": "Optional dividend yield curve ID"
+              "default": null
             },
             "expiry": {
-              "description": "Explicit terminal expiry date for the structure.",
               "type": "string"
             },
             "final_barrier": {
-              "description": "Final barrier level for final payoff determination",
               "format": "double",
               "type": "number"
             },
             "final_payoff_type": {
-              "$ref": "#/$defs/FinalPayoffType",
-              "description": "Type of final payoff (capital protection, participation, knock-in put)"
+              "$ref": "#/$defs/FinalPayoffType"
             },
             "id": {
-              "$ref": "#/$defs/Id",
-              "description": "Unique instrument identifier"
+              "$ref": "#/$defs/Id"
             },
             "notional": {
-              "$ref": "#/$defs/Money",
-              "description": "Notional amount"
+              "$ref": "#/$defs/Money"
             },
             "observation_dates": {
-              "description": "Observation dates for autocall and coupon checks.\n\nBarriers are monitored **discretely** at these exact dates only.\nThe Monte Carlo time grid is constructed to include these dates precisely.",
               "items": {
                 "type": "string"
               },
               "type": "array"
             },
             "participation_rate": {
-              "description": "Participation rate in underlying performance",
               "format": "double",
               "type": "number"
             },
             "pricing_overrides": {
               "$ref": "#/$defs/PricingOverrides",
-              "description": "Pricing overrides (manual price, yield, spread)"
+              "default": {
+                "adaptive_bumps": false,
+                "call_friction_cents": null,
+                "credit_spread_bump_bp": null,
+                "mc_seed_scenario": null,
+                "mean_reversion": null,
+                "rate_bump_bp": null,
+                "rho_bump_decimal": null,
+                "spot_bump_pct": null,
+                "theta_period": null,
+                "tree_steps": null,
+                "tree_volatility": null,
+                "use_gobet_miri": false,
+                "vega_bump_decimal": null,
+                "vol_bump_pct": null,
+                "vol_surface_extrapolation": "error",
+                "ytm_bump_decimal": null
+              }
             },
             "spot_id": {
-              "$ref": "#/$defs/Id",
-              "description": "Spot price identifier for underlying asset"
+              "$ref": "#/$defs/Id"
             },
             "underlying_ticker": {
-              "description": "Underlying asset ticker symbol",
               "type": "string"
             },
             "vol_surface_id": {
-              "$ref": "#/$defs/Id",
-              "description": "Volatility surface ID for option pricing"
+              "$ref": "#/$defs/Id"
             }
           },
           "required": [
@@ -1655,7 +1656,6 @@
             "discount_curve_id",
             "spot_id",
             "vol_surface_id",
-            "pricing_overrides",
             "attributes"
           ],
           "type": "object"

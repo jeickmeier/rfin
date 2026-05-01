@@ -466,6 +466,7 @@ impl CapFloor {
             day_count: self.day_count,
             payment_lag_days: self.resolved_payment_lag_days(),
             reset_lag_days: self.resolved_reset_lag_days(),
+            adjust_accrual_dates: false,
         };
 
         if matches!(
@@ -742,6 +743,7 @@ mod tests {
                 day_count: DayCount::Act360,
                 payment_lag_days: 0,
                 reset_lag_days: None,
+                adjust_accrual_dates: false,
             },
         )
         .expect("periods");

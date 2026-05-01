@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import importlib
 from pathlib import Path
 from types import ModuleType
@@ -63,15 +64,66 @@ def run_golden(relative_path: str) -> None:
     actuals = runner.run(fixture)
 
     failures = []
+    results = []
     for metric, expected in fixture.expected_outputs.items():
         if metric not in actuals:
             failures.append(f"{path}: runner did not produce metric '{metric}'")
             continue
         tolerance = fixture.tolerances[metric]
         result = compare(metric, actuals[metric], expected, tolerance)
+        results.append(result)
         if not result.passed:
             failures.append(result.failure_message(str(path)))
+
+    _write_comparison_csv(relative_path, results)
 
     if failures:
         msg = f"{len(failures)} metric(s) failed:\n" + "\n\n".join(failures)
         raise AssertionError(msg)
+
+
+def _write_comparison_csv(relative_path: str, results: list) -> None:
+    """Write a dataframe-shaped comparison report for analyst review."""
+    report_path = WORKSPACE_ROOT / "target/golden-reports/golden-comparisons.csv"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    existing_rows = _existing_comparison_rows(report_path, "python", relative_path)
+    with report_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow([
+            "runner",
+            "fixture",
+            "metric",
+            "actual",
+            "expected",
+            "abs_diff",
+            "rel_diff",
+            "abs_tolerance",
+            "rel_tolerance",
+            "passed",
+            "tolerance_reason",
+        ])
+        writer.writerows(existing_rows)
+        for result in results:
+            writer.writerow([
+                "python",
+                relative_path,
+                result.metric,
+                f"{result.actual:.12f}",
+                f"{result.expected:.12f}",
+                f"{result.abs_diff:.12e}",
+                f"{result.rel_diff:.12e}",
+                "" if result.used_tolerance.abs is None else f"{result.used_tolerance.abs:.12f}",
+                "" if result.used_tolerance.rel is None else f"{result.used_tolerance.rel:.12f}",
+                str(result.passed).lower(),
+                result.used_tolerance.tolerance_reason or "",
+            ])
+
+
+def _existing_comparison_rows(report_path: Path, runner: str, relative_path: str) -> list[list[str]]:
+    """Read existing aggregate rows, dropping stale rows for this runner/fixture."""
+    if not report_path.exists():
+        return []
+
+    with report_path.open("r", encoding="utf-8", newline="") as handle:
+        rows = list(csv.reader(handle))
+    return [row for row in rows[1:] if len(row) >= 2 and row[:2] != [runner, relative_path]]

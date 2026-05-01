@@ -1506,45 +1506,36 @@
           "properties": {
             "attributes": {
               "$ref": "#/$defs/Attributes",
-              "default": {},
-              "description": "Attributes for scenario selection and tagging"
+              "default": {}
             },
             "contract_specs": {
               "$ref": "#/$defs/VolIndexOptionSpecs",
               "default": {
                 "index_id": "VIX",
                 "multiplier": 100.0
-              },
-              "description": "Contract specifications."
+              }
             },
             "day_count": {
-              "$ref": "#/$defs/DayCount",
-              "description": "Day count convention (default: Act365F)."
+              "$ref": "#/$defs/DayCount"
             },
             "discount_curve_id": {
-              "$ref": "#/$defs/Id",
-              "description": "Discount curve identifier for present value calculations."
+              "$ref": "#/$defs/Id"
             },
             "exercise_style": {
               "$ref": "#/$defs/ExerciseStyle",
-              "default": "european",
-              "description": "Exercise style (always European for VIX options)."
+              "default": "european"
             },
             "expiry": {
-              "description": "Option expiry date.",
               "type": "string"
             },
             "id": {
-              "$ref": "#/$defs/Id",
-              "description": "Unique identifier."
+              "$ref": "#/$defs/Id"
             },
             "notional": {
-              "$ref": "#/$defs/Money",
-              "description": "Notional exposure in currency units."
+              "$ref": "#/$defs/Money"
             },
             "option_type": {
-              "$ref": "#/$defs/OptionType",
-              "description": "Option type (Call or Put)."
+              "$ref": "#/$defs/OptionType"
             },
             "pricing_overrides": {
               "$ref": "#/$defs/PricingOverrides",
@@ -1565,28 +1556,24 @@
                 "vol_bump_pct": null,
                 "vol_surface_extrapolation": "error",
                 "ytm_bump_decimal": null
-              },
-              "description": "Attributes for tagging and selection."
+              }
             },
             "settlement_date": {
-              "description": "Settlement date (typically same as expiry for cash-settled).",
+              "default": null,
               "type": [
                 "string",
                 "null"
               ]
             },
             "strike": {
-              "description": "Strike price (in index points, e.g., 20.0).",
               "format": "double",
               "type": "number"
             },
             "vol_index_curve_id": {
-              "$ref": "#/$defs/Id",
-              "description": "Volatility index forward curve identifier."
+              "$ref": "#/$defs/Id"
             },
             "vol_of_vol_surface_id": {
-              "$ref": "#/$defs/Id",
-              "description": "Vol-of-vol surface identifier for option implied volatility."
+              "$ref": "#/$defs/Id"
             }
           },
           "required": [

@@ -91,6 +91,7 @@ impl MetricCalculator for ParRateCalculator {
             irs.float.compounding,
             FloatingLegCompounding::CompoundedInArrears { .. }
                 | FloatingLegCompounding::CompoundedWithObservationShift { .. }
+                | FloatingLegCompounding::CompoundedWithRateCutoff { .. }
         ) {
             return par_rate_pv_based(irs, context);
         }

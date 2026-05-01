@@ -50,6 +50,7 @@
 //! ```
 
 pub(crate) mod annuity;
+pub(crate) mod dv01;
 pub(crate) mod ir_convexity;
 pub(crate) mod par_rate;
 pub(crate) mod pv_fixed;
@@ -68,9 +69,7 @@ pub(crate) fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry
 
             // Theta is now registered universally in metrics::standard_registry()
 
-            (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::InterestRateSwap,
-            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (Dv01, dv01::IrsDv01Calculator),
 
             // PV01 per-curve: bump each rate curve individually, store as pv01::{curve}
             (Pv01, crate::metrics::UnifiedDv01Calculator::<

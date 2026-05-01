@@ -2188,7 +2188,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Optional OTC margin specification for VM/IM.\n\nCDS indices are typically cleared through ICE Clear Credit.\nUse `OtcMarginSpec::ice_clear_credit()` for standard cleared indices."
+              "description": "Optional OTC margin specification for VM/IM.\n\nCDS indices are typically cleared through ICE Clear Credit. Use\n`OtcMarginSpec::cleared(\"ICE\", Currency::USD)` for standard\ncleared indices."
             },
             "notional": {
               "$ref": "#/$defs/Money",

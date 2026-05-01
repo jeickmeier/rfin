@@ -56,6 +56,26 @@
       ],
       "type": "object"
     },
+    "CreditDerivativeValuationDetails": {
+      "description": "Metadata for CDS-family valuation paths.",
+      "properties": {
+        "integration_method": {
+          "description": "CDS integration method actually used, when applicable.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model_key": {
+          "description": "Registered model key used by the pricer.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model_key"
+      ],
+      "type": "object"
+    },
     "Currency": {
       "description": "ISO 4217 currency enumeration",
       "oneOf": [
@@ -847,7 +867,7 @@
       ]
     },
     "ExplanationTrace": {
-      "description": "Container for detailed execution traces of financial computations.\n\nTraces are organized by type (calibration, pricing, waterfall) and contain\na sequence of domain-specific entries. Traces can be serialized to JSON for\ninspection, debugging, or audit purposes.",
+      "description": "Container for detailed execution traces of financial computations.\n\nTraces are organized by type (calibration, pricing, waterfall) and contain\na sequence of domain-specific entries. Traces can be serialized to JSON for\ninspection, debugging, or audit purposes.\n\nMutation is intentionally single-threaded through `&mut self`. If multiple\nworkers need to append to one trace, wrap it in external synchronization and\nkeep ordering semantics explicit at the call site.",
       "properties": {
         "entries": {
           "description": "Sequence of trace entries",
@@ -1425,6 +1445,23 @@
     "ValuationDetails": {
       "description": "Model-specific typed valuation details.\n\nThese details are for rich structured outputs that do not fit the scalar\n`measures` map while still belonging in the standard valuation envelope.",
       "oneOf": [
+        {
+          "description": "Credit-derivative pricing metadata.",
+          "properties": {
+            "data": {
+              "$ref": "#/$defs/CreditDerivativeValuationDetails"
+            },
+            "type": {
+              "const": "credit_derivative",
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "data"
+          ],
+          "type": "object"
+        },
         {
           "description": "Scenario-waterfall structured credit stochastic pricing result.",
           "properties": {

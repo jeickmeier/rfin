@@ -203,6 +203,7 @@ impl CmsOption {
             day_count,
             payment_lag_days: 0,
             reset_lag_days: None,
+            adjust_accrual_dates: false,
         })?;
 
         if periods.is_empty() {

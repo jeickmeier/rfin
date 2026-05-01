@@ -316,6 +316,7 @@ impl BermudanSwaption {
                 day_count: self.day_count,
                 payment_lag_days: 0,
                 reset_lag_days: None,
+                adjust_accrual_dates: false,
             },
         )?;
 
@@ -395,6 +396,7 @@ impl BermudanSwaption {
                 day_count: fwd_dc,
                 payment_lag_days: 0,
                 reset_lag_days: None,
+                adjust_accrual_dates: false,
             },
         )?;
 

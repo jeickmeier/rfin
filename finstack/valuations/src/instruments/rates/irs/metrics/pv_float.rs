@@ -61,7 +61,8 @@ impl MetricCalculator for FloatLegPvCalculator {
         let pv_money = match irs.float.compounding {
             FloatingLegCompounding::Simple => irs.pv_float_leg(&context.curves, as_of)?,
             FloatingLegCompounding::CompoundedInArrears { .. }
-            | FloatingLegCompounding::CompoundedWithObservationShift { .. } => {
+            | FloatingLegCompounding::CompoundedWithObservationShift { .. }
+            | FloatingLegCompounding::CompoundedWithRateCutoff { .. } => {
                 // Compounded RFR swap (single-curve or multi-curve).
                 //
                 // In single-curve setups the forward curve may not be loaded; in that case

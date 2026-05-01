@@ -1612,23 +1612,20 @@
           "additionalProperties": false,
           "properties": {
             "attributes": {
-              "$ref": "#/$defs/Attributes",
-              "description": "Attributes for scenario selection and tagging"
+              "$ref": "#/$defs/Attributes"
             },
             "currency": {
-              "$ref": "#/$defs/Currency",
-              "description": "Currency for all cashflows."
+              "$ref": "#/$defs/Currency"
             },
             "dilution_securities": {
-              "description": "Dilutive securities (options, warrants, RSUs, convertibles) for treasury stock method.",
+              "default": [],
               "items": {
                 "$ref": "#/$defs/DilutionSecurity"
               },
               "type": "array"
             },
             "discount_curve_id": {
-              "$ref": "#/$defs/Id",
-              "description": "Discount curve identifier for pricing."
+              "$ref": "#/$defs/Id"
             },
             "equity_bridge": {
               "anyOf": [
@@ -1639,10 +1636,9 @@
                   "type": "null"
                 }
               ],
-              "description": "Structured equity bridge for EV-to-equity conversion.\n\nWhen present, takes precedence over the flat `net_debt` field."
+              "default": null
             },
             "flows": {
-              "description": "Explicit period free cash flows (date, amount pairs).",
               "items": {
                 "maxItems": 2,
                 "minItems": 2,
@@ -1660,16 +1656,13 @@
               "type": "array"
             },
             "id": {
-              "$ref": "#/$defs/Id",
-              "description": "Unique identifier for the DCF."
+              "$ref": "#/$defs/Id"
             },
             "mid_year_convention": {
               "default": false,
-              "description": "Mid-year discounting convention (default: `false` = end-of-year).\n\nWhen `true`, each flow is discounted at `(t - 0.5)` instead of `t`,\nreflecting the assumption that cash flows arrive mid-period.\nThis is the standard convention in IB/PE practice (Koller et al.).",
               "type": "boolean"
             },
             "net_debt": {
-              "description": "Net debt (debt - cash) to subtract from enterprise value.\n\nIgnored when [`equity_bridge`](Self::equity_bridge) is `Some`.",
               "format": "double",
               "type": "number"
             },
@@ -1692,11 +1685,10 @@
                 "vol_bump_pct": null,
                 "vol_surface_extrapolation": "error",
                 "ytm_bump_decimal": null
-              },
-              "description": "Attributes for tagging and scenarios."
+              }
             },
             "shares_outstanding": {
-              "description": "Basic shares outstanding for per-share value calculation.",
+              "default": null,
               "format": "double",
               "type": [
                 "number",
@@ -1704,11 +1696,9 @@
               ]
             },
             "terminal_value": {
-              "$ref": "#/$defs/TerminalValueSpec",
-              "description": "Terminal value specification."
+              "$ref": "#/$defs/TerminalValueSpec"
             },
             "valuation_date": {
-              "description": "Valuation date (as-of date for the DCF).",
               "type": "string"
             },
             "valuation_discounts": {
@@ -1720,10 +1710,9 @@
                   "type": "null"
                 }
               ],
-              "description": "Private company valuation discounts (DLOM, DLOC)."
+              "default": null
             },
             "wacc": {
-              "description": "Weighted Average Cost of Capital (discount rate).",
               "format": "double",
               "type": "number"
             }

@@ -4,6 +4,7 @@
 
 #![allow(dead_code)]
 
+mod pricing;
 pub mod runner;
 pub mod runners;
 pub mod schema;

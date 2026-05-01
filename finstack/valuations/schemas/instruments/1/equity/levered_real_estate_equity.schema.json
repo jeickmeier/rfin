@@ -1563,11 +1563,9 @@
               "description": "Autocallable structured product instrument.",
               "properties": {
                 "attributes": {
-                  "$ref": "#/$defs/Attributes",
-                  "description": "Attributes for scenario selection and grouping"
+                  "$ref": "#/$defs/Attributes"
                 },
                 "autocall_barriers": {
-                  "description": "Autocall barrier levels (as ratios of initial spot, e.g., 1.0 = 100%).\n\nEach barrier corresponds to the observation date at the same index.\nIf spot ≥ barrier × initial_spot on the observation date, the product autocalls.",
                   "items": {
                     "format": "double",
                     "type": "number"
@@ -1575,12 +1573,10 @@
                   "type": "array"
                 },
                 "cap_level": {
-                  "description": "Cap level for final payoff (maximum return)",
                   "format": "double",
                   "type": "number"
                 },
                 "coupons": {
-                  "description": "Coupon amounts paid if observation barrier is met",
                   "items": {
                     "format": "double",
                     "type": "number"
@@ -1588,12 +1584,10 @@
                   "type": "array"
                 },
                 "day_count": {
-                  "$ref": "#/$defs/DayCount",
-                  "description": "Day count convention for interest calculations"
+                  "$ref": "#/$defs/DayCount"
                 },
                 "discount_curve_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Discount curve ID for present value calculations"
+                  "$ref": "#/$defs/Id"
                 },
                 "div_yield_id": {
                   "anyOf": [
@@ -1604,56 +1598,63 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Optional dividend yield curve ID"
+                  "default": null
                 },
                 "expiry": {
-                  "description": "Explicit terminal expiry date for the structure.",
                   "type": "string"
                 },
                 "final_barrier": {
-                  "description": "Final barrier level for final payoff determination",
                   "format": "double",
                   "type": "number"
                 },
                 "final_payoff_type": {
-                  "$ref": "#/$defs/FinalPayoffType",
-                  "description": "Type of final payoff (capital protection, participation, knock-in put)"
+                  "$ref": "#/$defs/FinalPayoffType"
                 },
                 "id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Unique instrument identifier"
+                  "$ref": "#/$defs/Id"
                 },
                 "notional": {
-                  "$ref": "#/$defs/Money",
-                  "description": "Notional amount"
+                  "$ref": "#/$defs/Money"
                 },
                 "observation_dates": {
-                  "description": "Observation dates for autocall and coupon checks.\n\nBarriers are monitored **discretely** at these exact dates only.\nThe Monte Carlo time grid is constructed to include these dates precisely.",
                   "items": {
                     "type": "string"
                   },
                   "type": "array"
                 },
                 "participation_rate": {
-                  "description": "Participation rate in underlying performance",
                   "format": "double",
                   "type": "number"
                 },
                 "pricing_overrides": {
                   "$ref": "#/$defs/PricingOverrides",
-                  "description": "Pricing overrides (manual price, yield, spread)"
+                  "default": {
+                    "adaptive_bumps": false,
+                    "call_friction_cents": null,
+                    "credit_spread_bump_bp": null,
+                    "mc_seed_scenario": null,
+                    "mean_reversion": null,
+                    "rate_bump_bp": null,
+                    "rho_bump_decimal": null,
+                    "spot_bump_pct": null,
+                    "theta_period": null,
+                    "tree_steps": null,
+                    "tree_volatility": null,
+                    "use_gobet_miri": false,
+                    "vega_bump_decimal": null,
+                    "vol_bump_pct": null,
+                    "vol_surface_extrapolation": "error",
+                    "ytm_bump_decimal": null
+                  }
                 },
                 "spot_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Spot price identifier for underlying asset"
+                  "$ref": "#/$defs/Id"
                 },
                 "underlying_ticker": {
-                  "description": "Underlying asset ticker symbol",
                   "type": "string"
                 },
                 "vol_surface_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Volatility surface ID for option pricing"
+                  "$ref": "#/$defs/Id"
                 }
               },
               "required": [
@@ -1672,7 +1673,6 @@
                 "discount_curve_id",
                 "spot_id",
                 "vol_surface_id",
-                "pricing_overrides",
                 "attributes"
               ],
               "type": "object"
@@ -2860,7 +2860,7 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Optional OTC margin specification for VM/IM.\n\nCDS indices are typically cleared through ICE Clear Credit.\nUse `OtcMarginSpec::ice_clear_credit()` for standard cleared indices."
+                  "description": "Optional OTC margin specification for VM/IM.\n\nCDS indices are typically cleared through ICE Clear Credit. Use\n`OtcMarginSpec::cleared(\"ICE\", Currency::USD)` for standard\ncleared indices."
                 },
                 "notional": {
                   "$ref": "#/$defs/Money",
@@ -4027,16 +4027,13 @@
               "description": "Cliquet option instrument.",
               "properties": {
                 "attributes": {
-                  "$ref": "#/$defs/Attributes",
-                  "description": "Attributes for scenario selection and grouping"
+                  "$ref": "#/$defs/Attributes"
                 },
                 "day_count": {
-                  "$ref": "#/$defs/DayCount",
-                  "description": "Day count convention"
+                  "$ref": "#/$defs/DayCount"
                 },
                 "discount_curve_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Discount curve ID for present value calculations"
+                  "$ref": "#/$defs/Id"
                 },
                 "div_yield_id": {
                   "anyOf": [
@@ -4047,67 +4044,72 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Optional dividend yield curve ID"
+                  "default": null
                 },
                 "expiry": {
-                  "description": "Explicit terminal expiry date for the structure.",
                   "type": "string"
                 },
                 "global_cap": {
-                  "description": "Global cap on sum of all period returns",
                   "format": "double",
                   "type": "number"
                 },
                 "global_floor": {
-                  "description": "Global floor on sum of all period returns (default 0.0)",
                   "format": "double",
                   "type": "number"
                 },
                 "id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Unique instrument identifier"
+                  "$ref": "#/$defs/Id"
                 },
                 "local_cap": {
-                  "description": "Local cap on individual period returns",
                   "format": "double",
                   "type": "number"
                 },
                 "local_floor": {
-                  "description": "Local floor on individual period returns (default 0.0)",
                   "format": "double",
                   "type": "number"
                 },
                 "notional": {
-                  "$ref": "#/$defs/Money",
-                  "description": "Notional amount"
+                  "$ref": "#/$defs/Money"
                 },
                 "payoff_type": {
                   "$ref": "#/$defs/CliquetPayoffType",
-                  "default": "Additive",
-                  "description": "Payoff aggregation type (default: Additive)"
+                  "default": "Additive"
                 },
                 "pricing_overrides": {
                   "$ref": "#/$defs/PricingOverrides",
-                  "description": "Pricing overrides (manual price, yield, spread)"
+                  "default": {
+                    "adaptive_bumps": false,
+                    "call_friction_cents": null,
+                    "credit_spread_bump_bp": null,
+                    "mc_seed_scenario": null,
+                    "mean_reversion": null,
+                    "rate_bump_bp": null,
+                    "rho_bump_decimal": null,
+                    "spot_bump_pct": null,
+                    "theta_period": null,
+                    "tree_steps": null,
+                    "tree_volatility": null,
+                    "use_gobet_miri": false,
+                    "vega_bump_decimal": null,
+                    "vol_bump_pct": null,
+                    "vol_surface_extrapolation": "error",
+                    "ytm_bump_decimal": null
+                  }
                 },
                 "reset_dates": {
-                  "description": "Reset dates for periodic return locking",
                   "items": {
                     "type": "string"
                   },
                   "type": "array"
                 },
                 "spot_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Spot price identifier"
+                  "$ref": "#/$defs/Id"
                 },
                 "underlying_ticker": {
-                  "description": "Underlying asset ticker symbol",
                   "type": "string"
                 },
                 "vol_surface_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Volatility surface ID"
+                  "$ref": "#/$defs/Id"
                 }
               },
               "required": [
@@ -4124,7 +4126,6 @@
                 "discount_curve_id",
                 "spot_id",
                 "vol_surface_id",
-                "pricing_overrides",
                 "attributes"
               ],
               "type": "object"
@@ -6412,7 +6413,7 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Optional OTC margin specification for VM/IM.\n\nFor cleared CDS (e.g., via ICE Clear Credit), use\n`OtcMarginSpec::ice_clear_credit()`. For bilateral CDS,\nuse `OtcMarginSpec::bilateral_simm()`."
+                  "description": "Optional OTC margin specification for VM/IM.\n\nFor cleared CDS (e.g., via ICE Clear Credit), use\n`OtcMarginSpec::cleared(\"ICE\", Currency::USD)`. For bilateral\nCDS, use `OtcMarginSpec::bilateral_simm(...)`."
                 },
                 "notional": {
                   "$ref": "#/$defs/Money",
@@ -8193,23 +8194,20 @@
               "description": "Discounted Cash Flow instrument for corporate valuation.\n\nDCF values a company by discounting projected free cash flows and terminal value.\nThe equity value is calculated as: Enterprise Value - Net Debt (or structured bridge).\n\n# Equity Bridge\n\nWhen [`equity_bridge`](Self::equity_bridge) is `Some`, it takes precedence over\nthe flat [`net_debt`](Self::net_debt) field for the EV-to-equity conversion.\n\n# Mid-Year Convention\n\nWhen [`mid_year_convention`](Self::mid_year_convention) is `true`, cash flows are\ndiscounted at `(t - 0.5)` years instead of `t` years, reflecting the assumption\nthat cash flows arrive mid-period (standard IB/PE practice).\n\n# Valuation Discounts\n\nPrivate company valuations can apply DLOM, DLOC, and other discounts via\n[`valuation_discounts`](Self::valuation_discounts).",
               "properties": {
                 "attributes": {
-                  "$ref": "#/$defs/Attributes",
-                  "description": "Attributes for scenario selection and tagging"
+                  "$ref": "#/$defs/Attributes"
                 },
                 "currency": {
-                  "$ref": "#/$defs/Currency",
-                  "description": "Currency for all cashflows."
+                  "$ref": "#/$defs/Currency"
                 },
                 "dilution_securities": {
-                  "description": "Dilutive securities (options, warrants, RSUs, convertibles) for treasury stock method.",
+                  "default": [],
                   "items": {
                     "$ref": "#/$defs/DilutionSecurity"
                   },
                   "type": "array"
                 },
                 "discount_curve_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Discount curve identifier for pricing."
+                  "$ref": "#/$defs/Id"
                 },
                 "equity_bridge": {
                   "anyOf": [
@@ -8220,10 +8218,9 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Structured equity bridge for EV-to-equity conversion.\n\nWhen present, takes precedence over the flat `net_debt` field."
+                  "default": null
                 },
                 "flows": {
-                  "description": "Explicit period free cash flows (date, amount pairs).",
                   "items": {
                     "maxItems": 2,
                     "minItems": 2,
@@ -8241,16 +8238,13 @@
                   "type": "array"
                 },
                 "id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Unique identifier for the DCF."
+                  "$ref": "#/$defs/Id"
                 },
                 "mid_year_convention": {
                   "default": false,
-                  "description": "Mid-year discounting convention (default: `false` = end-of-year).\n\nWhen `true`, each flow is discounted at `(t - 0.5)` instead of `t`,\nreflecting the assumption that cash flows arrive mid-period.\nThis is the standard convention in IB/PE practice (Koller et al.).",
                   "type": "boolean"
                 },
                 "net_debt": {
-                  "description": "Net debt (debt - cash) to subtract from enterprise value.\n\nIgnored when [`equity_bridge`](Self::equity_bridge) is `Some`.",
                   "format": "double",
                   "type": "number"
                 },
@@ -8273,11 +8267,10 @@
                     "vol_bump_pct": null,
                     "vol_surface_extrapolation": "error",
                     "ytm_bump_decimal": null
-                  },
-                  "description": "Attributes for tagging and scenarios."
+                  }
                 },
                 "shares_outstanding": {
-                  "description": "Basic shares outstanding for per-share value calculation.",
+                  "default": null,
                   "format": "double",
                   "type": [
                     "number",
@@ -8285,11 +8278,9 @@
                   ]
                 },
                 "terminal_value": {
-                  "$ref": "#/$defs/TerminalValueSpec",
-                  "description": "Terminal value specification."
+                  "$ref": "#/$defs/TerminalValueSpec"
                 },
                 "valuation_date": {
-                  "description": "Valuation date (as-of date for the DCF).",
                   "type": "string"
                 },
                 "valuation_discounts": {
@@ -8301,10 +8292,9 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Private company valuation discounts (DLOM, DLOC)."
+                  "default": null
                 },
                 "wacc": {
-                  "description": "Weighted Average Cost of Capital (discount rate).",
                   "format": "double",
                   "type": "number"
                 }
@@ -8967,7 +8957,7 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Optional continuous dividend yield identifier.\n\nThe dividend yield should be a unitless scalar representing the annualized\ncontinuous dividend yield (e.g., 0.02 for 2%). This is used in the BSM model\nas the `q` parameter: `d1 = (ln(S/K) + (r - q + σ²/2)T) / (σ√T)`.\n\n**Important**: If this field is set, the lookup must succeed. A failed lookup\nwill return an error rather than silently defaulting to zero, preventing\nmarket data configuration errors from affecting P&L."
+                  "description": "Optional continuous dividend yield identifier.\n\nThe dividend yield should be a unitless scalar representing the annualized\ncontinuous dividend yield (e.g., 0.02 for 2%). This is used in the BSM model\nas the `q` parameter: `d1 = (ln(S/K) + (r - q + σ²/2)T) / (σ√T)`.\n\n# Semantics by value\n\n- **`Some(id)`** — the lookup MUST succeed. A missing market scalar\n  (or a non-unitless type) returns a hard error rather than silently\n  defaulting to zero, preventing market-data configuration errors\n  from quietly distorting P&L.\n- **`None`** — there is *no implicit default curve*. The pricer treats\n  the underlying as having **zero continuous dividend yield**. This is\n  correct for non-dividend-paying single stocks; for index options\n  (typically ~2% yield) callers should set `div_yield_id` explicitly.\n\nIf `discrete_dividends` is non-empty, an escrowed-dividend adjustment\nis applied to spot and `q` is set to 0 internally regardless of\n`div_yield_id`."
                 },
                 "exercise_schedule": {
                   "description": "Exercise schedule for Bermudan options.\n\nRequired when `exercise_style` is `Bermudan`. Each date represents a time\nat which early exercise is permitted. Dates before as_of or after expiry\nare filtered out automatically.",
@@ -9047,11 +9037,10 @@
               "description": "Equity Total Return Swap instrument.\n\nA TRS where the total return leg is based on an equity index or single stock.\nThe holder receives the total return (price appreciation + dividends) of the underlying\nequity in exchange for paying a floating rate plus spread on the notional amount.\n\n# Use Cases\n\n- **Synthetic long exposure**: Gain equity index exposure without buying assets\n- **Leverage**: Minimize upfront capital requirements\n- **ETF replication**: Replicate equity ETF returns synthetically\n- **Short exposure**: Easier than borrowing securities\n\n# Example\n\n```\nuse finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;\n\nlet trs = EquityTotalReturnSwap::example().unwrap();\n// let pv = trs.value(&market_context, as_of_date)?;\n```",
               "properties": {
                 "attributes": {
-                  "$ref": "#/$defs/Attributes",
-                  "description": "Attributes for scenario selection and tagging"
+                  "$ref": "#/$defs/Attributes"
                 },
                 "discrete_dividends": {
-                  "description": "Optional discrete cash dividends `(ex_date, amount)` for the underlying.\n\nWhen non-empty, pricing uses explicit period dividend pass-through and does\nnot add continuous-yield dividend return to avoid double counting.",
+                  "default": [],
                   "items": {
                     "maxItems": 2,
                     "minItems": 2,
@@ -9070,20 +9059,16 @@
                 },
                 "dividend_tax_rate": {
                   "default": 0.0,
-                  "description": "Dividend withholding tax rate for net return calculation.\n\nSpecifies the fraction of dividends withheld for tax (e.g., 0.15 for 15% withholding).\nWhen set to 0.0 (default), the TRS passes through 100% of dividends (gross return).\nWhen set to a positive value, the dividend return component is reduced:\n```text\nnet_dividend_return = gross_dividend_return × (1 - dividend_tax_rate)\n```\n\n# Market Context\n\nWithholding tax varies by jurisdiction and investor domicile:\n- US qualified dividends: typically 0% for domestic investors\n- US non-qualified: up to 30% for foreign investors (varies by treaty)\n- European: varies by country (15-30% typical)",
                   "format": "double",
                   "type": "number"
                 },
                 "financing": {
-                  "$ref": "#/$defs/FinancingLegSpec",
-                  "description": "Financing leg specification (curves, spread, day count)."
+                  "$ref": "#/$defs/FinancingLegSpec"
                 },
                 "id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Unique instrument identifier."
+                  "$ref": "#/$defs/Id"
                 },
                 "initial_level": {
-                  "description": "Initial index level (if known, otherwise fetched from market).",
                   "format": "double",
                   "type": [
                     "number",
@@ -9099,11 +9084,10 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Optional OTC margin specification for VM/IM.\n\nEquity TRS use SIMM equity bucket for margin calculation."
+                  "default": null
                 },
                 "notional": {
-                  "$ref": "#/$defs/Money",
-                  "description": "Notional amount for the swap."
+                  "$ref": "#/$defs/Money"
                 },
                 "pricing_overrides": {
                   "$ref": "#/$defs/PricingOverrides",
@@ -9124,20 +9108,16 @@
                     "vol_bump_pct": null,
                     "vol_surface_extrapolation": "error",
                     "ytm_bump_decimal": null
-                  },
-                  "description": "Attributes for scenario selection and tagging."
+                  }
                 },
                 "schedule": {
-                  "$ref": "#/$defs/TrsScheduleSpec",
-                  "description": "Schedule specification (payment dates and frequency)."
+                  "$ref": "#/$defs/TrsScheduleSpec"
                 },
                 "side": {
-                  "$ref": "#/$defs/TrsSide",
-                  "description": "Trade side (receive/pay total return)."
+                  "$ref": "#/$defs/TrsSide"
                 },
                 "underlying": {
-                  "$ref": "#/$defs/EquityUnderlyingParams",
-                  "description": "Underlying equity parameters (spot ID, dividend yield, contract size)."
+                  "$ref": "#/$defs/EquityUnderlyingParams"
                 }
               },
               "required": [
@@ -9753,6 +9733,29 @@
                   },
                   "required": [
                     "CompoundedWithObservationShift"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "description": "Compounded in arrears with a rate cut-off near the period end.\n\nThis freezes the last observed overnight rate for the final `cutoff_days`\nbusiness days of the accrual period. Bloomberg SWPM labels this\nconvention as \"Rate Cut-Off Days\".",
+                  "properties": {
+                    "CompoundedWithRateCutoff": {
+                      "properties": {
+                        "cutoff_days": {
+                          "description": "Number of business days before period end to freeze the overnight rate.",
+                          "format": "int32",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "cutoff_days"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "CompoundedWithRateCutoff"
                   ],
                   "type": "object"
                 }
@@ -10483,9 +10486,10 @@
               "properties": {
                 "attributes": {
                   "$ref": "#/$defs/Attributes",
-                  "description": "Attributes for scenario selection and tagging"
+                  "description": "Attributes for scenario selection and tagging."
                 },
                 "base_calendar_id": {
+                  "default": null,
                   "description": "Optional base currency calendar for business day adjustment.",
                   "type": [
                     "string",
@@ -10497,6 +10501,7 @@
                   "description": "Base currency (foreign currency, numerator of the pair)."
                 },
                 "contract_rate": {
+                  "default": null,
                   "description": "Contract forward rate (quote per base). If None, valued at-market.",
                   "format": "double",
                   "type": [
@@ -10544,9 +10549,10 @@
                     "vol_surface_extrapolation": "error",
                     "ytm_bump_decimal": null
                   },
-                  "description": "Attributes for tagging and selection."
+                  "description": "Per-instrument pricing/sensitivity override knobs."
                 },
                 "quote_calendar_id": {
+                  "default": null,
                   "description": "Optional quote currency calendar for business day adjustment.",
                   "type": [
                     "string",
@@ -10558,6 +10564,7 @@
                   "description": "Quote currency (domestic currency, denominator of the pair, PV currency)."
                 },
                 "spot_rate_override": {
+                  "default": null,
                   "description": "Optional spot rate override (quote per base). If None, source from FxMatrix.",
                   "format": "double",
                   "type": [
@@ -10755,9 +10762,10 @@
               "properties": {
                 "attributes": {
                   "$ref": "#/$defs/Attributes",
-                  "description": "Attributes for scenario selection and tagging"
+                  "description": "Attributes for scenario selection and tagging."
                 },
                 "base_calendar_id": {
+                  "default": null,
                   "description": "Optional base currency calendar for spot/settlement adjustment metadata.",
                   "type": [
                     "string",
@@ -10766,21 +10774,22 @@
                 },
                 "base_currency": {
                   "$ref": "#/$defs/Currency",
-                  "description": "Base currency (foreign)"
+                  "description": "Base currency (foreign)."
                 },
                 "base_notional": {
                   "$ref": "#/$defs/Money",
-                  "description": "Notional amount in base currency (exchanged on near, reversed on far)"
+                  "description": "Notional amount in base currency (exchanged on near, reversed on far)."
                 },
                 "domestic_discount_curve_id": {
                   "$ref": "#/$defs/Id",
-                  "description": "Domestic discount curve id (quote currency)"
+                  "description": "Domestic discount curve id (quote currency)."
                 },
                 "far_date": {
-                  "description": "Far leg settlement date (forward leg)",
+                  "description": "Far leg settlement date (forward leg).",
                   "type": "string"
                 },
                 "far_rate": {
+                  "default": null,
                   "description": "Optional far leg FX rate (quote per base). If None, source from forwards.",
                   "format": "double",
                   "type": [
@@ -10790,17 +10799,18 @@
                 },
                 "foreign_discount_curve_id": {
                   "$ref": "#/$defs/Id",
-                  "description": "Foreign discount curve id (base currency)"
+                  "description": "Foreign discount curve id (base currency)."
                 },
                 "id": {
                   "$ref": "#/$defs/Id",
-                  "description": "Unique instrument identifier"
+                  "description": "Unique instrument identifier."
                 },
                 "near_date": {
-                  "description": "Near leg settlement date (spot leg)",
+                  "description": "Near leg settlement date (spot leg).",
                   "type": "string"
                 },
                 "near_rate": {
+                  "default": null,
                   "description": "Optional near leg FX rate (quote per base). If None, source from market.",
                   "format": "double",
                   "type": [
@@ -10828,9 +10838,10 @@
                     "vol_surface_extrapolation": "error",
                     "ytm_bump_decimal": null
                   },
-                  "description": "Attributes for tagging and selection"
+                  "description": "Per-instrument pricing/sensitivity override knobs."
                 },
                 "quote_calendar_id": {
+                  "default": null,
                   "description": "Optional quote currency calendar for spot/settlement adjustment metadata.",
                   "type": [
                     "string",
@@ -10839,7 +10850,7 @@
                 },
                 "quote_currency": {
                   "$ref": "#/$defs/Currency",
-                  "description": "Quote currency (domestic)"
+                  "description": "Quote currency (domestic)."
                 }
               },
               "required": [
@@ -13863,9 +13874,10 @@
               "properties": {
                 "attributes": {
                   "$ref": "#/$defs/Attributes",
-                  "description": "Attributes for scenario selection and tagging"
+                  "description": "Attributes for scenario selection and tagging."
                 },
                 "base_calendar_id": {
+                  "default": null,
                   "description": "Optional base currency calendar.",
                   "type": [
                     "string",
@@ -13877,7 +13889,7 @@
                   "description": "Base currency (restricted/non-deliverable currency, numerator)."
                 },
                 "contract_rate": {
-                  "description": "Contract forward rate. Interpretation depends on `quote_convention`:\n- BasePerSettlement: base per settlement (e.g., 7.25 CNY per USD)\n- SettlementPerBase: settlement per base (e.g., 0.138 USD per CNY)",
+                  "description": "Contract forward rate. Interpretation depends on `quote_convention`.",
                   "format": "double",
                   "type": "number"
                 },
@@ -13890,7 +13902,8 @@
                   "type": "string"
                 },
                 "fixing_rate": {
-                  "description": "Observed fixing rate. Interpretation depends on `quote_convention`.\nIf Some, NDF is post-fixing.",
+                  "default": null,
+                  "description": "Observed fixing rate. Interpretation depends on `quote_convention`.",
                   "format": "double",
                   "type": [
                     "number",
@@ -13906,7 +13919,8 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Official fixing source/benchmark enum for type-safe specification.\n\nUse this field for validated fixing sources.\nSee [`NdfFixingSource`] for supported benchmarks and their typical currencies."
+                  "default": null,
+                  "description": "Official fixing source/benchmark enum for type-safe specification."
                 },
                 "foreign_discount_curve_id": {
                   "anyOf": [
@@ -13917,7 +13931,17 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Optional foreign (base) currency discount curve ID.\nIf not provided, forward rate estimation uses settlement curve as fallback."
+                  "default": null,
+                  "description": "Optional foreign (base) currency discount curve ID."
+                },
+                "forward_rate_override": {
+                  "default": null,
+                  "description": "Explicit pre-fixing forward rate in `quote_convention` units.",
+                  "format": "double",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "id": {
                   "$ref": "#/$defs/Id",
@@ -13951,9 +13975,10 @@
                     "vol_surface_extrapolation": "error",
                     "ytm_bump_decimal": null
                   },
-                  "description": "Attributes for tagging and selection."
+                  "description": "Per-instrument pricing/sensitivity override knobs."
                 },
                 "quote_calendar_id": {
+                  "default": null,
                   "description": "Optional settlement currency calendar.",
                   "type": [
                     "string",
@@ -13969,7 +13994,8 @@
                   "description": "Settlement currency (freely convertible, typically USD, denominator and PV currency)."
                 },
                 "spot_rate_override": {
-                  "description": "Optional spot rate override for forward rate calculation.\nInterpretation depends on `quote_convention`.",
+                  "default": null,
+                  "description": "Optional spot rate override for forward rate calculation.",
                   "format": "double",
                   "type": [
                     "number",
@@ -15180,20 +15206,20 @@
               "properties": {
                 "attributes": {
                   "$ref": "#/$defs/Attributes",
-                  "description": "Attributes for scenario selection and grouping"
+                  "description": "Attributes for scenario selection and grouping."
                 },
                 "base_currency": {
                   "$ref": "#/$defs/Currency",
-                  "description": "Base currency (equity denomination)"
+                  "description": "Base currency (equity denomination)."
                 },
                 "correlation": {
-                  "description": "Correlation between equity price and FX rate",
+                  "description": "Correlation between equity price and FX rate.",
                   "format": "double",
                   "type": "number"
                 },
                 "day_count": {
                   "$ref": "#/$defs/DayCount",
-                  "description": "Day count convention"
+                  "description": "Day count convention."
                 },
                 "div_yield_id": {
                   "anyOf": [
@@ -15204,26 +15230,28 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Optional dividend yield curve ID"
+                  "default": null,
+                  "description": "Optional dividend yield curve ID."
                 },
                 "domestic_discount_curve_id": {
                   "$ref": "#/$defs/Id",
-                  "description": "Discount curve ID (domestic currency)"
+                  "description": "Discount curve ID (domestic currency)."
                 },
                 "equity_strike": {
                   "$ref": "#/$defs/Money",
-                  "description": "Strike price for equity option"
+                  "description": "Strike price for equity option."
                 },
                 "expiry": {
-                  "description": "Option expiry date",
+                  "description": "Option expiry date.",
                   "type": "string"
                 },
                 "foreign_discount_curve_id": {
                   "$ref": "#/$defs/Id",
-                  "description": "Discount curve ID (foreign currency)"
+                  "description": "Discount curve ID (foreign currency)."
                 },
                 "fx_rate_id": {
-                  "description": "Optional FX rate identifier",
+                  "default": null,
+                  "description": "Optional FX rate identifier.",
                   "type": [
                     "string",
                     "null"
@@ -15238,22 +15266,24 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Optional FX volatility surface ID"
+                  "default": null,
+                  "description": "Optional FX volatility surface ID."
                 },
                 "id": {
                   "$ref": "#/$defs/Id",
-                  "description": "Unique instrument identifier"
+                  "description": "Unique instrument identifier."
                 },
                 "notional": {
                   "$ref": "#/$defs/Money",
-                  "description": "Notional amount (in domestic currency)"
+                  "description": "Strike-equivalent domestic reference notional."
                 },
                 "option_type": {
                   "$ref": "#/$defs/OptionType",
-                  "description": "Option type (call or put)"
+                  "description": "Option type (call or put)."
                 },
                 "payoff_fx_rate": {
-                  "description": "Fixed payoff FX conversion rate from base-currency payoff into quote currency.\n\nExample: for a JPY-underlying option settled in USD at a fixed 140 JPY/USD\nconversion, `payoff_fx_rate` is `1.0 / 140.0` USD per JPY.",
+                  "default": null,
+                  "description": "Fixed payoff FX conversion rate from base-currency payoff into quote currency.",
                   "format": "double",
                   "type": [
                     "number",
@@ -15262,18 +15292,19 @@
                 },
                 "pricing_overrides": {
                   "$ref": "#/$defs/PricingOverrides",
-                  "description": "Pricing overrides (manual price, yield, spread)"
+                  "description": "Pricing overrides (manual price, yield, spread)."
                 },
                 "quote_currency": {
                   "$ref": "#/$defs/Currency",
-                  "description": "Quote currency (payment/settlement currency)"
+                  "description": "Quote currency (payment/settlement currency)."
                 },
                 "spot_id": {
                   "$ref": "#/$defs/Id",
-                  "description": "Equity spot price identifier"
+                  "description": "Equity spot price identifier."
                 },
                 "underlying_quantity": {
-                  "description": "Number of underlying units covered by the option payoff.\n\nQuanto pricing is performed per unit of the underlying in the base currency.\nThis quantity converts the per-unit price into contract-level exposure.",
+                  "default": null,
+                  "description": "Number of underlying units covered by the option payoff.",
                   "format": "double",
                   "type": [
                     "number",
@@ -15281,12 +15312,12 @@
                   ]
                 },
                 "underlying_ticker": {
-                  "description": "Underlying equity ticker symbol",
+                  "description": "Underlying equity ticker symbol.",
                   "type": "string"
                 },
                 "vol_surface_id": {
                   "$ref": "#/$defs/Id",
-                  "description": "Equity volatility surface ID"
+                  "description": "Equity volatility surface ID."
                 }
               },
               "required": [
@@ -15538,7 +15569,7 @@
               "description": "Real estate asset valuation instrument.\n\nSupports DCF (explicit NOI schedule) and direct capitalization valuation.",
               "properties": {
                 "acquisition_cost": {
-                  "description": "Optional one-time acquisition cost deducted at `as_of` in DCF valuation.\n\nThis is intended for closing costs, fees, and other transaction costs.",
+                  "default": null,
                   "format": "double",
                   "type": [
                     "number",
@@ -15546,7 +15577,7 @@
                   ]
                 },
                 "acquisition_costs": {
-                  "description": "Optional detailed acquisition cost line items (positive outflows) deducted at `as_of`.",
+                  "default": [],
                   "items": {
                     "$ref": "#/$defs/Money"
                   },
@@ -15561,15 +15592,14 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Optional appraisal override value."
+                  "default": null
                 },
                 "attributes": {
                   "$ref": "#/$defs/Attributes",
-                  "default": {},
-                  "description": "Attributes for scenario selection and tagging"
+                  "default": {}
                 },
                 "cap_rate": {
-                  "description": "Capitalization rate for direct cap (annualized).",
+                  "default": null,
                   "format": "double",
                   "type": [
                     "number",
@@ -15577,7 +15607,7 @@
                   ]
                 },
                 "capex_schedule": {
-                  "description": "Capital expenditure schedule (date, amount). Values are treated as **positive outflows**.\n\nWhen present, cashflows are valued as `NOI - CapEx` (unlevered net cash flow).",
+                  "default": null,
                   "items": {
                     "maxItems": 2,
                     "minItems": 2,
@@ -15598,19 +15628,16 @@
                   ]
                 },
                 "currency": {
-                  "$ref": "#/$defs/Currency",
-                  "description": "Currency for valuation."
+                  "$ref": "#/$defs/Currency"
                 },
                 "day_count": {
-                  "$ref": "#/$defs/DayCount",
-                  "description": "Day count convention for year fractions."
+                  "$ref": "#/$defs/DayCount"
                 },
                 "discount_curve_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Discount curve identifier (for risk attribution)."
+                  "$ref": "#/$defs/Id"
                 },
                 "discount_rate": {
-                  "description": "Discount rate for DCF (annualized).",
+                  "default": null,
                   "format": "double",
                   "type": [
                     "number",
@@ -15618,7 +15645,7 @@
                   ]
                 },
                 "disposition_cost_pct": {
-                  "description": "Optional disposition cost percentage applied to terminal value.\n\nA value of `0.02` represents 2% selling costs. Must be in \\([0, 1)\\).",
+                  "default": null,
                   "format": "double",
                   "type": [
                     "number",
@@ -15626,18 +15653,16 @@
                   ]
                 },
                 "disposition_costs": {
-                  "description": "Optional detailed disposition cost line items (positive outflows) deducted from terminal proceeds.",
+                  "default": [],
                   "items": {
                     "$ref": "#/$defs/Money"
                   },
                   "type": "array"
                 },
                 "id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Unique instrument identifier."
+                  "$ref": "#/$defs/Id"
                 },
                 "noi_schedule": {
-                  "description": "Net operating income schedule (date, amount).",
                   "items": {
                     "maxItems": 2,
                     "minItems": 2,
@@ -15673,8 +15698,7 @@
                     "vol_bump_pct": null,
                     "vol_surface_extrapolation": "error",
                     "ytm_bump_decimal": null
-                  },
-                  "description": "Attributes for tagging and scenarios."
+                  }
                 },
                 "property_type": {
                   "anyOf": [
@@ -15685,7 +15709,7 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Optional property type classification (for reporting)."
+                  "default": null
                 },
                 "purchase_price": {
                   "anyOf": [
@@ -15696,10 +15720,10 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Optional purchase price (useful for IRR / cap rate metrics)."
+                  "default": null
                 },
                 "sale_date": {
-                  "description": "Optional sale/exit date that truncates the DCF horizon.\n\nWhen set, DCF only values unlevered flows up to and including `sale_date`.\nTerminal proceeds (if configured) are realized on `sale_date`.",
+                  "default": null,
                   "type": [
                     "string",
                     "null"
@@ -15714,10 +15738,10 @@
                       "type": "null"
                     }
                   ],
-                  "description": "Optional explicit gross sale price (terminal proceeds), before disposition costs.\n\nWhen set, this takes precedence over `terminal_cap_rate` for terminal proceeds."
+                  "default": null
                 },
                 "stabilized_noi": {
-                  "description": "Optional stabilized NOI override for direct cap.",
+                  "default": null,
                   "format": "double",
                   "type": [
                     "number",
@@ -15725,7 +15749,7 @@
                   ]
                 },
                 "terminal_cap_rate": {
-                  "description": "Optional terminal cap rate for DCF (uses last NOI).",
+                  "default": null,
                   "format": "double",
                   "type": [
                     "number",
@@ -15733,7 +15757,7 @@
                   ]
                 },
                 "terminal_growth_rate": {
-                  "description": "Optional terminal growth rate used to project `NOI_{N+1}` for exit valuation.\n\nMarket convention for exit-cap terminal value is \\(TV = NOI_{N+1} / cap\\_rate\\_exit\\).\nWhen not provided, defaults to 0 (uses last NOI as-is).\nValidation range is \\([-100\\%, 20\\%]\\) to guard against configuration errors.",
+                  "default": null,
                   "format": "double",
                   "type": [
                     "number",
@@ -15741,12 +15765,10 @@
                   ]
                 },
                 "valuation_date": {
-                  "description": "Valuation date (base date for discounting).",
                   "type": "string"
                 },
                 "valuation_method": {
-                  "$ref": "#/$defs/RealEstateValuationMethod",
-                  "description": "Valuation method (DCF or DirectCap)."
+                  "$ref": "#/$defs/RealEstateValuationMethod"
                 }
               },
               "required": [
@@ -16762,7 +16784,7 @@
                   "type": "integer"
                 },
                 "step_schedule": {
-                  "description": "Step schedule: (effective_date, new_rate). Must be sorted by date.\nEach entry sets the rate from that date forward until the next step.",
+                  "description": "Step schedule: (effective_date, new_rate). Must be sorted by date.\nEach entry sets the rate from that date forward until the next step.\n\n**Date convention:** `effective_date` is compared against each\naccrual period's *unadjusted* `accrual_start`. Specify dates as\nunadjusted accrual-period boundaries (typically the issue date plus\ninteger multiples of `freq`); business-day adjustment is not\napplied here. The rate is set at accrual start (per market\nconvention for step-up bonds).",
                   "items": {
                     "maxItems": 2,
                     "minItems": 2,
@@ -18909,45 +18931,36 @@
               "properties": {
                 "attributes": {
                   "$ref": "#/$defs/Attributes",
-                  "default": {},
-                  "description": "Attributes for scenario selection and tagging"
+                  "default": {}
                 },
                 "contract_specs": {
                   "$ref": "#/$defs/VolIndexOptionSpecs",
                   "default": {
                     "index_id": "VIX",
                     "multiplier": 100.0
-                  },
-                  "description": "Contract specifications."
+                  }
                 },
                 "day_count": {
-                  "$ref": "#/$defs/DayCount",
-                  "description": "Day count convention (default: Act365F)."
+                  "$ref": "#/$defs/DayCount"
                 },
                 "discount_curve_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Discount curve identifier for present value calculations."
+                  "$ref": "#/$defs/Id"
                 },
                 "exercise_style": {
                   "$ref": "#/$defs/ExerciseStyle",
-                  "default": "european",
-                  "description": "Exercise style (always European for VIX options)."
+                  "default": "european"
                 },
                 "expiry": {
-                  "description": "Option expiry date.",
                   "type": "string"
                 },
                 "id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Unique identifier."
+                  "$ref": "#/$defs/Id"
                 },
                 "notional": {
-                  "$ref": "#/$defs/Money",
-                  "description": "Notional exposure in currency units."
+                  "$ref": "#/$defs/Money"
                 },
                 "option_type": {
-                  "$ref": "#/$defs/OptionType",
-                  "description": "Option type (Call or Put)."
+                  "$ref": "#/$defs/OptionType"
                 },
                 "pricing_overrides": {
                   "$ref": "#/$defs/PricingOverrides",
@@ -18968,28 +18981,24 @@
                     "vol_bump_pct": null,
                     "vol_surface_extrapolation": "error",
                     "ytm_bump_decimal": null
-                  },
-                  "description": "Attributes for tagging and selection."
+                  }
                 },
                 "settlement_date": {
-                  "description": "Settlement date (typically same as expiry for cash-settled).",
+                  "default": null,
                   "type": [
                     "string",
                     "null"
                   ]
                 },
                 "strike": {
-                  "description": "Strike price (in index points, e.g., 20.0).",
                   "format": "double",
                   "type": "number"
                 },
                 "vol_index_curve_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Volatility index forward curve identifier."
+                  "$ref": "#/$defs/Id"
                 },
                 "vol_of_vol_surface_id": {
-                  "$ref": "#/$defs/Id",
-                  "description": "Vol-of-vol surface identifier for option implied volatility."
+                  "$ref": "#/$defs/Id"
                 }
               },
               "required": [

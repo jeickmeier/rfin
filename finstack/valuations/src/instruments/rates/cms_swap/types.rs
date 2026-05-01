@@ -260,6 +260,7 @@ impl CmsSwap {
             day_count: cms_day_count,
             payment_lag_days: 0,
             reset_lag_days: None,
+            adjust_accrual_dates: false,
         })?;
 
         if cms_periods.is_empty() {
@@ -288,6 +289,7 @@ impl CmsSwap {
                     day_count,
                     payment_lag_days: 0,
                     reset_lag_days: None,
+                    adjust_accrual_dates: false,
                 })?;
                 FundingLeg::Fixed {
                     rate,
@@ -315,6 +317,7 @@ impl CmsSwap {
                     day_count,
                     payment_lag_days: 0,
                     reset_lag_days: None,
+                    adjust_accrual_dates: false,
                 })?;
                 FundingLeg::Floating {
                     spread,

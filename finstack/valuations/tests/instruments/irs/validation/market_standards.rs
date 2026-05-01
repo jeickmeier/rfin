@@ -1190,6 +1190,7 @@ fn test_sofr_ois_par_rate_matches_quantlib_identity() {
         day_count: DayCount::Act360,
         payment_lag_days: conv.default_payment_lag_days,
         reset_lag_days: None,
+        adjust_accrual_dates: false,
     })
     .expect("periods");
 

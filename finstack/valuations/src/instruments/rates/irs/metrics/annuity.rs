@@ -80,6 +80,13 @@ impl MetricCalculator for AnnuityCalculator {
                 day_count: fixed.day_count,
                 payment_lag_days: fixed.payment_lag_days,
                 reset_lag_days: None,
+                adjust_accrual_dates: matches!(
+                    irs.attributes.get_meta("schedule_adjust"),
+                    Some("acc_and_pay_dates")
+                ) || matches!(
+                    irs.attributes.get_meta("adjust_accrual_dates"),
+                    Some("true")
+                ),
             },
         )?;
         if periods.is_empty() {

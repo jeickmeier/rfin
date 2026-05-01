@@ -9,11 +9,10 @@
 //! - Create `PeriodSchedule` with helper maps for previous date lookups
 //! - Apply business day adjustments using calendars
 
+use super::calendar::resolve_calendar_strict;
 use finstack_core::dates::{
     adjust, BusinessDayConvention, Date, DateExt, HolidayCalendar, ScheduleBuilder, StubKind, Tenor,
 };
-
-use super::calendar::resolve_calendar_strict;
 
 /// Accrual period with payment timing.
 ///
@@ -197,5 +196,22 @@ mod tests {
             "NOT_A_CAL",
         );
         assert!(res.is_err());
+    }
+
+    #[test]
+    fn payment_lag_applies_after_business_day_adjustment() {
+        let schedule = build_dates(
+            d(2029, 5, 4),
+            d(2030, 5, 4),
+            Tenor::annual(),
+            StubKind::None,
+            BusinessDayConvention::ModifiedFollowing,
+            false,
+            2,
+            "usny",
+        )
+        .expect("schedule should build");
+
+        assert_eq!(schedule.periods[0].payment_date, d(2030, 5, 8));
     }
 }

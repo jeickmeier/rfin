@@ -176,6 +176,7 @@ fn test_asw_par_tracks_coupon_minus_par_rate() {
             day_count: spec.dc,
             payment_lag_days: spec.payment_lag_days,
             reset_lag_days: None,
+            adjust_accrual_dates: false,
         },
     )
     .expect("schedule build should succeed");

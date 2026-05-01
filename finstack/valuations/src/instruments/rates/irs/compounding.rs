@@ -186,6 +186,16 @@ pub enum FloatingLegCompounding {
         /// Number of business days to shift both observation dates and DCF weights.
         shift_days: i32,
     },
+
+    /// Compounded in arrears with a rate cut-off near the period end.
+    ///
+    /// This freezes the last observed overnight rate for the final `cutoff_days`
+    /// business days of the accrual period. Bloomberg SWPM labels this
+    /// convention as "Rate Cut-Off Days".
+    CompoundedWithRateCutoff {
+        /// Number of business days before period end to freeze the overnight rate.
+        cutoff_days: i32,
+    },
 }
 
 impl Default for FloatingLegCompounding {
@@ -254,6 +264,11 @@ impl FloatingLegCompounding {
     pub fn sonia_observation_shift() -> Self {
         Self::CompoundedWithObservationShift { shift_days: 5 }
     }
+
+    /// Compounded RFR with an end-of-period rate cut-off.
+    pub fn rate_cutoff(cutoff_days: i32) -> Self {
+        Self::CompoundedWithRateCutoff { cutoff_days }
+    }
 }
 
 impl std::fmt::Display for FloatingLegCompounding {
@@ -265,6 +280,9 @@ impl std::fmt::Display for FloatingLegCompounding {
             }
             FloatingLegCompounding::CompoundedWithObservationShift { .. } => {
                 write!(f, "compounded_observation_shift")
+            }
+            FloatingLegCompounding::CompoundedWithRateCutoff { .. } => {
+                write!(f, "compounded_rate_cutoff")
             }
         }
     }
@@ -291,10 +309,13 @@ impl std::str::FromStr for FloatingLegCompounding {
             }
             "sofr_observation_shift" => Ok(Self::sofr_observation_shift()),
             "sonia_observation_shift" => Ok(Self::sonia_observation_shift()),
+            "rate_cutoff" | "rate_cut_off" | "compounded_rate_cutoff" | "compounded_lockout" => {
+                Ok(Self::CompoundedWithRateCutoff { cutoff_days: 0 })
+            }
             other => Err(format!(
                 "Unknown floating leg compounding: '{}'. Valid: simple, sofr, sonia, estr, tona, \
                  fedfunds, compounded_in_arrears, compounded, compounded_observation_shift, \
-                 sofr_observation_shift, sonia_observation_shift",
+                 sofr_observation_shift, sonia_observation_shift, rate_cutoff",
                 other
             )),
         }
@@ -348,5 +369,19 @@ mod tests {
                 serde_json::from_str(&json).expect("Deserialization should succeed in test");
             assert_eq!(method, deserialized);
         }
+    }
+
+    #[test]
+    fn rate_cutoff_roundtrips_and_parses() {
+        let method = FloatingLegCompounding::CompoundedWithRateCutoff { cutoff_days: 1 };
+        let json = serde_json::to_string(&method).expect("serialize rate cutoff");
+        let deserialized: FloatingLegCompounding =
+            serde_json::from_str(&json).expect("deserialize rate cutoff");
+
+        assert_eq!(deserialized, method);
+        assert_eq!(
+            "rate_cutoff".parse::<FloatingLegCompounding>(),
+            Ok(FloatingLegCompounding::CompoundedWithRateCutoff { cutoff_days: 0 })
+        );
     }
 }

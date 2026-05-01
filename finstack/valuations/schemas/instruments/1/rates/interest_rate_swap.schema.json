@@ -1521,6 +1521,29 @@
                     "CompoundedWithObservationShift"
                   ],
                   "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "description": "Compounded in arrears with a rate cut-off near the period end.\n\nThis freezes the last observed overnight rate for the final `cutoff_days`\nbusiness days of the accrual period. Bloomberg SWPM labels this\nconvention as \"Rate Cut-Off Days\".",
+                  "properties": {
+                    "CompoundedWithRateCutoff": {
+                      "properties": {
+                        "cutoff_days": {
+                          "description": "Number of business days before period end to freeze the overnight rate.",
+                          "format": "int32",
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "cutoff_days"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "CompoundedWithRateCutoff"
+                  ],
+                  "type": "object"
                 }
               ]
             },

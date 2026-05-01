@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from .conftest import discover_fixtures, fixture_path
+from .conftest import WORKSPACE_ROOT, discover_fixtures, fixture_path, run_golden
 
 
 def test_fixture_path_pricing() -> None:
@@ -24,4 +24,19 @@ def test_fixture_path_unknown_domain_raises() -> None:
 
 
 def test_discover_fixtures_empty_dir() -> None:
-    assert discover_fixtures("pricing/irs") == []
+    assert discover_fixtures("pricing/nonexistent") == []
+
+
+def test_run_golden_writes_comparison_csv() -> None:
+    report = WORKSPACE_ROOT / "target/golden-reports/golden-comparisons.csv"
+    report.unlink(missing_ok=True)
+
+    run_golden("pricing/irs/usd_sofr_5y_receive_fixed_swpm.json")
+
+    csv = report.read_text(encoding="utf-8")
+    assert (
+        "runner,fixture,metric,actual,expected,abs_diff,rel_diff,abs_tolerance,rel_tolerance,passed,tolerance_reason"
+        in csv
+    )
+    assert "python,pricing/irs/usd_sofr_5y_receive_fixed_swpm.json,npv," in csv
+    assert ",true," in csv
