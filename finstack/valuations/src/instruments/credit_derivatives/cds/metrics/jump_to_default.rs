@@ -73,19 +73,30 @@ impl MetricCalculator for JumpToDefaultLgdOnlyCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
 
-        // Loss given default
-        let lgd = 1.0 - cds.protection.recovery_rate;
+        Ok(signed_lgd_payout(cds))
+    }
+}
 
-        // Jump-to-default amount (unsigned)
-        let jtd_amount = cds.notional.amount() * lgd;
+/// Clean default exposure calculator.
+///
+/// Computes signed LGD payout less the current mark. Unlike
+/// `jump_to_default`, this excludes accrued premium on default, matching
+/// Bloomberg-style clean "Def Exposure" screens.
+pub(crate) struct DefaultExposureCalculator;
 
-        // Apply sign based on position
-        let signed_jtd = match cds.side {
-            PayReceive::PayFixed => jtd_amount,      // Buyer gains
-            PayReceive::ReceiveFixed => -jtd_amount, // Seller loses
-        };
+impl MetricCalculator for DefaultExposureCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
+        let cds: &CreditDefaultSwap = context.instrument_as()?;
+        Ok(signed_lgd_payout(cds) - context.base_value.amount())
+    }
+}
 
-        Ok(signed_jtd)
+fn signed_lgd_payout(cds: &CreditDefaultSwap) -> f64 {
+    let lgd = 1.0 - cds.protection.recovery_rate;
+    let payout = cds.notional.amount() * lgd;
+    match cds.side {
+        PayReceive::PayFixed => payout,
+        PayReceive::ReceiveFixed => -payout,
     }
 }
 

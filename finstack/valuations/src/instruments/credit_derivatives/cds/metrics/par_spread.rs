@@ -4,7 +4,7 @@
 //! using the pricing engine's par-spread calculation. This is independent
 //! of the instrument's current quoted spread.
 
-use crate::instruments::credit_derivatives::cds::pricer::CDSPricer;
+use crate::instruments::credit_derivatives::cds::pricer::{CDSPricer, CDSPricerConfig};
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
@@ -19,7 +19,7 @@ impl MetricCalculator for ParSpreadCalculator {
             .curves
             .get_discount(&cds.premium.discount_curve_id)?;
         let surv = context.curves.get_hazard(&cds.protection.credit_curve_id)?;
-        let pricer = CDSPricer::new();
+        let pricer = CDSPricer::with_config(CDSPricerConfig::from_cds(cds));
         pricer.par_spread(cds, disc.as_ref(), surv.as_ref(), context.as_of)
     }
 }

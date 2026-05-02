@@ -16,22 +16,22 @@ use finstack_valuations::pricer::{ModelKey, Pricer};
 use time::macros::date;
 
 #[test]
-fn test_simple_swaption_black_pricer_forces_black() {
+fn test_simple_swaption_black76_pricer_honors_instrument_vol_model() {
     let (as_of, expiry, swap_start, swap_end) = standard_dates();
     let mut swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
     swaption.vol_model = finstack_valuations::instruments::rates::swaption::VolatilityModel::Normal;
     swaption.pricing_overrides = swaption.pricing_overrides.clone().with_implied_vol(0.25);
 
     let market = create_flat_market(as_of, 0.03, 0.2);
-    let expected_black = swaption.price_black(&market, 0.25, as_of).unwrap();
+    let expected_normal = swaption.price_normal(&market, 0.25, as_of).unwrap();
     let pricer = SimpleSwaptionBlackPricer::with_model(ModelKey::Black76);
     let result = pricer.price_dyn(&swaption, &market, as_of).unwrap().value;
 
     assert_approx_eq(
         result.amount(),
-        expected_black.amount(),
+        expected_normal.amount(),
         1e-10,
-        "pricer black result",
+        "pricer should honor instrument volatility model",
     );
 }
 

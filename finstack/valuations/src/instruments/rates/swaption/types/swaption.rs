@@ -5,11 +5,13 @@ use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
 use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
+use crate::instruments::rates::irs::{
+    FixedLegSpec, FloatLegSpec, FloatingLegCompounding, InterestRateSwap, PayReceive,
+};
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::surfaces::VolSurfaceAxis;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 use finstack_core::types::{CalendarId, CurveId, InstrumentId};
@@ -93,6 +95,22 @@ pub struct Swaption {
     /// ```
     #[serde(default)]
     pub calendar_id: Option<CalendarId>,
+    /// Optional full fixed-leg specification for the underlying swap.
+    ///
+    /// When omitted, the pricer derives a vanilla fixed leg from the legacy
+    /// swaption fields (`fixed_freq`, `day_count`, dates, calendar, discount
+    /// curve). Use this for Bloomberg-style underliers that need explicit
+    /// payment lag, stub, calendar, or day-count conventions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub underlying_fixed_leg: Option<FixedLegSpec>,
+    /// Optional full floating-leg specification for the underlying swap.
+    ///
+    /// When omitted, the pricer derives a simple term-rate floating leg from the
+    /// legacy swaption fields. Use this for compounded SOFR/SONIA underliers
+    /// that need reset calendars, payment lag, cutoff, or observation-shift
+    /// conventions.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub underlying_float_leg: Option<FloatLegSpec>,
     /// Pricing overrides (manual price, yield, spread)
     #[serde(default)]
     #[builder(default)]
@@ -165,6 +183,8 @@ impl Swaption {
             forward_curve_id: CurveId::new("USD-OIS"),
             vol_surface_id: CurveId::new("USD-SWPNVOL"),
             calendar_id: None,
+            underlying_fixed_leg: None,
+            underlying_float_leg: None,
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::new(),
@@ -204,6 +224,8 @@ impl Swaption {
             forward_curve_id: CurveId::new("USD-OIS"),
             vol_surface_id: CurveId::new("USD-SWPNVOL"),
             calendar_id: None,
+            underlying_fixed_leg: None,
+            underlying_float_leg: None,
             pricing_overrides: PricingOverrides::default(),
             sabr_params: Some(SABRParameters {
                 alpha: 0.025,
@@ -242,6 +264,8 @@ impl Swaption {
             forward_curve_id: forward_curve_id.into(),
             vol_surface_id: vol_surface_id.into(),
             calendar_id: None,
+            underlying_fixed_leg: None,
+            underlying_float_leg: None,
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),
@@ -288,6 +312,8 @@ impl Swaption {
             forward_curve_id: forward_curve_id.into(),
             vol_surface_id: vol_surface_id.into(),
             calendar_id: None,
+            underlying_fixed_leg: None,
+            underlying_float_leg: None,
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),
@@ -342,13 +368,119 @@ impl Swaption {
         self
     }
 
-    /// Resolve the effective calendar ID for schedule generation.
-    ///
-    /// Returns the user-configured calendar or falls back to weekends-only.
-    fn effective_calendar_id(&self) -> &str {
+    fn effective_calendar_string(&self) -> Option<String> {
         self.calendar_id
-            .as_deref()
-            .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID)
+            .as_ref()
+            .map(std::string::ToString::to_string)
+    }
+
+    fn default_fixed_leg(&self, rate: Decimal) -> FixedLegSpec {
+        FixedLegSpec {
+            discount_curve_id: self.discount_curve_id.clone(),
+            rate,
+            frequency: self.fixed_freq,
+            day_count: self.day_count,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: self.effective_calendar_string(),
+            stub: StubKind::None,
+            start: self.swap_start,
+            end: self.swap_end,
+            par_method: None,
+            compounding_simple: true,
+            payment_lag_days: 0,
+            end_of_month: false,
+        }
+    }
+
+    fn default_float_leg(&self) -> FloatLegSpec {
+        FloatLegSpec {
+            discount_curve_id: self.discount_curve_id.clone(),
+            forward_curve_id: self.forward_curve_id.clone(),
+            spread_bp: Decimal::ZERO,
+            frequency: self.float_freq,
+            day_count: self.day_count,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: self.effective_calendar_string(),
+            stub: StubKind::None,
+            reset_lag_days: 0,
+            fixing_calendar_id: self.effective_calendar_string(),
+            start: self.swap_start,
+            end: self.swap_end,
+            compounding: FloatingLegCompounding::Simple,
+            payment_lag_days: 0,
+            end_of_month: false,
+        }
+    }
+
+    fn underlying_fixed_leg_with_rate(&self, rate: Decimal) -> FixedLegSpec {
+        let mut fixed = self
+            .underlying_fixed_leg
+            .clone()
+            .unwrap_or_else(|| self.default_fixed_leg(rate));
+        fixed.rate = rate;
+        fixed
+    }
+
+    fn underlying_irs(&self, fixed_rate: f64, side: PayReceive) -> Result<InterestRateSwap> {
+        self.underlying_irs_with_float(fixed_rate, side, None)
+    }
+
+    fn underlying_irs_for_market(
+        &self,
+        fixed_rate: f64,
+        side: PayReceive,
+        curves: &MarketContext,
+    ) -> Result<InterestRateSwap> {
+        let float = if self.underlying_float_leg.is_some() {
+            self.underlying_float_leg.clone()
+        } else {
+            let mut float = self.default_float_leg();
+            if let Ok(forward) = curves.get_forward(self.forward_curve_id.as_ref()) {
+                float.day_count = forward.day_count();
+            }
+            Some(float)
+        };
+        self.underlying_irs_with_float(fixed_rate, side, float)
+    }
+
+    fn underlying_irs_with_float(
+        &self,
+        fixed_rate: f64,
+        side: PayReceive,
+        float: Option<FloatLegSpec>,
+    ) -> Result<InterestRateSwap> {
+        let fixed_rate = finstack_core::decimal::f64_to_decimal(fixed_rate)?;
+        let fixed = self.underlying_fixed_leg_with_rate(fixed_rate);
+        let float = float.unwrap_or_else(|| {
+            self.underlying_float_leg
+                .clone()
+                .unwrap_or_else(|| self.default_float_leg())
+        });
+
+        let irs = InterestRateSwap::builder()
+            .id(InstrumentId::new(format!("{}:UNDERLIER", self.id.as_str())))
+            .notional(self.notional)
+            .side(side)
+            .fixed(fixed)
+            .float(float)
+            .build()?;
+        irs.validate()?;
+        Ok(irs)
+    }
+
+    fn underlying_tenor_years(&self) -> Result<f64> {
+        if self.swap_end <= self.swap_start {
+            return Err(Error::Validation(format!(
+                "Swaption '{}' has non-positive underlying tenor",
+                self.id
+            )));
+        }
+
+        let month_delta = (self.swap_end.year() - self.swap_start.year()) * 12
+            + i32::from(self.swap_end.month() as u8)
+            - i32::from(self.swap_start.month() as u8);
+        let day_delta = f64::from(self.swap_end.day()) - f64::from(self.swap_start.day());
+        Ok(f64::from(month_delta) / 12.0 + day_delta / 365.0)
     }
 
     /// Set the cash settlement annuity method.
@@ -558,30 +690,15 @@ impl Swaption {
         use crate::instruments::common_impl::pricing::time::relative_df_discounting;
         use finstack_core::math::NeumaierAccumulator;
 
+        let underlier = self.underlying_irs(1.0, PayReceive::ReceiveFixed)?;
+        let sched = crate::instruments::rates::irs::cashflow::fixed_leg_schedule(&underlier)?;
         let mut annuity = NeumaierAccumulator::new();
-        let sched = crate::cashflow::builder::build_dates(
-            self.swap_start,
-            self.swap_end,
-            self.fixed_freq,
-            StubKind::None,
-            BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
-            false,
-            0,
-            self.effective_calendar_id(),
-        )?;
-        let dates = sched.dates;
-        if dates.len() < 2 {
-            return Ok(0.0);
-        }
-        let mut prev = dates[0];
-        for window in dates.windows(2) {
-            let d = window[1];
-            // Accrual uses instrument's day count (correct for coupon calculation)
-            let accrual = year_fraction(self.day_count, prev, d)?;
-            // DF uses curve-consistent relative DF (correct for discounting)
-            let df = relative_df_discounting(disc, as_of, d)?;
-            annuity.add(accrual * df);
-            prev = d;
+        for flow in sched.flows {
+            if flow.date <= as_of {
+                continue;
+            }
+            let df = relative_df_discounting(disc, as_of, flow.date)?;
+            annuity.add(flow.amount.amount() / self.notional.amount() * df);
         }
         Ok(annuity.total())
     }
@@ -689,48 +806,24 @@ impl Swaption {
     /// - PV_float = Σ (accrual_i × forward_i × DF_i)
     /// - Annuity = Σ (accrual_i × DF_i) for all fixed leg payments.
     pub fn forward_swap_rate(&self, curves: &MarketContext, as_of: Date) -> Result<f64> {
-        use crate::instruments::common_impl::pricing::time::{
-            rate_period_on_dates, relative_df_discounting,
-        };
-
         let disc = curves.get_discount(self.discount_curve_id.as_ref())?;
         let annuity = self.swap_annuity(disc.as_ref(), as_of)?;
         if annuity.abs() < 1e-10 {
             return Ok(0.0);
         }
 
-        // Single-curve optimization
-        if self.forward_curve_id == self.discount_curve_id {
+        if self.underlying_float_leg.is_none() && self.forward_curve_id == self.discount_curve_id {
+            use crate::instruments::common_impl::pricing::time::relative_df_discounting;
+
             let df_start = relative_df_discounting(disc.as_ref(), as_of, self.swap_start)?;
             let df_end = relative_df_discounting(disc.as_ref(), as_of, self.swap_end)?;
             return Ok((df_start - df_end) / annuity);
         }
 
-        let fwd = curves.get_forward(self.forward_curve_id.as_ref())?;
-        let fwd_dc = fwd.day_count();
-        let sched = crate::cashflow::builder::build_dates(
-            self.swap_start,
-            self.swap_end,
-            self.float_freq,
-            StubKind::None,
-            BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
-            false,
-            0,
-            self.effective_calendar_id(),
-        )?;
+        let underlier = self.underlying_irs_for_market(0.0, PayReceive::ReceiveFixed, curves)?;
+        let pv_float = underlier.pv_float_leg(curves, as_of)?;
 
-        let mut pv_float = 0.0;
-        let mut prev = self.swap_start;
-        for &d in sched.dates.iter().skip(1) {
-            let accrual =
-                fwd_dc.year_fraction(prev, d, finstack_core::dates::DayCountContext::default())?;
-            let fwd_rate = rate_period_on_dates(fwd.as_ref(), prev, d)?;
-            let df = relative_df_discounting(disc.as_ref(), as_of, d)?;
-            pv_float += accrual * fwd_rate * df;
-            prev = d;
-        }
-
-        Ok(pv_float / annuity)
+        Ok(pv_float / (self.notional.amount() * annuity))
     }
 
     /// Resolve volatility from SABR parameters, pricing override, or volatility surface.
@@ -765,10 +858,11 @@ impl Swaption {
             return Ok(impl_vol);
         }
 
-        // 3. Volatility surface
-        let vol_surface = curves.get_surface(self.vol_surface_id.as_str())?;
-        vol_surface.require_secondary_axis(VolSurfaceAxis::Strike)?;
+        // 3. Volatility provider. Strike surfaces use the strike coordinate;
+        // tenor surfaces and SABR cubes use the underlying swap tenor.
+        let vol_provider = curves.get_vol_provider(self.vol_surface_id.as_str())?;
         let strike = self.strike_f64()?;
+        let underlying_tenor = self.underlying_tenor_years()?;
         match self
             .pricing_overrides
             .model_config
@@ -776,10 +870,10 @@ impl Swaption {
         {
             VolSurfaceExtrapolation::Clamp | VolSurfaceExtrapolation::LinearInVariance => {
                 // LinearInVariance falls back to Clamp until surface impl is ready
-                Ok(vol_surface.value_clamped(time_to_expiry, strike))
+                Ok(vol_provider.vol_clamped(time_to_expiry, underlying_tenor, strike))
             }
             VolSurfaceExtrapolation::Error => {
-                Ok(vol_surface.value_checked(time_to_expiry, strike)?)
+                Ok(vol_provider.vol(time_to_expiry, underlying_tenor, strike)?)
             }
         }
     }
@@ -844,8 +938,6 @@ impl crate::instruments::common_impl::traits::Instrument for Swaption {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
-
         // The default `Instrument::value()` path only implements European exercise.
         // Bermudan / American swaptions must be priced via the dedicated LMM
         // pricer (see `swaption::lmm_pricer::LmmPricer`); silently downcasting to
@@ -869,26 +961,8 @@ impl crate::instruments::common_impl::traits::Instrument for Swaption {
         }
 
         let time_to_expiry = year_fraction(self.day_count, as_of, self.expiry)?;
-        let vol_surface = curves.get_surface(self.vol_surface_id.as_str())?;
-        vol_surface.require_secondary_axis(VolSurfaceAxis::Strike)?;
-        let strike = self.strike_f64()?;
-        let vol = if let Some(impl_vol) = self.pricing_overrides.market_quotes.implied_volatility {
-            impl_vol
-        } else {
-            match self
-                .pricing_overrides
-                .model_config
-                .vol_surface_extrapolation
-            {
-                VolSurfaceExtrapolation::Clamp | VolSurfaceExtrapolation::LinearInVariance => {
-                    // LinearInVariance falls back to Clamp until surface impl is ready
-                    vol_surface.value_clamped(time_to_expiry, strike)
-                }
-                VolSurfaceExtrapolation::Error => {
-                    vol_surface.value_checked(time_to_expiry, strike)?
-                }
-            }
-        };
+        let forward = self.forward_swap_rate(curves, as_of)?;
+        let vol = self.resolve_volatility(curves, forward, time_to_expiry)?;
 
         match self.vol_model {
             VolatilityModel::Black => self.price_black(curves, vol, as_of),

@@ -15,7 +15,9 @@
 //! - Jump to default (includes accrued premium)
 //! - Jump to default LGD only (excludes accrued premium)
 
+mod cs01;
 mod cs_gamma;
+mod dv01;
 mod expected_loss;
 mod jump_to_default;
 mod par_spread;
@@ -27,6 +29,25 @@ mod risky_annuity;
 mod risky_pv01;
 
 use crate::metrics::MetricRegistry;
+
+pub(crate) fn market_doc_clause(
+    cds: &crate::instruments::credit_derivatives::cds::CreditDefaultSwap,
+) -> crate::market::conventions::ids::CdsDocClause {
+    use crate::instruments::credit_derivatives::cds::CdsDocClause as InstrumentClause;
+    use crate::market::conventions::ids::CdsDocClause as MarketClause;
+
+    match cds.doc_clause_effective() {
+        InstrumentClause::Cr14 | InstrumentClause::Mr14 | InstrumentClause::Xr14 => {
+            MarketClause::IsdaNa
+        }
+        InstrumentClause::Mm14 => MarketClause::IsdaEu,
+        InstrumentClause::IsdaNa => MarketClause::IsdaNa,
+        InstrumentClause::IsdaEu => MarketClause::IsdaEu,
+        InstrumentClause::IsdaAs => MarketClause::IsdaAs,
+        InstrumentClause::IsdaAu | InstrumentClause::IsdaNz => MarketClause::IsdaAs,
+        InstrumentClause::Custom => MarketClause::Custom,
+    }
+}
 
 /// Register all CDS metrics with the registry
 pub(crate) fn register_cds_metrics(registry: &mut MetricRegistry) {
@@ -61,9 +82,7 @@ pub(crate) fn register_cds_metrics(registry: &mut MetricRegistry) {
         metrics: [
             (ParSpread, par_spread::ParSpreadCalculator),
             (RiskyAnnuity, risky_annuity::RiskyAnnuityCalculator),
-            (Cs01, crate::metrics::GenericParallelCs01::<
-                crate::instruments::CreditDefaultSwap,
-            >::default()),
+            (Cs01, cs01::CdsCs01Calculator),
             (BucketedCs01, crate::metrics::GenericBucketedCs01::<
                 crate::instruments::CreditDefaultSwap,
             >::default()),
@@ -72,9 +91,8 @@ pub(crate) fn register_cds_metrics(registry: &mut MetricRegistry) {
             (PremiumLegPv, pv_premium::PremiumLegPvCalculator),
             (ExpectedLoss, expected_loss::ExpectedLossCalculator),
             (JumpToDefault, jump_to_default::JumpToDefaultCalculator),
-            (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::CreditDefaultSwap,
-            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (DefaultExposure, jump_to_default::DefaultExposureCalculator),
+            (Dv01, dv01::CdsDv01Calculator),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::CreditDefaultSwap,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),

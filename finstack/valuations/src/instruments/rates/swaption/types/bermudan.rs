@@ -467,6 +467,8 @@ impl BermudanSwaption {
             forward_curve_id: self.forward_curve_id.clone(),
             vol_surface_id: self.vol_surface_id.clone(),
             calendar_id: self.calendar_id.clone(),
+            underlying_fixed_leg: None,
+            underlying_float_leg: None,
             pricing_overrides: self.pricing_overrides.clone(),
             sabr_params: None,
             attributes: self.attributes.clone(),

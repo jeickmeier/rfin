@@ -321,6 +321,8 @@ impl CDSIndex {
             premium: self.premium_with_standard_defaults(),
             protection: self.protection_with_standard_defaults(),
             pricing_overrides: self.pricing_overrides.clone(),
+            valuation_convention:
+                crate::instruments::credit_derivatives::cds::CdsValuationConvention::default(),
             upfront: None,
             doc_clause: None,
             protection_effective_date: None,

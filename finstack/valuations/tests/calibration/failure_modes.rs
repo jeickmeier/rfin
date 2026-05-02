@@ -93,6 +93,7 @@ fn hazard_preflight_rejects_entity_mismatch() {
             interpolation: InterpStyle::Linear,
             par_interp: ParInterp::Linear,
             doc_clause: None,
+            cds_valuation_convention: None,
         }),
     };
 

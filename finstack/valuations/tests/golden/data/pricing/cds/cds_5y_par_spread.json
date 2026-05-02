@@ -2,32 +2,54 @@
   "schema_version": "finstack.golden/1",
   "name": "cds_5y_par_spread",
   "domain": "credit.cds",
-  "description": "Synthetic 5Y single-name CDS with running spread near par.",
+  "description": "Bloomberg CDSW 5Y IBM single-name CDS with standard coupon and quoted spread.",
   "provenance": {
-    "as_of": "2026-04-30",
-    "source": "formula",
-    "source_detail": "Finstack canonical credit pricing calculation on deterministic synthetic market inputs",
+    "as_of": "2026-05-02",
+    "source": "bloomberg-screen",
+    "source_detail": "Bloomberg CDSW IBM USD senior CDS, 2014 SNAC XR14, S531 USD Custom Swap Curve - Mid, IBM USD Senior Curve, valuation date 2026-05-02",
     "captured_by": "jeickmeier",
-    "captured_on": "2026-05-01",
+    "captured_on": "2026-05-02",
     "last_reviewed_by": "jeickmeier",
-    "last_reviewed_on": "2026-05-01",
+    "last_reviewed_on": "2026-05-02",
     "review_interval_months": 6,
-    "regen_command": "manual formula fixture; values captured from canonical pricing runner",
-    "screenshots": []
+    "regen_command": "manual Bloomberg CDSW/CDSD screen transcription; see provenance.screenshots",
+    "screenshots": [
+      {
+        "path": "screenshots/cds_5y_par_spread__main.png",
+        "screen": "CDSW",
+        "captured_on": "2026-05-02",
+        "description": "Main Bloomberg CDS valuation screen with IBM terms, quoted spread, standard coupon, upfront, spread DV01, IR DV01, and default exposure"
+      },
+      {
+        "path": "screenshots/cds_5y_par_spread__swap_curve.png",
+        "screen": "CDSW",
+        "captured_on": "2026-05-02",
+        "description": "S531 USD Custom Swap Curve - Mid benchmark curve rates used by the CDS valuation screen"
+      },
+      {
+        "path": "screenshots/cds_5y_par_spread__credit_curve.png",
+        "screen": "CDSD",
+        "captured_on": "2026-05-02",
+        "description": "IBM USD Senior Curve single-name CDS spread term structure"
+      }
+    ]
   },
   "inputs": {
-    "valuation_date": "2026-04-30",
+    "valuation_date": "2026-05-02",
     "model": "hazard_rate",
     "metrics": [
       "par_spread",
       "risky_pv01",
       "dv01",
-      "cs01"
+      "cs01",
+      "recovery_01",
+      "jump_to_default",
+      "default_exposure"
     ],
     "instrument_json": {
       "type": "credit_default_swap",
       "spec": {
-        "id": "CDS-5Y-PAR-SPREAD-GOLDEN",
+        "id": "IBM-USD-SENIOR-CDS-5Y-CDSW-20260502",
         "notional": {
           "amount": "10000000",
           "currency": "USD"
@@ -35,8 +57,8 @@
         "side": "pay",
         "convention": "isda_na",
         "premium": {
-          "start": "2026-04-30",
-          "end": "2031-04-30",
+          "start": "2026-03-20",
+          "end": "2031-06-20",
           "frequency": {
             "count": 3,
             "unit": "months"
@@ -45,148 +67,136 @@
           "bdc": "modified_following",
           "calendar_id": "nyse",
           "day_count": "Act360",
-          "spread_bp": "125.0",
-          "discount_curve_id": "USD-OIS"
+          "spread_bp": "100.0",
+          "discount_curve_id": "USD-S531-SWAP"
         },
         "protection": {
-          "credit_curve_id": "CORP-HAZARD",
+          "credit_curve_id": "IBM-USD-SENIOR",
           "recovery_rate": 0.4,
-          "settlement_delay": 3
+          "settlement_delay": 2
         },
-        "pricing_overrides": {},
+        "valuation_convention": "bloomberg_cdsw_clean",
+        "doc_clause": "xr14",
+        "protection_effective_date": "2026-05-02",
         "attributes": {
           "tags": [
-            "golden"
+            "golden",
+            "bloomberg",
+            "cdsw",
+            "single-name-cds"
           ],
-          "meta": {}
+          "meta": {
+            "bloomberg_screen": "CDSW",
+            "reference_entity": "International Business Machines Corp",
+            "ticker": "IBM",
+            "reference_obligation": "US459200KA85",
+            "debt_type": "Senior",
+            "contract": "2014 SNAC",
+            "restructuring": "XR14",
+            "trade_date": "2026-05-02",
+            "cash_settle_date": "2026-05-07",
+            "cash_calculated_date": "2026-05-06",
+            "curve_date": "2026-05-02",
+            "swap_curve": "S531 USD Custom Swap Curve - Mid",
+            "cds_curve": "IBM USD Senior Curve"
+          }
         }
       }
     },
     "curves": {
       "discount": [
         {
-          "id": "USD-OIS",
-          "base_date": "2026-04-30",
+          "id": "USD-S531-SWAP",
+          "base_date": "2026-05-02",
           "day_count": "act_365f",
           "interp": "log_linear",
           "knots": [
-            [
-              0.0,
-              1.0
-            ],
-            [
-              0.25,
-              0.99
-            ],
-            [
-              0.5,
-              0.9802
-            ],
-            [
-              1.0,
-              0.9608
-            ],
-            [
-              2.0,
-              0.9231
-            ],
-            [
-              5.0,
-              0.8187
-            ],
-            [
-              7.0,
-              0.755
-            ],
-            [
-              10.0,
-              0.6703
-            ]
+            [0.0, 1.0],
+            [0.13972602739726028, 0.9948564304744848],
+            [0.38904109589041097, 0.98574857],
+            [0.6383561643835617, 0.97668173],
+            [0.8876712328767123, 0.96764815],
+            [1.1369863013698631, 0.95875431],
+            [1.3863013698630137, 0.94999432],
+            [1.6356164383561644, 0.94131437],
+            [1.8849315068493151, 0.93271373],
+            [2.136986301369863, 0.92419467],
+            [2.389041095890411, 0.91584876],
+            [2.6383561643835617, 0.9076677],
+            [2.884931506849315, 0.89964844],
+            [3.136986301369863, 0.8914406],
+            [3.389041095890411, 0.88321729],
+            [3.6383561643835617, 0.87515799],
+            [3.884931506849315, 0.86725959],
+            [4.136986301369863, 0.85911547],
+            [4.389041095890411, 0.85089899],
+            [4.638356164383562, 0.84284912],
+            [4.884931506849315, 0.83496263],
+            [5.136986301369863, 0.82680571]
           ]
         }
       ],
       "hazard": [
         {
-          "id": "CORP-HAZARD",
-          "base_date": "2026-04-30",
+          "id": "IBM-USD-SENIOR",
+          "base_date": "2026-05-02",
           "recovery_rate": 0.4,
           "day_count": "act_365f",
           "knots": [
+            [0.13972602739726028, 0.00997646002277055],
+            [0.38904109589041097, 0.010174852397118335],
+            [0.6383561643835617, 0.010172469869400271],
+            [0.8876712328767123, 0.010174050726913558],
+            [1.1369863013698631, 0.010175577951597636],
+            [1.3863013698630137, 0.010177051103745225],
+            [1.6356164383561644, 0.010174391557496821],
+            [1.8849315068493151, 0.010171645976754756],
+            [2.136986301369863, 0.010175861524607866],
+            [2.389041095890411, 0.010173574090087208],
+            [2.6383561643835617, 0.010175851741102628],
+            [2.884931506849315, 0.010177267513353205],
+            [3.136986301369863, 0.010173574731178204],
+            [3.389041095890411, 0.010175091002821083],
+            [3.6383561643835617, 0.01017184051056745],
+            [3.884931506849315, 0.010176000795259657],
+            [4.136986301369863, 0.01017429786109359],
+            [4.389041095890411, 0.010175565889646949],
+            [4.638356164383562, 0.010175080613668764],
+            [4.884931506849315, 0.010173650631709215],
+            [5.136986301369863, 0.010286841673740938]
+          ],
+          "par_spreads": [
             [
-              0.25,
-              0.012
+              0.5,
+              10.5
             ],
             [
               1.0,
-              0.014
+              14.5
+            ],
+            [
+              2.0,
+              22.0
             ],
             [
               3.0,
-              0.018
+              32.0
+            ],
+            [
+              4.0,
+              43.5
             ],
             [
               5.0,
-              0.022
+              57.0
+            ],
+            [
+              7.0,
+              68.5
             ],
             [
               10.0,
-              0.028
-            ]
-          ]
-        },
-        {
-          "id": "HY-CORP-HAZARD",
-          "base_date": "2026-04-30",
-          "recovery_rate": 0.35,
-          "day_count": "act_365f",
-          "knots": [
-            [
-              0.25,
-              0.035
-            ],
-            [
-              1.0,
-              0.045
-            ],
-            [
-              3.0,
-              0.06
-            ],
-            [
-              5.0,
-              0.075
-            ],
-            [
-              10.0,
-              0.09
-            ]
-          ]
-        },
-        {
-          "id": "CDX.NA.IG.HAZARD",
-          "base_date": "2026-04-30",
-          "recovery_rate": 0.4,
-          "day_count": "act_365f",
-          "knots": [
-            [
-              0.25,
-              0.01
-            ],
-            [
-              1.0,
-              0.012
-            ],
-            [
-              3.0,
-              0.016
-            ],
-            [
-              5.0,
-              0.02
-            ],
-            [
-              10.0,
-              0.025
+              80.4
             ]
           ]
         }
@@ -196,38 +206,286 @@
       "design_metrics": [
         "npv",
         "par_spread",
-        "dv01_spread"
+        "risky_pv01",
+        "dv01",
+        "cs01",
+        "recovery_01",
+        "jump_to_default",
+        "default_exposure"
       ],
-      "dv01_spread_key": "risky_pv01"
+      "curve_date": "2026-05-02",
+      "trade_date": "2026-05-02",
+      "valuation_date": "2026-05-02",
+      "notional": 10000000.0,
+      "coupon_bp": 100.0,
+      "quoted_spread_bp": 60.5,
+      "recovery_rate": 0.4,
+      "discount_curve_note": "Discount factors are transcribed from the Bloomberg CDSW premium cashflow schedule at each future premium payment date.",
+      "hazard_curve_note": "Hazard knots are derived from the Bloomberg CDSW premium cashflow schedule survival probabilities at each future premium payment date. Par spreads are retained as the quoted market curve for spread-risk rebootstrap.",
+      "bloomberg_cashflow_schedule": [
+        {"date": "2026-06-22", "actual_cashflow": 26111.11, "discount_factor": 0.9948564304744848, "survival_probability": 0.998607, "discounted_cashflow": 25940.62},
+        {"date": "2026-09-21", "actual_cashflow": 25277.78, "discount_factor": 0.98574857, "survival_probability": 0.996077, "discounted_cashflow": 24819.79},
+        {"date": "2026-12-21", "actual_cashflow": 25277.78, "discount_factor": 0.97668173, "survival_probability": 0.993554, "discounted_cashflow": 24529.19},
+        {"date": "2027-03-22", "actual_cashflow": 25277.78, "discount_factor": 0.96764815, "survival_probability": 0.991037, "discounted_cashflow": 24240.75},
+        {"date": "2027-06-21", "actual_cashflow": 25277.78, "discount_factor": 0.95875431, "survival_probability": 0.988526, "discounted_cashflow": 23957.1},
+        {"date": "2027-09-20", "actual_cashflow": 25277.78, "discount_factor": 0.94999432, "survival_probability": 0.986021, "discounted_cashflow": 23678.07},
+        {"date": "2027-12-20", "actual_cashflow": 25277.78, "discount_factor": 0.94131437, "survival_probability": 0.983523, "discounted_cashflow": 23402.28},
+        {"date": "2028-03-20", "actual_cashflow": 25277.78, "discount_factor": 0.93271373, "survival_probability": 0.981032, "discounted_cashflow": 23129.71},
+        {"date": "2028-06-20", "actual_cashflow": 25555.56, "discount_factor": 0.92419467, "survival_probability": 0.978519, "discounted_cashflow": 23110.96},
+        {"date": "2028-09-20", "actual_cashflow": 25555.56, "discount_factor": 0.91584876, "survival_probability": 0.976013, "discounted_cashflow": 22843.6},
+        {"date": "2028-12-20", "actual_cashflow": 25277.78, "discount_factor": 0.9076677, "survival_probability": 0.97354, "discounted_cashflow": 22336.73},
+        {"date": "2029-03-20", "actual_cashflow": 25000.0, "discount_factor": 0.89964844, "survival_probability": 0.9711, "discounted_cashflow": 21841.23},
+        {"date": "2029-06-20", "actual_cashflow": 25555.56, "discount_factor": 0.8914406, "survival_probability": 0.968613, "discounted_cashflow": 22066.23},
+        {"date": "2029-09-20", "actual_cashflow": 25555.56, "discount_factor": 0.88321729, "survival_probability": 0.966132, "discounted_cashflow": 21806.68},
+        {"date": "2029-12-20", "actual_cashflow": 25277.78, "discount_factor": 0.87515799, "survival_probability": 0.963685, "discounted_cashflow": 21318.68},
+        {"date": "2030-03-20", "actual_cashflow": 25000.0, "discount_factor": 0.86725959, "survival_probability": 0.96127, "discounted_cashflow": 20841.76},
+        {"date": "2030-06-20", "actual_cashflow": 25555.56, "discount_factor": 0.85911547, "survival_probability": 0.958808, "discounted_cashflow": 21050.79},
+        {"date": "2030-09-20", "actual_cashflow": 25555.56, "discount_factor": 0.85089899, "survival_probability": 0.956352, "discounted_cashflow": 20796.06},
+        {"date": "2030-12-20", "actual_cashflow": 25277.78, "discount_factor": 0.84284912, "survival_probability": 0.953929, "discounted_cashflow": 20323.8},
+        {"date": "2031-03-20", "actual_cashflow": 25000.0, "discount_factor": 0.83496263, "survival_probability": 0.951539, "discounted_cashflow": 19862.49},
+        {"date": "2031-06-20", "actual_cashflow": 25833.33, "discount_factor": 0.82680571, "survival_probability": 0.949075, "discounted_cashflow": 20271.44}
+      ],
+      "bloomberg_future_discounted_cashflows_total": 472167.94,
+      "swap_curve_rates_pct": [
+        {
+          "tenor": "1M",
+          "years": 0.08333333333333333,
+          "rate": 3.644
+        },
+        {
+          "tenor": "2M",
+          "years": 0.16666666666666666,
+          "rate": 3.6528
+        },
+        {
+          "tenor": "3M",
+          "years": 0.25,
+          "rate": 3.6583
+        },
+        {
+          "tenor": "6M",
+          "years": 0.5,
+          "rate": 3.672
+        },
+        {
+          "tenor": "1Y",
+          "years": 1.0,
+          "rate": 3.7255
+        },
+        {
+          "tenor": "2Y",
+          "years": 2.0,
+          "rate": 3.7125
+        },
+        {
+          "tenor": "4Y",
+          "years": 4.0,
+          "rate": 3.684
+        },
+        {
+          "tenor": "5Y",
+          "years": 5.0,
+          "rate": 3.7115
+        },
+        {
+          "tenor": "6Y",
+          "years": 6.0,
+          "rate": 3.7555
+        },
+        {
+          "tenor": "7Y",
+          "years": 7.0,
+          "rate": 3.8045
+        },
+        {
+          "tenor": "8Y",
+          "years": 8.0,
+          "rate": 3.8505
+        },
+        {
+          "tenor": "9Y",
+          "years": 9.0,
+          "rate": 3.894
+        },
+        {
+          "tenor": "10Y",
+          "years": 10.0,
+          "rate": 3.937
+        },
+        {
+          "tenor": "12Y",
+          "years": 12.0,
+          "rate": 4.0235
+        },
+        {
+          "tenor": "15Y",
+          "years": 15.0,
+          "rate": 4.133
+        },
+        {
+          "tenor": "20Y",
+          "years": 20.0,
+          "rate": 4.221
+        },
+        {
+          "tenor": "25Y",
+          "years": 25.0,
+          "rate": 4.2265
+        },
+        {
+          "tenor": "30Y",
+          "years": 30.0,
+          "rate": 4.1935
+        }
+      ],
+      "credit_curve_spreads_bp": [
+        {
+          "tenor": "6M",
+          "years": 0.5,
+          "spread": 10.5
+        },
+        {
+          "tenor": "1Y",
+          "years": 1.0,
+          "spread": 14.5
+        },
+        {
+          "tenor": "2Y",
+          "years": 2.0,
+          "spread": 22.0
+        },
+        {
+          "tenor": "3Y",
+          "years": 3.0,
+          "spread": 32.0
+        },
+        {
+          "tenor": "4Y",
+          "years": 4.0,
+          "spread": 43.5
+        },
+        {
+          "tenor": "5Y",
+          "years": 5.0,
+          "spread": 57.0
+        },
+        {
+          "tenor": "7Y",
+          "years": 7.0,
+          "spread": 68.5
+        },
+        {
+          "tenor": "10Y",
+          "years": 10.0,
+          "spread": 80.4
+        }
+      ],
+      "bloomberg_outputs": {
+        "term": "2031-06-20",
+        "points_upfront": -1.81992197,
+        "spread_bp": 60.5,
+        "default_probability": 0.0509,
+        "price": 101.81992197,
+        "principal": -181992.0,
+        "accrued_44_days": -12222.0,
+        "cash_amount": -194214.0,
+        "spread_dv01": 4680.88,
+        "ir_dv01": 45.91,
+        "recovery_risk_1pct": 76.03,
+        "default_exposure": 6181992.0
+      },
+      "hazard_scale_to_quoted_spread": 1.1225641656700382,
+      "transcription_notes": [
+        "The S531 3Y rate cell is obscured by a Bloomberg tooltip in the attached screenshot; payment-date discount factors are transcribed directly from the Bloomberg cashflow schedule instead.",
+        "Expected outputs use Bloomberg screen values where directly displayed. Tolerances document source precision, not finstack model differences.",
+        "jump_to_default is not shown directly on the Bloomberg screenshot; default_exposure is the asserted Bloomberg Def Exposure screen measure."
+      ],
+      "finstack_reconciliation": {
+        "npv": -188471.34270944516,
+        "npv_minus_bloomberg_principal": -6479.342709445162,
+        "npv_minus_bloomberg_cash_amount": 5742.657290554838,
+        "npv_note": "Finstack NPV is model PV before Bloomberg cash-settlement/accrued display decomposition and uses transcribed curve proxies.",
+        "par_spread": 60.466647716605,
+        "par_spread_minus_bloomberg_spread": -0.033352283395,
+        "risky_pv01": 4751.815205042132,
+        "risky_pv01_minus_bloomberg_spread_dv01": 70.935205042132,
+        "dv01": 49.648937917125,
+        "dv01_minus_bloomberg_ir_dv01": 3.738937917125,
+        "dv01_note": "Finstack CDS DV01 bumps the discount curve and re-bootstraps the par-spread hazard curve under unchanged CDS spreads, matching the Bloomberg-style IR DV01 methodology.",
+        "cs01": 4841.967025592225,
+        "cs01_note": "After preserving source par spreads, finstack CS01 uses par-spread rebootstrap and is within roughly 3.4% of Bloomberg Spread DV01 on the transcribed curve proxy.",
+        "cs01_minus_bloomberg_spread_dv01": 161.08702559222473,
+        "recovery_01": 55.829774948972,
+        "recovery_01_minus_bloomberg_recovery_risk_1pct": -20.200225051028,
+        "recovery_01_note": "Bloomberg reports Rec Risk (1%) as a positive screen risk; finstack stores signed recovery_01. Difference reflects transcribed curve proxies and model convention differences.",
+        "jump_to_default": 5988055.555555556,
+        "jump_to_default_minus_bloomberg_default_exposure": -193936.4444444431,
+        "jump_to_default_note": "Finstack JTD is LGD notional less accrued premium. Bloomberg Def Exposure equals a screen exposure measure and is not asserted as a registered metric.",
+        "default_exposure": 6188471.342709445,
+        "default_exposure_minus_bloomberg_default_exposure": 6479.342709445395,
+        "default_exposure_note": "Bloomberg Def Exposure is 6,181,992; finstack computes the same clean exposure definition from its transcribed curve-proxy mark.",
+        "expected_outputs_policy": "Bloomberg screen values for displayed metrics; exact finstack value only for jump_to_default because no JTD screen value is displayed.",
+        "bloomberg_npv_reference": "principal"
+      },
+      "risk_metric_notes": {
+        "spread_dv01": "Bloomberg Spread DV01 is a +1bp bump to the par CDS spread curve and is represented by finstack cs01, not running-coupon risky_pv01.",
+        "cs01": "Finstack cs01 is par-spread rebootstrap sensitivity after preserving the source IBM curve par-spread quotes on the hazard curve.",
+        "recovery_01": "Finstack recovery_01 is signed PV change for a +1% recovery bump with hazard rebootstrap from stored par-spread quotes.",
+        "jump_to_default": "Finstack jump_to_default includes accrued premium from the last coupon date to valuation date; Bloomberg Def Exposure is retained as a non-compared screen value.",
+        "default_exposure": "Finstack default_exposure is signed clean LGD payout less current mark, matching Bloomberg Def Exposure style but using the transcribed curve proxy."
+      }
     }
   },
   "expected_outputs": {
-    "npv": -67189.29375632282,
-    "par_spread": 109.953676135478,
-    "risky_pv01": 4382.366489958417,
-    "dv01": 11.03687221146538,
-    "cs01": 2615.7881488050043
+    "npv": -181992.0,
+    "par_spread": 60.5,
+    "risky_pv01": 4680.88,
+    "dv01": 45.91,
+    "cs01": 4680.88,
+    "recovery_01": 76.03,
+    "jump_to_default": 5988055.555555556,
+    "default_exposure": 6181992.0
   },
   "tolerances": {
     "npv": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1.0,
+      "rel": 1e-08,
+      "tolerance_reason": "Bloomberg displays Principal rounded to whole USD; tolerance reflects screen precision, not model discrepancy."
     },
     "par_spread": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 0.0001,
+      "rel": 1e-08,
+      "tolerance_reason": "Bloomberg displays spread to four decimal places in bp; tolerance reflects source precision."
     },
     "risky_pv01": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 0.01,
+      "rel": 1e-08,
+      "tolerance_reason": "Bloomberg displays Spread DV01 to cents; tolerance reflects source precision."
     },
     "dv01": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 0.01,
+      "rel": 1e-08,
+      "tolerance_reason": "Bloomberg displays IR DV01 to cents; tolerance reflects source precision."
     },
     "cs01": {
+      "abs": 0.01,
+      "rel": 1e-08,
+      "tolerance_reason": "Bloomberg displays Spread DV01 to cents; tolerance reflects source precision for the comparable spread-risk measure."
+    },
+    "recovery_01": {
+      "abs": 0.01,
+      "rel": 1e-08,
+      "tolerance_reason": "Bloomberg displays Rec Risk (1%) to cents; tolerance reflects source precision."
+    },
+    "jump_to_default": {
       "abs": 1e-06,
-      "rel": 1e-12
+      "rel": 1e-12,
+      "tolerance_reason": "The screenshot does not display accrued-premium-adjusted JTD; this asserts finstack JTD exactly while default_exposure below checks Bloomberg Def Exposure."
+    },
+    "default_exposure": {
+      "abs": 1.0,
+      "rel": 1e-08,
+      "tolerance_reason": "Bloomberg displays Def Exposure rounded to whole USD; tolerance reflects screen precision."
     }
   }
 }

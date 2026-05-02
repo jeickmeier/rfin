@@ -85,6 +85,28 @@ pub enum CDSConvention {
     Custom,
 }
 
+/// Valuation presentation and pricing policy for CDS marks.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum CdsValuationConvention {
+    /// ISDA-style dirty model PV.
+    #[default]
+    IsdaDirty,
+    /// Bloomberg CDSW clean principal presentation and premium-leg policy.
+    BloombergCdswClean,
+}
+
 impl CDSConvention {
     fn registry_id(&self) -> &'static str {
         match self {
@@ -488,6 +510,10 @@ pub struct CreditDefaultSwap {
     #[serde(default)]
     #[builder(default)]
     pub pricing_overrides: PricingOverrides,
+    /// Valuation presentation convention.
+    #[serde(default)]
+    #[builder(default)]
+    pub valuation_convention: CdsValuationConvention,
     /// Upfront payment (Date, Money).
     ///
     /// The amount is defined as a payment from Protection Buyer to Protection Seller.
@@ -760,6 +786,7 @@ impl CreditDefaultSwap {
                 settlement_delay: convention.settlement_delay(),
             },
             pricing_overrides: PricingOverrides::default(),
+            valuation_convention: CdsValuationConvention::default(),
             upfront: None,
             doc_clause: None,
             protection_effective_date: None,
@@ -898,6 +925,30 @@ impl CreditDefaultSwap {
         self.protection_effective_date.unwrap_or(self.premium.start)
     }
 
+    pub(crate) fn uses_clean_price(&self) -> bool {
+        matches!(
+            self.valuation_convention,
+            CdsValuationConvention::BloombergCdswClean
+        ) || self.pricing_overrides.model_config.cds_clean_price
+    }
+
+    pub(crate) fn uses_full_premium_par_spread_denominator(&self) -> bool {
+        matches!(
+            self.valuation_convention,
+            CdsValuationConvention::BloombergCdswClean
+        ) || self
+            .pricing_overrides
+            .model_config
+            .cds_par_spread_uses_full_premium
+    }
+
+    pub(crate) fn uses_adjusted_premium_accrual_dates(&self) -> bool {
+        matches!(
+            self.valuation_convention,
+            CdsValuationConvention::BloombergCdswClean
+        )
+    }
+
     fn build_premium_leg_schedule(
         &self,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
@@ -1010,7 +1061,7 @@ impl CreditDefaultSwap {
         // Apply sign convention based on side
         // Base NPV = Protection (received) - Premium (paid) [as Buyer]
         // Upfront: Positive amount is paid by Buyer. So it reduces Buyer NPV.
-        let npv_amount = match self.side {
+        let mut npv_amount = match self.side {
             PayReceive::PayFixed => {
                 // Protection buyer: pays premium, receives protection, pays upfront (if positive)
                 protection_pv - premium_pv - upfront_pv - upfront_adjustment
@@ -1021,7 +1072,55 @@ impl CreditDefaultSwap {
             }
         };
 
+        if self.uses_clean_price() {
+            let accrued = self.accrued_premium_for_clean_price(as_of)?;
+            npv_amount = match self.side {
+                PayReceive::PayFixed => npv_amount + accrued,
+                PayReceive::ReceiveFixed => npv_amount - accrued,
+            };
+        }
+
         Ok(npv_amount)
+    }
+
+    fn accrued_premium_for_clean_price(
+        &self,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        if as_of <= self.premium.start || as_of >= self.premium.end {
+            return Ok(0.0);
+        }
+
+        let pricer = CDSPricer::new();
+        let schedule = pricer.generate_schedule(self, as_of)?;
+        let mut last_coupon = self.premium.start;
+        for &coupon_date in &schedule {
+            if coupon_date <= as_of {
+                last_coupon = coupon_date;
+            } else {
+                break;
+            }
+        }
+
+        let accrual_fraction = match self.premium.day_count {
+            // Bloomberg CDSW displays accrued days inclusively for standard CDS
+            // cash settlement. This turns 2026-03-20 to 2026-05-02 into 44 days.
+            DayCount::Act360 => {
+                let days = DayCount::calendar_days(last_coupon, as_of) + 1;
+                (days.max(0) as f64) / 360.0
+            }
+            _ => self.premium.day_count.year_fraction(
+                last_coupon,
+                as_of,
+                finstack_core::dates::DayCountContext::default(),
+            )?,
+        };
+        let spread = self.premium.spread_bp.to_f64().ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "premium spread_bp cannot be represented as f64".into(),
+            )
+        })? / 10_000.0;
+        Ok(self.notional.amount() * spread * accrual_fraction)
     }
 
     // (no public/raw-NPV helper; use `Instrument::value_raw()` instead)

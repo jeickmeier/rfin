@@ -2,7 +2,7 @@
 
 use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::rates::swaption::Swaption;
+use crate::instruments::rates::swaption::{Swaption, VolatilityModel};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };
@@ -62,12 +62,6 @@ impl Pricer for SimpleSwaptionBlackPricer {
                         )
                     })?
                 } else {
-                    let strike = swaption.strike_f64().map_err(|e| {
-                        PricingError::model_failure_with_context(
-                            e.to_string(),
-                            PricingErrorContext::default(),
-                        )
-                    })?;
                     let time_to_expiry = year_fraction(swaption.day_count, as_of, swaption.expiry)
                         .map_err(|e| {
                             PricingError::model_failure_with_context(
@@ -75,9 +69,14 @@ impl Pricer for SimpleSwaptionBlackPricer {
                                 PricingErrorContext::default(),
                             )
                         })?;
-
-                    let vol_provider = market
-                        .get_vol_provider(swaption.vol_surface_id.as_str())
+                    let forward = swaption.forward_swap_rate(market, as_of).map_err(|e| {
+                        PricingError::model_failure_with_context(
+                            e.to_string(),
+                            PricingErrorContext::default(),
+                        )
+                    })?;
+                    let vol = swaption
+                        .resolve_volatility(market, forward, time_to_expiry)
                         .map_err(|e| {
                             PricingError::missing_market_data_with_context(
                                 e.to_string(),
@@ -85,24 +84,11 @@ impl Pricer for SimpleSwaptionBlackPricer {
                             )
                         })?;
 
-                    let underlying_tenor =
-                        year_fraction(swaption.day_count, swaption.expiry, swaption.swap_end)
-                            .map_err(|e| {
-                                PricingError::model_failure_with_context(
-                                    e.to_string(),
-                                    PricingErrorContext::default(),
-                                )
-                            })?;
-
-                    let vol = if let Some(impl_vol) =
-                        swaption.pricing_overrides.market_quotes.implied_volatility
-                    {
-                        impl_vol
-                    } else {
-                        vol_provider.vol_clamped(time_to_expiry, underlying_tenor, strike)
-                    };
-
-                    swaption.price_black(market, vol, as_of).map_err(|e| {
+                    match swaption.vol_model {
+                        VolatilityModel::Black => swaption.price_black(market, vol, as_of),
+                        VolatilityModel::Normal => swaption.price_normal(market, vol, as_of),
+                    }
+                    .map_err(|e| {
                         PricingError::model_failure_with_context(
                             e.to_string(),
                             PricingErrorContext::default(),

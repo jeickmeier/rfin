@@ -217,7 +217,6 @@ impl MarketQuoteOverrides {
                 return Err(InputError::NegativeValue.into());
             }
         }
-
         // Mutual exclusivity: at most one price-driving field set at a time.
         if self.price_driver_count() > 1 {
             return Err(InputError::Invalid.into());
@@ -394,6 +393,18 @@ pub struct ModelConfig {
     /// benchmarks, and controlled revaluation—not a market quote.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mc_paths: Option<usize>,
+    /// CDSW-style clean CDS valuation.
+    ///
+    /// When true, CDS base value and bump revaluations exclude accrued premium
+    /// from the dirty model PV, matching Bloomberg CDSW's clean Principal field.
+    #[serde(default)]
+    pub cds_clean_price: bool,
+    /// CDSW-style par-spread denominator.
+    ///
+    /// When true, CDS par spread includes accrual-on-default in the premium
+    /// denominator instead of using scheduled risky annuity only.
+    #[serde(default)]
+    pub cds_par_spread_uses_full_premium: bool,
 }
 
 impl ModelConfig {

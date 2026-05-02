@@ -80,6 +80,7 @@ fn test_cds_par_spread_roundtrip_1y() {
         interpolation: Default::default(),
         par_interp: ParInterp::Linear,
         doc_clause: None,
+        cds_valuation_convention: None,
     };
     let step = StepParams::Hazard(params.clone());
     let market_quotes: Vec<MarketQuote> = quotes.into_iter().map(MarketQuote::Cds).collect();
@@ -177,6 +178,7 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
         interpolation: Default::default(),
         par_interp: ParInterp::Linear,
         doc_clause: None,
+        cds_valuation_convention: None,
     };
     let step = StepParams::Hazard(params.clone());
     let market_quotes: Vec<MarketQuote> = quotes.iter().cloned().map(MarketQuote::Cds).collect();
@@ -258,6 +260,7 @@ fn test_cds_par_spread_calculation_consistency() {
         interpolation: Default::default(),
         par_interp: ParInterp::Linear,
         doc_clause: None,
+        cds_valuation_convention: None,
     };
     let step = StepParams::Hazard(params.clone());
     let market_quotes: Vec<MarketQuote> = quotes.iter().cloned().map(MarketQuote::Cds).collect();

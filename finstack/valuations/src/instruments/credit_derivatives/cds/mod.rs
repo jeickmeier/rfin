@@ -139,6 +139,7 @@ pub use parameters::{
     RECOVERY_HIGH_YIELD_DEFAULT, RECOVERY_SENIOR_UNSECURED, RECOVERY_SUBORDINATED,
 };
 pub use types::CDSConvention;
+pub use types::CdsValuationConvention;
 pub use types::CreditDefaultSwap;
 pub use types::CreditDefaultSwapBuilder;
 pub use types::IsdaCdsParams;

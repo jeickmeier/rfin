@@ -2,6 +2,7 @@
 
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::{ExerciseStyle, SettlementType};
+use crate::market::conventions::defs::RateIndexKind;
 use crate::market::conventions::ids::IndexId;
 use crate::market::conventions::ConventionRegistry;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
@@ -549,6 +550,28 @@ impl CapFloor {
             .require_rate_index(&idx)
             .map(|conv| conv.default_reset_lag_days)
             .ok()
+    }
+
+    pub(crate) fn uses_overnight_rfr_index(&self) -> bool {
+        let Ok(registry) = ConventionRegistry::try_global() else {
+            return false;
+        };
+        let idx = IndexId::new(self.forward_curve_id.as_str());
+        registry
+            .require_rate_index(&idx)
+            .map(|conv| conv.kind == RateIndexKind::OvernightRfr)
+            .unwrap_or(false)
+    }
+
+    pub(crate) fn option_fixing_date(
+        &self,
+        period: &crate::cashflow::builder::periods::SchedulePeriod,
+    ) -> Date {
+        if self.uses_overnight_rfr_index() {
+            period.accrual_end
+        } else {
+            period.reset_date.unwrap_or(period.accrual_start)
+        }
     }
 
     pub(crate) fn resolved_vol_shift(&self) -> f64 {

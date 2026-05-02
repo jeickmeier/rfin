@@ -133,6 +133,7 @@ fn hazard_calibration_positive_rates() {
                 interpolation: Default::default(),
                 par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
                 doc_clause: None,
+                cds_valuation_convention: None,
             }),
         }],
     };
@@ -201,6 +202,7 @@ fn hazard_calibration_rejects_zero_spread() {
                 interpolation: Default::default(),
                 par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
                 doc_clause: None,
+                cds_valuation_convention: None,
             }),
         }],
     };
@@ -267,6 +269,7 @@ fn hazard_calibration_rejects_negative_spread() {
                 interpolation: Default::default(),
                 par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
                 doc_clause: None,
+                cds_valuation_convention: None,
             }),
         }],
     };
@@ -331,6 +334,7 @@ fn hazard_calibration_rejects_non_standard_upfront_running_coupon() {
                 interpolation: Default::default(),
                 par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
                 doc_clause: None,
+                cds_valuation_convention: None,
             }),
         }],
     };
@@ -432,6 +436,7 @@ fn hazard_calibration_handles_extreme_high_spread() {
                 interpolation: Default::default(),
                 par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
                 doc_clause: None,
+                cds_valuation_convention: None,
             }),
         }],
     };
@@ -551,6 +556,7 @@ fn hazard_calibration_global_solve_sqrt_time_is_not_rougher_than_bootstrap() {
                 interpolation: Default::default(),
                 par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
                 doc_clause: None,
+                cds_valuation_convention: None,
             }),
         }],
     };
@@ -604,6 +610,7 @@ fn hazard_calibration_global_solve_sqrt_time_is_not_rougher_than_bootstrap() {
                 interpolation: Default::default(),
                 par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
                 doc_clause: None,
+                cds_valuation_convention: None,
             }),
         }],
     };
@@ -697,6 +704,7 @@ fn hazard_calibration_reprices_par_spread() {
                 interpolation: Default::default(),
                 par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
                 doc_clause: None,
+                cds_valuation_convention: None,
             }),
         }],
     };

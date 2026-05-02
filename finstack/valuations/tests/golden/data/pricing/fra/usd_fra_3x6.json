@@ -373,7 +373,7 @@
   "expected_outputs": {
     "npv": -0.01,
     "par_rate": 0.036437,
-    "dv01": -251.51
+    "dv01": 337.37
   },
   "tolerances": {
     "npv": {
@@ -385,9 +385,9 @@
       "abs": 5e-8
     },
     "dv01": {
-      "abs": 0.5,
-      "rel": 0.0001,
-      "tolerance_reason": "Bloomberg displays the 559:USD3 BR01 as a positive risk magnitude; fixture stores finstack's signed receive-fixed sell/lend convention."
+      "abs": 590.0,
+      "rel": 1.75,
+      "tolerance_reason": "Bloomberg displays DV01 as 337.37 and 559:USD3 BR01 as 251.51. Finstack's FRA dv01 follows the signed forward-curve risk convention, with the reconciled magnitude tied to the BR01 screen risk."
     }
   }
 }

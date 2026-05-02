@@ -36,7 +36,8 @@
 //! and the premium leg (accrued on default settlement). This metric captures
 //! the full direct sensitivity across both legs.
 
-use crate::calibration::bumps::hazard::recalibrate_hazard_with_recovery;
+use super::market_doc_clause;
+use crate::calibration::bumps::hazard::recalibrate_hazard_with_recovery_and_doc_clause_and_valuation_convention;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -75,11 +76,13 @@ fn price_at_bumped_recovery(
     let has_par_quotes = hazard.par_spread_points().next().is_some();
 
     let market_for_pricing: MarketContext = if has_par_quotes {
-        match recalibrate_hazard_with_recovery(
+        match recalibrate_hazard_with_recovery_and_doc_clause_and_valuation_convention(
             hazard.as_ref(),
             new_recovery,
             base_market,
             Some(&discount_id),
+            Some(market_doc_clause(cds)),
+            Some(cds.valuation_convention),
         ) {
             Ok(recalibrated) => base_market.clone().insert(recalibrated),
             Err(_) => {

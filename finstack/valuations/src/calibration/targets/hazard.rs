@@ -146,7 +146,8 @@ impl HazardCurveTarget {
         let mut curve_ids = HashMap::default();
         curve_ids.insert("discount".to_string(), params.discount_curve_id.to_string());
         curve_ids.insert("credit".to_string(), params.curve_id.to_string());
-        let build_ctx = BuildCtx::new(params.base_date, params.notional, curve_ids);
+        let build_ctx = BuildCtx::new(params.base_date, params.notional, curve_ids)
+            .with_cds_valuation_convention(params.cds_valuation_convention);
         let t_day_count = target.cds_conventions.day_count;
 
         for (i, q) in cds_quotes.into_iter().enumerate() {
@@ -613,6 +614,7 @@ mod tests {
             interpolation: InterpStyle::Linear,
             par_interp: ParInterp::Linear,
             doc_clause: None,
+            cds_valuation_convention: None,
         }
     }
 

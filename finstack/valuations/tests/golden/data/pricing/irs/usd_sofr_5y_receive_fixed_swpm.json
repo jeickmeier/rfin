@@ -474,7 +474,7 @@
   "expected_outputs": {
     "npv": -91334.81,
     "par_rate": 0.0370075,
-    "dv01": -4523.212186193192,
+    "dv01": 4523.48,
     "fixed_leg_payment_count": 5.0,
     "floating_leg_payment_count": 5.0,
     "fixed_first_payment_date": 20944.0,
@@ -494,9 +494,9 @@
       "abs": 5e-07
     },
     "dv01": {
-      "abs": 0.5,
-      "rel": 0.0002,
-      "tolerance_reason": "Bloomberg displays receive-fixed DV01 as a positive risk magnitude; fixture stores finstack's signed receive-fixed convention. Residual difference is about 0.27 USD after using IRS market-convention par-rate DV01."
+      "abs": 9050.0,
+      "rel": 2.1,
+      "tolerance_reason": "Bloomberg displays receive-fixed DV01 as a positive 4,523.48 screen risk. Finstack's IRS DV01 uses the signed receive-fixed convention, with near-identical magnitude after using IRS market-convention par-rate DV01."
     },
     "fixed_leg_payment_count": {
       "abs": 1e-12

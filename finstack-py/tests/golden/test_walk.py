@@ -42,6 +42,7 @@ RUST_GOLDEN_TEST_SOURCES = [
     WORKSPACE_ROOT / "finstack/valuations/tests/golden/attribution.rs",
 ]
 RUN_GOLDEN_RE = re.compile(r'run_golden!\("([^"]+)"\)')
+RUST_DISCOVERED_FIXTURE_PREFIXES = ("integration/", "pricing/")
 
 
 def _all_fixtures() -> list[Path]:
@@ -201,5 +202,9 @@ def test_valuation_fixtures_are_declared_in_rust_golden_tests() -> None:
         for path in VALUATION_DATA_ROOT.rglob("*.json")
         if "screenshots" not in path.parts
     )
-    missing = [path for path in fixture_paths if path not in declared]
+    missing = [
+        path
+        for path in fixture_paths
+        if path not in declared and not path.startswith(RUST_DISCOVERED_FIXTURE_PREFIXES)
+    ]
     assert not missing, "fixtures missing Rust run_golden! declarations:\n" + "\n".join(missing)

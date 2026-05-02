@@ -94,7 +94,7 @@ pub(crate) fn price_cap_floor(
             continue;
         }
 
-        let fixing_date = period.reset_date.unwrap_or(period.accrual_start);
+        let fixing_date = cap_floor.option_fixing_date(&period);
         let is_fixed_unpaid = fixing_date < as_of;
         let t_fix = if is_fixed_unpaid {
             0.0

@@ -790,11 +790,19 @@ impl TermStructure for VolSurface {
 }
 
 impl crate::market_data::traits::VolProvider for VolSurface {
-    fn vol(&self, expiry: f64, _tenor: f64, strike: f64) -> crate::Result<f64> {
-        self.value_checked(expiry, strike)
+    fn vol(&self, expiry: f64, tenor: f64, strike: f64) -> crate::Result<f64> {
+        let secondary = match self.secondary_axis {
+            VolSurfaceAxis::Strike => strike,
+            VolSurfaceAxis::Tenor => tenor,
+        };
+        self.value_checked(expiry, secondary)
     }
-    fn vol_clamped(&self, expiry: f64, _tenor: f64, strike: f64) -> f64 {
-        self.value_clamped(expiry, strike)
+    fn vol_clamped(&self, expiry: f64, tenor: f64, strike: f64) -> f64 {
+        let secondary = match self.secondary_axis {
+            VolSurfaceAxis::Strike => strike,
+            VolSurfaceAxis::Tenor => tenor,
+        };
+        self.value_clamped(expiry, secondary)
     }
     fn vol_id(&self) -> &crate::types::CurveId {
         self.id()

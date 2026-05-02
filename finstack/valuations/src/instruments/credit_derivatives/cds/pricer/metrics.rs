@@ -80,6 +80,20 @@ impl CDSPricer {
         cds: &CreditDefaultSwap,
         _as_of: Date,
     ) -> Result<Vec<CouponPeriod>> {
+        if cds.uses_adjusted_premium_accrual_dates() {
+            let schedule = self.generate_isda_schedule(cds)?;
+            return Ok(schedule
+                .windows(2)
+                .enumerate()
+                .map(|window| CouponPeriod {
+                    accrual_start: window.1[0],
+                    accrual_end: window.1[1],
+                    payment_date: window.1[1],
+                    is_final: window.0 + 2 == schedule.len(),
+                })
+                .collect());
+        }
+
         let mut accrual_dates = vec![cds.premium.start];
         let mut current = cds.premium.start;
         let calendar = cds
@@ -99,7 +113,7 @@ impl CDSPricer {
         }
 
         let mut periods = Vec::with_capacity(accrual_dates.len().saturating_sub(1));
-        for window in accrual_dates.windows(2) {
+        for (idx, window) in accrual_dates.windows(2).enumerate() {
             let payment_date = if let Some(cal) = calendar {
                 adjust(window[1], cds.premium.bdc, cal).unwrap_or(window[1])
             } else {
@@ -109,9 +123,34 @@ impl CDSPricer {
                 accrual_start: window[0],
                 accrual_end: window[1],
                 payment_date,
+                is_final: idx + 2 == accrual_dates.len(),
             });
         }
         Ok(periods)
+    }
+
+    pub(super) fn coupon_accrual(
+        &self,
+        cds: &CreditDefaultSwap,
+        period: &CouponPeriod,
+    ) -> Result<f64> {
+        if cds.uses_adjusted_premium_accrual_dates()
+            && period.is_final
+            && period.payment_date == cds.premium.end
+            && cds.premium.day_count == finstack_core::dates::DayCount::Act360
+        {
+            let days = finstack_core::dates::DayCount::calendar_days(
+                period.accrual_start,
+                period.accrual_end,
+            ) + 1;
+            return Ok((days.max(0) as f64) / 360.0);
+        }
+
+        year_fraction(
+            cds.premium.day_count,
+            period.accrual_start,
+            period.accrual_end,
+        )
     }
 
     /// Calculate par spread (bps) that sets NPV to zero.
@@ -170,7 +209,7 @@ impl CDSPricer {
                 }
 
                 // Accrual uses instrument day-count
-                let accrual = year_fraction(cds.premium.day_count, start_date, end_date)?;
+                let accrual = self.coupon_accrual(cds, &period)?;
 
                 // Discounting uses discount curve's day-count and relative DF from as_of
                 let df = df_asof_to(disc, as_of, payment_date)?;
@@ -242,7 +281,7 @@ impl CDSPricer {
             }
 
             // Accrual uses instrument day-count
-            let accrual = year_fraction(cds.premium.day_count, start_date, end_date)?;
+            let accrual = self.coupon_accrual(cds, &period)?;
 
             // Discounting uses discount curve's day-count and relative DF from as_of
             let df = df_asof_to(disc, as_of, payment_date)?;
@@ -286,7 +325,6 @@ impl CDSPricer {
         let periods = self.coupon_periods(cds, as_of)?;
         let mut annuity = 0.0;
         for period in periods {
-            let start_date = period.accrual_start;
             let end_date = period.accrual_end;
             let payment_date = period.payment_date;
 
@@ -296,7 +334,7 @@ impl CDSPricer {
             }
 
             // Accrual uses instrument day-count
-            let accrual = year_fraction(cds.premium.day_count, start_date, end_date)?;
+            let accrual = self.coupon_accrual(cds, &period)?;
 
             // Discounting uses discount curve's day-count and relative DF from as_of
             let df = df_asof_to(disc, as_of, payment_date)?;

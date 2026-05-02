@@ -314,6 +314,8 @@ class HazardCurve:
         Recovery rate. Defaults to the credit assumptions registry value.
     day_count : str
         Day-count convention (default ``"act_365f"``).
+    par_spreads : list[tuple[float, float]] | None
+        Market par-spread quotes in basis points used for rebootstrap risks.
 
     Raises
     ------
@@ -328,6 +330,7 @@ class HazardCurve:
         knots: list[tuple[float, float]],
         recovery_rate: float | None = None,
         day_count: str = "act_365f",
+        par_spreads: list[tuple[float, float]] | None = None,
     ) -> None:
         """Construct a hazard curve from knot points.
 
@@ -343,6 +346,8 @@ class HazardCurve:
             Recovery rate (default ``0.4``).
         day_count : str
             Day-count convention (default ``"act_365f"``).
+        par_spreads : list[tuple[float, float]] | None
+            Market par-spread quotes in basis points used for rebootstrap risks.
 
         Raises
         ------

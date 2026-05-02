@@ -54,6 +54,17 @@ impl CDSPricerConfig {
         }
     }
 
+    /// Build a CDS pricer configuration from instrument-level valuation policy.
+    #[must_use]
+    pub(crate) fn from_cds(
+        cds: &crate::instruments::credit_derivatives::cds::CreditDefaultSwap,
+    ) -> Self {
+        Self {
+            par_spread_uses_full_premium: cds.uses_full_premium_par_spread_denominator(),
+            ..Self::isda_standard()
+        }
+    }
+
     /// Create an ISDA configuration for European markets (UK conventions).
     #[cfg(test)]
     #[must_use]

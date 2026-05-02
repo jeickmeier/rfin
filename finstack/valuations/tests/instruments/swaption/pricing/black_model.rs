@@ -149,49 +149,7 @@ fn test_payer_receiver_parity_diagnostics() {
     let forward = payer.forward_swap_rate(&market, as_of).unwrap();
     let annuity = payer.swap_annuity(disc.as_ref(), as_of).unwrap();
 
-    let annuity_check = payer.swap_annuity(disc.as_ref(), as_of).unwrap();
-    let fwd = market.get_forward(payer.forward_curve_id.as_ref()).unwrap();
-    let sched = finstack_valuations::cashflow::builder::build_dates(
-        payer.swap_start,
-        payer.swap_end,
-        payer.float_freq,
-        finstack_core::dates::StubKind::None,
-        finstack_core::dates::BusinessDayConvention::Following,
-        false,
-        0,
-        finstack_valuations::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
-    )
-    .unwrap();
-
-    let mut pv_float = 0.0;
-    let mut prev = payer.swap_start;
-    for &d in sched.dates.iter().skip(1) {
-        let t_prev = fwd
-            .day_count()
-            .year_fraction(
-                fwd.base_date(),
-                prev,
-                finstack_core::dates::DayCountContext::default(),
-            )
-            .unwrap();
-        let t_next = fwd
-            .day_count()
-            .year_fraction(
-                fwd.base_date(),
-                d,
-                finstack_core::dates::DayCountContext::default(),
-            )
-            .unwrap();
-        let accrual = fwd
-            .day_count()
-            .year_fraction(prev, d, finstack_core::dates::DayCountContext::default())
-            .unwrap();
-        let fwd_rate = fwd.rate_period(t_prev, t_next);
-        let df = disc.df_between_dates(as_of, d).unwrap();
-        pv_float += accrual * fwd_rate * df;
-        prev = d;
-    }
-    let expected_forward = pv_float / annuity_check;
+    let expected_forward = equivalent_vanilla_irs_par_rate(&payer, &market, as_of);
 
     assert_approx_eq(
         forward,

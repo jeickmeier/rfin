@@ -5,6 +5,8 @@ use crate::calibration::api::schema::{HazardCurveParams, StepParams};
 use crate::calibration::config::CalibrationMethod;
 use crate::calibration::step_runtime;
 use crate::calibration::CalibrationConfig;
+use crate::instruments::credit_derivatives::cds::CdsValuationConvention;
+use crate::market::conventions::ids::CdsDocClause;
 use crate::market::quotes::cds::CdsQuote;
 use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::currency::Currency;
@@ -28,6 +30,38 @@ pub fn bump_hazard_spreads(
     context: &MarketContext,
     bump: &BumpRequest,
     discount_id: Option<&CurveId>,
+) -> finstack_core::Result<HazardCurve> {
+    bump_hazard_spreads_with_doc_clause(hazard, context, bump, discount_id, None)
+}
+
+/// Bump hazard curve by shocking par spreads and re-calibrating with an
+/// explicit CDS documentation clause.
+pub fn bump_hazard_spreads_with_doc_clause(
+    hazard: &HazardCurve,
+    context: &MarketContext,
+    bump: &BumpRequest,
+    discount_id: Option<&CurveId>,
+    doc_clause: Option<CdsDocClause>,
+) -> finstack_core::Result<HazardCurve> {
+    bump_hazard_spreads_with_doc_clause_and_valuation_convention(
+        hazard,
+        context,
+        bump,
+        discount_id,
+        doc_clause,
+        None,
+    )
+}
+
+/// Bump hazard curve by shocking par spreads and re-calibrating with an
+/// explicit CDS documentation clause and valuation convention.
+pub fn bump_hazard_spreads_with_doc_clause_and_valuation_convention(
+    hazard: &HazardCurve,
+    context: &MarketContext,
+    bump: &BumpRequest,
+    discount_id: Option<&CurveId>,
+    doc_clause: Option<CdsDocClause>,
+    cds_valuation_convention: Option<CdsValuationConvention>,
 ) -> finstack_core::Result<HazardCurve> {
     // Check if we have necessary data for re-calibration
     let par_points: Vec<(f64, f64)> = hazard.par_spread_points().collect();
@@ -56,6 +90,7 @@ pub fn bump_hazard_spreads(
         .map(|s| s.to_string())
         .unwrap_or_else(|| "UNKNOWN".to_string());
 
+    let quote_doc_clause = doc_clause.unwrap_or(CdsDocClause::IsdaNa);
     let mut quotes = Vec::new();
 
     for (tenor_years, spread_bp) in par_points {
@@ -110,7 +145,7 @@ pub fn bump_hazard_spreads(
             recovery_rate: recovery,
             convention: crate::market::conventions::ids::CdsConventionKey {
                 currency,
-                doc_clause: crate::market::conventions::ids::CdsDocClause::IsdaNa,
+                doc_clause: quote_doc_clause,
             },
         });
     }
@@ -128,7 +163,8 @@ pub fn bump_hazard_spreads(
         method: CalibrationMethod::Bootstrap,
         interpolation: Default::default(),
         par_interp: ParInterp::Linear,
-        doc_clause: None,
+        doc_clause: Some(quote_doc_clause.as_str().to_string()),
+        cds_valuation_convention,
     };
 
     let cfg = CalibrationConfig::default();
@@ -175,6 +211,44 @@ pub fn recalibrate_hazard_with_recovery(
     context: &MarketContext,
     discount_id: Option<&CurveId>,
 ) -> finstack_core::Result<HazardCurve> {
+    recalibrate_hazard_with_recovery_and_doc_clause(
+        hazard,
+        new_recovery,
+        context,
+        discount_id,
+        None,
+    )
+}
+
+/// Re-bootstrap a hazard curve with a new recovery and explicit CDS
+/// documentation clause.
+pub fn recalibrate_hazard_with_recovery_and_doc_clause(
+    hazard: &HazardCurve,
+    new_recovery: f64,
+    context: &MarketContext,
+    discount_id: Option<&CurveId>,
+    doc_clause: Option<CdsDocClause>,
+) -> finstack_core::Result<HazardCurve> {
+    recalibrate_hazard_with_recovery_and_doc_clause_and_valuation_convention(
+        hazard,
+        new_recovery,
+        context,
+        discount_id,
+        doc_clause,
+        None,
+    )
+}
+
+/// Re-bootstrap a hazard curve with a new recovery, explicit CDS
+/// documentation clause, and valuation convention.
+pub fn recalibrate_hazard_with_recovery_and_doc_clause_and_valuation_convention(
+    hazard: &HazardCurve,
+    new_recovery: f64,
+    context: &MarketContext,
+    discount_id: Option<&CurveId>,
+    doc_clause: Option<CdsDocClause>,
+    cds_valuation_convention: Option<CdsValuationConvention>,
+) -> finstack_core::Result<HazardCurve> {
     let par_points: Vec<(f64, f64)> = hazard.par_spread_points().collect();
 
     let Some(discount_id) = discount_id else {
@@ -203,6 +277,7 @@ pub fn recalibrate_hazard_with_recovery(
         .map(|s| s.to_string())
         .unwrap_or_else(|| "UNKNOWN".to_string());
 
+    let quote_doc_clause = doc_clause.unwrap_or(CdsDocClause::IsdaNa);
     let mut quotes = Vec::with_capacity(par_points.len());
     for (tenor_years, spread_bp) in par_points {
         let raw_months = (tenor_years * 12.0).round().max(1.0) as i32;
@@ -231,7 +306,7 @@ pub fn recalibrate_hazard_with_recovery(
             recovery_rate: new_recovery,
             convention: crate::market::conventions::ids::CdsConventionKey {
                 currency,
-                doc_clause: crate::market::conventions::ids::CdsDocClause::IsdaNa,
+                doc_clause: quote_doc_clause,
             },
         });
     }
@@ -249,7 +324,8 @@ pub fn recalibrate_hazard_with_recovery(
         method: CalibrationMethod::Bootstrap,
         interpolation: Default::default(),
         par_interp: ParInterp::Linear,
-        doc_clause: None,
+        doc_clause: Some(quote_doc_clause.as_str().to_string()),
+        cds_valuation_convention,
     };
 
     let cfg = CalibrationConfig::default();

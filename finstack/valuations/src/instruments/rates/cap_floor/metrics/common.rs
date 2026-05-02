@@ -81,8 +81,7 @@ where
 
     let mut sum = 0.0;
     for period in periods {
-        // Use reset_date (actual fixing date) when available, matching the pricer.
-        let fixing_date = period.reset_date.unwrap_or(period.accrual_start);
+        let fixing_date = option.option_fixing_date(&period);
         sum += accumulate(
             fixing_date,
             period.accrual_start,

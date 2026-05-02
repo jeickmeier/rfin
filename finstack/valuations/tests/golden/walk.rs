@@ -33,14 +33,35 @@ const ZERO_RISK_METRICS_REQUIRING_REASON: &[&str] = &[
 ];
 
 fn collect_fixture_paths() -> Vec<PathBuf> {
+    collect_fixture_paths_from(&data_root())
+}
+
+pub(crate) fn collect_fixture_paths_under(relative_dir: &str) -> Result<Vec<PathBuf>, String> {
+    let paths = collect_fixture_paths_from(&data_root().join(relative_dir));
+    let read_errors = paths
+        .iter()
+        .filter(|path| path.to_string_lossy().starts_with("__read_dir_error__:"))
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>();
+    if read_errors.is_empty() {
+        Ok(paths)
+    } else {
+        Err(read_errors.join("\n"))
+    }
+}
+
+fn data_root() -> PathBuf {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
-    let root = Path::new(manifest_dir).join(DATA_ROOT);
+    Path::new(manifest_dir).join(DATA_ROOT)
+}
+
+fn collect_fixture_paths_from(root: &Path) -> Vec<PathBuf> {
     if !root.exists() {
         return Vec::new();
     }
 
     let mut paths = Vec::new();
-    walk_dir(&root, &mut paths);
+    walk_dir(root, &mut paths);
     paths.sort();
     paths
 }
@@ -433,6 +454,8 @@ fn all_fixtures_are_declared_in_rust_golden_tests() {
     let failures = collect_fixture_paths()
         .iter()
         .filter_map(|path| match fixture_relative_path(path) {
+            Ok(relative) if relative.starts_with("pricing/") => None,
+            Ok(relative) if relative.starts_with("integration/") => None,
             Ok(relative) if declared.contains(&relative) => None,
             Ok(relative) => Some(format!("missing run_golden! declaration for {relative}")),
             Err(err) => Some(err),
@@ -445,4 +468,17 @@ fn all_fixtures_are_declared_in_rust_golden_tests() {
         failures.len(),
         failures.join("\n")
     );
+}
+
+#[test]
+fn pricing_fixture_discovery_uses_existing_json_files() {
+    let pricing_paths = collect_fixture_paths_under("pricing")
+        .expect("pricing fixture discovery should walk the pricing directory");
+    let relatives = pricing_paths
+        .iter()
+        .map(|path| fixture_relative_path(path).expect("pricing fixture should be under data root"))
+        .collect::<BTreeSet<_>>();
+
+    assert!(relatives.contains("pricing/cds/cds_5y_par_spread.json"));
+    assert!(!relatives.contains("pricing/cds/cds_5y_running_upfront.json"));
 }

@@ -40,13 +40,13 @@ use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 
 /// Number of tree steps per caplet period.
-const STEPS_PER_PERIOD: usize = 30;
+pub(crate) const DEFAULT_STEPS_PER_PERIOD: usize = 30;
 
 /// Minimum tree steps for the full cap/floor.
-const MIN_TREE_STEPS: usize = 50;
+pub(crate) const MIN_TREE_STEPS: usize = 50;
 
 /// Maximum tree steps for the full cap/floor.
-const MAX_TREE_STEPS: usize = 300;
+pub(crate) const MAX_TREE_STEPS: usize = 300;
 
 /// Hull-White 1-factor tree pricer for caps and floors.
 ///
@@ -142,12 +142,21 @@ impl CapFloorHullWhitePricer {
             RateOptionType::Cap | RateOptionType::Caplet
         );
 
-        // Determine tree steps: scale with number of periods
-        let tree_steps = (periods.len() * STEPS_PER_PERIOD).clamp(MIN_TREE_STEPS, MAX_TREE_STEPS);
+        let model_config = &cap_floor.pricing_overrides.model_config;
+        let hw_params = HullWhiteParams::new(
+            model_config.mean_reversion.unwrap_or(self.hw_params.kappa),
+            model_config.tree_volatility.unwrap_or(self.hw_params.sigma),
+        )
+        .map_err(|e| {
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+        })?;
+
+        let tree_steps = model_config.tree_steps.unwrap_or_else(|| {
+            (periods.len() * DEFAULT_STEPS_PER_PERIOD).clamp(MIN_TREE_STEPS, MAX_TREE_STEPS)
+        });
 
         // Calibrate a single HW tree over the full maturity horizon
-        let config =
-            HullWhiteTreeConfig::new(self.hw_params.kappa, self.hw_params.sigma, tree_steps);
+        let config = HullWhiteTreeConfig::new(hw_params.kappa, hw_params.sigma, tree_steps);
         let tree = HullWhiteTree::calibrate(config, disc.as_ref(), maturity_time).map_err(|e| {
             PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;

@@ -537,6 +537,15 @@ impl MetricId {
     /// Units: currency.
     pub const JumpToDefault: Self = Self(Cow::Borrowed("jump_to_default"));
 
+    /// Clean default exposure.
+    ///
+    /// Signed LGD payout net of the current mark, excluding accrued premium on
+    /// default. This matches dealer-screen "default exposure" style measures
+    /// more closely than accrued-premium-adjusted jump-to-default.
+    ///
+    /// Units: currency.
+    pub const DefaultExposure: Self = Self(Cow::Borrowed("default_exposure"));
+
     /// Expected loss under the current credit model.
     ///
     /// Expected discounted credit loss implied by default probabilities and
@@ -1262,6 +1271,7 @@ impl MetricId {
         MetricId::ProtectionLegPv,
         MetricId::PremiumLegPv,
         MetricId::JumpToDefault,
+        MetricId::DefaultExposure,
         MetricId::ExpectedLoss,
         MetricId::DefaultProbability,
         MetricId::Recovery01,
@@ -1574,7 +1584,7 @@ const GREEKS_METRICS: [MetricId; 24] = [
     MetricId::VarianceVega,
 ];
 
-const CREDIT_METRICS: [MetricId; 16] = [
+const CREDIT_METRICS: [MetricId; 17] = [
     MetricId::Cs01,
     MetricId::BucketedCs01,
     MetricId::Cs01Hazard,
@@ -1588,6 +1598,7 @@ const CREDIT_METRICS: [MetricId; 16] = [
     MetricId::ProtectionLegPv,
     MetricId::PremiumLegPv,
     MetricId::JumpToDefault,
+    MetricId::DefaultExposure,
     MetricId::ExpectedLoss,
     MetricId::DefaultProbability,
     MetricId::Recovery01,

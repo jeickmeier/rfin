@@ -14,6 +14,7 @@
 
 mod common;
 mod delta;
+mod dv01;
 mod forward_pv01;
 mod gamma;
 mod implied_vol;
@@ -34,9 +35,7 @@ pub(crate) fn register_cap_floor_metrics(registry: &mut MetricRegistry) {
             (Delta, delta::DeltaCalculator),
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
-            (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::rates::cap_floor::CapFloor,
-            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (Dv01, dv01::Dv01Calculator),
             (Theta, theta::ThetaCalculator),
             (Rho, rho::RhoCalculator),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),

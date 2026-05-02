@@ -5,9 +5,12 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
+use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
+use finstack_core::types::CurveId;
+use finstack_valuations::calibration::bumps::{bump_hazard_spreads, BumpRequest};
 use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
@@ -218,6 +221,45 @@ fn test_par_spread_metric() {
         par_spread > 10.0 && par_spread < 500.0,
         "Par spread={:.2} bps outside typical IG range",
         par_spread
+    );
+}
+
+#[test]
+fn test_cds_par_spread_metric_does_not_return_quoted_spread_override() {
+    let as_of = date!(2024 - 01 - 01);
+    let maturity = date!(2029 - 01 - 01);
+
+    let cds = create_test_cds(as_of, maturity);
+    let mut quoted_cds = cds.clone();
+    quoted_cds.pricing_overrides.market_quotes.cds_quote_bp = Some(999.0);
+    let market = create_test_market(as_of);
+
+    let base = cds
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
+    let quoted = quoted_cds
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
+
+    let base_par_spread = *base.measures.get("par_spread").unwrap();
+    let quoted_par_spread = *quoted.measures.get("par_spread").unwrap();
+    assert_ne!(
+        quoted_par_spread, 999.0,
+        "par_spread must be computed by the Finstack pricer, not returned from source quote metadata"
+    );
+    assert_eq!(
+        quoted_par_spread, base_par_spread,
+        "quoted spread metadata should not alter the par_spread metric"
     );
 }
 
@@ -556,6 +598,198 @@ fn test_dv01_metric() {
     // DV01 = PV(rate+1bp) - PV(base); sign depends on instrument structure
     assert!(dv01.is_finite(), "DV01 should be finite");
     assert!(dv01.abs() > 0.0, "DV01 magnitude should be non-zero");
+}
+
+#[test]
+fn test_cds_dv01_recalibrates_par_spread_hazard_curve() {
+    let as_of = date!(2024 - 03 - 20);
+    let maturity = date!(2029 - 03 - 20);
+    let discount_id = CurveId::new("USD_OIS");
+    let hazard_id = CurveId::new("CORP");
+
+    let cds = create_test_cds(as_of, maturity);
+    let discount = build_test_discount(0.04, as_of, discount_id.as_str());
+    let hazard = HazardCurve::builder(hazard_id.clone())
+        .base_date(as_of)
+        .day_count(DayCount::Act365F)
+        .recovery_rate(0.4)
+        .knots([
+            (0.0, 0.0060),
+            (1.0, 0.0080),
+            (3.0, 0.0120),
+            (5.0, 0.0180),
+            (7.0, 0.0200),
+        ])
+        .par_spreads([(1.0, 50.0), (3.0, 80.0), (5.0, 120.0), (7.0, 150.0)])
+        .build()
+        .unwrap();
+    let market = MarketContext::new().insert(discount).insert(hazard);
+
+    let result = cds
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
+    let dv01 = *result.measures.get("dv01").unwrap();
+
+    let bumped_pv = |bump_bp: f64| {
+        let mut bumped_market = market.clone();
+        bumped_market
+            .apply_curve_bump_in_place(&discount_id, BumpSpec::parallel_bp(bump_bp))
+            .unwrap();
+        let base_hazard = market.get_hazard(hazard_id.as_str()).unwrap();
+        let recalibrated = bump_hazard_spreads(
+            base_hazard.as_ref(),
+            &bumped_market,
+            &BumpRequest::Parallel(0.0),
+            Some(&discount_id),
+        )
+        .unwrap();
+        cds.value_raw(&bumped_market.insert(recalibrated), as_of)
+            .unwrap()
+    };
+    let expected = (bumped_pv(1.0) - bumped_pv(-1.0)) / 2.0;
+
+    let tol = 1e-6_f64.max(1e-8 * expected.abs());
+    assert!(
+        (dv01 - expected).abs() <= tol,
+        "CDS DV01 should rebootstrap par-spread hazard curves under rate bumps: metric={dv01}, expected={expected}, diff={}, tol={tol}",
+        (dv01 - expected).abs()
+    );
+}
+
+#[test]
+fn test_cdsw_clean_value_excludes_accrued_premium_from_dirty_value() {
+    let as_of = date!(2026 - 05 - 02);
+    let maturity = date!(2031 - 06 - 20);
+    let mut dirty_cds = create_test_cds(date!(2026 - 03 - 20), maturity);
+    dirty_cds.protection_effective_date = Some(as_of);
+
+    let mut clean_cds = dirty_cds.clone();
+    clean_cds.pricing_overrides.model_config.cds_clean_price = true;
+
+    let market = MarketContext::new()
+        .insert(build_test_discount(0.035, as_of, "USD_OIS"))
+        .insert(build_test_hazard(0.010, 0.40, as_of, "CORP"));
+
+    let dirty_value = dirty_cds.value_raw(&market, as_of).unwrap();
+    let clean_value = clean_cds.value_raw(&market, as_of).unwrap();
+
+    let accrued = 10_000_000.0 * 0.01 * (44.0 / 360.0);
+    let expected_clean = dirty_value + accrued;
+    let tol = 1e-6_f64.max(1e-10 * expected_clean.abs());
+    assert!(
+        (clean_value - expected_clean).abs() <= tol,
+        "CDSW clean value should add back accrued premium for protection buyers: clean={clean_value}, expected={expected_clean}, diff={}, tol={tol}",
+        (clean_value - expected_clean).abs()
+    );
+}
+
+#[test]
+fn test_cdsw_clean_value_uses_first_class_valuation_convention() {
+    let as_of = date!(2026 - 05 - 02);
+    let maturity = date!(2031 - 06 - 20);
+    let dirty_cds = create_test_cds(date!(2026 - 03 - 20), maturity);
+
+    let mut encoded = serde_json::to_value(&dirty_cds).unwrap();
+    encoded.as_object_mut().unwrap().insert(
+        "valuation_convention".to_string(),
+        "bloomberg_cdsw_clean".into(),
+    );
+    let clean_cds: CreditDefaultSwap = serde_json::from_value(encoded).unwrap();
+
+    let market = MarketContext::new()
+        .insert(build_test_discount(0.035, as_of, "USD_OIS"))
+        .insert(build_test_hazard(0.010, 0.40, as_of, "CORP"));
+
+    let mut direct_clean_cds = dirty_cds.clone();
+    direct_clean_cds.valuation_convention =
+        finstack_valuations::instruments::credit_derivatives::cds::CdsValuationConvention::BloombergCdswClean;
+
+    let clean_value = clean_cds.value_raw(&market, as_of).unwrap();
+    let expected_clean = direct_clean_cds.value_raw(&market, as_of).unwrap();
+    let tol = 1e-6_f64.max(1e-10 * expected_clean.abs());
+    assert!(
+        (clean_value - expected_clean).abs() <= tol,
+        "Bloomberg CDSW convention should produce clean principal without pricing overrides: clean={clean_value}, expected={expected_clean}, diff={}, tol={tol}",
+        (clean_value - expected_clean).abs()
+    );
+}
+
+#[test]
+fn test_cdsw_convention_values_premium_leg_with_adjusted_cashflow_accrual_dates() {
+    let as_of = date!(2026 - 03 - 20);
+    let maturity = date!(2026 - 09 - 20);
+    let mut cds = create_test_cds(as_of, maturity);
+    cds.valuation_convention =
+        finstack_valuations::instruments::credit_derivatives::cds::CdsValuationConvention::BloombergCdswClean;
+
+    let market = MarketContext::new()
+        .insert(build_test_discount(0.0, as_of, "USD_OIS"))
+        .insert(build_test_hazard(0.0, 0.40, as_of, "CORP"));
+
+    let value = cds.value_raw(&market, as_of).unwrap();
+    let expected_premium: f64 = 10_000_000.0 * 0.01 * ((94.0 + 91.0) / 360.0);
+    let expected_value: f64 = -expected_premium;
+    let tol = 1e-6_f64.max(1e-10 * expected_value.abs());
+    assert!(
+        (value - expected_value).abs() <= tol,
+        "Bloomberg CDSW cashflows accrue between adjusted cashflow dates: value={value}, expected={expected_value}, diff={}, tol={tol}",
+        (value - expected_value).abs()
+    );
+}
+
+#[test]
+fn test_cdsw_par_spread_metric_uses_full_premium_denominator_when_requested() {
+    let as_of = date!(2026 - 05 - 02);
+    let maturity = date!(2031 - 06 - 20);
+    let mut cds = create_test_cds(date!(2026 - 03 - 20), maturity);
+    cds.protection_effective_date = Some(as_of);
+
+    let mut cdsw_cds = cds.clone();
+    cdsw_cds
+        .pricing_overrides
+        .model_config
+        .cds_par_spread_uses_full_premium = true;
+
+    let market = MarketContext::new()
+        .insert(build_test_discount(0.035, as_of, "USD_OIS"))
+        .insert(
+            HazardCurve::builder("CORP")
+                .base_date(as_of)
+                .day_count(DayCount::Act365F)
+                .recovery_rate(0.4)
+                .knots([(0.5, 0.01), (3.0, 0.012), (5.0, 0.014), (7.0, 0.015)])
+                .build()
+                .unwrap(),
+        );
+
+    let standard = cds
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
+    let cdsw = cdsw_cds
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
+
+    let standard_spread = *standard.measures.get("par_spread").unwrap();
+    let cdsw_spread = *cdsw.measures.get("par_spread").unwrap();
+    assert!(
+        cdsw_spread < standard_spread,
+        "Including accrual-on-default in the par-spread denominator should lower par spread: cdsw={cdsw_spread}, standard={standard_spread}"
+    );
 }
 
 #[test]

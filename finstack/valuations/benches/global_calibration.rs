@@ -228,6 +228,7 @@ fn hazard_envelope(
                         interpolation: Default::default(),
                         par_interp: Default::default(),
                         doc_clause: None,
+                        cds_valuation_convention: None,
                     }),
                 },
             ],

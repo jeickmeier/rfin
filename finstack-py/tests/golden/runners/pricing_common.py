@@ -139,6 +139,7 @@ def _build_hazard_curve(spec: dict[str, Any]) -> HazardCurve:
         knots=[(float(t), float(rate)) for t, rate in spec["knots"]],
         recovery_rate=spec.get("recovery_rate"),
         day_count=spec.get("day_count", "act_365f"),
+        par_spreads=[(float(t), float(spread)) for t, spread in spec.get("par_spreads", [])],
     )
 
 

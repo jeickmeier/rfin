@@ -280,6 +280,7 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<DynI
             settlement_delay: conv.settlement_days as u16,
         },
         pricing_overrides: PricingOverrides::default(),
+        valuation_convention: ctx.cds_valuation_convention().unwrap_or_default(),
         upfront: upfront_payment,
         doc_clause: Some(convention_key.doc_clause),
         protection_effective_date: None,

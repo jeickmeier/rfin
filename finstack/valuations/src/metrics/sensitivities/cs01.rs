@@ -14,6 +14,7 @@
 
 use crate::calibration::bumps::hazard::{bump_hazard_shift, bump_hazard_spreads};
 use crate::calibration::bumps::BumpRequest;
+use crate::instruments::credit_derivatives::cds::CdsValuationConvention;
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::{MetricContext, MetricId};
 use finstack_core::market_data::context::MarketContext;
@@ -59,6 +60,52 @@ pub(crate) fn compute_parallel_cs01_with_context_raw<RevalFn>(
     hazard_id: &CurveId,
     discount_id: Option<&CurveId>,
     bump_bp: f64,
+    revalue_raw: RevalFn,
+) -> finstack_core::Result<f64>
+where
+    RevalFn: FnMut(&MarketContext) -> finstack_core::Result<f64>,
+{
+    compute_parallel_cs01_with_context_raw_and_doc_clause(
+        context,
+        hazard_id,
+        discount_id,
+        bump_bp,
+        None,
+        revalue_raw,
+    )
+}
+
+pub(crate) fn compute_parallel_cs01_with_context_raw_and_doc_clause<RevalFn>(
+    context: &mut MetricContext,
+    hazard_id: &CurveId,
+    discount_id: Option<&CurveId>,
+    bump_bp: f64,
+    doc_clause: Option<crate::market::conventions::ids::CdsDocClause>,
+    revalue_raw: RevalFn,
+) -> finstack_core::Result<f64>
+where
+    RevalFn: FnMut(&MarketContext) -> finstack_core::Result<f64>,
+{
+    compute_parallel_cs01_with_context_raw_and_doc_clause_and_valuation_convention(
+        context,
+        hazard_id,
+        discount_id,
+        bump_bp,
+        doc_clause,
+        None,
+        revalue_raw,
+    )
+}
+
+pub(crate) fn compute_parallel_cs01_with_context_raw_and_doc_clause_and_valuation_convention<
+    RevalFn,
+>(
+    context: &mut MetricContext,
+    hazard_id: &CurveId,
+    discount_id: Option<&CurveId>,
+    bump_bp: f64,
+    doc_clause: Option<crate::market::conventions::ids::CdsDocClause>,
+    cds_valuation_convention: Option<CdsValuationConvention>,
     mut revalue_raw: RevalFn,
 ) -> finstack_core::Result<f64>
 where
@@ -77,11 +124,13 @@ where
     // Central differencing does not need the base PV, but we still probe whether
     // par-spread re-bootstrapping is available so both legs use the same methodology.
     let used_rebootstrap = if discount_id.is_some() && has_par_points {
-        bump_hazard_spreads(
+        crate::calibration::bumps::hazard::bump_hazard_spreads_with_doc_clause_and_valuation_convention(
             hazard_ref,
             base_ctx,
             &BumpRequest::Parallel(0.0),
             discount_id,
+            doc_clause,
+            cds_valuation_convention,
         )
         .map_err(|e| finstack_core::Error::Calibration {
             message: format!(
@@ -101,30 +150,42 @@ where
     let bump_request_down = BumpRequest::Parallel(-bump_bp);
 
     let bumped_hazard_up = if used_rebootstrap {
-        bump_hazard_spreads(hazard_ref, base_ctx, &bump_request_up, discount_id).map_err(|e| {
-            finstack_core::Error::Calibration {
-                message: format!(
-                    "CS01 up-bumped hazard curve re-calibration failed for '{}': {}",
-                    hazard_id.as_str(),
-                    e
-                ),
-                category: "cs01_rebootstrap".to_string(),
-            }
+        crate::calibration::bumps::hazard::bump_hazard_spreads_with_doc_clause_and_valuation_convention(
+            hazard_ref,
+            base_ctx,
+            &bump_request_up,
+            discount_id,
+            doc_clause,
+            cds_valuation_convention,
+        )
+        .map_err(|e| finstack_core::Error::Calibration {
+            message: format!(
+                "CS01 up-bumped hazard curve re-calibration failed for '{}': {}",
+                hazard_id.as_str(),
+                e
+            ),
+            category: "cs01_rebootstrap".to_string(),
         })?
     } else {
         bump_hazard_shift(hazard_ref, &bump_request_up)?
     };
 
     let bumped_hazard_down = if used_rebootstrap {
-        bump_hazard_spreads(hazard_ref, base_ctx, &bump_request_down, discount_id).map_err(|e| {
-            finstack_core::Error::Calibration {
-                message: format!(
-                    "CS01 down-bumped hazard curve re-calibration failed for '{}': {}",
-                    hazard_id.as_str(),
-                    e
-                ),
-                category: "cs01_rebootstrap".to_string(),
-            }
+        crate::calibration::bumps::hazard::bump_hazard_spreads_with_doc_clause_and_valuation_convention(
+            hazard_ref,
+            base_ctx,
+            &bump_request_down,
+            discount_id,
+            doc_clause,
+            cds_valuation_convention,
+        )
+        .map_err(|e| finstack_core::Error::Calibration {
+            message: format!(
+                "CS01 down-bumped hazard curve re-calibration failed for '{}': {}",
+                hazard_id.as_str(),
+                e
+            ),
+            category: "cs01_rebootstrap".to_string(),
         })?
     } else {
         bump_hazard_shift(hazard_ref, &bump_request_down)?

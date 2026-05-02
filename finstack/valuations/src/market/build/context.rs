@@ -3,6 +3,8 @@
 use finstack_core::dates::Date;
 use finstack_core::{Error, HashMap, InputError, Result};
 
+use crate::instruments::credit_derivatives::cds::CdsValuationConvention;
+
 /// Context for building instruments from market quotes.
 ///
 /// Provides the necessary environment (valuation date, notional, curve mappings) to construct
@@ -87,6 +89,8 @@ pub struct BuildCtx {
     /// Do not assume that a missing role always falls back to a currency-based ID.
     /// Consult the builder-specific docs when the distinction matters.
     curve_ids: HashMap<String, String>,
+    /// Optional CDS valuation convention for instruments built from CDS quotes.
+    cds_valuation_convention: Option<CdsValuationConvention>,
 }
 
 impl BuildCtx {
@@ -120,7 +124,23 @@ impl BuildCtx {
             as_of,
             notional,
             curve_ids,
+            cds_valuation_convention: None,
         }
+    }
+
+    /// Return a copy with a CDS valuation convention applied to CDS quote builds.
+    #[must_use]
+    pub(crate) fn with_cds_valuation_convention(
+        mut self,
+        convention: Option<CdsValuationConvention>,
+    ) -> Self {
+        self.cds_valuation_convention = convention;
+        self
+    }
+
+    /// Optional CDS valuation convention for CDS quote-built instruments.
+    pub(crate) fn cds_valuation_convention(&self) -> Option<CdsValuationConvention> {
+        self.cds_valuation_convention
     }
 
     /// Valuation date for instruments built with this context.

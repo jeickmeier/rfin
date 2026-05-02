@@ -169,6 +169,7 @@ fn run_hazard_plan(
                 interpolation: Default::default(),
                 par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
                 doc_clause: None,
+                cds_valuation_convention: None,
             }),
         }],
     };

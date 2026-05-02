@@ -315,27 +315,32 @@ impl PyHazardCurve {
     ///     Recovery rate. Defaults to the credit assumptions registry value.
     /// day_count : str, optional
     ///     Day-count convention (default ``"act_365f"``).
+    /// par_spreads : list[tuple[float, float]], optional
+    ///     Market par-spread quotes in basis points used for rebootstrap risks.
     #[new]
-    #[pyo3(signature = (id, base_date, knots, recovery_rate=None, day_count="act_365f"))]
+    #[pyo3(signature = (id, base_date, knots, recovery_rate=None, day_count="act_365f", par_spreads=None))]
     fn new(
         id: &str,
         base_date: &Bound<'_, PyAny>,
         knots: Vec<(f64, f64)>,
         recovery_rate: Option<f64>,
         day_count: &str,
+        par_spreads: Option<Vec<(f64, f64)>>,
     ) -> PyResult<Self> {
         let base = py_to_date(base_date)?;
         let dc = parse_day_count(day_count)?;
         let recovery_rate = recovery_rate
             .unwrap_or_else(finstack_core::credit::registry::default_market_recovery_rate_or_panic);
 
-        let curve = HazardCurve::builder(id)
+        let mut builder = HazardCurve::builder(id)
             .base_date(base)
             .recovery_rate(recovery_rate)
             .day_count(dc)
-            .knots(knots)
-            .build()
-            .map_err(core_to_py)?;
+            .knots(knots);
+        if let Some(points) = par_spreads {
+            builder = builder.par_spreads(points);
+        }
+        let curve = builder.build().map_err(core_to_py)?;
 
         Ok(Self {
             inner: Arc::new(curve),

@@ -36,6 +36,7 @@ pub(super) struct CouponPeriod {
     pub(super) accrual_start: Date,
     pub(super) accrual_end: Date,
     pub(super) payment_date: Date,
+    pub(super) is_final: bool,
 }
 
 impl Default for CDSPricer {
@@ -241,11 +242,7 @@ impl CDSPricer {
             // Survival uses hazard curve's day-count and conditional probability
             let sp = sp_cond_to(surv, as_of, end_date)?;
 
-            let accrual = cds.premium.day_count.year_fraction(
-                start_date,
-                end_date,
-                finstack_core::dates::DayCountContext::default(),
-            )?;
+            let accrual = self.coupon_accrual(cds, &period)?;
             let scheduled_coupon = cds.notional.amount() * spread * accrual;
             premium_pv += scheduled_coupon * sp * df;
 

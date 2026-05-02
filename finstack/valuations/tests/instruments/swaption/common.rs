@@ -1,17 +1,20 @@
 //! Common test utilities and fixtures for swaption tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::pricing_overrides::VolSurfaceExtrapolation;
+use finstack_valuations::instruments::rates::irs::{
+    FixedLegSpec, FloatLegSpec, FloatingLegCompounding, InterestRateSwap, PayReceive,
+};
 use finstack_valuations::instruments::rates::swaption::{
     Swaption, SwaptionExercise, SwaptionSettlement, VolatilityModel,
 };
-use finstack_valuations::instruments::OptionType;
 use finstack_valuations::instruments::PricingOverrides;
+use finstack_valuations::instruments::{Instrument, OptionType};
 use rust_decimal::Decimal;
 use time::macros::date;
 
@@ -95,6 +98,8 @@ pub fn create_standard_payer_swaption(
         pricing_overrides: PricingOverrides::default()
             .with_vol_surface_extrapolation(VolSurfaceExtrapolation::Clamp),
         calendar_id: None,
+        underlying_fixed_leg: None,
+        underlying_float_leg: None,
         sabr_params: None,
         attributes: Default::default(),
     }
@@ -123,6 +128,75 @@ pub fn create_flat_market(as_of: Date, rate: f64, vol: f64) -> MarketContext {
         .insert(disc_curve)
         .insert(fwd_curve)
         .insert_surface(vol_surface)
+}
+
+/// Compute the par rate of the vanilla IRS equivalent to a legacy swaption underlier.
+pub fn equivalent_vanilla_irs_par_rate(
+    swaption: &Swaption,
+    market: &MarketContext,
+    as_of: Date,
+) -> f64 {
+    let fwd = market
+        .get_forward(swaption.forward_curve_id.as_ref())
+        .unwrap();
+    let fixed = |rate| FixedLegSpec {
+        discount_curve_id: swaption.discount_curve_id.clone(),
+        rate: Decimal::try_from(rate).unwrap(),
+        frequency: swaption.fixed_freq,
+        day_count: swaption.day_count,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: swaption
+            .calendar_id
+            .as_ref()
+            .map(std::string::ToString::to_string),
+        stub: StubKind::None,
+        start: swaption.swap_start,
+        end: swaption.swap_end,
+        par_method: None,
+        compounding_simple: true,
+        payment_lag_days: 0,
+        end_of_month: false,
+    };
+    let float = FloatLegSpec {
+        discount_curve_id: swaption.discount_curve_id.clone(),
+        forward_curve_id: swaption.forward_curve_id.clone(),
+        spread_bp: Decimal::ZERO,
+        frequency: swaption.float_freq,
+        day_count: fwd.day_count(),
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: swaption
+            .calendar_id
+            .as_ref()
+            .map(std::string::ToString::to_string),
+        stub: StubKind::None,
+        reset_lag_days: 0,
+        fixing_calendar_id: swaption
+            .calendar_id
+            .as_ref()
+            .map(std::string::ToString::to_string),
+        start: swaption.swap_start,
+        end: swaption.swap_end,
+        compounding: FloatingLegCompounding::Simple,
+        payment_lag_days: 0,
+        end_of_month: false,
+    };
+    let value_at_fixed_rate = |rate| {
+        InterestRateSwap::builder()
+            .id(format!("IRS-{rate:.0}").into())
+            .notional(swaption.notional)
+            .side(PayReceive::ReceiveFixed)
+            .fixed(fixed(rate))
+            .float(float.clone())
+            .build()
+            .unwrap()
+            .value(market, as_of)
+            .unwrap()
+            .amount()
+    };
+
+    let value_zero = value_at_fixed_rate(0.0);
+    let value_unit = value_at_fixed_rate(1.0);
+    -value_zero / (value_unit - value_zero)
 }
 
 /// Standard test dates

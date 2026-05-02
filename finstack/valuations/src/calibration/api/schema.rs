@@ -4,6 +4,7 @@
 
 use crate::calibration::config::{CalibrationConfig, CalibrationMethod, RatesStepConventions};
 use crate::calibration::CalibrationReport;
+use crate::instruments::credit_derivatives::cds::CdsValuationConvention;
 use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::config::ResultsMeta;
 use finstack_core::currency::Currency;
@@ -270,6 +271,10 @@ pub struct HazardCurveParams {
     /// - `"isda_as"` (JPY/AUD/NZD/HKD/SGD default)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doc_clause: Option<String>,
+    /// Optional CDS valuation convention used by synthetic CDS instruments
+    /// during hazard calibration and rebootstrap.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cds_valuation_convention: Option<CdsValuationConvention>,
 }
 
 /// Parameters for inflation curve calibration step.

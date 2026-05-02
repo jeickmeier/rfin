@@ -5,7 +5,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
-use finstack_core::market_data::surfaces::VolSurface;
+use finstack_core::market_data::surfaces::{VolSurface, VolSurfaceAxis};
 use finstack_core::market_data::term_structures::{
     BaseCorrelationCurve, CreditIndexData, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve,
 };
@@ -78,6 +78,8 @@ struct HazardCurveSpec {
     recovery_rate: Option<f64>,
     day_count: Option<String>,
     knots: Vec<[f64; 2]>,
+    #[serde(default)]
+    par_spreads: Vec<[f64; 2]>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -125,6 +127,8 @@ struct VolSurfaceSpec {
     id: String,
     expiries: Vec<f64>,
     strikes: Vec<f64>,
+    #[serde(default)]
+    secondary_axis: VolSurfaceAxis,
     vols_row_major: Vec<f64>,
 }
 
@@ -206,11 +210,12 @@ fn build_market(
 }
 
 fn build_vol_surface(spec: &VolSurfaceSpec) -> Result<VolSurface, String> {
-    VolSurface::from_grid(
+    VolSurface::from_grid_with_axis(
         spec.id.as_str(),
         &spec.expiries,
         &spec.strikes,
         &spec.vols_row_major,
+        spec.secondary_axis,
     )
     .map_err(|err| format!("build vol surface '{}': {err}", spec.id))
 }
@@ -259,6 +264,9 @@ fn build_hazard_curve(spec: &HazardCurveSpec) -> Result<HazardCurve, String> {
     let mut builder = HazardCurve::builder(spec.id.as_str())
         .base_date(parse_as_of_date(&spec.base_date).map_err(|err| err.to_string())?)
         .knots(to_knots(&spec.knots));
+    if !spec.par_spreads.is_empty() {
+        builder = builder.par_spreads(to_knots(&spec.par_spreads));
+    }
     if let Some(recovery_rate) = spec.recovery_rate {
         builder = builder.recovery_rate(recovery_rate);
     }

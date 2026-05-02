@@ -282,6 +282,8 @@ fn calibrated_swaption_surface_is_not_silently_reused_as_strike_surface() {
         vol_surface_id: "USD-SWPT".into(),
         pricing_overrides: PricingOverrides::default(),
         calendar_id: None,
+        underlying_fixed_leg: None,
+        underlying_float_leg: None,
         sabr_params: None,
         attributes: Default::default(),
     };
