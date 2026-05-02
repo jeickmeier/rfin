@@ -2,17 +2,17 @@
   "schema_version": "finstack.golden/1",
   "name": "usd_deposit_3m",
   "domain": "rates.deposit",
-  "description": "Synthetic USD 3M money-market deposit on a committed discount curve.",
+  "description": "QuantLib-parity USD 3M money-market deposit on a committed discount curve.",
   "provenance": {
     "as_of": "2026-04-30",
-    "source": "formula",
-    "source_detail": "Finstack canonical discounting calculation on a deterministic synthetic USD curve",
+    "source": "quantlib",
+    "source_detail": "QuantLib-Python 1.42.1 parity check using IborIndex forecast fixing for deposit par rate, CashFlows.npv for start and maturity flows, and central finite-difference DV01 on a deterministic USD discount curve",
     "captured_by": "jeickmeier",
     "captured_on": "2026-04-30",
     "last_reviewed_by": "jeickmeier",
     "last_reviewed_on": "2026-04-30",
     "review_interval_months": 6,
-    "regen_command": "manual formula fixture; values captured from canonical pricing runner",
+    "regen_command": "manual QuantLib-Python oracle; see inputs.source_reference for reproduction formulas and intermediate values",
     "screenshots": []
   },
   "inputs": {
@@ -62,6 +62,21 @@
         }
       ],
       "forward": []
+    },
+    "source_reference": {
+      "note": "QuantLib oracle: par rate follows IborIndex::forecastFixing, (DF(start) / DF(end) - 1) / Act360 year fraction; NPV follows CashFlows.npv over the -notional start flow and notional * (1 + quote_rate * year_fraction) maturity flow. Because this fixture uses Finstack synthetic time knots, the QuantLib reproduction is fed the maturity discount factor implied by the fixture's Act/365F log-linear discount curve interpolation.",
+      "quantlib_version": "1.42.1",
+      "quantlib_reference_urls": [
+        "https://raw.githubusercontent.com/lballabio/QuantLib/master/ql/indexes/iborindex.hpp",
+        "https://raw.githubusercontent.com/lballabio/QuantLib/master/ql/termstructures/yield/ratehelpers.cpp",
+        "https://quantlib-python-docs.readthedocs.io/en/latest/helpers/rates.html"
+      ],
+      "oracle_values": {
+        "act360_year_fraction": 0.25277777777777777,
+        "act365f_curve_time": 0.2493150684931507,
+        "maturity_discount_factor": 0.9900272601903599,
+        "redemption": 10103638.888888888
+      }
     }
   },
   "expected_outputs": {

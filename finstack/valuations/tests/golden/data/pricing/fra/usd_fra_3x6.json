@@ -2,44 +2,89 @@
   "schema_version": "finstack.golden/1",
   "name": "usd_fra_3x6",
   "domain": "rates.fra",
-  "description": "Synthetic USD 3x6 FRA on committed discount and 3M forward curves.",
+  "description": "Bloomberg SWPM USD 2M x 5M FRA captured from screens on 2026-05-02.",
   "provenance": {
-    "as_of": "2026-04-30",
-    "source": "formula",
-    "source_detail": "Finstack canonical FRA discounting calculation on deterministic synthetic USD curves",
+    "as_of": "2026-05-02",
+    "source": "bloomberg-screen",
+    "source_detail": "Bloomberg SWPM FRA, curve 490 USD SOFR discounting, curve 559 USD 3M CME Term SOFR projection, curve date 2026-05-02, valuation date 2026-05-05",
     "captured_by": "jeickmeier",
-    "captured_on": "2026-04-30",
+    "captured_on": "2026-05-02",
     "last_reviewed_by": "jeickmeier",
-    "last_reviewed_on": "2026-04-30",
+    "last_reviewed_on": "2026-05-02",
     "review_interval_months": 6,
-    "regen_command": "manual formula fixture; values captured from canonical pricing runner",
-    "screenshots": []
+    "regen_command": "manual Bloomberg SWPM screen transcription; see provenance.screenshots",
+    "screenshots": [
+      {
+        "path": "screenshots/usd_fra_3x6__main.png",
+        "screen": "SWPM",
+        "captured_on": "2026-05-02",
+        "description": "Main SWPM FRA terms and valuation results for the USD 2M x 5M sell/lend FRA"
+      },
+      {
+        "path": "screenshots/usd_fra_3x6__cashflows.png",
+        "screen": "SWPM",
+        "captured_on": "2026-05-02",
+        "description": "Bloomberg cashflow table with reset rate, settlement cashflow, discount factor, and NPV"
+      },
+      {
+        "path": "screenshots/usd_fra_3x6__discount_curve.png",
+        "screen": "SWPM",
+        "captured_on": "2026-05-02",
+        "description": "Curve 490 USD SOFR discount curve screen with visible market rates, zero rates, and discount factors"
+      },
+      {
+        "path": "screenshots/usd_fra_3x6__forward_curve.png",
+        "screen": "SWPM",
+        "captured_on": "2026-05-02",
+        "description": "Curve 559 USD 3M CME Term SOFR projection curve screen with visible zero rates and discount factors"
+      }
+    ]
   },
   "inputs": {
-    "valuation_date": "2026-04-30",
+    "valuation_date": "2026-05-05",
+    "curve_date": "2026-05-02",
     "model": "discounting",
-    "metrics": ["par_rate", "dv01"],
+    "metrics": [
+      "par_rate",
+      "dv01"
+    ],
     "instrument_json": {
       "schema": "finstack.instrument/1",
       "instrument": {
         "type": "forward_rate_agreement",
         "spec": {
-          "id": "USD-FRA-3X6-GOLDEN",
+          "id": "USD-FRA-2X5-SWPM-20260502",
           "notional": {
             "amount": "10000000",
             "currency": "USD"
           },
-          "start_date": "2026-07-30",
-          "maturity": "2026-10-30",
-          "fixed_rate": "0.0415",
+          "fixing_date": "2026-07-01",
+          "start_date": "2026-07-06",
+          "maturity": "2026-10-06",
+          "fixed_rate": "0.036437",
           "day_count": "Act360",
           "reset_lag": 2,
-          "discount_curve_id": "USD-OIS",
-          "forward_curve_id": "USD-SOFR-3M",
-          "side": "pay",
+          "fixing_calendar_id": "usny",
+          "fixing_bdc": "modified_following",
+          "discount_curve_id": "USD-SOFR",
+          "forward_curve_id": "USD-3M-CME-TERM-SOFR",
+          "side": "receive",
           "attributes": {
-            "tags": ["golden"],
-            "meta": {}
+            "tags": [
+              "golden",
+              "bloomberg",
+              "swpm"
+            ],
+            "meta": {
+              "bloomberg_screen": "SWPM",
+              "bloomberg_side": "Sell (Lend)",
+              "curve_number_discount": "490",
+              "curve_name_discount": "USD SOFR",
+              "curve_number_forward": "559",
+              "curve_name_forward": "USD 3M CME Term SOFR",
+              "fra_type": "2M x 5M",
+              "calendar": "GT"
+            }
           }
         }
       }
@@ -47,47 +92,302 @@
     "curves": {
       "discount": [
         {
-          "id": "USD-OIS",
-          "base_date": "2026-04-30",
+          "id": "USD-SOFR",
+          "base_date": "2026-05-02",
           "day_count": "act_365f",
           "interp": "log_linear",
           "knots": [
-            [0.0, 1.0],
-            [0.25, 0.99],
-            [0.5, 0.9802],
-            [1.0, 0.9608],
-            [2.0, 0.9231],
-            [5.0, 0.8187]
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.019178082191780823,
+              0.998992
+            ],
+            [
+              0.038356164383561646,
+              0.998286
+            ],
+            [
+              0.057534246575342465,
+              0.997583
+            ],
+            [
+              0.08333333333333333,
+              0.996571
+            ],
+            [
+              0.16666666666666666,
+              0.993452
+            ],
+            [
+              0.25,
+              0.990448
+            ],
+            [
+              0.3333333333333333,
+              0.987057
+            ],
+            [
+              0.4166666666666667,
+              0.984373
+            ],
+            [
+              0.5,
+              0.981305
+            ],
+            [
+              0.5833333333333334,
+              0.97814
+            ],
+            [
+              0.6666666666666666,
+              0.975249
+            ],
+            [
+              0.75,
+              0.972171
+            ],
+            [
+              0.8333333333333334,
+              0.969391
+            ],
+            [
+              0.9166666666666666,
+              0.966303
+            ],
+            [
+              1.0,
+              0.963316
+            ],
+            [
+              1.5,
+              0.945253
+            ],
+            [
+              2.0,
+              0.928307
+            ]
           ]
         }
       ],
       "forward": [
         {
-          "id": "USD-SOFR-3M",
+          "id": "USD-3M-CME-TERM-SOFR",
           "tenor": 0.25,
-          "base_date": "2026-04-30",
+          "base_date": "2026-05-02",
           "day_count": "act_360",
           "interp": "linear",
           "knots": [
-            [0.0, 0.04],
-            [0.25, 0.041],
-            [0.5, 0.042],
-            [1.0, 0.043],
-            [2.0, 0.044],
-            [5.0, 0.045]
+            [
+              0.0,
+              0.036437
+            ],
+            [
+              0.18055555555555555,
+              0.036437
+            ],
+            [
+              0.4361111111111111,
+              0.036437
+            ],
+            [
+              0.5,
+              0.036437
+            ],
+            [
+              1.0,
+              0.036437
+            ]
           ]
+        }
+      ]
+    },
+    "bloomberg_reference": {
+      "trade": {
+        "trade_date": "2026-05-02",
+        "valuation_date": "2026-05-05",
+        "curve_date": "2026-05-02",
+        "currency": "USD",
+        "notional": 10000000.0,
+        "side": "Sell (Lend)",
+        "fra_type": "2M x 5M",
+        "effective_date": "2026-07-06",
+        "maturity_date": "2026-10-06",
+        "reset_date": "2026-07-01",
+        "calendar": "GT",
+        "business_day_adjustment": "ModifiedFollowing",
+        "day_count": "ACT/360",
+        "fixed_rate": 0.036437,
+        "index": "TSFR3M",
+        "discount_curve": "490 USD SOFR",
+        "forward_curve": "559 USD 3M CME Term SOFR"
+      },
+      "screen_results": {
+        "projected_cashflow": -0.01,
+        "premium": 0.0,
+        "discount_settle": 0.99375,
+        "npv": -0.01,
+        "market_rate": 0.036437,
+        "bp_value": -0.00001,
+        "br01_559_usd_3": 251.51,
+        "dv01": 337.37,
+        "gamma_1bp": 0.04
+      },
+      "cashflows": [
+        {
+          "pay_date": "2026-07-06",
+          "accrual_start": "2026-07-06",
+          "accrual_end": "2026-10-06",
+          "days": 92,
+          "notional": 10000000.0,
+          "principal": 0.0,
+          "fra_strike": 0.036437,
+          "reset_date": "2026-07-01",
+          "reset_rate": 0.036437,
+          "payment": -0.01,
+          "discount": 0.993752
+        }
+      ],
+      "discount_curve_screen": [
+        {
+          "term": "1W",
+          "market_rate": 0.03634,
+          "zero_rate": 0.0368266,
+          "discount": 0.998992
+        },
+        {
+          "term": "2W",
+          "market_rate": 0.036351,
+          "zero_rate": 0.0368272,
+          "discount": 0.998286
+        },
+        {
+          "term": "3W",
+          "market_rate": 0.036335,
+          "zero_rate": 0.0368024,
+          "discount": 0.997583
+        },
+        {
+          "term": "1M",
+          "market_rate": 0.036432,
+          "zero_rate": 0.0368744,
+          "discount": 0.996571
+        },
+        {
+          "term": "2M",
+          "market_rate": 0.0365047,
+          "zero_rate": 0.0368921,
+          "discount": 0.993452
+        },
+        {
+          "term": "3M",
+          "market_rate": 0.036544,
+          "zero_rate": 0.0368776,
+          "discount": 0.990448
+        },
+        {
+          "term": "4M",
+          "market_rate": 0.036589,
+          "zero_rate": 0.0368606,
+          "discount": 0.987057
+        },
+        {
+          "term": "5M",
+          "market_rate": 0.036629,
+          "zero_rate": 0.0368509,
+          "discount": 0.984373
+        },
+        {
+          "term": "6M",
+          "market_rate": 0.0366705,
+          "zero_rate": 0.0368353,
+          "discount": 0.981305
+        },
+        {
+          "term": "12M",
+          "market_rate": 0.0372495,
+          "zero_rate": 0.0370691,
+          "discount": 0.963316
+        },
+        {
+          "term": "18M",
+          "market_rate": 0.0372925,
+          "zero_rate": 0.0372293,
+          "discount": 0.945253
+        },
+        {
+          "term": "2Y",
+          "market_rate": 0.0371735,
+          "zero_rate": 0.0369938,
+          "discount": 0.928307
+        }
+      ],
+      "forward_curve_screen": [
+        {
+          "term": "3M",
+          "type": "Cash",
+          "market_rate": 0.0366395,
+          "zero_rate": 0.0369735,
+          "discount": 0.990423
+        },
+        {
+          "term": "6M",
+          "type": "Basis",
+          "market_rate": 0.0,
+          "zero_rate": 0.0368255,
+          "discount": 0.98131
+        },
+        {
+          "term": "9M",
+          "type": "Basis",
+          "market_rate": 0.0,
+          "zero_rate": 0.0369114,
+          "discount": 0.97218
+        },
+        {
+          "term": "12M",
+          "type": "Basis",
+          "market_rate": 0.0,
+          "zero_rate": 0.0370584,
+          "discount": 0.963326
+        },
+        {
+          "term": "18M",
+          "type": "Basis",
+          "market_rate": 0.0,
+          "zero_rate": 0.0372171,
+          "discount": 0.94527
+        },
+        {
+          "term": "2Y",
+          "type": "Basis",
+          "market_rate": 0.0,
+          "zero_rate": 0.0369821,
+          "discount": 0.928329
         }
       ]
     }
   },
   "expected_outputs": {
-    "npv": 53.894895693400535,
-    "par_rate": 0.04152152777777778,
-    "dv01": 250.34777708300632
+    "npv": -0.01,
+    "par_rate": 0.036437,
+    "dv01": -251.51
   },
   "tolerances": {
-    "npv": {"abs": 1e-6, "rel": 1e-12},
-    "par_rate": {"abs": 1e-12},
-    "dv01": {"abs": 1e-6, "rel": 1e-12}
+    "npv": {
+      "abs": 0.0100001,
+      "rel": 1e-6,
+      "tolerance_reason": "Bloomberg cashflow and NPV are displayed to cents; the screen shows -0.01 while the exact par FRA economics round to zero."
+    },
+    "par_rate": {
+      "abs": 5e-8
+    },
+    "dv01": {
+      "abs": 0.5,
+      "rel": 0.0001,
+      "tolerance_reason": "Bloomberg displays the 559:USD3 BR01 as a positive risk magnitude; fixture stores finstack's signed receive-fixed sell/lend convention."
+    }
   }
 }
