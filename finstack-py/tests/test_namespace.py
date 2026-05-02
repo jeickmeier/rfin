@@ -68,6 +68,8 @@ class TestCoreNamespace:
             "context",
             "dtsm",
             "arbitrage",
+            "BaseCorrelationCurve",
+            "CreditIndexData",
             "DiscountCurve",
             "ForwardCurve",
             "HazardCurve",

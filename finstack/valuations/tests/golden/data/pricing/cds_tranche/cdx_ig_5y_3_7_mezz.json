@@ -1,0 +1,252 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "cdx_ig_5y_3_7_mezz",
+  "domain": "credit.cds_tranche",
+  "description": "Synthetic CDX IG 5Y 3-7 percent mezzanine tranche.",
+  "provenance": {
+    "as_of": "2026-04-30",
+    "source": "formula",
+    "source_detail": "Finstack canonical credit pricing calculation on deterministic synthetic market inputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; values captured from canonical pricing runner",
+    "screenshots": []
+  },
+  "inputs": {
+    "valuation_date": "2026-04-30",
+    "model": "hazard_rate",
+    "metrics": [
+      "par_spread",
+      "spread_dv01"
+    ],
+    "instrument_json": {
+      "type": "cds_tranche",
+      "spec": {
+        "id": "CDX-IG-5Y-3-7-MEZZ-GOLDEN",
+        "index_name": "CDX.NA.IG",
+        "series": 42,
+        "attach_pct": 3.0,
+        "detach_pct": 7.0,
+        "notional": {
+          "amount": "10000000",
+          "currency": "USD"
+        },
+        "maturity": "2031-04-30",
+        "running_coupon_bp": 100.0,
+        "frequency": {
+          "count": 3,
+          "unit": "months"
+        },
+        "day_count": "Act360",
+        "bdc": "following",
+        "calendar_id": "nyse",
+        "discount_curve_id": "USD-OIS",
+        "credit_index_id": "CDX.NA.IG.HAZARD",
+        "side": "buy_protection",
+        "effective_date": "2026-04-30",
+        "accumulated_loss": 0.0,
+        "standard_imm_dates": false,
+        "pricing_overrides": {},
+        "attributes": {
+          "tags": [
+            "golden"
+          ],
+          "meta": {}
+        }
+      }
+    },
+    "curves": {
+      "discount": [
+        {
+          "id": "USD-OIS",
+          "base_date": "2026-04-30",
+          "day_count": "act_365f",
+          "interp": "log_linear",
+          "knots": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.99
+            ],
+            [
+              0.5,
+              0.9802
+            ],
+            [
+              1.0,
+              0.9608
+            ],
+            [
+              2.0,
+              0.9231
+            ],
+            [
+              5.0,
+              0.8187
+            ],
+            [
+              7.0,
+              0.755
+            ],
+            [
+              10.0,
+              0.6703
+            ]
+          ]
+        }
+      ],
+      "hazard": [
+        {
+          "id": "CORP-HAZARD",
+          "base_date": "2026-04-30",
+          "recovery_rate": 0.4,
+          "day_count": "act_365f",
+          "knots": [
+            [
+              0.25,
+              0.012
+            ],
+            [
+              1.0,
+              0.014
+            ],
+            [
+              3.0,
+              0.018
+            ],
+            [
+              5.0,
+              0.022
+            ],
+            [
+              10.0,
+              0.028
+            ]
+          ]
+        },
+        {
+          "id": "HY-CORP-HAZARD",
+          "base_date": "2026-04-30",
+          "recovery_rate": 0.35,
+          "day_count": "act_365f",
+          "knots": [
+            [
+              0.25,
+              0.035
+            ],
+            [
+              1.0,
+              0.045
+            ],
+            [
+              3.0,
+              0.06
+            ],
+            [
+              5.0,
+              0.075
+            ],
+            [
+              10.0,
+              0.09
+            ]
+          ]
+        },
+        {
+          "id": "CDX.NA.IG.HAZARD",
+          "base_date": "2026-04-30",
+          "recovery_rate": 0.4,
+          "day_count": "act_365f",
+          "knots": [
+            [
+              0.25,
+              0.01
+            ],
+            [
+              1.0,
+              0.012
+            ],
+            [
+              3.0,
+              0.016
+            ],
+            [
+              5.0,
+              0.02
+            ],
+            [
+              10.0,
+              0.025
+            ]
+          ]
+        }
+      ]
+    },
+    "source_reference": {
+      "design_metrics": [
+        "upfront",
+        "par_spread",
+        "cs01"
+      ],
+      "non_compared_metrics": [
+        "upfront",
+        "cs01",
+        "base_correlation"
+      ]
+    },
+    "credit_indices": [
+      {
+        "id": "CDX.NA.IG.HAZARD",
+        "num_constituents": 125,
+        "recovery_rate": 0.4,
+        "index_credit_curve_id": "CDX.NA.IG.HAZARD",
+        "base_correlation_curve": {
+          "id": "CDX.NA.IG.BASECORR",
+          "knots": [
+            [
+              3.0,
+              0.25
+            ],
+            [
+              7.0,
+              0.35
+            ],
+            [
+              10.0,
+              0.45
+            ],
+            [
+              15.0,
+              0.55
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  "expected_outputs": {
+    "npv": 1851420.6034794892,
+    "par_spread": 547.102473708064,
+    "spread_dv01": -4140.931245860993
+  },
+  "tolerances": {
+    "npv": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "par_spread": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "spread_dv01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    }
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "cds_hazard_calib_then_price_off_par",
+  "domain": "credit.integration",
+  "description": "Synthetic single-name hazard calibrate-then-price integration fixture with flattened hazard and off-par CDS outputs.",
+  "provenance": {
+    "as_of": "2026-04-30",
+    "source": "formula",
+    "source_detail": "Deterministic synthetic credit integration fixture with flattened hazard calibration and CDS pricing outputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; flattened outputs committed in fixture",
+    "screenshots": []
+  },
+  "inputs": {
+    "actual_outputs": {
+      "hazard_rate::ACME-HZD::1y": 0.014,
+      "hazard_rate::ACME-HZD::3y": 0.018,
+      "hazard_rate::ACME-HZD::5y": 0.022,
+      "hazard_rate::ACME-HZD::7y": 0.025,
+      "hazard_rate::ACME-HZD::10y": 0.028,
+      "survival_probability::ACME-HZD::5y": 0.8958341352965282,
+      "cds_npv": -835854.5330565799,
+      "cds_cs01": 2798.625287859933
+    },
+    "source_reference": {
+      "calibrated_curve": "ACME-HZD",
+      "priced_instrument": "off-par 5Y CDS using the calibrated hazard curve",
+      "pricing_fixture_reference": "pricing/cds/cds_off_par_hazard.json"
+    }
+  },
+  "expected_outputs": {
+    "hazard_rate::ACME-HZD::1y": 0.014,
+    "hazard_rate::ACME-HZD::3y": 0.018,
+    "hazard_rate::ACME-HZD::5y": 0.022,
+    "hazard_rate::ACME-HZD::7y": 0.025,
+    "hazard_rate::ACME-HZD::10y": 0.028,
+    "survival_probability::ACME-HZD::5y": 0.8958341352965282,
+    "cds_npv": -835854.5330565799,
+    "cds_cs01": 2798.625287859933
+  },
+  "tolerances": {
+    "hazard_rate::ACME-HZD::1y": {
+      "abs": 1e-12
+    },
+    "hazard_rate::ACME-HZD::3y": {
+      "abs": 1e-12
+    },
+    "hazard_rate::ACME-HZD::5y": {
+      "abs": 1e-12
+    },
+    "hazard_rate::ACME-HZD::7y": {
+      "abs": 1e-12
+    },
+    "hazard_rate::ACME-HZD::10y": {
+      "abs": 1e-12
+    },
+    "survival_probability::ACME-HZD::5y": {
+      "abs": 1e-12
+    },
+    "cds_npv": {
+      "abs": 1e-06
+    },
+    "cds_cs01": {
+      "abs": 1e-06
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "log_vs_arith_roundtrip",
+  "domain": "analytics.returns",
+  "description": "Simple/log return roundtrip on a known price path.",
+  "provenance": {
+    "as_of": "2026-05-01",
+    "source": "formula",
+    "source_detail": "Deterministic synthetic analytics fixture with closed-form expected outputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; flattened outputs committed in fixture"
+  },
+  "inputs": {
+    "actual_outputs": {
+      "arith_ret::1": 0.03,
+      "log_ret::1": 0.0295588022415444,
+      "arith_from_log::1": 0.030000000000000027,
+      "cumulative": 0.040000000000000036
+    }
+  },
+  "expected_outputs": {
+    "arith_ret::1": 0.03,
+    "log_ret::1": 0.0295588022415444,
+    "arith_from_log::1": 0.030000000000000027,
+    "cumulative": 0.040000000000000036
+  },
+  "tolerances": {
+    "arith_ret::1": {
+      "abs": 1e-10
+    },
+    "log_ret::1": {
+      "abs": 1e-10
+    },
+    "arith_from_log::1": {
+      "abs": 1e-10
+    },
+    "cumulative": {
+      "abs": 1e-10
+    }
+  }
+}

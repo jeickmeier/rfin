@@ -4,10 +4,14 @@ use crate::golden::schema::GoldenFixture;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
-use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+use finstack_core::market_data::term_structures::{
+    BaseCorrelationCurve, CreditIndexData, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve,
+};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
+use finstack_core::money::Money;
 use finstack_valuations::pricer::{parse_as_of_date, price_instrument_json_with_metrics};
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -24,6 +28,10 @@ struct PricingInputs {
     #[serde(default)]
     fx: Vec<FxQuoteSpec>,
     #[serde(default)]
+    prices: Vec<MarketScalarSpec>,
+    #[serde(default)]
+    credit_indices: Vec<CreditIndexSpec>,
+    #[serde(default)]
     surfaces: SurfaceInputs,
 }
 
@@ -32,6 +40,10 @@ struct CurveInputs {
     discount: Vec<DiscountCurveSpec>,
     #[serde(default)]
     forward: Vec<ForwardCurveSpec>,
+    #[serde(default)]
+    hazard: Vec<HazardCurveSpec>,
+    #[serde(default)]
+    inflation: Vec<InflationCurveSpec>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -60,6 +72,48 @@ struct ForwardCurveSpec {
 }
 
 #[derive(Debug, Deserialize)]
+struct HazardCurveSpec {
+    id: String,
+    base_date: String,
+    recovery_rate: Option<f64>,
+    day_count: Option<String>,
+    knots: Vec<[f64; 2]>,
+}
+
+#[derive(Debug, Deserialize)]
+struct InflationCurveSpec {
+    id: String,
+    base_date: String,
+    base_cpi: f64,
+    day_count: Option<String>,
+    indexation_lag_months: Option<u32>,
+    interp: Option<String>,
+    knots: Vec<[f64; 2]>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BaseCorrelationCurveSpec {
+    id: String,
+    knots: Vec<[f64; 2]>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreditIndexSpec {
+    id: String,
+    num_constituents: u16,
+    recovery_rate: f64,
+    index_credit_curve_id: String,
+    base_correlation_curve: BaseCorrelationCurveSpec,
+}
+
+#[derive(Debug, Deserialize)]
+struct MarketScalarSpec {
+    id: String,
+    value: f64,
+    currency: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct FxQuoteSpec {
     base: String,
     quote: String,
@@ -80,7 +134,13 @@ pub(crate) fn run_pricing_fixture(
 ) -> Result<BTreeMap<String, f64>, String> {
     let inputs: PricingInputs = serde_json::from_value(fixture.inputs.clone())
         .map_err(|err| format!("parse pricing inputs: {err}"))?;
-    let market = build_market(&inputs.curves, &inputs.fx, &inputs.surfaces)?;
+    let market = build_market(
+        &inputs.curves,
+        &inputs.fx,
+        &inputs.prices,
+        &inputs.credit_indices,
+        &inputs.surfaces,
+    )?;
     let instrument_json = serde_json::to_string(&inputs.instrument_json)
         .map_err(|err| format!("serialize instrument_json: {err}"))?;
 
@@ -112,6 +172,8 @@ pub(crate) fn run_pricing_fixture(
 fn build_market(
     curves: &CurveInputs,
     fx_quotes: &[FxQuoteSpec],
+    prices: &[MarketScalarSpec],
+    credit_indices: &[CreditIndexSpec],
     surfaces: &SurfaceInputs,
 ) -> Result<MarketContext, String> {
     let mut market = MarketContext::new();
@@ -121,8 +183,21 @@ fn build_market(
     for curve in &curves.forward {
         market = market.insert(build_forward_curve(curve)?);
     }
+    for curve in &curves.hazard {
+        market = market.insert(build_hazard_curve(curve)?);
+    }
+    for curve in &curves.inflation {
+        market = market.insert(build_inflation_curve(curve)?);
+    }
     for surface in &surfaces.vol {
         market = market.insert_surface(build_vol_surface(surface)?);
+    }
+    for price in prices {
+        market = market.insert_price(price.id.as_str(), build_market_scalar(price)?);
+    }
+    for credit_index in credit_indices {
+        let data = build_credit_index(credit_index, &market)?;
+        market = market.insert_credit_index(credit_index.id.as_str(), data);
     }
     if !fx_quotes.is_empty() {
         market = market.insert_fx(build_fx_matrix(fx_quotes)?);
@@ -178,6 +253,80 @@ fn build_forward_curve(spec: &ForwardCurveSpec) -> Result<ForwardCurve, String> 
     builder
         .build()
         .map_err(|err| format!("build forward curve '{}': {err}", spec.id))
+}
+
+fn build_hazard_curve(spec: &HazardCurveSpec) -> Result<HazardCurve, String> {
+    let mut builder = HazardCurve::builder(spec.id.as_str())
+        .base_date(parse_as_of_date(&spec.base_date).map_err(|err| err.to_string())?)
+        .knots(to_knots(&spec.knots));
+    if let Some(recovery_rate) = spec.recovery_rate {
+        builder = builder.recovery_rate(recovery_rate);
+    }
+    if let Some(day_count) = spec.day_count.as_deref() {
+        builder = builder.day_count(parse_day_count(day_count)?);
+    }
+    builder
+        .build()
+        .map_err(|err| format!("build hazard curve '{}': {err}", spec.id))
+}
+
+fn build_inflation_curve(spec: &InflationCurveSpec) -> Result<InflationCurve, String> {
+    let mut builder = InflationCurve::builder(spec.id.as_str())
+        .base_date(parse_as_of_date(&spec.base_date).map_err(|err| err.to_string())?)
+        .base_cpi(spec.base_cpi)
+        .knots(to_knots(&spec.knots))
+        .interp(parse_interp(spec.interp.as_deref())?);
+    if let Some(day_count) = spec.day_count.as_deref() {
+        builder = builder.day_count(parse_day_count(day_count)?);
+    }
+    if let Some(lag) = spec.indexation_lag_months {
+        builder = builder.indexation_lag_months(lag);
+    }
+    builder
+        .build()
+        .map_err(|err| format!("build inflation curve '{}': {err}", spec.id))
+}
+
+fn build_market_scalar(spec: &MarketScalarSpec) -> Result<MarketScalar, String> {
+    if let Some(currency) = spec.currency.as_deref() {
+        Ok(MarketScalar::Price(Money::new(
+            spec.value,
+            parse_currency(currency)?,
+        )))
+    } else {
+        Ok(MarketScalar::Unitless(spec.value))
+    }
+}
+
+fn build_base_correlation_curve(
+    spec: &BaseCorrelationCurveSpec,
+) -> Result<BaseCorrelationCurve, String> {
+    BaseCorrelationCurve::builder(spec.id.as_str())
+        .knots(to_knots(&spec.knots))
+        .build()
+        .map_err(|err| format!("build base correlation curve '{}': {err}", spec.id))
+}
+
+fn build_credit_index(
+    spec: &CreditIndexSpec,
+    market: &MarketContext,
+) -> Result<CreditIndexData, String> {
+    let index_curve = market
+        .get_hazard(spec.index_credit_curve_id.as_str())
+        .map_err(|err| {
+            format!(
+                "get credit index hazard curve '{}': {err}",
+                spec.index_credit_curve_id
+            )
+        })?;
+    let base_correlation = build_base_correlation_curve(&spec.base_correlation_curve)?;
+    CreditIndexData::builder()
+        .num_constituents(spec.num_constituents)
+        .recovery_rate(spec.recovery_rate)
+        .index_credit_curve(index_curve)
+        .base_correlation_curve(Arc::new(base_correlation))
+        .build()
+        .map_err(|err| format!("build credit index '{}': {err}", spec.id))
 }
 
 fn to_knots(knots: &[[f64; 2]]) -> Vec<(f64, f64)> {

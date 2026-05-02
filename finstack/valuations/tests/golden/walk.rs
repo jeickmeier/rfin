@@ -54,7 +54,7 @@ fn walk_dir(dir: &Path, paths: &mut Vec<PathBuf>) {
     }
 }
 
-fn validate_fixture(path: &Path) -> Result<(), String> {
+pub(crate) fn validate_fixture(path: &Path) -> Result<(), String> {
     if path.to_string_lossy().starts_with("__read_dir_error__:") {
         return Err(path.display().to_string());
     }

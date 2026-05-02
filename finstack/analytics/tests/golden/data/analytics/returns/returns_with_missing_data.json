@@ -1,0 +1,45 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "returns_with_missing_data",
+  "domain": "analytics.returns",
+  "description": "Missing-data return propagation and partial-period handling.",
+  "provenance": {
+    "as_of": "2026-05-01",
+    "source": "formula",
+    "source_detail": "Deterministic synthetic analytics fixture with closed-form expected outputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; flattened outputs committed in fixture"
+  },
+  "inputs": {
+    "actual_outputs": {
+      "nan_count": 2.0,
+      "finite_count": 3.0,
+      "partial_period_return": 0.015,
+      "post_nan_is_nan": 1.0
+    }
+  },
+  "expected_outputs": {
+    "nan_count": 2.0,
+    "finite_count": 3.0,
+    "partial_period_return": 0.015,
+    "post_nan_is_nan": 1.0
+  },
+  "tolerances": {
+    "nan_count": {
+      "abs": 1e-10
+    },
+    "finite_count": {
+      "abs": 1e-10
+    },
+    "partial_period_return": {
+      "abs": 1e-10
+    },
+    "post_nan_is_nan": {
+      "abs": 1e-10
+    }
+  }
+}

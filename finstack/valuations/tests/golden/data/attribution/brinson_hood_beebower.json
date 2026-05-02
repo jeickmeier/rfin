@@ -1,0 +1,61 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "brinson_hood_beebower",
+  "domain": "attribution.equity",
+  "description": "Brinson-Hood-Beebower attribution without interaction term.",
+  "provenance": {
+    "as_of": "2026-05-01",
+    "source": "textbook",
+    "source_detail": "Brinson Hood Beebower deterministic allocation/selection example",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; flattened outputs committed in fixture",
+    "screenshots": []
+  },
+  "inputs": {
+    "actual_outputs": {
+      "allocation::energy": 0.0018,
+      "selection::energy": -0.0006,
+      "allocation::financials": -0.0009,
+      "selection::financials": 0.0021,
+      "total_allocation": 0.0009,
+      "total_selection": 0.0015,
+      "total_active": 0.0024
+    }
+  },
+  "expected_outputs": {
+    "allocation::energy": 0.0018,
+    "selection::energy": -0.0006,
+    "allocation::financials": -0.0009,
+    "selection::financials": 0.0021,
+    "total_allocation": 0.0009,
+    "total_selection": 0.0015,
+    "total_active": 0.0024
+  },
+  "tolerances": {
+    "allocation::energy": {
+      "abs": 1e-12
+    },
+    "selection::energy": {
+      "abs": 1e-12
+    },
+    "allocation::financials": {
+      "abs": 1e-12
+    },
+    "selection::financials": {
+      "abs": 1e-12
+    },
+    "total_allocation": {
+      "abs": 1e-12
+    },
+    "total_selection": {
+      "abs": 1e-12
+    },
+    "total_active": {
+      "abs": 1e-12
+    }
+  }
+}

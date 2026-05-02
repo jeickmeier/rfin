@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from tests.golden.runners._placeholders import reject_flattened_outputs
 from tests.golden.schema import GoldenFixture
 
 
 def run(fixture: GoldenFixture) -> dict[str, float]:
-    """Return flattened curve calibration outputs from the fixture payload."""
-    return {key: float(value) for key, value in fixture.inputs["actual_outputs"].items()}
+    """Require executable curve calibration inputs before running."""
+    return reject_flattened_outputs("rates curve calibration runner", fixture)

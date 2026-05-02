@@ -1,0 +1,40 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "rolling_volatility",
+  "domain": "analytics.vol",
+  "description": "Rolling volatility at 21/63/252 day windows.",
+  "provenance": {
+    "as_of": "2026-05-01",
+    "source": "formula",
+    "source_detail": "Deterministic synthetic analytics fixture with closed-form expected outputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; flattened outputs committed in fixture"
+  },
+  "inputs": {
+    "actual_outputs": {
+      "rolling_vol_21": 0.19843134832984433,
+      "rolling_vol_63": 0.17461958653026297,
+      "rolling_vol_252": 0.15874507866387544
+    }
+  },
+  "expected_outputs": {
+    "rolling_vol_21": 0.19843134832984433,
+    "rolling_vol_63": 0.17461958653026297,
+    "rolling_vol_252": 0.15874507866387544
+  },
+  "tolerances": {
+    "rolling_vol_21": {
+      "abs": 1e-10
+    },
+    "rolling_vol_63": {
+      "abs": 1e-10
+    },
+    "rolling_vol_252": {
+      "abs": 1e-10
+    }
+  }
+}

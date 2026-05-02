@@ -1,0 +1,56 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "contribution_to_return",
+  "domain": "attribution.equity",
+  "description": "Holding-level contribution to return sums exactly to portfolio return.",
+  "provenance": {
+    "as_of": "2026-05-01",
+    "source": "formula",
+    "source_detail": "Deterministic attribution fixture with flattened textbook/formula outputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; flattened outputs committed in fixture",
+    "screenshots": []
+  },
+  "inputs": {
+    "actual_outputs": {
+      "weighted_contribution::AAPL": 0.006,
+      "weighted_contribution::MSFT": 0.0045,
+      "weighted_contribution::UST_10Y": -0.001,
+      "weighted_contribution::CASH": 0.0002,
+      "total_contribution": 0.0097,
+      "portfolio_return": 0.0097
+    }
+  },
+  "expected_outputs": {
+    "weighted_contribution::AAPL": 0.006,
+    "weighted_contribution::MSFT": 0.0045,
+    "weighted_contribution::UST_10Y": -0.001,
+    "weighted_contribution::CASH": 0.0002,
+    "total_contribution": 0.0097,
+    "portfolio_return": 0.0097
+  },
+  "tolerances": {
+    "weighted_contribution::AAPL": {
+      "abs": 1e-12
+    },
+    "weighted_contribution::MSFT": {
+      "abs": 1e-12
+    },
+    "weighted_contribution::UST_10Y": {
+      "abs": 1e-12
+    },
+    "weighted_contribution::CASH": {
+      "abs": 1e-12
+    },
+    "total_contribution": {
+      "abs": 1e-12
+    },
+    "portfolio_return": {
+      "abs": 1e-12
+    }
+  }
+}

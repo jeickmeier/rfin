@@ -1,0 +1,71 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "multi_factor_ff3_attribution",
+  "domain": "attribution.equity",
+  "description": "Fama-French three-factor attribution with loadings, factor contributions, and residual.",
+  "provenance": {
+    "as_of": "2026-05-01",
+    "source": "formula",
+    "source_detail": "Deterministic attribution fixture with flattened textbook/formula outputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; flattened outputs committed in fixture",
+    "screenshots": []
+  },
+  "inputs": {
+    "actual_outputs": {
+      "loading::mkt": 1.1,
+      "loading::smb": 0.35,
+      "loading::hml": -0.2,
+      "factor_contrib::mkt": 0.0165,
+      "factor_contrib::smb": 0.0014,
+      "factor_contrib::hml": 0.0006,
+      "residual": 0.0015,
+      "total_return": 0.02,
+      "r_squared": 0.94
+    }
+  },
+  "expected_outputs": {
+    "loading::mkt": 1.1,
+    "loading::smb": 0.35,
+    "loading::hml": -0.2,
+    "factor_contrib::mkt": 0.0165,
+    "factor_contrib::smb": 0.0014,
+    "factor_contrib::hml": 0.0006,
+    "residual": 0.0015,
+    "total_return": 0.02,
+    "r_squared": 0.94
+  },
+  "tolerances": {
+    "loading::mkt": {
+      "abs": 1e-12
+    },
+    "loading::smb": {
+      "abs": 1e-12
+    },
+    "loading::hml": {
+      "abs": 1e-12
+    },
+    "factor_contrib::mkt": {
+      "abs": 1e-12
+    },
+    "factor_contrib::smb": {
+      "abs": 1e-12
+    },
+    "factor_contrib::hml": {
+      "abs": 1e-12
+    },
+    "residual": {
+      "abs": 1e-12
+    },
+    "total_return": {
+      "abs": 1e-12
+    },
+    "r_squared": {
+      "abs": 1e-12
+    }
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "fi_curve_attribution_parallel_slope_twist",
+  "domain": "attribution.fixed_income",
+  "description": "Fixed-income curve attribution across parallel, slope, twist, and butterfly factors.",
+  "provenance": {
+    "as_of": "2026-05-01",
+    "source": "textbook",
+    "source_detail": "Bacon curve attribution deterministic fixture",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; flattened outputs committed in fixture",
+    "screenshots": []
+  },
+  "inputs": {
+    "actual_outputs": {
+      "parallel_shift": -0.0075,
+      "slope": 0.002,
+      "twist": 0.001,
+      "butterfly": -0.0004,
+      "curve_contribution": -0.0049,
+      "residual": 0.0001,
+      "total_curve_effect": -0.0048,
+      "components_sum": -0.0048
+    }
+  },
+  "expected_outputs": {
+    "parallel_shift": -0.0075,
+    "slope": 0.002,
+    "twist": 0.001,
+    "butterfly": -0.0004,
+    "curve_contribution": -0.0049,
+    "residual": 0.0001,
+    "total_curve_effect": -0.0048,
+    "components_sum": -0.0048
+  },
+  "tolerances": {
+    "parallel_shift": {
+      "abs": 1e-12
+    },
+    "slope": {
+      "abs": 1e-12
+    },
+    "twist": {
+      "abs": 1e-12
+    },
+    "butterfly": {
+      "abs": 1e-12
+    },
+    "curve_contribution": {
+      "abs": 1e-12
+    },
+    "residual": {
+      "abs": 1e-12
+    },
+    "total_curve_effect": {
+      "abs": 1e-12
+    },
+    "components_sum": {
+      "abs": 1e-12
+    }
+  }
+}

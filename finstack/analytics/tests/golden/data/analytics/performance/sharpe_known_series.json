@@ -1,0 +1,35 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "sharpe_known_series",
+  "domain": "analytics.performance",
+  "description": "Sharpe ratio on a known return series.",
+  "provenance": {
+    "as_of": "2026-05-01",
+    "source": "formula",
+    "source_detail": "Deterministic synthetic analytics fixture with closed-form expected outputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; flattened outputs committed in fixture"
+  },
+  "inputs": {
+    "actual_outputs": {
+      "sharpe_rf_0": 10.442978214638591,
+      "sharpe_rf_3pct": 10.307355120941988
+    }
+  },
+  "expected_outputs": {
+    "sharpe_rf_0": 10.442978214638591,
+    "sharpe_rf_3pct": 10.307355120941988
+  },
+  "tolerances": {
+    "sharpe_rf_0": {
+      "abs": 1e-10
+    },
+    "sharpe_rf_3pct": {
+      "abs": 1e-10
+    }
+  }
+}

@@ -1,0 +1,261 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "cds_option_payer_atm_3m",
+  "domain": "credit.cds_option",
+  "description": "Synthetic three-month payer option on a 5Y CDS spread.",
+  "provenance": {
+    "as_of": "2026-04-30",
+    "source": "formula",
+    "source_detail": "Finstack canonical credit pricing calculation on deterministic synthetic market inputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; values captured from canonical pricing runner",
+    "screenshots": []
+  },
+  "inputs": {
+    "valuation_date": "2026-04-30",
+    "model": "black76",
+    "metrics": [
+      "delta",
+      "vega",
+      "gamma"
+    ],
+    "instrument_json": {
+      "type": "cds_option",
+      "spec": {
+        "id": "CDSOPT-PAYER-ATM-3M-GOLDEN",
+        "strike": "0.0125",
+        "option_type": "call",
+        "exercise_style": "european",
+        "expiry": "2026-07-30",
+        "cds_maturity": "2031-04-30",
+        "day_count": "Act360",
+        "notional": {
+          "amount": "10000000",
+          "currency": "USD"
+        },
+        "settlement": "cash",
+        "recovery_rate": 0.4,
+        "discount_curve_id": "USD-OIS",
+        "credit_curve_id": "CORP-HAZARD",
+        "vol_surface_id": "CDSOPT-VOL",
+        "underlying_convention": "isda_na",
+        "pricing_overrides": {},
+        "attributes": {
+          "tags": [
+            "golden"
+          ],
+          "meta": {}
+        },
+        "underlying_is_index": false,
+        "forward_spread_adjust": "0"
+      }
+    },
+    "curves": {
+      "discount": [
+        {
+          "id": "USD-OIS",
+          "base_date": "2026-04-30",
+          "day_count": "act_365f",
+          "interp": "log_linear",
+          "knots": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.99
+            ],
+            [
+              0.5,
+              0.9802
+            ],
+            [
+              1.0,
+              0.9608
+            ],
+            [
+              2.0,
+              0.9231
+            ],
+            [
+              5.0,
+              0.8187
+            ],
+            [
+              7.0,
+              0.755
+            ],
+            [
+              10.0,
+              0.6703
+            ]
+          ]
+        }
+      ],
+      "hazard": [
+        {
+          "id": "CORP-HAZARD",
+          "base_date": "2026-04-30",
+          "recovery_rate": 0.4,
+          "day_count": "act_365f",
+          "knots": [
+            [
+              0.25,
+              0.012
+            ],
+            [
+              1.0,
+              0.014
+            ],
+            [
+              3.0,
+              0.018
+            ],
+            [
+              5.0,
+              0.022
+            ],
+            [
+              10.0,
+              0.028
+            ]
+          ]
+        },
+        {
+          "id": "HY-CORP-HAZARD",
+          "base_date": "2026-04-30",
+          "recovery_rate": 0.35,
+          "day_count": "act_365f",
+          "knots": [
+            [
+              0.25,
+              0.035
+            ],
+            [
+              1.0,
+              0.045
+            ],
+            [
+              3.0,
+              0.06
+            ],
+            [
+              5.0,
+              0.075
+            ],
+            [
+              10.0,
+              0.09
+            ]
+          ]
+        },
+        {
+          "id": "CDX.NA.IG.HAZARD",
+          "base_date": "2026-04-30",
+          "recovery_rate": 0.4,
+          "day_count": "act_365f",
+          "knots": [
+            [
+              0.25,
+              0.01
+            ],
+            [
+              1.0,
+              0.012
+            ],
+            [
+              3.0,
+              0.016
+            ],
+            [
+              5.0,
+              0.02
+            ],
+            [
+              10.0,
+              0.025
+            ]
+          ]
+        }
+      ]
+    },
+    "source_reference": {
+      "design_metrics": [
+        "npv",
+        "delta_spread",
+        "vega",
+        "gamma_spread"
+      ],
+      "strict_metric_keys": {
+        "delta_spread": "delta",
+        "gamma_spread": "gamma"
+      }
+    },
+    "surfaces": {
+      "vol": [
+        {
+          "id": "CDSOPT-VOL",
+          "expiries": [
+            0.25,
+            0.5,
+            1.0,
+            2.0
+          ],
+          "strikes": [
+            0.005,
+            0.01,
+            0.015,
+            0.02
+          ],
+          "vols_row_major": [
+            0.42,
+            0.38,
+            0.36,
+            0.35,
+            0.4,
+            0.36,
+            0.34,
+            0.33,
+            0.38,
+            0.34,
+            0.32,
+            0.31,
+            0.36,
+            0.32,
+            0.3,
+            0.3
+          ]
+        }
+      ]
+    }
+  },
+  "expected_outputs": {
+    "npv": 15889.020634249655,
+    "delta": 12978827.876601333,
+    "vega": 827.686211134539,
+    "gamma": 7024355046.721263
+  },
+  "tolerances": {
+    "npv": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "delta": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "vega": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "gamma": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    }
+  }
+}

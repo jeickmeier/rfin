@@ -4,6 +4,7 @@
 
 #![allow(dead_code)]
 
+mod attribution;
 mod calibration;
 mod integration;
 mod pricing;

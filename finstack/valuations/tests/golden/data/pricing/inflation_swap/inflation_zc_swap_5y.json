@@ -1,0 +1,196 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "inflation_zc_swap_5y",
+  "domain": "rates.inflation_swap",
+  "description": "Synthetic 5Y zero-coupon inflation swap on deterministic CPI and USD OIS curves.",
+  "provenance": {
+    "as_of": "2026-04-30",
+    "source": "formula",
+    "source_detail": "Finstack canonical pricing calculation on deterministic synthetic market inputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; values captured from canonical pricing runner",
+    "screenshots": []
+  },
+  "inputs": {
+    "valuation_date": "2026-04-30",
+    "model": "discounting",
+    "metrics": [
+      "par_rate",
+      "dv01",
+      "inflation01"
+    ],
+    "instrument_json": {
+      "type": "inflation_swap",
+      "spec": {
+        "id": "INFLATION-ZC-SWAP-5Y-GOLDEN",
+        "notional": {
+          "amount": "1000000",
+          "currency": "USD"
+        },
+        "start_date": "2026-04-30",
+        "maturity": "2031-04-30",
+        "fixed_rate": 0.0225,
+        "inflation_index_id": "US-CPI",
+        "discount_curve_id": "USD-OIS",
+        "day_count": "Act365F",
+        "side": "pay",
+        "attributes": {
+          "tags": [
+            "golden"
+          ],
+          "meta": {}
+        }
+      }
+    },
+    "curves": {
+      "discount": [
+        {
+          "id": "USD-TIPS",
+          "base_date": "2026-04-30",
+          "day_count": "act_365f",
+          "interp": "log_linear",
+          "knots": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.9975
+            ],
+            [
+              0.5,
+              0.995
+            ],
+            [
+              1.0,
+              0.99
+            ],
+            [
+              2.0,
+              0.975
+            ],
+            [
+              5.0,
+              0.93
+            ],
+            [
+              10.0,
+              0.86
+            ]
+          ]
+        },
+        {
+          "id": "USD-OIS",
+          "base_date": "2026-04-30",
+          "day_count": "act_365f",
+          "interp": "log_linear",
+          "knots": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.99
+            ],
+            [
+              0.5,
+              0.9802
+            ],
+            [
+              1.0,
+              0.9608
+            ],
+            [
+              2.0,
+              0.9231
+            ],
+            [
+              5.0,
+              0.8187
+            ],
+            [
+              10.0,
+              0.6703
+            ],
+            [
+              30.0,
+              0.301
+            ]
+          ]
+        }
+      ],
+      "inflation": [
+        {
+          "id": "US-CPI",
+          "base_date": "2024-01-15",
+          "base_cpi": 300.0,
+          "day_count": "act_365f",
+          "indexation_lag_months": 3,
+          "interp": "log_linear",
+          "knots": [
+            [
+              0.0,
+              300.0
+            ],
+            [
+              1.0,
+              306.0
+            ],
+            [
+              2.0,
+              312.2
+            ],
+            [
+              5.0,
+              331.6
+            ],
+            [
+              10.0,
+              366.2
+            ]
+          ]
+        }
+      ]
+    },
+    "source_reference": {
+      "design_metrics": [
+        "npv",
+        "par_breakeven_rate",
+        "dv01_real",
+        "inflation_dv01"
+      ],
+      "par_breakeven_rate_key": "par_rate",
+      "inflation_dv01_key": "inflation01"
+    }
+  },
+  "expected_outputs": {
+    "npv": -10322.265559182979,
+    "par_rate": 0.020183783806,
+    "dv01": 5.163961012953,
+    "inflation01": 430.278762657053
+  },
+  "tolerances": {
+    "npv": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "par_rate": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "dv01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "inflation01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    }
+  }
+}

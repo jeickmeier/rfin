@@ -1,0 +1,56 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "eurusd_fx_vol_smile",
+  "domain": "fx.calibration.vol_smile",
+  "description": "Synthetic EUR/USD FX volatility smile calibration output flattened at ATM, risk reversal, and butterfly buckets.",
+  "provenance": {
+    "as_of": "2026-04-30",
+    "source": "formula",
+    "source_detail": "Deterministic synthetic EUR/USD FX vol smile calibration fixture with flattened reference outputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; flattened outputs committed in fixture",
+    "screenshots": []
+  },
+  "inputs": {
+    "actual_outputs": {
+      "atm_vol::EURUSD::3m": 0.096,
+      "risk_reversal_25d::EURUSD::3m": -0.002,
+      "butterfly_25d::EURUSD::3m": 0.004,
+      "risk_reversal_10d::EURUSD::3m": -0.004,
+      "butterfly_10d::EURUSD::3m": 0.009,
+      "repriced_rmse": 0.0
+    }
+  },
+  "expected_outputs": {
+    "atm_vol::EURUSD::3m": 0.096,
+    "risk_reversal_25d::EURUSD::3m": -0.002,
+    "butterfly_25d::EURUSD::3m": 0.004,
+    "risk_reversal_10d::EURUSD::3m": -0.004,
+    "butterfly_10d::EURUSD::3m": 0.009,
+    "repriced_rmse": 0.0
+  },
+  "tolerances": {
+    "atm_vol::EURUSD::3m": {
+      "abs": 1e-12
+    },
+    "risk_reversal_25d::EURUSD::3m": {
+      "abs": 1e-12
+    },
+    "butterfly_25d::EURUSD::3m": {
+      "abs": 1e-12
+    },
+    "risk_reversal_10d::EURUSD::3m": {
+      "abs": 1e-12
+    },
+    "butterfly_10d::EURUSD::3m": {
+      "abs": 1e-12
+    },
+    "repriced_rmse": {
+      "abs": 1e-12
+    }
+  }
+}

@@ -1,8 +1,12 @@
 //! Python bindings for [`finstack_core::market_data::context::MarketContext`].
 
+use std::str::FromStr;
 use std::sync::Arc;
 
+use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::scalars::MarketScalar;
+use finstack_core::money::Money;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
@@ -10,8 +14,8 @@ use pyo3::types::{PyList, PyModule};
 use crate::errors::core_to_py;
 
 use super::curves::{
-    PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve, PyPriceCurve, PyVolCube,
-    PyVolSurface, PyVolatilityIndexCurve,
+    PyCreditIndexData, PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve,
+    PyPriceCurve, PyVolCube, PyVolSurface, PyVolatilityIndexCurve,
 };
 use super::fx::PyFxMatrix;
 
@@ -102,6 +106,30 @@ impl PyMarketContext {
     #[pyo3(text_signature = "(self, fx)")]
     fn insert_fx(&mut self, fx: &PyFxMatrix) {
         self.inner = std::mem::take(&mut self.inner).insert_fx(Arc::clone(&fx.inner));
+    }
+
+    /// Insert a scalar market price into the context.
+    ///
+    /// If ``currency`` is provided, the scalar is stored as a monetary price;
+    /// otherwise it is stored as a unitless value.
+    #[pyo3(signature = (id, value, currency=None), text_signature = "(self, id, value, currency=None)")]
+    fn insert_price(&mut self, id: &str, value: f64, currency: Option<&str>) -> PyResult<()> {
+        let scalar = if let Some(raw_currency) = currency {
+            let currency = Currency::from_str(raw_currency).map_err(|err| {
+                PyValueError::new_err(format!("invalid currency '{raw_currency}': {err}"))
+            })?;
+            MarketScalar::Price(Money::new(value, currency))
+        } else {
+            MarketScalar::Unitless(value)
+        };
+        self.inner = std::mem::take(&mut self.inner).insert_price(id, scalar);
+        Ok(())
+    }
+
+    /// Insert credit index data into the context.
+    #[pyo3(text_signature = "(self, id, data)")]
+    fn insert_credit_index(&mut self, id: &str, data: &PyCreditIndexData) {
+        self.inner = std::mem::take(&mut self.inner).insert_credit_index(id, data.inner.clone());
     }
 
     /// Retrieve a discount curve by identifier.

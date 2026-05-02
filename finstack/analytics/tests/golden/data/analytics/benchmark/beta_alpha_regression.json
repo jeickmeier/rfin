@@ -1,0 +1,40 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "beta_alpha_regression",
+  "domain": "analytics.benchmark",
+  "description": "Beta, alpha, and R-squared versus benchmark.",
+  "provenance": {
+    "as_of": "2026-05-01",
+    "source": "formula",
+    "source_detail": "Deterministic synthetic analytics fixture with closed-form expected outputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; flattened outputs committed in fixture"
+  },
+  "inputs": {
+    "actual_outputs": {
+      "beta": 1.2741203178206584,
+      "alpha": -0.0006015891032917151,
+      "r_squared": 0.9821116269553227
+    }
+  },
+  "expected_outputs": {
+    "beta": 1.2741203178206584,
+    "alpha": -0.0006015891032917151,
+    "r_squared": 0.9821116269553227
+  },
+  "tolerances": {
+    "beta": {
+      "abs": 1e-10
+    },
+    "alpha": {
+      "abs": 1e-10
+    },
+    "r_squared": {
+      "abs": 1e-10
+    }
+  }
+}

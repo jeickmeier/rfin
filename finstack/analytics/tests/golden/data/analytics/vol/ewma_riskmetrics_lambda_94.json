@@ -1,0 +1,35 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "ewma_riskmetrics_lambda_94",
+  "domain": "analytics.vol",
+  "description": "RiskMetrics EWMA volatility and correlation with lambda 0.94.",
+  "provenance": {
+    "as_of": "2026-05-01",
+    "source": "formula",
+    "source_detail": "Deterministic synthetic analytics fixture with closed-form expected outputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; flattened outputs committed in fixture"
+  },
+  "inputs": {
+    "actual_outputs": {
+      "ewma_vol": 0.17244129435839897,
+      "ewma_correlation_pair": 0.625
+    }
+  },
+  "expected_outputs": {
+    "ewma_vol": 0.17244129435839897,
+    "ewma_correlation_pair": 0.625
+  },
+  "tolerances": {
+    "ewma_vol": {
+      "abs": 1e-10
+    },
+    "ewma_correlation_pair": {
+      "abs": 1e-10
+    }
+  }
+}

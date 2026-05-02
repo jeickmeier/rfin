@@ -1,0 +1,216 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "inflation_linked_bond_5y",
+  "domain": "fixed_income.inflation_linked_bond",
+  "description": "Synthetic 5Y inflation-linked bond on deterministic real and CPI curves.",
+  "provenance": {
+    "as_of": "2026-04-30",
+    "source": "formula",
+    "source_detail": "Finstack canonical pricing calculation on deterministic synthetic market inputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; values captured from canonical pricing runner",
+    "screenshots": []
+  },
+  "inputs": {
+    "valuation_date": "2026-04-30",
+    "model": "discounting",
+    "metrics": [
+      "real_yield",
+      "breakeven_inflation",
+      "index_ratio",
+      "real_duration"
+    ],
+    "instrument_json": {
+      "type": "inflation_linked_bond",
+      "spec": {
+        "id": "INFLATION-LINKED-BOND-5Y-GOLDEN",
+        "notional": {
+          "amount": "1000000",
+          "currency": "USD"
+        },
+        "real_coupon": 0.0125,
+        "frequency": {
+          "count": 6,
+          "unit": "months"
+        },
+        "day_count": "Act365F",
+        "issue_date": "2024-01-15",
+        "maturity": "2031-04-30",
+        "base_index": 300.0,
+        "base_date": "2024-01-15",
+        "indexation_method": "TIPS",
+        "lag": {
+          "months": 3
+        },
+        "deflation_protection": "MaturityOnly",
+        "bdc": "following",
+        "stub": "ShortBack",
+        "calendar_id": "nyse",
+        "discount_curve_id": "USD-TIPS",
+        "inflation_index_id": "US-CPI",
+        "attributes": {
+          "tags": [
+            "golden"
+          ],
+          "meta": {}
+        },
+        "quoted_clean": 101.25
+      }
+    },
+    "curves": {
+      "discount": [
+        {
+          "id": "USD-TIPS",
+          "base_date": "2026-04-30",
+          "day_count": "act_365f",
+          "interp": "log_linear",
+          "knots": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.9975
+            ],
+            [
+              0.5,
+              0.995
+            ],
+            [
+              1.0,
+              0.99
+            ],
+            [
+              2.0,
+              0.975
+            ],
+            [
+              5.0,
+              0.93
+            ],
+            [
+              10.0,
+              0.86
+            ]
+          ]
+        },
+        {
+          "id": "USD-OIS",
+          "base_date": "2026-04-30",
+          "day_count": "act_365f",
+          "interp": "log_linear",
+          "knots": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.99
+            ],
+            [
+              0.5,
+              0.9802
+            ],
+            [
+              1.0,
+              0.9608
+            ],
+            [
+              2.0,
+              0.9231
+            ],
+            [
+              5.0,
+              0.8187
+            ],
+            [
+              10.0,
+              0.6703
+            ],
+            [
+              30.0,
+              0.301
+            ]
+          ]
+        }
+      ],
+      "inflation": [
+        {
+          "id": "US-CPI",
+          "base_date": "2024-01-15",
+          "base_cpi": 300.0,
+          "day_count": "act_365f",
+          "indexation_lag_months": 3,
+          "interp": "log_linear",
+          "knots": [
+            [
+              0.0,
+              300.0
+            ],
+            [
+              1.0,
+              306.0
+            ],
+            [
+              2.0,
+              312.2
+            ],
+            [
+              5.0,
+              331.6
+            ],
+            [
+              10.0,
+              366.2
+            ]
+          ]
+        }
+      ]
+    },
+    "source_reference": {
+      "design_metrics": [
+        "clean_price",
+        "real_yield",
+        "breakeven_inflation",
+        "inflation_adjusted_principal",
+        "mod_duration"
+      ],
+      "duration_key": "real_duration"
+    }
+  },
+  "expected_outputs": {
+    "npv": 1140567.9278137966,
+    "real_yield": 0.009932285188,
+    "breakeven_inflation": 0.00453740883,
+    "index_ratio": 1.041583775885,
+    "real_duration": 4.842303902839
+  },
+  "tolerances": {
+    "npv": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "real_yield": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "breakeven_inflation": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "index_ratio": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "real_duration": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    }
+  }
+}

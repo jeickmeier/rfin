@@ -1,0 +1,45 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "historical_var_es",
+  "domain": "analytics.risk",
+  "description": "Historical VaR/ES at 95 and 99 percent.",
+  "provenance": {
+    "as_of": "2026-05-01",
+    "source": "formula",
+    "source_detail": "Deterministic synthetic analytics fixture with closed-form expected outputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; flattened outputs committed in fixture"
+  },
+  "inputs": {
+    "actual_outputs": {
+      "historical_var_95": -0.026999999999999996,
+      "historical_es_95": -0.03,
+      "historical_var_99": -0.0294,
+      "historical_es_99": -0.03
+    }
+  },
+  "expected_outputs": {
+    "historical_var_95": -0.026999999999999996,
+    "historical_es_95": -0.03,
+    "historical_var_99": -0.0294,
+    "historical_es_99": -0.03
+  },
+  "tolerances": {
+    "historical_var_95": {
+      "abs": 1e-10
+    },
+    "historical_es_95": {
+      "abs": 1e-10
+    },
+    "historical_var_99": {
+      "abs": 1e-10
+    },
+    "historical_es_99": {
+      "abs": 1e-10
+    }
+  }
+}

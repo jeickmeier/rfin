@@ -1,0 +1,227 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "cds_off_par_hazard",
+  "domain": "credit.cds",
+  "description": "Synthetic off-par 5Y CDS on a deterministic hazard curve.",
+  "provenance": {
+    "as_of": "2026-04-30",
+    "source": "formula",
+    "source_detail": "Finstack canonical credit pricing calculation on deterministic synthetic market inputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; values captured from canonical pricing runner",
+    "screenshots": []
+  },
+  "inputs": {
+    "valuation_date": "2026-04-30",
+    "model": "hazard_rate",
+    "metrics": [
+      "cs01",
+      "jump_to_default",
+      "recovery_01"
+    ],
+    "instrument_json": {
+      "type": "credit_default_swap",
+      "spec": {
+        "id": "CDS-OFF-PAR-HAZARD-GOLDEN",
+        "notional": {
+          "amount": "10000000",
+          "currency": "USD"
+        },
+        "side": "pay",
+        "convention": "isda_na",
+        "premium": {
+          "start": "2026-04-30",
+          "end": "2031-04-30",
+          "frequency": {
+            "count": 3,
+            "unit": "months"
+          },
+          "stub": "ShortFront",
+          "bdc": "modified_following",
+          "calendar_id": "nyse",
+          "day_count": "Act360",
+          "spread_bp": "300.0",
+          "discount_curve_id": "USD-OIS"
+        },
+        "protection": {
+          "credit_curve_id": "CORP-HAZARD",
+          "recovery_rate": 0.4,
+          "settlement_delay": 3
+        },
+        "pricing_overrides": {},
+        "attributes": {
+          "tags": [
+            "golden"
+          ],
+          "meta": {}
+        }
+      }
+    },
+    "curves": {
+      "discount": [
+        {
+          "id": "USD-OIS",
+          "base_date": "2026-04-30",
+          "day_count": "act_365f",
+          "interp": "log_linear",
+          "knots": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.99
+            ],
+            [
+              0.5,
+              0.9802
+            ],
+            [
+              1.0,
+              0.9608
+            ],
+            [
+              2.0,
+              0.9231
+            ],
+            [
+              5.0,
+              0.8187
+            ],
+            [
+              7.0,
+              0.755
+            ],
+            [
+              10.0,
+              0.6703
+            ]
+          ]
+        }
+      ],
+      "hazard": [
+        {
+          "id": "CORP-HAZARD",
+          "base_date": "2026-04-30",
+          "recovery_rate": 0.4,
+          "day_count": "act_365f",
+          "knots": [
+            [
+              0.25,
+              0.012
+            ],
+            [
+              1.0,
+              0.014
+            ],
+            [
+              3.0,
+              0.018
+            ],
+            [
+              5.0,
+              0.022
+            ],
+            [
+              10.0,
+              0.028
+            ]
+          ]
+        },
+        {
+          "id": "HY-CORP-HAZARD",
+          "base_date": "2026-04-30",
+          "recovery_rate": 0.35,
+          "day_count": "act_365f",
+          "knots": [
+            [
+              0.25,
+              0.035
+            ],
+            [
+              1.0,
+              0.045
+            ],
+            [
+              3.0,
+              0.06
+            ],
+            [
+              5.0,
+              0.075
+            ],
+            [
+              10.0,
+              0.09
+            ]
+          ]
+        },
+        {
+          "id": "CDX.NA.IG.HAZARD",
+          "base_date": "2026-04-30",
+          "recovery_rate": 0.4,
+          "day_count": "act_365f",
+          "knots": [
+            [
+              0.25,
+              0.01
+            ],
+            [
+              1.0,
+              0.012
+            ],
+            [
+              3.0,
+              0.016
+            ],
+            [
+              5.0,
+              0.02
+            ],
+            [
+              10.0,
+              0.025
+            ]
+          ]
+        }
+      ]
+    },
+    "source_reference": {
+      "design_metrics": [
+        "npv",
+        "cs01",
+        "jtd",
+        "recovery01"
+      ]
+    }
+  },
+  "expected_outputs": {
+    "npv": -835854.5330565799,
+    "cs01": 2798.625287859933,
+    "jump_to_default": 6000000.0,
+    "recovery_01": -8030.955095731065
+  },
+  "tolerances": {
+    "npv": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "cs01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "jump_to_default": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "recovery_01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    }
+  }
+}

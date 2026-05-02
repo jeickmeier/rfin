@@ -1,0 +1,51 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "cdx_ig_hazard",
+  "domain": "credit.calibration.hazard",
+  "description": "Synthetic CDX IG hazard curve calibration output flattened at selected pillars.",
+  "provenance": {
+    "as_of": "2026-04-30",
+    "source": "formula",
+    "source_detail": "Deterministic synthetic CDX IG hazard calibration fixture with flattened reference outputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; flattened outputs committed in fixture",
+    "screenshots": []
+  },
+  "inputs": {
+    "actual_outputs": {
+      "hazard_rate::CDX.NA.IG::1y": 0.012,
+      "hazard_rate::CDX.NA.IG::3y": 0.016,
+      "hazard_rate::CDX.NA.IG::5y": 0.02,
+      "survival_probability::CDX.NA.IG::5y": 0.9048374180359595,
+      "calibration_rmse": 0.0
+    }
+  },
+  "expected_outputs": {
+    "hazard_rate::CDX.NA.IG::1y": 0.012,
+    "hazard_rate::CDX.NA.IG::3y": 0.016,
+    "hazard_rate::CDX.NA.IG::5y": 0.02,
+    "survival_probability::CDX.NA.IG::5y": 0.9048374180359595,
+    "calibration_rmse": 0.0
+  },
+  "tolerances": {
+    "hazard_rate::CDX.NA.IG::1y": {
+      "abs": 1e-12
+    },
+    "hazard_rate::CDX.NA.IG::3y": {
+      "abs": 1e-12
+    },
+    "hazard_rate::CDX.NA.IG::5y": {
+      "abs": 1e-12
+    },
+    "survival_probability::CDX.NA.IG::5y": {
+      "abs": 1e-12
+    },
+    "calibration_rmse": {
+      "abs": 1e-12
+    }
+  }
+}

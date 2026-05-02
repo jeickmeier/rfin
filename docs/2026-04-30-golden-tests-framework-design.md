@@ -465,10 +465,10 @@ Fixtures that span multiple crates live in the **consuming** crate's `tests/gold
 
 | Fixture | Source | Key assertions |
 |---|---|---|
-| `pricing/fx_option/gk_eurusd_atm_3m.json` | quantlib + bloomberg-screen OVML | npv, delta_spot, delta_premium_included, vega |
+| `pricing/fx_option/gk_eurusd_atm_3m.json` | quantlib + bloomberg-screen OVML | npv, delta_spot, vega |
 | `pricing/fx_option/gk_eurusd_25d_call.json` | quantlib + bloomberg-screen OVML | npv, greeks (delta convention stress) |
 | `pricing/fx_option/gk_usdjpy_atm_1y.json` | quantlib + bloomberg-screen OVML | npv, greeks (JPY notional convention) |
-| `pricing/fx_option/gk_premium_included_delta.json` | quantlib + bloomberg-screen OVML | delta_spot vs delta_pi |
+| `pricing/fx_option/gk_eurusd_otm_call_6m.json` | formula | npv, delta, vega; premium-adjusted delta remains planned until exposed as a metric |
 
 #### Credit — CDS / CDS option / CDS tranche (6)
 
@@ -492,10 +492,10 @@ Fixtures that span multiple crates live in the **consuming** crate's `tests/gold
 
 | Fixture | Source | Key assertions |
 |---|---|---|
-| `pricing/bond_future/ust_ty_10y_front_month.json` | bloomberg-screen DLV+CT | futures_price, conversion_factor, gross_basis, net_basis, implied_repo, ctd_isin |
+| `pricing/bond_future/ust_ty_10y_front_month.json` | formula | npv, dv01; conversion factor, basis, implied repo, and CTD identifiers remain source-reference fields until exposed as metrics |
 | `pricing/ir_future/sofr_3m_quarterly.json` | quantlib + bloomberg-screen SR3 | futures_price, convexity_adjustment, implied_forward, dv01 |
 | `pricing/ir_future/sofr_1m_serial.json` | quantlib + bloomberg-screen | futures_price (avg vs compounded mechanics) |
-| `pricing/equity_index_future/spx_es_3m.json` | quantlib + bloomberg-screen | futures_price, basis, dv01_rate |
+| `pricing/equity_index_future/spx_es_3m.json` | formula | npv, delta, dv01; futures price and basis remain source-reference fields until exposed as metrics |
 
 #### Inflation (2)
 

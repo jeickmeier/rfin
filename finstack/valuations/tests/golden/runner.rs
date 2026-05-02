@@ -25,14 +25,61 @@ pub fn dispatch(fixture: &GoldenFixture) -> Result<Box<dyn DomainRunner>, String
         "rates.calibration.curves" => Ok(Box::new(
             crate::golden::runners::calibration_curves::CalibrationCurvesRunner,
         )),
+        "inflation.calibration.curves" => Ok(Box::new(
+            crate::golden::runners::calibration_inflation_curves::CalibrationInflationCurvesRunner,
+        )),
         "rates.calibration.swaption_vol" => Ok(Box::new(
             crate::golden::runners::calibration_swaption_vol::CalibrationSwaptionVolRunner,
+        )),
+        "equity.calibration.vol_smile" | "fx.calibration.vol_smile" => Ok(Box::new(
+            crate::golden::runners::calibration_vol_smile::CalibrationVolSmileRunner,
+        )),
+        "credit.calibration.hazard" => Ok(Box::new(
+            crate::golden::runners::calibration_hazard::CalibrationHazardRunner,
         )),
         "rates.integration" => Ok(Box::new(
             crate::golden::runners::integration_rates::IntegrationRatesRunner,
         )),
+        "credit.integration" => Ok(Box::new(
+            crate::golden::runners::integration_credit::IntegrationCreditRunner,
+        )),
+        "attribution.equity" | "attribution.fixed_income" => Ok(Box::new(
+            crate::golden::runners::attribution_common::AttributionRunner,
+        )),
+        "fixed_income.bond" => Ok(Box::new(crate::golden::runners::pricing_bond::BondRunner)),
+        "fixed_income.bond_future" => Ok(Box::new(
+            crate::golden::runners::pricing_bond_future::BondFutureRunner,
+        )),
+        "fixed_income.convertible" => Ok(Box::new(
+            crate::golden::runners::pricing_convertible::ConvertibleRunner,
+        )),
+        "fixed_income.inflation_linked_bond" => Ok(Box::new(
+            crate::golden::runners::pricing_inflation_linked_bond::InflationLinkedBondRunner,
+        )),
+        "fixed_income.term_loan" => Ok(Box::new(
+            crate::golden::runners::pricing_term_loan::TermLoanRunner,
+        )),
+        "equity.equity_option" => Ok(Box::new(
+            crate::golden::runners::pricing_equity_option::EquityOptionRunner,
+        )),
+        "equity.equity_index_future" => Ok(Box::new(
+            crate::golden::runners::pricing_equity_index_future::EquityIndexFutureRunner,
+        )),
+        "credit.cds" => Ok(Box::new(crate::golden::runners::pricing_cds::CdsRunner)),
+        "credit.cds_option" => Ok(Box::new(
+            crate::golden::runners::pricing_cds_option::CdsOptionRunner,
+        )),
+        "credit.cds_tranche" => Ok(Box::new(
+            crate::golden::runners::pricing_cds_tranche::CdsTrancheRunner,
+        )),
+        "fixed_income.structured_credit" => Ok(Box::new(
+            crate::golden::runners::pricing_structured_credit::StructuredCreditRunner,
+        )),
         "fx.fx_swap" => Ok(Box::new(
             crate::golden::runners::pricing_fx_swap::FxSwapRunner,
+        )),
+        "fx.fx_option" => Ok(Box::new(
+            crate::golden::runners::pricing_fx_option::FxOptionRunner,
         )),
         "rates.cap_floor" => Ok(Box::new(
             crate::golden::runners::pricing_cap_floor::CapFloorRunner,
@@ -44,6 +91,9 @@ pub fn dispatch(fixture: &GoldenFixture) -> Result<Box<dyn DomainRunner>, String
         "rates.irs" => Ok(Box::new(crate::golden::runners::pricing_irs::IrsRunner)),
         "rates.ir_future" => Ok(Box::new(
             crate::golden::runners::pricing_ir_future::IrFutureRunner,
+        )),
+        "rates.inflation_swap" => Ok(Box::new(
+            crate::golden::runners::pricing_inflation_swap::InflationSwapRunner,
         )),
         "rates.swaption" => Ok(Box::new(
             crate::golden::runners::pricing_swaption::SwaptionRunner,
@@ -75,6 +125,8 @@ pub fn run_fixture(fixture: &GoldenFixture) -> Result<Vec<ComparisonResult>, Str
 
 /// Run one golden fixture from disk, write a CSV comparison report, and return failures.
 pub fn run_golden_at_path(path: &Path) -> Result<Vec<ComparisonResult>, String> {
+    crate::golden::walk::validate_fixture(path)
+        .map_err(|err| format!("validate fixture {path:?}: {err}"))?;
     let raw =
         std::fs::read_to_string(path).map_err(|err| format!("read fixture {path:?}: {err}"))?;
     let fixture: GoldenFixture =
@@ -242,6 +294,7 @@ macro_rules! run_golden {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::golden::schema::{Provenance, ToleranceEntry};
 
     #[test]
     fn run_golden_at_path_writes_comparison_csv() {
@@ -257,5 +310,83 @@ mod tests {
         assert!(csv.contains("runner,fixture,metric,actual,expected,abs_diff,rel_diff,abs_tolerance,rel_tolerance,passed,tolerance_reason"));
         assert!(csv.contains("rust,pricing/irs/usd_sofr_5y_receive_fixed_swpm.json,npv,"));
         assert!(csv.contains(",true,"));
+    }
+
+    #[test]
+    fn run_golden_at_path_validates_fixture_before_dispatch() {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let fixture_path =
+            Path::new(manifest_dir).join("../../target/golden-test-invalid-schema.json");
+        std::fs::write(
+            &fixture_path,
+            r#"{
+              "schema_version": "finstack.golden/0",
+              "name": "invalid_schema",
+              "domain": "rates.irs",
+              "description": "Fixture with stale schema version.",
+              "provenance": {
+                "as_of": "2026-04-30",
+                "source": "formula",
+                "source_detail": "unit test",
+                "captured_by": "test",
+                "captured_on": "2026-04-30",
+                "last_reviewed_by": "test",
+                "last_reviewed_on": "2026-04-30",
+                "review_interval_months": 6,
+                "regen_command": "",
+                "screenshots": []
+              },
+              "inputs": {},
+              "expected_outputs": {"npv": 0.0},
+              "tolerances": {"npv": {"abs": 0.0}}
+            }"#,
+        )
+        .expect("write invalid fixture");
+
+        let err = run_golden_at_path(&fixture_path).expect_err("fixture validation should fail");
+
+        assert!(
+            err.contains("schema_version is 'finstack.golden/0'"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn flattened_output_placeholder_runner_is_not_false_green() {
+        let fixture = GoldenFixture {
+            schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
+            name: "placeholder".to_string(),
+            domain: "rates.calibration.curves".to_string(),
+            description: "Placeholder fixture".to_string(),
+            provenance: Provenance {
+                as_of: "2026-04-30".to_string(),
+                source: "formula".to_string(),
+                source_detail: "unit test".to_string(),
+                captured_by: "test".to_string(),
+                captured_on: "2026-04-30".to_string(),
+                last_reviewed_by: "test".to_string(),
+                last_reviewed_on: "2026-04-30".to_string(),
+                review_interval_months: 6,
+                regen_command: String::new(),
+                screenshots: Vec::new(),
+            },
+            inputs: serde_json::json!({"actual_outputs": {"calibration_rmse": 0.0}}),
+            expected_outputs: BTreeMap::from([("calibration_rmse".to_string(), 0.0)]),
+            tolerances: BTreeMap::from([(
+                "calibration_rmse".to_string(),
+                ToleranceEntry {
+                    abs: Some(0.0),
+                    rel: None,
+                    tolerance_reason: None,
+                },
+            )]),
+        };
+
+        let err = run_fixture(&fixture).expect_err("placeholder runner should fail");
+
+        assert!(
+            err.contains("requires executable inputs"),
+            "unexpected error: {err}"
+        );
     }
 }

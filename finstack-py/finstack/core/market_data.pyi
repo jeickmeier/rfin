@@ -26,6 +26,8 @@ from finstack.core.currency import Currency
 
 __all__ = [
     # curves
+    "BaseCorrelationCurve",
+    "CreditIndexData",
     "DiscountCurve",
     "ForwardCurve",
     "HazardCurve",
@@ -397,6 +399,49 @@ class HazardCurve:
         -------
         datetime.date
         """
+        ...
+
+    def __repr__(self) -> str: ...
+
+class BaseCorrelationCurve:
+    """Base-correlation curve for synthetic credit index tranche pricing."""
+
+    def __init__(self, id: str, knots: list[tuple[float, float]]) -> None:
+        """Construct a base-correlation curve from knot points."""
+        ...
+
+    @property
+    def id(self) -> str:
+        """Curve identifier string."""
+        ...
+
+    def correlation(self, detachment_pct: float) -> float:
+        """Interpolated base correlation at a detachment point."""
+        ...
+
+    def __repr__(self) -> str: ...
+
+class CreditIndexData:
+    """Credit index data bundle for synthetic tranche pricing."""
+
+    def __init__(
+        self,
+        num_constituents: int,
+        recovery_rate: float,
+        index_credit_curve: HazardCurve,
+        base_correlation_curve: BaseCorrelationCurve,
+    ) -> None:
+        """Construct homogeneous credit index data."""
+        ...
+
+    @property
+    def num_constituents(self) -> int:
+        """Number of constituents in the index."""
+        ...
+
+    @property
+    def recovery_rate(self) -> float:
+        """Index recovery rate."""
         ...
 
     def __repr__(self) -> str: ...
@@ -1022,6 +1067,37 @@ class MarketContext:
         ----------
         fx : FxMatrix
             FX rate matrix.
+        """
+        ...
+
+    def insert_price(
+        self,
+        id: str,
+        value: float,
+        currency: str | None = None,
+    ) -> None:
+        """Insert a scalar market price into the context.
+
+        Parameters
+        ----------
+        id : str
+            Market scalar identifier.
+        value : float
+            Unitless scalar value or monetary amount.
+        currency : str | None, optional
+            Currency for monetary prices. If omitted, stores a unitless scalar.
+        """
+        ...
+
+    def insert_credit_index(self, id: str, data: CreditIndexData) -> None:
+        """Insert credit index data into the context.
+
+        Parameters
+        ----------
+        id : str
+            Credit index identifier.
+        data : CreditIndexData
+            Credit index data bundle.
         """
         ...
 

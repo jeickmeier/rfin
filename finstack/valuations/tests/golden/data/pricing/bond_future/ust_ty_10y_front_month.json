@@ -1,0 +1,219 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "ust_ty_10y_front_month",
+  "domain": "fixed_income.bond_future",
+  "description": "Synthetic UST 10Y front-month bond future with embedded CTD bond.",
+  "provenance": {
+    "as_of": "2026-04-30",
+    "source": "formula",
+    "source_detail": "Finstack canonical pricing calculation on deterministic synthetic market inputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; values captured from canonical pricing runner",
+    "screenshots": []
+  },
+  "inputs": {
+    "valuation_date": "2026-04-30",
+    "model": "bond_future_clean_price_proxy",
+    "metrics": [
+      "dv01"
+    ],
+    "instrument_json": {
+      "type": "bond_future",
+      "spec": {
+        "id": "UST-TY-10Y-FRONT-MONTH-GOLDEN",
+        "notional": {
+          "amount": "1000000",
+          "currency": "USD"
+        },
+        "expiry": "2026-06-19",
+        "delivery_start": "2026-06-22",
+        "delivery_end": "2026-06-30",
+        "quoted_price": 119.5,
+        "position": "long",
+        "contract_specs": {
+          "contract_size": 100000.0,
+          "tick_size": 0.015625,
+          "tick_value": 15.625,
+          "standard_coupon": 0.06,
+          "standard_maturity_years": 10.0,
+          "settlement_days": 2,
+          "calendar_id": "nyse",
+          "repo_day_count_basis": "act360"
+        },
+        "deliverable_basket": [
+          {
+            "bond_id": "US91282CJL54",
+            "conversion_factor": 0.8234
+          }
+        ],
+        "ctd_bond_id": "US91282CJL54",
+        "ctd_bond": {
+          "id": "US91282CJL54",
+          "notional": {
+            "amount": "100000",
+            "currency": "USD"
+          },
+          "issue_date": "2024-05-15",
+          "maturity": "2034-05-15",
+          "cashflow_spec": {
+            "Fixed": {
+              "coupon_type": "Cash",
+              "rate": "0.0425",
+              "freq": {
+                "count": 6,
+                "unit": "months"
+              },
+              "dc": "Thirty360",
+              "bdc": "modified_following",
+              "calendar_id": "nyse",
+              "stub": "None",
+              "end_of_month": false,
+              "payment_lag_days": 0
+            }
+          },
+          "discount_curve_id": "USD-TREASURY",
+          "credit_curve_id": null,
+          "pricing_overrides": {
+            "quoted_clean_price": 98.5,
+            "adaptive_bumps": false,
+            "use_gobet_miri": false,
+            "vol_surface_extrapolation": "error"
+          },
+          "call_put": null,
+          "accrual_method": "Linear",
+          "attributes": {
+            "tags": [
+              "golden"
+            ],
+            "meta": {}
+          },
+          "settlement_days": 1,
+          "ex_coupon_days": 0
+        },
+        "discount_curve_id": "USD-TREASURY",
+        "pricing_overrides": {},
+        "attributes": {
+          "tags": [
+            "golden"
+          ],
+          "meta": {}
+        }
+      }
+    },
+    "curves": {
+      "discount": [
+        {
+          "id": "USD-OIS",
+          "base_date": "2026-04-30",
+          "day_count": "act_365f",
+          "interp": "log_linear",
+          "knots": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.99
+            ],
+            [
+              0.5,
+              0.9802
+            ],
+            [
+              1.0,
+              0.9608
+            ],
+            [
+              2.0,
+              0.9231
+            ],
+            [
+              5.0,
+              0.8187
+            ],
+            [
+              10.0,
+              0.6703
+            ],
+            [
+              30.0,
+              0.301
+            ]
+          ]
+        },
+        {
+          "id": "USD-TREASURY",
+          "base_date": "2026-04-30",
+          "day_count": "act_365f",
+          "interp": "log_linear",
+          "knots": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.9895
+            ],
+            [
+              0.5,
+              0.9792
+            ],
+            [
+              1.0,
+              0.9589
+            ],
+            [
+              2.0,
+              0.9185
+            ],
+            [
+              5.0,
+              0.804
+            ],
+            [
+              10.0,
+              0.6466
+            ],
+            [
+              30.0,
+              0.2967
+            ]
+          ]
+        }
+      ]
+    },
+    "source_reference": {
+      "planned_metrics_not_compared": [
+        "futures_price",
+        "conversion_factor",
+        "gross_basis",
+        "net_basis",
+        "implied_repo",
+        "ctd_isin"
+      ],
+      "ctd_isin": "US91282CJL54",
+      "conversion_factor": 0.8234,
+      "quoted_futures_price": 119.5
+    }
+  },
+  "expected_outputs": {
+    "npv": -1259.412193344644,
+    "dv01": 0.0
+  },
+  "tolerances": {
+    "npv": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "dv01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    }
+  }
+}

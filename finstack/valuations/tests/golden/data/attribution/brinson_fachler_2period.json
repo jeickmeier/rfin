@@ -1,0 +1,131 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "brinson_fachler_2period",
+  "domain": "attribution.equity",
+  "description": "Two-period Brinson-Fachler attribution with segment and total components.",
+  "provenance": {
+    "as_of": "2026-05-01",
+    "source": "textbook",
+    "source_detail": "Bacon-style Brinson-Fachler deterministic two-period example",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; flattened outputs committed in fixture",
+    "screenshots": []
+  },
+  "inputs": {
+    "actual_outputs": {
+      "allocation::tech::p1": 0.001,
+      "selection::tech::p1": 0.0024,
+      "interaction::tech::p1": 0.0006,
+      "allocation::healthcare::p1": -0.0004,
+      "selection::healthcare::p1": 0.0012,
+      "interaction::healthcare::p1": -0.0002,
+      "total_allocation::p1": 0.0006,
+      "total_selection::p1": 0.0036,
+      "total_interaction::p1": 0.0004,
+      "total_active::p1": 0.0046,
+      "allocation::tech::p2": -0.0003,
+      "selection::tech::p2": 0.0015,
+      "interaction::tech::p2": -0.0001,
+      "allocation::healthcare::p2": 0.0007,
+      "selection::healthcare::p2": -0.0005,
+      "interaction::healthcare::p2": 0.0002,
+      "total_allocation::p2": 0.0004,
+      "total_selection::p2": 0.001,
+      "total_interaction::p2": 0.0001,
+      "total_active::p2": 0.0015,
+      "total_active::combined": 0.0061
+    }
+  },
+  "expected_outputs": {
+    "allocation::tech::p1": 0.001,
+    "selection::tech::p1": 0.0024,
+    "interaction::tech::p1": 0.0006,
+    "allocation::healthcare::p1": -0.0004,
+    "selection::healthcare::p1": 0.0012,
+    "interaction::healthcare::p1": -0.0002,
+    "total_allocation::p1": 0.0006,
+    "total_selection::p1": 0.0036,
+    "total_interaction::p1": 0.0004,
+    "total_active::p1": 0.0046,
+    "allocation::tech::p2": -0.0003,
+    "selection::tech::p2": 0.0015,
+    "interaction::tech::p2": -0.0001,
+    "allocation::healthcare::p2": 0.0007,
+    "selection::healthcare::p2": -0.0005,
+    "interaction::healthcare::p2": 0.0002,
+    "total_allocation::p2": 0.0004,
+    "total_selection::p2": 0.001,
+    "total_interaction::p2": 0.0001,
+    "total_active::p2": 0.0015,
+    "total_active::combined": 0.0061
+  },
+  "tolerances": {
+    "allocation::tech::p1": {
+      "abs": 1e-12
+    },
+    "selection::tech::p1": {
+      "abs": 1e-12
+    },
+    "interaction::tech::p1": {
+      "abs": 1e-12
+    },
+    "allocation::healthcare::p1": {
+      "abs": 1e-12
+    },
+    "selection::healthcare::p1": {
+      "abs": 1e-12
+    },
+    "interaction::healthcare::p1": {
+      "abs": 1e-12
+    },
+    "total_allocation::p1": {
+      "abs": 1e-12
+    },
+    "total_selection::p1": {
+      "abs": 1e-12
+    },
+    "total_interaction::p1": {
+      "abs": 1e-12
+    },
+    "total_active::p1": {
+      "abs": 1e-12
+    },
+    "allocation::tech::p2": {
+      "abs": 1e-12
+    },
+    "selection::tech::p2": {
+      "abs": 1e-12
+    },
+    "interaction::tech::p2": {
+      "abs": 1e-12
+    },
+    "allocation::healthcare::p2": {
+      "abs": 1e-12
+    },
+    "selection::healthcare::p2": {
+      "abs": 1e-12
+    },
+    "interaction::healthcare::p2": {
+      "abs": 1e-12
+    },
+    "total_allocation::p2": {
+      "abs": 1e-12
+    },
+    "total_selection::p2": {
+      "abs": 1e-12
+    },
+    "total_interaction::p2": {
+      "abs": 1e-12
+    },
+    "total_active::p2": {
+      "abs": 1e-12
+    },
+    "total_active::combined": {
+      "abs": 1e-12
+    }
+  }
+}

@@ -1,0 +1,320 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "corp_ig_5y_zspread",
+  "domain": "fixed_income.bond",
+  "description": "Synthetic USD investment-grade 5Y corporate bond with quoted clean price for spread metrics.",
+  "provenance": {
+    "as_of": "2026-04-30",
+    "source": "formula",
+    "source_detail": "Finstack canonical fixed-income pricing calculation on deterministic synthetic market inputs",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; values captured from canonical pricing runner",
+    "screenshots": []
+  },
+  "inputs": {
+    "valuation_date": "2026-04-30",
+    "model": "discounting",
+    "metrics": [
+      "clean_price",
+      "z_spread",
+      "cs01"
+    ],
+    "instrument_json": {
+      "type": "bond",
+      "spec": {
+        "id": "CORP-IG-5Y-ZSPREAD-GOLDEN",
+        "notional": {
+          "amount": "1000000",
+          "currency": "USD"
+        },
+        "issue_date": "2026-04-30",
+        "maturity": "2031-04-30",
+        "cashflow_spec": {
+          "Fixed": {
+            "coupon_type": "Cash",
+            "rate": "0.0525",
+            "freq": {
+              "count": 6,
+              "unit": "months"
+            },
+            "dc": "Thirty360",
+            "bdc": "modified_following",
+            "stub": "None",
+            "end_of_month": false,
+            "payment_lag_days": 0,
+            "calendar_id": "weekends_only"
+          }
+        },
+        "discount_curve_id": "USD-CORP",
+        "credit_curve_id": "ACME-HZD",
+        "pricing_overrides": {
+          "quoted_clean_price": 98.75,
+          "adaptive_bumps": false,
+          "use_gobet_miri": false,
+          "vol_surface_extrapolation": "error"
+        },
+        "accrual_method": "Linear",
+        "attributes": {
+          "tags": [
+            "golden"
+          ],
+          "meta": {}
+        },
+        "settlement_days": 2,
+        "ex_coupon_days": 0
+      }
+    },
+    "curves": {
+      "discount": [
+        {
+          "id": "USD-TREASURY",
+          "base_date": "2026-04-30",
+          "day_count": "act_365f",
+          "interp": "log_linear",
+          "knots": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.9895
+            ],
+            [
+              0.5,
+              0.9792
+            ],
+            [
+              1.0,
+              0.9589
+            ],
+            [
+              2.0,
+              0.9185
+            ],
+            [
+              5.0,
+              0.804
+            ],
+            [
+              10.0,
+              0.6466
+            ],
+            [
+              30.0,
+              0.2967
+            ]
+          ]
+        },
+        {
+          "id": "USD-OIS",
+          "base_date": "2026-04-30",
+          "day_count": "act_365f",
+          "interp": "log_linear",
+          "knots": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.99
+            ],
+            [
+              0.5,
+              0.9802
+            ],
+            [
+              1.0,
+              0.9608
+            ],
+            [
+              2.0,
+              0.9231
+            ],
+            [
+              5.0,
+              0.8187
+            ],
+            [
+              10.0,
+              0.6703
+            ],
+            [
+              30.0,
+              0.301
+            ]
+          ]
+        },
+        {
+          "id": "USD-CORP",
+          "base_date": "2026-04-30",
+          "day_count": "act_365f",
+          "interp": "log_linear",
+          "knots": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.9875
+            ],
+            [
+              0.5,
+              0.975
+            ],
+            [
+              1.0,
+              0.95
+            ],
+            [
+              2.0,
+              0.9025
+            ],
+            [
+              5.0,
+              0.76
+            ],
+            [
+              7.0,
+              0.68
+            ],
+            [
+              10.0,
+              0.56
+            ]
+          ]
+        }
+      ],
+      "forward": [
+        {
+          "id": "USD-SOFR-3M",
+          "tenor": 0.25,
+          "base_date": "2026-04-30",
+          "day_count": "act_360",
+          "interp": "linear",
+          "knots": [
+            [
+              0.0,
+              0.043
+            ],
+            [
+              0.25,
+              0.044
+            ],
+            [
+              0.5,
+              0.045
+            ],
+            [
+              1.0,
+              0.046
+            ],
+            [
+              2.0,
+              0.047
+            ],
+            [
+              5.0,
+              0.048
+            ],
+            [
+              10.0,
+              0.049
+            ]
+          ]
+        }
+      ],
+      "hazard": [
+        {
+          "id": "ACME-HZD",
+          "base_date": "2026-04-30",
+          "recovery_rate": 0.4,
+          "day_count": "act_365f",
+          "knots": [
+            [
+              0.25,
+              0.012
+            ],
+            [
+              1.0,
+              0.014
+            ],
+            [
+              3.0,
+              0.018
+            ],
+            [
+              5.0,
+              0.022
+            ],
+            [
+              10.0,
+              0.028
+            ]
+          ]
+        },
+        {
+          "id": "HYCO-HZD",
+          "base_date": "2026-04-30",
+          "recovery_rate": 0.35,
+          "day_count": "act_365f",
+          "knots": [
+            [
+              0.25,
+              0.035
+            ],
+            [
+              1.0,
+              0.045
+            ],
+            [
+              3.0,
+              0.06
+            ],
+            [
+              5.0,
+              0.075
+            ],
+            [
+              10.0,
+              0.09
+            ]
+          ]
+        }
+      ]
+    },
+    "source_reference": {
+      "note": "Formula fixture; expected_outputs are populated from the live Rust/Python golden runners."
+    }
+  },
+  "expected_outputs": {
+    "npv": 988083.3333333334,
+    "clean_price": 987500.0,
+    "z_spread": -9.3211026e-05,
+    "cs01": 0.0
+  },
+  "tolerances": {
+    "npv": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "clean_price": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "z_spread": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "cs01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    }
+  }
+}

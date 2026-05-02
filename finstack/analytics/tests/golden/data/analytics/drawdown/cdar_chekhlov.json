@@ -1,0 +1,30 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "cdar_chekhlov",
+  "domain": "analytics.drawdown",
+  "description": "Conditional drawdown-at-risk at alpha 0.05.",
+  "provenance": {
+    "as_of": "2026-05-01",
+    "source": "textbook",
+    "source_detail": "Chekhlov-style deterministic CDaR fixture",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-01",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-01",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; flattened outputs committed in fixture"
+  },
+  "inputs": {
+    "actual_outputs": {
+      "conditional_drawdown_at_risk_05": -0.244
+    }
+  },
+  "expected_outputs": {
+    "conditional_drawdown_at_risk_05": -0.244
+  },
+  "tolerances": {
+    "conditional_drawdown_at_risk_05": {
+      "abs": 1e-10
+    }
+  }
+}
