@@ -663,10 +663,17 @@ fn test_cds_dv01_recalibrates_par_spread_hazard_curve() {
 
 #[test]
 fn test_cdsw_clean_value_excludes_accrued_premium_from_dirty_value() {
+    use finstack_valuations::instruments::credit_derivatives::cds::CdsValuationConvention;
+
     let as_of = date!(2026 - 05 - 02);
     let maturity = date!(2031 - 06 - 20);
+    // Hold the premium schedule fixed via the ISDA-dirty convention so the
+    // clean/dirty difference here is only the accrued-premium add-back, not
+    // the CDSW schedule adjustments. Adding `cds_clean_price` flips the
+    // accrued treatment without changing the coupon-period generator.
     let mut dirty_cds = create_test_cds(date!(2026 - 03 - 20), maturity);
     dirty_cds.protection_effective_date = Some(as_of);
+    dirty_cds.valuation_convention = CdsValuationConvention::IsdaDirty;
 
     let mut clean_cds = dirty_cds.clone();
     clean_cds.pricing_overrides.model_config.cds_clean_price = true;

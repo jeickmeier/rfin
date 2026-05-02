@@ -81,6 +81,14 @@ impl CDSPricer {
         _as_of: Date,
     ) -> Result<Vec<CouponPeriod>> {
         if cds.uses_adjusted_premium_accrual_dates() {
+            // Degenerate schedules (start >= end) have no future premium
+            // cashflows. Returning an empty list mirrors the unadjusted
+            // ISDA path and avoids spurious one-day phantom periods that
+            // can appear when the maturity is on a holiday and gets
+            // business-day-adjusted forward.
+            if cds.premium.start >= cds.premium.end {
+                return Ok(Vec::new());
+            }
             let schedule = self.generate_isda_schedule(cds)?;
             return Ok(schedule
                 .windows(2)
@@ -134,10 +142,15 @@ impl CDSPricer {
         cds: &CreditDefaultSwap,
         period: &CouponPeriod,
     ) -> Result<f64> {
+        // CDSW convention: the final premium period is inclusive of the maturity
+        // date (one extra day) for Act/360. Skip this adjustment when the period
+        // is empty (start == end) so that degenerate same-day schedules do not
+        // accrue a phantom one-day coupon.
         if cds.uses_adjusted_premium_accrual_dates()
             && period.is_final
             && period.payment_date == cds.premium.end
             && cds.premium.day_count == finstack_core::dates::DayCount::Act360
+            && period.accrual_end > period.accrual_start
         {
             let days = finstack_core::dates::DayCount::calendar_days(
                 period.accrual_start,

@@ -231,9 +231,11 @@ impl CDSOptionPricer {
 }
 
 fn synthetic_underlying_cds(option: &CDSOption) -> Result<CreditDefaultSwap> {
+    use crate::instruments::credit_derivatives::cds::CdsValuationConvention;
+
     // Convert decimal strike to bp for CDS constructor (which expects bp)
     let spread_bp = option.strike * Decimal::new(10000, 0);
-    CreditDefaultSwap::new_isda(
+    let mut cds = CreditDefaultSwap::new_isda(
         option.id.to_owned(),
         Money::new(option.notional.amount(), option.notional.currency()),
         PayReceive::PayFixed,
@@ -244,7 +246,13 @@ fn synthetic_underlying_cds(option: &CDSOption) -> Result<CreditDefaultSwap> {
         option.recovery_rate,
         option.discount_curve_id.to_owned(),
         option.credit_curve_id.to_owned(),
-    )
+    )?;
+    // The CDSO Black-76 forward spread / risky annuity model is anchored on
+    // the ISDA Standard CDS Model conventions (unadjusted IMM accruals,
+    // dirty PV). Pin the synthetic underlying explicitly so that the option
+    // pricer is invariant to the default `CreditDefaultSwap` convention.
+    cds.valuation_convention = CdsValuationConvention::IsdaDirty;
+    Ok(cds)
 }
 
 impl CDSOptionPricer {
@@ -720,5 +728,413 @@ mod tests {
             cds.protection.settlement_delay,
             CDSConvention::IsdaEu.settlement_delay()
         );
+    }
+
+    /// Diagnostic-only: prints the intermediate Black-on-spreads inputs that
+    /// the CDS option pricer feeds the Black formula for the Bloomberg
+    /// `cds_option_payer_atm_3m` golden, plus comparable values when the
+    /// synthetic underlying premium leg starts at the prior IMM (Bloomberg
+    /// CDSO convention) instead of the option expiry. Run with:
+    /// `cargo test -p finstack-valuations diag_cds_option_payer_atm_3m -- --nocapture`.
+    #[test]
+    #[ignore = "diagnostic only; print intermediate Black-on-spreads inputs for Bloomberg CDSO golden"]
+    #[allow(clippy::excessive_precision)]
+    fn diag_cds_option_payer_atm_3m() {
+        use crate::instruments::common_impl::parameters::CreditParams;
+        use crate::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
+        use crate::instruments::credit_derivatives::cds_option::parameters::CDSOptionParams;
+        use crate::instruments::credit_derivatives::cds_option::CDSOption;
+        use finstack_core::currency::Currency;
+        use finstack_core::dates::{Date, DayCountContext};
+        use finstack_core::market_data::context::MarketContext;
+        use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+        use finstack_core::math::interp::InterpStyle;
+        use finstack_core::money::Money;
+        use rust_decimal::Decimal;
+
+        let as_of = Date::from_calendar_date(2026, time::Month::May, 2).unwrap();
+
+        // Discount curve transcribed from the Bloomberg CDSW cashflow schedule.
+        let disc_knots: Vec<(f64, f64)> = vec![
+            (0.0, 1.0),
+            (0.13972602739726028, 0.9948564304744848),
+            (0.38904109589041097, 0.98574857),
+            (0.6383561643835617, 0.97668173),
+            (0.8876712328767123, 0.96764815),
+            (1.1369863013698631, 0.95875431),
+            (1.3863013698630137, 0.94999432),
+            (1.6356164383561644, 0.94131437),
+            (1.8849315068493151, 0.93271373),
+            (2.136986301369863, 0.92419467),
+            (2.389041095890411, 0.91584876),
+            (2.6383561643835617, 0.9076677),
+            (2.884931506849315, 0.89964844),
+            (3.136986301369863, 0.8914406),
+            (3.389041095890411, 0.88321729),
+            (3.6383561643835617, 0.87515799),
+            (3.884931506849315, 0.86725959),
+            (4.136986301369863, 0.85911547),
+            (4.389041095890411, 0.85089899),
+            (4.638356164383562, 0.84284912),
+            (4.884931506849315, 0.83496263),
+            (5.136986301369863, 0.82680571),
+        ];
+        let disc = DiscountCurve::builder("USD-S531-SWAP")
+            .base_date(as_of)
+            .knots(disc_knots)
+            .interp(InterpStyle::LogLinear)
+            .build()
+            .expect("disc curve");
+
+        let haz_knots: Vec<(f64, f64)> = vec![
+            (0.13972602739726028, 0.00997646002277055),
+            (0.38904109589041097, 0.010174852397118335),
+            (0.6383561643835617, 0.010172469869400271),
+            (0.8876712328767123, 0.010174050726913558),
+            (1.1369863013698631, 0.010175577951597636),
+            (1.3863013698630137, 0.010177051103745225),
+            (1.6356164383561644, 0.010174391557496821),
+            (1.8849315068493151, 0.010171645976754756),
+            (2.136986301369863, 0.010175861524607866),
+            (2.389041095890411, 0.010173574090087208),
+            (2.6383561643835617, 0.010175851741102628),
+            (2.884931506849315, 0.010177267513353205),
+            (3.136986301369863, 0.010173574731178204),
+            (3.389041095890411, 0.010175091002821083),
+            (3.6383561643835617, 0.01017184051056745),
+            (3.884931506849315, 0.010176000795259657),
+            (4.136986301369863, 0.01017429786109359),
+            (4.389041095890411, 0.010175565889646949),
+            (4.638356164383562, 0.010175080613668764),
+            (4.884931506849315, 0.010173650631709215),
+            (5.136986301369863, 0.010286841673740938),
+        ];
+        let par_knots: Vec<(f64, f64)> = vec![
+            (0.5, 10.5),
+            (1.0, 14.5),
+            (2.0, 22.0),
+            (3.0, 32.0),
+            (4.0, 43.5),
+            (5.0, 57.0),
+            (7.0, 68.5),
+            (10.0, 80.4),
+        ];
+        let hazard = HazardCurve::builder("IBM-USD-SENIOR")
+            .base_date(as_of)
+            .recovery_rate(0.4)
+            .knots(haz_knots)
+            .par_spreads(par_knots)
+            .build()
+            .expect("haz");
+
+        let market = MarketContext::new().insert(disc).insert(hazard);
+
+        let params = CDSOptionParams::call(
+            Decimal::from_str_exact("0.0058395400").unwrap(),
+            Date::from_calendar_date(2026, time::Month::June, 26).unwrap(),
+            Date::from_calendar_date(2031, time::Month::June, 20).unwrap(),
+            Money::new(10_000_000.0, Currency::USD),
+        )
+        .unwrap();
+        let credit = CreditParams::corporate_standard("IBM", "IBM-USD-SENIOR");
+        let mut option =
+            CDSOption::new("DIAG", &params, &credit, "USD-S531-SWAP", "DIAG-VOL").unwrap();
+        option.pricing_overrides.market_quotes.implied_volatility = Some(0.8102);
+
+        let t = option
+            .day_count
+            .year_fraction(as_of, option.expiry, DayCountContext::default())
+            .unwrap();
+
+        eprintln!("\n=== CDS OPTION DIAGNOSTIC ===");
+        eprintln!(
+            "  as_of {} expiry {} cds_maturity {} day_count {:?}",
+            as_of, option.expiry, option.cds_maturity, option.day_count
+        );
+        eprintln!(
+            "  t (yf): {t:.10}    (calendar days {})",
+            (option.expiry - as_of).whole_days()
+        );
+
+        let synth_spread_bp = option.strike * Decimal::new(10000, 0);
+        let synth = CreditDefaultSwap::new_isda(
+            option.id.clone(),
+            Money::new(option.notional.amount(), option.notional.currency()),
+            PayReceive::PayFixed,
+            option.underlying_convention,
+            synth_spread_bp,
+            option.expiry,
+            option.cds_maturity,
+            option.recovery_rate,
+            option.discount_curve_id.clone(),
+            option.credit_curve_id.clone(),
+        )
+        .unwrap();
+
+        let disc_arc = market.get_discount(&option.discount_curve_id).unwrap();
+        let haz_arc = market.get_hazard(&option.credit_curve_id).unwrap();
+
+        let cds_pricer = CDSPricer::new();
+        let par = cds_pricer
+            .par_spread(&synth, disc_arc.as_ref(), haz_arc.as_ref(), as_of)
+            .unwrap();
+        let mut zero = synth.clone();
+        zero.premium.spread_bp = Decimal::ZERO;
+        let ra = cds_pricer
+            .risky_annuity(&zero, disc_arc.as_ref(), haz_arc.as_ref(), as_of)
+            .unwrap();
+        eprintln!("  [premium.start = expiry]                        F={par:.6} bp, RA={ra:.10}");
+
+        // Bloomberg-style: premium leg starts at prior IMM (06/22/26 BDC-rolled).
+        let prior_imm = Date::from_calendar_date(2026, time::Month::June, 22).unwrap();
+        let alt = CreditDefaultSwap::new_isda(
+            option.id.clone(),
+            Money::new(option.notional.amount(), option.notional.currency()),
+            PayReceive::PayFixed,
+            option.underlying_convention,
+            synth_spread_bp,
+            prior_imm,
+            option.cds_maturity,
+            option.recovery_rate,
+            option.discount_curve_id.clone(),
+            option.credit_curve_id.clone(),
+        )
+        .unwrap();
+        let par_alt = cds_pricer
+            .par_spread(&alt, disc_arc.as_ref(), haz_arc.as_ref(), as_of)
+            .unwrap();
+        let mut zero_alt = alt.clone();
+        zero_alt.premium.spread_bp = Decimal::ZERO;
+        let ra_alt = cds_pricer
+            .risky_annuity(&zero_alt, disc_arc.as_ref(), haz_arc.as_ref(), as_of)
+            .unwrap();
+        eprintln!(
+            "  [premium.start = prior IMM 2026-06-22]          F={par_alt:.6} bp, RA={ra_alt:.10}"
+        );
+
+        // And with protection_effective_date set to the option expiry.
+        let mut alt_fwd = alt.clone();
+        alt_fwd.protection_effective_date = Some(option.expiry);
+        let par_fwd = cds_pricer
+            .par_spread(&alt_fwd, disc_arc.as_ref(), haz_arc.as_ref(), as_of)
+            .unwrap();
+        let mut zero_fwd = alt_fwd.clone();
+        zero_fwd.premium.spread_bp = Decimal::ZERO;
+        let ra_fwd = cds_pricer
+            .risky_annuity(&zero_fwd, disc_arc.as_ref(), haz_arc.as_ref(), as_of)
+            .unwrap();
+        eprintln!(
+            "  [premium=prior IMM, protection_eff=expiry]      F={par_fwd:.6} bp, RA={ra_fwd:.10}"
+        );
+
+        // Manual Black PV with current finstack inputs ----------------------
+        let pricer = CDSOptionPricer::default();
+        let pv_now = pricer
+            .credit_option_price(&option, par, ra, 0.8102, t)
+            .unwrap()
+            .amount();
+        let pv_alt = pricer
+            .credit_option_price(&option, par_fwd, ra_fwd, 0.8102, t)
+            .unwrap()
+            .amount();
+        eprintln!("  Black PV (premium.start = expiry):                {pv_now:.4}");
+        eprintln!("  Black PV (premium=prior IMM, prot_eff=expiry):    {pv_alt:.4}");
+
+        eprintln!("\n  Bloomberg targets: PV=31177.82, F=58.3954, sigma=0.8102, Delta(N(d1))=54.05%, RPV01_implied_from_DV01=4.74");
+
+        // ----- bootstrap hazards from the par-spread term structure -----
+        eprintln!("\n  --- Bootstrapping hazards from par spreads (sequential Brent) ---");
+        let par_term: Vec<(f64, f64)> = vec![
+            (0.5, 10.5),
+            (1.0, 14.5),
+            (2.0, 22.0),
+            (3.0, 32.0),
+            (4.0, 43.5),
+            (5.0, 57.0),
+            (7.0, 68.5),
+            (10.0, 80.4),
+        ];
+        let recovery = 0.4_f64;
+        let dc = option.day_count;
+        let bootstrapped = bootstrap_flat_hazard_pieces(&disc_arc, &par_term, recovery, dc, as_of);
+        for (i, &(t, h)) in bootstrapped.iter().enumerate() {
+            let s = par_term[i].1;
+            eprintln!("    par={s:>5.1}bp  knot_t_act365={t:.16}  h={h:.16}");
+        }
+
+        // Build a hazard curve with these bootstrapped knots, then re-run forward
+        // spread + risky annuity for the option's synthetic CDS.
+        let bootstrap_haz = HazardCurve::builder("IBM-USD-SENIOR-BOOT")
+            .base_date(as_of)
+            .recovery_rate(recovery)
+            .knots(bootstrapped.clone())
+            .par_spreads(par_term.clone())
+            .build()
+            .expect("bootstrapped haz");
+        let market_b = market.clone().insert(bootstrap_haz);
+        let haz_b = market_b.get_hazard("IBM-USD-SENIOR-BOOT").unwrap();
+        let synth_b = CreditDefaultSwap::new_isda(
+            option.id.clone(),
+            Money::new(option.notional.amount(), option.notional.currency()),
+            PayReceive::PayFixed,
+            option.underlying_convention,
+            synth_spread_bp,
+            option.expiry,
+            option.cds_maturity,
+            recovery,
+            option.discount_curve_id.clone(),
+            "IBM-USD-SENIOR-BOOT",
+        )
+        .unwrap();
+        let f_boot = cds_pricer
+            .par_spread(&synth_b, disc_arc.as_ref(), haz_b.as_ref(), as_of)
+            .unwrap();
+        let mut zero_b = synth_b.clone();
+        zero_b.premium.spread_bp = Decimal::ZERO;
+        let ra_boot = cds_pricer
+            .risky_annuity(&zero_b, disc_arc.as_ref(), haz_b.as_ref(), as_of)
+            .unwrap();
+        eprintln!(
+            "  [bootstrapped haz, premium.start = expiry]      F={f_boot:.6} bp, RA={ra_boot:.10}"
+        );
+
+        // What does the CDS pricer report as the *5Y spot* par spread under
+        // the bootstrapped curve? (This sanity-checks the bootstrap.)
+        let spot_5y = CreditDefaultSwap::new_isda(
+            option.id.clone(),
+            Money::new(option.notional.amount(), option.notional.currency()),
+            PayReceive::PayFixed,
+            option.underlying_convention,
+            Decimal::new(57, 0),
+            as_of,
+            option.cds_maturity,
+            recovery,
+            option.discount_curve_id.clone(),
+            "IBM-USD-SENIOR-BOOT",
+        )
+        .unwrap();
+        let par_5y_spot = cds_pricer
+            .par_spread(&spot_5y, disc_arc.as_ref(), haz_b.as_ref(), as_of)
+            .unwrap();
+        eprintln!(
+            "  Sanity: spot 5Y par on bootstrapped curve  = {par_5y_spot:.6} bp (expect ~57)"
+        );
+
+        let pv_boot = pricer
+            .credit_option_price(&option, f_boot, ra_boot, 0.8102, t)
+            .unwrap()
+            .amount();
+        eprintln!("  Black PV (bootstrapped curve)              = {pv_boot:.4}");
+    }
+
+    /// Bootstrap a piecewise-flat hazard curve from a par-spread term structure
+    /// using the CDS pricer + Brent root finding sequentially per pillar.
+    /// Returns vector of (tenor_year, piecewise-flat hazard rate up to that
+    /// tenor). This is a diagnostic helper, not a production calibrator.
+    #[cfg(test)]
+    fn bootstrap_flat_hazard_pieces(
+        disc: &std::sync::Arc<finstack_core::market_data::term_structures::DiscountCurve>,
+        par_spreads_bp: &[(f64, f64)],
+        recovery: f64,
+        day_count: finstack_core::dates::DayCount,
+        as_of: finstack_core::dates::Date,
+    ) -> Vec<(f64, f64)> {
+        use crate::instruments::credit_derivatives::cds::CDSConvention;
+        use crate::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
+        use finstack_core::currency::Currency;
+        use finstack_core::dates::DayCountContext;
+        use finstack_core::market_data::term_structures::HazardCurve;
+        use finstack_core::math::solver::BrentSolver;
+        use finstack_core::money::Money;
+        use rust_decimal::Decimal;
+
+        let mut accumulated: Vec<(f64, f64)> = Vec::with_capacity(par_spreads_bp.len());
+        let pricer = CDSPricer::new();
+        let ctx = DayCountContext::default();
+        let _ = day_count;
+        let _ = ctx;
+
+        for (i, &(tenor_years, par_bp)) in par_spreads_bp.iter().enumerate() {
+            // Calibrate hazard h_i (flat between previous pillar and this one)
+            // such that CDS expiring at this pillar with coupon = par_bp prices
+            // to par. Maturity is rolled to the next ISDA IMM date (03/20,
+            // 06/20, 09/20, 12/20) at or after as_of + tenor_years to match
+            // Bloomberg / SNAC curve definitions; the hazard knot time is the
+            // IMM-rolled tenor in act/365f years for self-consistency with
+            // par_spread evaluation.
+            let target = as_of + time::Duration::days((tenor_years * 365.25).round() as i64);
+            let maturity = next_isda_imm_on_or_after(target);
+            let knot_t = (maturity - as_of).whole_days() as f64 / 365.0_f64;
+
+            let pillar_idx = i;
+            let prev_knots = accumulated.clone();
+
+            let f_pv = |h: f64| -> f64 {
+                if h <= 0.0 {
+                    return f64::NAN;
+                }
+                let mut knots = prev_knots.clone();
+                knots.push((knot_t, h));
+                let haz = HazardCurve::builder("BOOT-TMP")
+                    .base_date(as_of)
+                    .recovery_rate(recovery)
+                    .knots(knots)
+                    .build()
+                    .expect("hazard");
+
+                let cds = CreditDefaultSwap::new_isda(
+                    "BOOT",
+                    Money::new(10_000_000.0, Currency::USD),
+                    PayReceive::PayFixed,
+                    CDSConvention::IsdaNa,
+                    Decimal::from_f64_retain(par_bp).expect("par bp"),
+                    as_of,
+                    maturity,
+                    recovery,
+                    "DUMMY",
+                    "BOOT-TMP",
+                )
+                .expect("synth cds for bootstrap");
+                pricer
+                    .par_spread(&cds, disc.as_ref(), &haz, as_of)
+                    .map(|fitted_par| fitted_par - par_bp)
+                    .unwrap_or(f64::NAN)
+            };
+
+            // Solve in an explicit bracket [1e-7, 1.0]. par_spread is monotone
+            // increasing in the trailing hazard piece h_i, so this bracket is
+            // wide enough for any IG/HY single-name curve.
+            let solver = BrentSolver::new().tolerance(1e-12);
+            let h_solved = solver
+                .solve_in_bracket(&f_pv, 1e-7, 1.0)
+                .expect("hazard bootstrap should converge in [1e-7, 1.0]");
+            accumulated.push((knot_t, h_solved));
+            let _ = pillar_idx;
+        }
+
+        accumulated
+    }
+
+    /// Next standard ISDA IMM date (20th of Mar/Jun/Sep/Dec) on or after the
+    /// supplied date. Diagnostic helper.
+    #[cfg(test)]
+    fn next_isda_imm_on_or_after(d: finstack_core::dates::Date) -> finstack_core::dates::Date {
+        use finstack_core::dates::Date;
+        use time::Month;
+        let imms = [Month::March, Month::June, Month::September, Month::December];
+        let mut year = d.year();
+        loop {
+            for &m in &imms {
+                if let Ok(candidate) = Date::from_calendar_date(year, m, 20) {
+                    if candidate >= d {
+                        return candidate;
+                    }
+                }
+            }
+            year += 1;
+            if year > d.year() + 30 {
+                panic!("could not roll to IMM on or after {d}");
+            }
+        }
     }
 }

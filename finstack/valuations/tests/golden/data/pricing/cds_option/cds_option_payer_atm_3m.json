@@ -2,38 +2,56 @@
   "schema_version": "finstack.golden/1",
   "name": "cds_option_payer_atm_3m",
   "domain": "credit.cds_option",
-  "description": "Synthetic three-month payer option on a 5Y CDS spread.",
+  "description": "Bloomberg CDSO IBM single-name 3M payer (call) option struck at the ATM forward CDS spread.",
   "provenance": {
-    "as_of": "2026-04-30",
-    "source": "formula",
-    "source_detail": "Finstack canonical credit pricing calculation on deterministic synthetic market inputs",
+    "as_of": "2026-05-02",
+    "source": "bloomberg-screen",
+    "source_detail": "Bloomberg CDSO IBM USD senior 5Y CDS option, S531 USD ISDA Swap Curve - Mid, IBM USD Senior Curve, valuation date 2026-05-02, ATM payer struck at forward 58.3954bp, Spread Vol 81.02%",
     "captured_by": "jeickmeier",
-    "captured_on": "2026-05-01",
+    "captured_on": "2026-05-02",
     "last_reviewed_by": "jeickmeier",
-    "last_reviewed_on": "2026-05-01",
+    "last_reviewed_on": "2026-05-02",
     "review_interval_months": 6,
-    "regen_command": "manual formula fixture; values captured from canonical pricing runner",
-    "screenshots": []
+    "regen_command": "manual Bloomberg CDSO/CDSW/CDSD screen transcription; see provenance.screenshots",
+    "screenshots": [
+      {
+        "path": "screenshots/cds_option_payer_atm_3m__main.png",
+        "screen": "CDSO",
+        "captured_on": "2026-05-02",
+        "description": "Bloomberg CDSO Credit Default Swaption screen for IBM 3M ATM payer with strike 58.3954bp, spread vol 81.02%, market value 31177.82, IR DV01 -5.77, Spread DV01 2563.44, Vega(1%) 381.02, Theta -309.08"
+      },
+      {
+        "path": "screenshots/cds_option_payer_atm_3m__underlying_cds.png",
+        "screen": "CDSW",
+        "captured_on": "2026-05-02",
+        "description": "Bloomberg CDSW underlying single-name CDS terms (IBM USD senior, 2014 SNAC XR14, recovery 0.40, S531 swap curve, IBM USD Senior credit curve)"
+      },
+      {
+        "path": "screenshots/cds_option_payer_atm_3m__swap_curve.png",
+        "screen": "CDSW",
+        "captured_on": "2026-05-02",
+        "description": "S531 USD ISDA Swap Curve - Mid benchmark rates, identical to the curve used for the CDSW pricing screen"
+      }
+    ]
   },
   "inputs": {
-    "valuation_date": "2026-04-30",
+    "valuation_date": "2026-05-02",
     "model": "black76",
     "metrics": [
-      "delta",
       "vega",
-      "gamma",
       "dv01",
-      "cs01"
+      "cs01",
+      "theta"
     ],
     "instrument_json": {
       "type": "cds_option",
       "spec": {
-        "id": "CDSOPT-PAYER-ATM-3M-GOLDEN",
-        "strike": "0.0125",
+        "id": "IBM-USD-CDSO-PAYER-ATM-3M-20260502",
+        "strike": "0.0058395400",
         "option_type": "call",
         "exercise_style": "european",
-        "expiry": "2026-07-30",
-        "cds_maturity": "2031-04-30",
+        "expiry": "2026-06-26",
+        "cds_maturity": "2031-06-20",
         "day_count": "Act360",
         "notional": {
           "amount": "10000000",
@@ -41,16 +59,41 @@
         },
         "settlement": "cash",
         "recovery_rate": 0.4,
-        "discount_curve_id": "USD-OIS",
-        "credit_curve_id": "CORP-HAZARD",
-        "vol_surface_id": "CDSOPT-VOL",
+        "discount_curve_id": "USD-S531-SWAP",
+        "credit_curve_id": "IBM-USD-SENIOR",
+        "vol_surface_id": "IBM-CDSO-VOL",
         "underlying_convention": "isda_na",
-        "pricing_overrides": {},
+        "pricing_overrides": {
+          "implied_volatility": 0.8102
+        },
         "attributes": {
           "tags": [
-            "golden"
+            "golden",
+            "bloomberg",
+            "cdso",
+            "single-name-cds-option",
+            "payer",
+            "atm"
           ],
-          "meta": {}
+          "meta": {
+            "bloomberg_screen": "CDSO",
+            "reference_entity": "International Business Machines Corp",
+            "ticker": "IBM",
+            "red_pair_code": "49EB20AP0",
+            "debt_type": "Senior",
+            "contract": "2014 SNAC",
+            "restructuring": "XR14",
+            "position": "Long Payer",
+            "trade_date": "2026-05-02",
+            "cash_settlement_date": "2026-05-07",
+            "exercise_settlement_date": "2026-06-24",
+            "underlying_effective_date": "2026-06-21",
+            "spread_vol_pct": "81.02",
+            "atm_forward_bp": "58.3954",
+            "strike_spread_bp": "58.3954",
+            "swap_curve": "S531 USD ISDA Swap Curve - Mid",
+            "cds_curve": "IBM USD Senior Curve (MSG1 Mid)"
+          }
         },
         "underlying_is_index": false,
         "forward_spread_adjust": "0"
@@ -59,129 +102,89 @@
     "curves": {
       "discount": [
         {
-          "id": "USD-OIS",
-          "base_date": "2026-04-30",
+          "id": "USD-S531-SWAP",
+          "base_date": "2026-05-02",
           "day_count": "act_365f",
           "interp": "log_linear",
           "knots": [
-            [
-              0.0,
-              1.0
-            ],
-            [
-              0.25,
-              0.99
-            ],
-            [
-              0.5,
-              0.9802
-            ],
-            [
-              1.0,
-              0.9608
-            ],
-            [
-              2.0,
-              0.9231
-            ],
-            [
-              5.0,
-              0.8187
-            ],
-            [
-              7.0,
-              0.755
-            ],
-            [
-              10.0,
-              0.6703
-            ]
+            [0.0, 1.0],
+            [0.13972602739726028, 0.9948564304744848],
+            [0.38904109589041097, 0.98574857],
+            [0.6383561643835617, 0.97668173],
+            [0.8876712328767123, 0.96764815],
+            [1.1369863013698631, 0.95875431],
+            [1.3863013698630137, 0.94999432],
+            [1.6356164383561644, 0.94131437],
+            [1.8849315068493151, 0.93271373],
+            [2.136986301369863, 0.92419467],
+            [2.389041095890411, 0.91584876],
+            [2.6383561643835617, 0.9076677],
+            [2.884931506849315, 0.89964844],
+            [3.136986301369863, 0.8914406],
+            [3.389041095890411, 0.88321729],
+            [3.6383561643835617, 0.87515799],
+            [3.884931506849315, 0.86725959],
+            [4.136986301369863, 0.85911547],
+            [4.389041095890411, 0.85089899],
+            [4.638356164383562, 0.84284912],
+            [4.884931506849315, 0.83496263],
+            [5.136986301369863, 0.82680571]
           ]
         }
       ],
       "hazard": [
         {
-          "id": "CORP-HAZARD",
-          "base_date": "2026-04-30",
+          "id": "IBM-USD-SENIOR",
+          "base_date": "2026-05-02",
           "recovery_rate": 0.4,
           "day_count": "act_365f",
           "knots": [
-            [
-              0.25,
-              0.012
-            ],
-            [
-              1.0,
-              0.014
-            ],
-            [
-              3.0,
-              0.018
-            ],
-            [
-              5.0,
-              0.022
-            ],
-            [
-              10.0,
-              0.028
-            ]
+            [0.6356164383561644, 0.0017745644177803],
+            [1.1342465753424658, 0.0033197558026043],
+            [2.1369863013698631, 0.0051940157462903],
+            [3.1369863013698631, 0.0092299223474419],
+            [4.1369863013698627, 0.0139861785227869],
+            [5.1369863013698627, 0.0202486808214905],
+            [7.1397260273972600, 0.0174996558653136],
+            [10.1424657534246574, 0.0198215118527936]
+          ],
+          "par_spreads": [
+            [0.5, 10.5],
+            [1.0, 14.5],
+            [2.0, 22.0],
+            [3.0, 32.0],
+            [4.0, 43.5],
+            [5.0, 57.0],
+            [7.0, 68.5],
+            [10.0, 80.4]
           ]
-        },
+        }
+      ]
+    },
+    "surfaces": {
+      "vol": [
         {
-          "id": "HY-CORP-HAZARD",
-          "base_date": "2026-04-30",
-          "recovery_rate": 0.35,
-          "day_count": "act_365f",
-          "knots": [
-            [
-              0.25,
-              0.035
-            ],
-            [
-              1.0,
-              0.045
-            ],
-            [
-              3.0,
-              0.06
-            ],
-            [
-              5.0,
-              0.075
-            ],
-            [
-              10.0,
-              0.09
-            ]
-          ]
-        },
-        {
-          "id": "CDX.NA.IG.HAZARD",
-          "base_date": "2026-04-30",
-          "recovery_rate": 0.4,
-          "day_count": "act_365f",
-          "knots": [
-            [
-              0.25,
-              0.01
-            ],
-            [
-              1.0,
-              0.012
-            ],
-            [
-              3.0,
-              0.016
-            ],
-            [
-              5.0,
-              0.02
-            ],
-            [
-              10.0,
-              0.025
-            ]
+          "id": "IBM-CDSO-VOL",
+          "expiries": [
+            0.08333333333333333,
+            0.25,
+            0.5,
+            1.0,
+            2.0
+          ],
+          "strikes": [
+            0.0025,
+            0.005,
+            0.0058395400,
+            0.0075,
+            0.01
+          ],
+          "vols_row_major": [
+            0.8102, 0.8102, 0.8102, 0.8102, 0.8102,
+            0.8102, 0.8102, 0.8102, 0.8102, 0.8102,
+            0.8102, 0.8102, 0.8102, 0.8102, 0.8102,
+            0.8102, 0.8102, 0.8102, 0.8102, 0.8102,
+            0.8102, 0.8102, 0.8102, 0.8102, 0.8102
           ]
         }
       ]
@@ -189,85 +192,145 @@
     "source_reference": {
       "design_metrics": [
         "npv",
-        "delta_spread",
         "vega",
-        "gamma_spread"
+        "dv01",
+        "cs01",
+        "theta"
       ],
-      "strict_metric_keys": {
-        "delta_spread": "delta",
-        "gamma_spread": "gamma"
+      "curve_date": "2026-05-02",
+      "trade_date": "2026-05-02",
+      "valuation_date": "2026-05-02",
+      "option_expiry": "2026-06-26",
+      "cds_maturity": "2031-06-20",
+      "underlying_effective_date": "2026-06-21",
+      "notional": 10000000.0,
+      "strike_spread_bp": 58.3954,
+      "atm_forward_bp": 58.3954,
+      "spread_vol_pct": 81.02,
+      "recovery_rate": 0.4,
+      "position": "long_payer",
+      "discount_curve_note": "S531 USD ISDA Swap Curve - Mid; discount factors transcribed from the Bloomberg CDSW premium cashflow schedule for the IBM 5Y CDS golden (cds_5y_par_spread.json) and reused for option discounting.",
+      "hazard_curve_note": "IBM USD Senior credit curve par spreads transcribed from the Bloomberg CDSO/CDSD MSG1 Mid screen; hazard knots are bootstrapped on-demand from those par spreads using finstack's CDS pricer + Brent root finding (sequential per-pillar, IMM-rolled maturities, knot times in act/365f years). The bootstrap is deterministic and reproduced by the diagnostic unit test `instruments::credit_derivatives::cds_option::pricer::tests::diag_cds_option_payer_atm_3m` (run with --include-ignored). Sanity: spot 5Y par on the bootstrapped curve = 57.000000bp (matches the input par_spread). The synthetic forward CDS par spread matches Bloomberg ATM Forward 58.3954bp to within 0.30%.",
+      "vol_surface_note": "Bloomberg displays a single Spread Vol of 81.02% for this option; the surface is intentionally a flat 81.02% surface so that the model picks up the screen-quoted volatility regardless of strike or expiry interpolation. The pricing override implied_volatility is also set to 0.8102 for determinism.",
+      "swap_curve_rates_pct": [
+        {"tenor": "1M", "years": 0.08333333333333333, "rate": 3.644},
+        {"tenor": "2M", "years": 0.16666666666666666, "rate": 3.6528},
+        {"tenor": "3M", "years": 0.25, "rate": 3.6583},
+        {"tenor": "6M", "years": 0.5, "rate": 3.672},
+        {"tenor": "1Y", "years": 1.0, "rate": 3.7255},
+        {"tenor": "2Y", "years": 2.0, "rate": 3.7125},
+        {"tenor": "3Y", "years": 3.0, "rate": 3.681},
+        {"tenor": "4Y", "years": 4.0, "rate": 3.684},
+        {"tenor": "5Y", "years": 5.0, "rate": 3.7115},
+        {"tenor": "6Y", "years": 6.0, "rate": 3.7555},
+        {"tenor": "7Y", "years": 7.0, "rate": 3.8045},
+        {"tenor": "8Y", "years": 8.0, "rate": 3.8505},
+        {"tenor": "9Y", "years": 9.0, "rate": 3.894},
+        {"tenor": "10Y", "years": 10.0, "rate": 3.937},
+        {"tenor": "12Y", "years": 12.0, "rate": 4.0235},
+        {"tenor": "15Y", "years": 15.0, "rate": 4.133},
+        {"tenor": "20Y", "years": 20.0, "rate": 4.221},
+        {"tenor": "25Y", "years": 25.0, "rate": 4.2265},
+        {"tenor": "30Y", "years": 30.0, "rate": 4.1935}
+      ],
+      "credit_curve_spreads_bp": [
+        {"tenor": "6M", "years": 0.5, "spread": 10.5, "default_probability": 0.0011},
+        {"tenor": "1Y", "years": 1.0, "spread": 14.5, "default_probability": 0.0028},
+        {"tenor": "2Y", "years": 2.0, "spread": 22.0, "default_probability": 0.008},
+        {"tenor": "3Y", "years": 3.0, "spread": 32.0, "default_probability": 0.0171},
+        {"tenor": "4Y", "years": 4.0, "spread": 43.5, "default_probability": 0.0308},
+        {"tenor": "5Y", "years": 5.0, "spread": 57.0, "default_probability": 0.0503},
+        {"tenor": "7Y", "years": 7.0, "spread": 68.5, "default_probability": 0.0831},
+        {"tenor": "10Y", "years": 10.0, "spread": 80.4, "default_probability": 0.1365}
+      ],
+      "bloomberg_outputs": {
+        "market_value": 31177.82,
+        "premium_pct": 0.311778,
+        "spread_dv01": 2563.44,
+        "ir_dv01": -5.77,
+        "vega_1pct": 381.02,
+        "theta_per_day": -309.08,
+        "delta_pct_n_d1": 54.05,
+        "gamma_5bp_pct": 21.85,
+        "breakeven_bp": 65.3739
+      },
+      "transcription_notes": [
+        "Bloomberg CDSO Spread Vol field is shown in percent and equals 81.02; pricing_overrides.implied_volatility is set to the decimal equivalent 0.8102 to pin the lognormal vol used by the Black-on-spreads pricer.",
+        "The synthetic underlying CDS used by the pricer starts at the option expiry (2026-06-26) while Bloomberg's underlying effective date is the prior IMM (2026-06-21); this 5-day mismatch is a known model convention difference inherited from CDSOption pricing and does not affect the screen ATM-forward identity within bp-precision.",
+        "Delta (% = N(d1)) and Gamma (+/-5bp) are Bloomberg display conventions whose units differ from the registered finstack delta/gamma metrics; they are intentionally excluded from the metrics list and live in bloomberg_outputs for human reference only.",
+        "Hazard knots were rebuilt by sequential par-spread bootstrap (Brent root finding, IMM-rolled maturities, knot times in act/365f years). With these self-consistent knots, finstack's synthetic forward CDS par spread is 58.572bp vs Bloomberg ATM Forward 58.3954bp (0.30% drift) — down from 60.545bp (3.7% drift) under the previously transcribed survival-probability-derived hazards.",
+        "DV01 uses a CDS-option-specific calculator (CdsOptionDv01Calculator) that re-bootstraps the hazard curve from the par-spread term structure under the bumped discount curve, matching the corresponding CDS DV01 calculator and the Bloomberg CDSO IR DV01 convention. Without this, IR DV01 was ~3.5x too large because the rate bump was implicitly perturbing the implied par spreads as well.",
+        "Expected outputs use Bloomberg screen values directly. Tolerances are set at screen display precision (cents). Documented finstack-vs-Bloomberg drift lives in finstack_reconciliation."
+      ],
+      "finstack_reconciliation": {
+        "expected_outputs_policy": "Bloomberg screen values for displayed metrics. Tolerances reflect Bloomberg display precision (USD cents); deltas vs. finstack are documented below for visibility into model-vs-market drift, not as a tolerance override.",
+        "metrics_compared": ["npv", "vega", "dv01", "cs01", "theta"],
+        "model_fixes_applied": [
+          "Replaced transcribed hazard knots (~1.017% IBM survival-probability-derived) with self-consistent knots bootstrapped from the par-spread term structure (Brent root finding, IMM-rolled maturities). Drops forward-spread drift from 3.7% to 0.30% and NPV drift from 23.0% to 7.8%.",
+          "Added CdsOptionDv01Calculator that re-bootstraps the hazard curve from par_spreads under the bumped discount curve before repricing (Bloomberg CDSO convention), replacing the generic UnifiedDv01Calculator(parallel_combined). Drops IR DV01 magnitude from -20.54 (256% drift) to -9.35 (62% drift)."
+        ],
+        "npv": 33596.097211054279,
+        "npv_minus_bloomberg_market_value": 2418.277211054279,
+        "npv_rel_diff": 0.07756403,
+        "npv_note": "Residual ~7.8% drift after hazard re-bootstrap. Remaining bias is dominated by the synthetic underlying CDS effective-date convention (option expiry 2026-06-26 vs Bloomberg's prior-IMM 2026-06-21) and accrual-on-default treatment differences between finstack and Bloomberg CDSO.",
+        "vega": 404.808869752305,
+        "vega_minus_bloomberg_vega_1pct": 23.788869752305,
+        "vega_rel_diff": 0.06243470,
+        "vega_note": "Vega(1%) drift is dominated by the residual ~6% RA bias relative to Bloomberg's option-period risky annuity; this is the same convention residual seen on NPV.",
+        "dv01": -9.348730586396,
+        "dv01_minus_bloomberg_ir_dv01": -3.578730586396,
+        "dv01_rel_diff": 0.62022306,
+        "dv01_note": "Bloomberg-style IR DV01: bump rates by +/-1bp parallel, re-bootstrap hazard from the unchanged par-spread term structure, reprice option (CdsOptionDv01Calculator). Residual 62% relative drift on the small (-$5.77/bp) Bloomberg base reflects accrual-on-default and settlement-lag convention differences; absolute drift is $3.58/bp.",
+        "cs01": 2725.521335098812,
+        "cs01_minus_bloomberg_spread_dv01": 162.081335098812,
+        "cs01_rel_diff": 0.06322806,
+        "cs01_note": "Finstack CS01 is the par-spread bump + hazard re-bootstrap CS01 (GenericParallelCs01). Residual 6.3% drift is the option-level analogue of the underlying CDS spread-DV01 drift on cds_5y_par_spread.",
+        "theta": -296.033011179941,
+        "theta_minus_bloomberg_theta_per_day": 13.046988820059,
+        "theta_rel_diff": 0.04221234,
+        "theta_note": "Finstack theta is the 1-calendar-day forward finite-difference theta (PV(as_of+1d) - PV(as_of)). The ~4% drift vs. Bloomberg falls within typical model-vs-screen theta differences for CDSO."
+      },
+      "risk_metric_notes": {
+        "npv": "Bloomberg Market Value is the option premium in USD: premium_pct/100 x notional = 0.311778% x 10,000,000 = 31,177.80 (small rounding vs. screen). Finstack NPV is the discounted Black-on-spreads payer-option PV.",
+        "vega": "Bloomberg Vega(1%) is the dollar PV change for a +1 absolute percentage point move in lognormal spread vol. Matches finstack vega definition (per 1 vol point).",
+        "dv01": "Bloomberg IR DV01 is the +1bp parallel discount-curve bump impact on option PV with par CDS spreads held constant via hazard re-bootstrap. Matches finstack CdsOptionDv01Calculator (added in this fix), mirroring CdsDv01Calculator for the underlying.",
+        "cs01": "Bloomberg Spread DV01 is the +1bp par-spread bump on the credit curve with hazard re-bootstrap. Matches finstack par-spread CS01 (GenericParallelCs01) which is the registered MetricId::Cs01 for CDSOption.",
+        "theta": "Bloomberg Theta is the 1-calendar-day forward time decay in dollars. Matches finstack theta_finite_diff (PV(as_of+1d) - PV(as_of))."
       }
-    },
-    "surfaces": {
-      "vol": [
-        {
-          "id": "CDSOPT-VOL",
-          "expiries": [
-            0.25,
-            0.5,
-            1.0,
-            2.0
-          ],
-          "strikes": [
-            0.005,
-            0.01,
-            0.015,
-            0.02
-          ],
-          "vols_row_major": [
-            0.42,
-            0.38,
-            0.36,
-            0.35,
-            0.4,
-            0.36,
-            0.34,
-            0.33,
-            0.38,
-            0.34,
-            0.32,
-            0.31,
-            0.36,
-            0.32,
-            0.3,
-            0.3
-          ]
-        }
-      ]
     }
   },
   "expected_outputs": {
-    "npv": 15889.020634249655,
-    "delta": 12978827.876601333,
-    "vega": 827.686211134539,
-    "gamma": 7024355046.721263,
-    "dv01": -5.354424124242541,
-    "cs01": 768.1184274559282
+    "npv": 31177.82,
+    "vega": 381.02,
+    "dv01": -5.77,
+    "cs01": 2563.44,
+    "theta": -309.08
   },
   "tolerances": {
     "npv": {
-      "abs": 1e-06,
-      "rel": 1e-12
-    },
-    "delta": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 0.01,
+      "rel": 1e-08,
+      "tolerance_reason": "Bloomberg displays Market Value in USD to cents; tolerance reflects screen precision."
     },
     "vega": {
-      "abs": 1e-06,
-      "rel": 1e-12
-    },
-    "gamma": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 0.01,
+      "rel": 1e-08,
+      "tolerance_reason": "Bloomberg displays Vega(1%) to cents; tolerance reflects screen precision."
     },
     "dv01": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 0.01,
+      "rel": 1e-08,
+      "tolerance_reason": "Bloomberg displays IR DV01 to cents; tolerance reflects screen precision."
     },
     "cs01": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 0.01,
+      "rel": 1e-08,
+      "tolerance_reason": "Bloomberg displays Spread DV01 to cents; tolerance reflects screen precision."
+    },
+    "theta": {
+      "abs": 0.01,
+      "rel": 1e-08,
+      "tolerance_reason": "Bloomberg displays Theta per day to cents; tolerance reflects screen precision."
     }
   }
 }

@@ -101,9 +101,28 @@ pub enum CDSConvention {
 #[serde(rename_all = "snake_case")]
 pub enum CdsValuationConvention {
     /// ISDA-style dirty model PV.
-    #[default]
+    ///
+    /// Premium-leg cashflows accrue between unadjusted IMM dates, the final
+    /// coupon excludes the maturity day, and the reported NPV is the dirty
+    /// model PV (no add-back of accrued premium). Use only for direct
+    /// reproduction of academic ISDA Standard Model literature.
     IsdaDirty,
     /// Bloomberg CDSW clean principal presentation and premium-leg policy.
+    ///
+    /// This is the industry-standard convention used by Bloomberg CDSW and
+    /// the ISDA Standard Upfront Model. It is the default for new
+    /// `CreditDefaultSwap` instances:
+    ///
+    /// - Premium cashflows accrue between business-day-adjusted dates that
+    ///   match the Bloomberg CDSW cashflow schedule.
+    /// - The final coupon period is inclusive of the maturity date (extra
+    ///   day) per CDSW convention.
+    /// - The reported NPV is the clean principal value (Bloomberg
+    ///   "Principal" line). Cash settlement is `Principal + Accrued`.
+    /// - Hazard rebootstrap inside risk metrics (CS01, recovery01, etc.)
+    ///   inherits the same CDSW pricer convention so sensitivities are
+    ///   self-consistent with the base PV.
+    #[default]
     BloombergCdswClean,
 }
 
@@ -933,11 +952,13 @@ impl CreditDefaultSwap {
     }
 
     pub(crate) fn uses_full_premium_par_spread_denominator(&self) -> bool {
-        matches!(
-            self.valuation_convention,
-            CdsValuationConvention::BloombergCdswClean
-        ) || self
-            .pricing_overrides
+        // The Bloomberg CDSW screen reports the par spread implied by the
+        // bootstrapped credit curve at the deal maturity using the standard
+        // ISDA risky-annuity denominator (excluding accrual-on-default).
+        // Tying the full-premium denominator to the CDSW convention shifts
+        // par spread down by ~AoD/annuity (~2-3% for IG), so it is only
+        // enabled via the explicit pricing override.
+        self.pricing_overrides
             .model_config
             .cds_par_spread_uses_full_premium
     }
