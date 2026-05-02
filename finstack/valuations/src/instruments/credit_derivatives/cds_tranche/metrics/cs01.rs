@@ -17,6 +17,7 @@ use crate::instruments::credit_derivatives::cds_tranche::CDSTranche;
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::sensitivities::cs01::sensitivity_central_diff;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::types::CurveId;
 use std::sync::Arc;
 
@@ -50,33 +51,53 @@ pub(crate) struct CdsTrancheCs01Calculator;
 impl MetricCalculator for CdsTrancheCs01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let tranche: &CDSTranche = context.instrument_as()?;
-        let (hazard_id, discount_id) =
+        let (hazard_id, _discount_id) =
             resolve_tranche_cs01_curves(tranche, context.curves.as_ref())?;
 
         let bump_bp =
             sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?
                 .credit_spread_bump_bp;
 
-        let inst_arc = Arc::clone(&context.instrument);
         let (model, registry) = context.clone_pricer_dispatch();
         let as_of = context.as_of;
+        let base_ctx = context.curves.as_ref();
+        let index_data = base_ctx.get_credit_index(&tranche.credit_index_id)?;
+        let hazard = base_ctx.get_hazard(hazard_id.as_str())?;
+        let bumped_up = Arc::new(bump_hazard_shift(
+            hazard.as_ref(),
+            &BumpRequest::Parallel(bump_bp),
+        )?);
+        let bumped_down = Arc::new(bump_hazard_shift(
+            hazard.as_ref(),
+            &BumpRequest::Parallel(-bump_bp),
+        )?);
+        let ctx_up = base_ctx
+            .clone()
+            .insert(Arc::clone(&bumped_up))
+            .insert_credit_index(
+                tranche.credit_index_id.as_str(),
+                rebuild_index(&index_data, bumped_up)?,
+            );
+        let ctx_down = base_ctx
+            .clone()
+            .insert(Arc::clone(&bumped_down))
+            .insert_credit_index(
+                tranche.credit_index_id.as_str(),
+                rebuild_index(&index_data, bumped_down)?,
+            );
 
-        let reval = move |temp_ctx: &finstack_core::market_data::context::MarketContext| {
+        let reprice = |temp_ctx: &finstack_core::market_data::context::MarketContext| {
             if let (Some(model), Some(registry)) = (model, registry.as_ref()) {
-                return registry
-                    .price_raw(inst_arc.as_ref(), model, temp_ctx, as_of)
-                    .map_err(Into::into);
+                registry
+                    .price_raw(context.instrument.as_ref(), model, temp_ctx, as_of)
+                    .map_err(Into::into)
+            } else {
+                context.instrument.value_raw(temp_ctx, as_of)
             }
-            inst_arc.value_raw(temp_ctx, as_of)
         };
-
-        let cs01 = crate::metrics::sensitivities::cs01::compute_parallel_cs01_with_context_raw(
-            context,
-            &hazard_id,
-            discount_id.as_ref(),
-            bump_bp,
-            reval,
-        )?;
+        let pv_up = reprice(&ctx_up)?;
+        let pv_down = reprice(&ctx_down)?;
+        let cs01 = sensitivity_central_diff(pv_up, pv_down, bump_bp);
 
         context.computed.insert(
             MetricId::custom(format!("cs01::{}", hazard_id.as_str())),
@@ -85,6 +106,27 @@ impl MetricCalculator for CdsTrancheCs01Calculator {
 
         Ok(cs01)
     }
+}
+
+fn rebuild_index(
+    original_index: &CreditIndexData,
+    hazard: Arc<finstack_core::market_data::term_structures::HazardCurve>,
+) -> finstack_core::Result<CreditIndexData> {
+    let mut builder = CreditIndexData::builder()
+        .num_constituents(original_index.num_constituents)
+        .recovery_rate(original_index.recovery_rate)
+        .index_credit_curve(hazard)
+        .base_correlation_curve(Arc::clone(&original_index.base_correlation_curve));
+    if let Some(curves) = &original_index.issuer_credit_curves {
+        builder = builder.issuer_curves(curves.clone());
+    }
+    if let Some(rates) = &original_index.issuer_recovery_rates {
+        builder = builder.issuer_recovery_rates(rates.clone());
+    }
+    if let Some(weights) = &original_index.issuer_weights {
+        builder = builder.issuer_weights(weights.clone());
+    }
+    builder.build()
 }
 
 /// CDS tranche bucketed CS01 that resolves the credit index → hazard curve mapping.

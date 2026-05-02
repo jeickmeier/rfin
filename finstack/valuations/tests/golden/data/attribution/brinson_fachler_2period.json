@@ -16,29 +16,8 @@
     "screenshots": []
   },
   "inputs": {
-    "actual_outputs": {
-      "allocation::tech::p1": 0.001,
-      "selection::tech::p1": 0.0024,
-      "interaction::tech::p1": 0.0006,
-      "allocation::healthcare::p1": -0.0004,
-      "selection::healthcare::p1": 0.0012,
-      "interaction::healthcare::p1": -0.0002,
-      "total_allocation::p1": 0.0006,
-      "total_selection::p1": 0.0036,
-      "total_interaction::p1": 0.0004,
-      "total_active::p1": 0.0046,
-      "allocation::tech::p2": -0.0003,
-      "selection::tech::p2": 0.0015,
-      "interaction::tech::p2": -0.0001,
-      "allocation::healthcare::p2": 0.0007,
-      "selection::healthcare::p2": -0.0005,
-      "interaction::healthcare::p2": 0.0002,
-      "total_allocation::p2": 0.0004,
-      "total_selection::p2": 0.001,
-      "total_interaction::p2": 0.0001,
-      "total_active::p2": 0.0015,
-      "total_active::combined": 0.0061
-    }
+    "components": {"allocation::tech::p1": 0.001, "selection::tech::p1": 0.0024, "interaction::tech::p1": 0.0006, "allocation::healthcare::p1": -0.0004, "selection::healthcare::p1": 0.0012, "interaction::healthcare::p1": -0.0002, "allocation::tech::p2": -0.0003, "selection::tech::p2": 0.0015, "interaction::tech::p2": -0.0001, "allocation::healthcare::p2": 0.0007, "selection::healthcare::p2": -0.0005, "interaction::healthcare::p2": 0.0002},
+    "sums": {"total_allocation::p1": ["allocation::tech::p1", "allocation::healthcare::p1"], "total_selection::p1": ["selection::tech::p1", "selection::healthcare::p1"], "total_interaction::p1": ["interaction::tech::p1", "interaction::healthcare::p1"], "total_active::p1": ["total_allocation::p1", "total_selection::p1", "total_interaction::p1"], "total_allocation::p2": ["allocation::tech::p2", "allocation::healthcare::p2"], "total_selection::p2": ["selection::tech::p2", "selection::healthcare::p2"], "total_interaction::p2": ["interaction::tech::p2", "interaction::healthcare::p2"], "total_active::p2": ["total_allocation::p2", "total_selection::p2", "total_interaction::p2"], "total_active::combined": ["total_active::p1", "total_active::p2"]}
   },
   "expected_outputs": {
     "allocation::tech::p1": 0.001,

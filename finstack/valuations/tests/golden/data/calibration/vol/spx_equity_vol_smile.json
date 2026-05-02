@@ -16,14 +16,8 @@
     "screenshots": []
   },
   "inputs": {
-    "actual_outputs": {
-      "atm_vol::SPX::1y": 0.19,
-      "wing_25d_put_vol::SPX::1y": 0.215,
-      "wing_25d_call_vol::SPX::1y": 0.183,
-      "risk_reversal_25d::SPX::1y": -0.032,
-      "butterfly_25d::SPX::1y": 0.009,
-      "repriced_rmse": 0.0
-    }
+    "smiles": [{"id": "SPX", "expiry": "1y", "atm_vol": 0.19, "wing_25d_put_vol": 0.215, "wing_25d_call_vol": 0.183}],
+    "repriced_rmse": 0.0
   },
   "expected_outputs": {
     "atm_vol::SPX::1y": 0.19,

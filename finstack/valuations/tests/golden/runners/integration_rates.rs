@@ -9,6 +9,6 @@ pub struct IntegrationRatesRunner;
 
 impl DomainRunner for IntegrationRatesRunner {
     fn run(&self, fixture: &GoldenFixture) -> Result<BTreeMap<String, f64>, String> {
-        crate::golden::runners::reject_flattened_outputs("rates integration runner", fixture)
+        crate::golden::runners::integration_common::run_rates_integration(fixture)
     }
 }

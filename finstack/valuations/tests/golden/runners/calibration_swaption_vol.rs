@@ -9,6 +9,6 @@ pub struct CalibrationSwaptionVolRunner;
 
 impl DomainRunner for CalibrationSwaptionVolRunner {
     fn run(&self, fixture: &GoldenFixture) -> Result<BTreeMap<String, f64>, String> {
-        crate::golden::runners::reject_flattened_outputs("swaption vol calibration runner", fixture)
+        crate::golden::runners::calibration_common::run_sabr_cube_fixture(fixture)
     }
 }

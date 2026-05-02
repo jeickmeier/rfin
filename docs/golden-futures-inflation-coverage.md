@@ -25,12 +25,11 @@ their existing instrument-family directories.
 
 ## Metric Key Notes
 
-- Bond future reference metrics such as conversion factor, basis, and implied
-  repo are kept under `inputs.source_reference.planned_metrics_not_compared`
-  until exposed as strict metric ids.
-- Equity index future `dv01_rate` maps to strict `dv01`; futures price and
-  basis remain planned source-reference fields until they are exposed as metric
-  ids.
+- Bond future `futures_price` and `conversion_factor` are strict compared
+  metrics. Gross/net basis, implied repo, CTD labels, and non-zero contract
+  DV01 remain planned until exposed as strict metric ids.
+- Equity index future `futures_price` and `basis` are strict compared metrics.
+  The design alias `dv01_rate` maps to strict `dv01`.
 - Inflation-linked bond `mod_duration` maps to strict `real_duration` if real
   duration is the available live metric.
 - Inflation swap `par_breakeven_rate` maps to strict `par_rate`; `inflation_dv01`

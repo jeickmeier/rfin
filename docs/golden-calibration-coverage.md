@@ -2,10 +2,11 @@
 
 This document tracks the calibration slice of the `finstack.golden/1` rollout.
 
-The existing golden harness stores deterministic flattened calibration outputs
-under `inputs.actual_outputs` and compares those scalar values in both Rust and
-Python. These fixtures therefore validate the golden framework, the committed
-reference values, and report aggregation for calibration domains.
+The calibration harness now uses executable deterministic inputs rather than
+`inputs.actual_outputs` snapshots. Curve fixtures build discount, forward,
+inflation, hazard, SABR, or smile inputs and probe scalar outputs in both Rust
+and Python. External vendor/reference regeneration can replace the internal
+formula values later without changing runner shape.
 
 ## Existing Coverage
 

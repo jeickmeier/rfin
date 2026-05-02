@@ -21,7 +21,8 @@
     "metrics": [
       "cs01",
       "jump_to_default",
-      "recovery_01"
+      "recovery_01",
+      "dv01"
     ],
     "instrument_json": {
       "type": "credit_default_swap",
@@ -197,14 +198,17 @@
         "cs01",
         "jtd",
         "recovery01"
-      ]
+      ],
+      "jtd_key": "jump_to_default",
+      "recovery01_key": "recovery_01"
     }
   },
   "expected_outputs": {
     "npv": -835854.5330565799,
-    "cs01": 2798.625287859933,
+    "cs01": 2798.6252878599335,
     "jump_to_default": 6000000.0,
-    "recovery_01": -8030.955095731065
+    "recovery_01": -8030.955095731065,
+    "dv01": 203.34037497948157
   },
   "tolerances": {
     "npv": {
@@ -220,6 +224,10 @@
       "rel": 1e-12
     },
     "recovery_01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "dv01": {
       "abs": 1e-06,
       "rel": 1e-12
     }

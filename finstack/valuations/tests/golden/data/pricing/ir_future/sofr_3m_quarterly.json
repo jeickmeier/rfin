@@ -7,7 +7,7 @@
   "inputs": {
     "valuation_date": "2026-04-30",
     "model": "discounting",
-    "metrics": ["dv01"],
+    "metrics": ["dv01", "futures_price", "implied_forward", "convexity_adjustment"],
     "instrument_json": {
       "schema": "finstack.instrument/1",
       "instrument": {
@@ -35,6 +35,6 @@
       "forward": [{"id": "USD-SOFR-3M", "tenor": 0.25, "base_date": "2026-04-30", "day_count": "act_360", "interp": "linear", "knots": [[0.0, 0.04], [0.25, 0.041], [0.5, 0.042], [1.0, 0.043], [2.0, 0.044]]}]
     }
   },
-  "expected_outputs": {"npv": 2373.3024691358623, "dv01": -252.77777777778533},
-  "tolerances": {"npv": {"abs": 1e-6, "rel": 1e-12}, "dv01": {"abs": 1e-6, "rel": 1e-12}}
+  "expected_outputs": {"npv": 2373.3024691358623, "dv01": -252.77777777778533, "futures_price": 95.8, "implied_forward": 0.041061111111, "convexity_adjustment": 0.0},
+  "tolerances": {"npv": {"abs": 1e-6, "rel": 1e-12}, "dv01": {"abs": 1e-6, "rel": 1e-12}, "futures_price": {"abs": 1e-12, "rel": 1e-12}, "implied_forward": {"abs": 1e-12, "rel": 1e-12}, "convexity_adjustment": {"abs": 1e-12, "rel": 1e-12, "tolerance_reason": "Fixture intentionally sets contract_specs.convexity_adjustment to zero."}}
 }

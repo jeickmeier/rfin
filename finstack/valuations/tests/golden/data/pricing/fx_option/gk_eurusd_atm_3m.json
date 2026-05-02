@@ -20,6 +20,8 @@
     "model": "black76",
     "metrics": [
       "delta",
+      "delta_forward",
+      "delta_premium_adjusted",
       "vega",
       "rho",
       "foreign_rho"
@@ -246,15 +248,14 @@
     },
     "source_reference": {
       "note": "Formula fixture; expected_outputs are populated from the live Rust/Python golden runners.",
-      "spot": 1.1,
-      "planned_metrics_not_compared": [
-        "delta_premium_adjusted"
-      ]
+      "spot": 1.1
     }
   },
   "expected_outputs": {
     "npv": 22249.680527245742,
     "delta": 526497.128888637,
+    "delta_forward": 530464.7554592917,
+    "delta_premium_adjusted": 506270.1465911409,
     "vega": 2168.441651797354,
     "rho": 13.884285390075,
     "foreign_rho": -14.439003452535
@@ -265,6 +266,14 @@
       "rel": 1e-12
     },
     "delta": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "delta_forward": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "delta_premium_adjusted": {
       "abs": 1e-06,
       "rel": 1e-12
     },

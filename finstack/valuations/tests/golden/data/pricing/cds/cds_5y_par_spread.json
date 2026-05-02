@@ -20,7 +20,9 @@
     "model": "hazard_rate",
     "metrics": [
       "par_spread",
-      "risky_pv01"
+      "risky_pv01",
+      "dv01",
+      "cs01"
     ],
     "instrument_json": {
       "type": "credit_default_swap",
@@ -202,7 +204,9 @@
   "expected_outputs": {
     "npv": -67189.29375632282,
     "par_spread": 109.953676135478,
-    "risky_pv01": 4382.366489958417
+    "risky_pv01": 4382.366489958417,
+    "dv01": 11.03687221146538,
+    "cs01": 2615.7881488050043
   },
   "tolerances": {
     "npv": {
@@ -214,6 +218,14 @@
       "rel": 1e-12
     },
     "risky_pv01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "dv01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "cs01": {
       "abs": 1e-06,
       "rel": 1e-12
     }

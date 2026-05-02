@@ -16,17 +16,8 @@
     "screenshots": []
   },
   "inputs": {
-    "actual_outputs": {
-      "loading::mkt": 1.1,
-      "loading::smb": 0.35,
-      "loading::hml": -0.2,
-      "factor_contrib::mkt": 0.0165,
-      "factor_contrib::smb": 0.0014,
-      "factor_contrib::hml": 0.0006,
-      "residual": 0.0015,
-      "total_return": 0.02,
-      "r_squared": 0.94
-    }
+    "components": {"loading::mkt": 1.1, "loading::smb": 0.35, "loading::hml": -0.2, "factor_contrib::mkt": 0.0165, "factor_contrib::smb": 0.0014, "factor_contrib::hml": 0.0006, "residual": 0.0015, "r_squared": 0.94},
+    "sums": {"total_return": ["factor_contrib::mkt", "factor_contrib::smb", "factor_contrib::hml", "residual"]}
   },
   "expected_outputs": {
     "loading::mkt": 1.1,

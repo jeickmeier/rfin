@@ -20,7 +20,9 @@
     "model": "discounting",
     "metrics": [
       "discount_margin",
-      "ytm"
+      "ytm",
+      "dv01",
+      "cs01"
     ],
     "instrument_json": {
       "type": "term_loan",
@@ -305,13 +307,18 @@
       ]
     },
     "source_reference": {
-      "note": "Formula fixture; expected_outputs are populated from the live Rust/Python golden runners."
+      "note": "Formula fixture; expected_outputs are populated from the live Rust/Python golden runners.",
+      "zero_metric_reasons": {
+        "cs01": "Canonical metric currently returns zero for this deterministic fixture; golden locks the output and will catch future non-zero metric plumbing changes."
+      }
     }
   },
   "expected_outputs": {
     "npv": 27688694.501107488,
     "discount_margin": -0.033051418133,
-    "ytm": 0.090182214768
+    "ytm": 0.090182214768,
+    "dv01": -565.1648747548461,
+    "cs01": 0.0
   },
   "tolerances": {
     "npv": {
@@ -323,6 +330,14 @@
       "rel": 1e-12
     },
     "ytm": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "dv01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "cs01": {
       "abs": 1e-06,
       "rel": 1e-12
     }

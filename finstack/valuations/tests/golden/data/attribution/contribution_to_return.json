@@ -16,14 +16,8 @@
     "screenshots": []
   },
   "inputs": {
-    "actual_outputs": {
-      "weighted_contribution::AAPL": 0.006,
-      "weighted_contribution::MSFT": 0.0045,
-      "weighted_contribution::UST_10Y": -0.001,
-      "weighted_contribution::CASH": 0.0002,
-      "total_contribution": 0.0097,
-      "portfolio_return": 0.0097
-    }
+    "components": {"weighted_contribution::AAPL": 0.006, "weighted_contribution::MSFT": 0.0045, "weighted_contribution::UST_10Y": -0.001, "weighted_contribution::CASH": 0.0002},
+    "sums": {"total_contribution": ["weighted_contribution::AAPL", "weighted_contribution::MSFT", "weighted_contribution::UST_10Y", "weighted_contribution::CASH"], "portfolio_return": ["total_contribution"]}
   },
   "expected_outputs": {
     "weighted_contribution::AAPL": 0.006,

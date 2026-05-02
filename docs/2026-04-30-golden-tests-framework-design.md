@@ -468,7 +468,7 @@ Fixtures that span multiple crates live in the **consuming** crate's `tests/gold
 | `pricing/fx_option/gk_eurusd_atm_3m.json` | quantlib + bloomberg-screen OVML | npv, delta_spot, vega |
 | `pricing/fx_option/gk_eurusd_25d_call.json` | quantlib + bloomberg-screen OVML | npv, greeks (delta convention stress) |
 | `pricing/fx_option/gk_usdjpy_atm_1y.json` | quantlib + bloomberg-screen OVML | npv, greeks (JPY notional convention) |
-| `pricing/fx_option/gk_eurusd_otm_call_6m.json` | formula | npv, delta, vega; premium-adjusted delta remains planned until exposed as a metric |
+| `pricing/fx_option/gk_eurusd_otm_call_6m.json` | formula | npv, delta, delta_forward, delta_premium_adjusted, vega |
 
 #### Credit — CDS / CDS option / CDS tranche (6)
 

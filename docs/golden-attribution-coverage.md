@@ -3,8 +3,9 @@
 This document tracks the attribution slice of the `finstack.golden/1` rollout.
 
 Attribution references are deterministic textbook/formula examples. The golden
-harness stores flattened scalar outputs under `inputs.actual_outputs` and
-compares those values in both Rust and Python.
+harness now stores component inputs plus sum/reconciliation definitions, then
+computes totals in both Rust and Python instead of echoing flattened
+`inputs.actual_outputs` snapshots.
 
 ## Target Fixtures
 

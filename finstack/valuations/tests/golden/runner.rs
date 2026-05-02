@@ -382,7 +382,8 @@ mod tests {
             )]),
         };
 
-        let err = run_fixture(&fixture).expect_err("placeholder runner should fail");
+        let err = crate::golden::runners::reject_flattened_outputs("placeholder runner", &fixture)
+            .expect_err("placeholder helper should fail");
 
         assert!(
             err.contains("requires executable inputs"),

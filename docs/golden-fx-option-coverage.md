@@ -22,11 +22,12 @@ canonical instrument type rather than a broad FX bucket.
 ## Metric Key Notes
 
 - Use standard scalar metric ids emitted by the pricing result: `delta`,
-  `gamma`, `vega`, `theta`, `rho`, and `foreign_rho`.
-- The design terms `delta_spot` and `delta_premium_adjusted` map to different
-  FX market conventions. The strict metric parser currently exposes `delta`,
-  not a separate premium-adjusted delta key, so premium-adjusted reference
-  details belong under `inputs.source_reference`.
+  `delta_forward`, `delta_premium_adjusted`, `gamma`, `vega`, `theta`, `rho`,
+  and `foreign_rho`.
+- The design terms `delta_spot`, `delta_forward`, and
+  `delta_premium_adjusted` map to different FX market conventions. Fixtures
+  should compare each convention-specific delta when the scenario is intended
+  to cover delta quoting.
 - Reference-only values are not compared or written to the CSV unless they also
   appear in `expected_outputs`.
 

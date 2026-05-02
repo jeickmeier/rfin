@@ -277,6 +277,12 @@ impl MetricId {
     /// Units: currency per share.
     pub const EquityForwardPrice: Self = Self(Cow::Borrowed("equity_forward_price"));
 
+    /// Exchange or model futures price for futures-style instruments.
+    pub const FuturesPrice: Self = Self(Cow::Borrowed("futures_price"));
+
+    /// Futures basis, typically futures price less spot or CTD-implied fair value.
+    pub const Basis: Self = Self(Cow::Borrowed("basis"));
+
     // ========================================================================
     // Bond Metrics
     // ========================================================================
@@ -286,6 +292,9 @@ impl MetricId {
 
     /// Clean price (excludes accrued interest)
     pub const CleanPrice: Self = Self(Cow::Borrowed("clean_price"));
+
+    /// Delivery conversion factor for futures with deliverable baskets.
+    pub const ConversionFactor: Self = Self(Cow::Borrowed("conversion_factor"));
 
     /// Accrued interest since last coupon payment
     pub const Accrued: Self = Self(Cow::Borrowed("accrued"));
@@ -459,6 +468,37 @@ impl MetricId {
     /// After successful calibration, these should match within tolerance.
     pub const QuoteRate: Self = Self(Cow::Borrowed("quote_rate"));
 
+    /// Forward rate implied by the projection curve for futures-style instruments.
+    pub const ImpliedForward: Self = Self(Cow::Borrowed("implied_forward"));
+
+    /// Convexity adjustment applied to a quoted or model futures rate.
+    pub const ConvexityAdjustment: Self = Self(Cow::Borrowed("convexity_adjustment"));
+
+    /// Number of fixed-leg payment cashflows in a rates instrument schedule.
+    pub const FixedLegPaymentCount: Self = Self(Cow::Borrowed("fixed_leg_payment_count"));
+
+    /// Number of floating-leg payment cashflows in a rates instrument schedule.
+    pub const FloatingLegPaymentCount: Self = Self(Cow::Borrowed("floating_leg_payment_count"));
+
+    /// First fixed-leg payment date as days since Unix epoch.
+    pub const FixedFirstPaymentDate: Self = Self(Cow::Borrowed("fixed_first_payment_date"));
+
+    /// Last fixed-leg payment date as days since Unix epoch.
+    pub const FixedLastPaymentDate: Self = Self(Cow::Borrowed("fixed_last_payment_date"));
+
+    /// First floating-leg payment date as days since Unix epoch.
+    pub const FloatingFirstPaymentDate: Self = Self(Cow::Borrowed("floating_first_payment_date"));
+
+    /// Last floating-leg payment date as days since Unix epoch.
+    pub const FloatingLastPaymentDate: Self = Self(Cow::Borrowed("floating_last_payment_date"));
+
+    /// First fixed-leg accrual factor.
+    pub const FixedFirstAccrualFactor: Self = Self(Cow::Borrowed("fixed_first_accrual_factor"));
+
+    /// First floating-leg accrual factor.
+    pub const FloatingFirstAccrualFactor: Self =
+        Self(Cow::Borrowed("floating_first_accrual_factor"));
+
     // ========================================================================
     // CDS Metrics
     // ========================================================================
@@ -530,6 +570,12 @@ impl MetricId {
     /// Units: currency per unit of underlying move, already including instrument
     /// scaling such as notional, contract multiplier, or quantity where applicable.
     pub const Delta: Self = Self(Cow::Borrowed("delta"));
+
+    /// Forward delta before spot/premium convention adjustments.
+    pub const DeltaForward: Self = Self(Cow::Borrowed("delta_forward"));
+
+    /// Premium-adjusted delta under FX option market quoting conventions.
+    pub const DeltaPremiumAdjusted: Self = Self(Cow::Borrowed("delta_premium_adjusted"));
 
     /// Cash gamma with respect to the instrument's chosen spot driver.
     ///
@@ -1124,6 +1170,7 @@ impl MetricId {
         // -- Pricing --
         MetricId::DirtyPrice,
         MetricId::CleanPrice,
+        MetricId::ConversionFactor,
         MetricId::Accrued,
         MetricId::Ytm,
         MetricId::Ytw,
@@ -1142,6 +1189,8 @@ impl MetricId {
         MetricId::Convexity,
         MetricId::ImpliedVol,
         MetricId::TimeToMaturity,
+        MetricId::FuturesPrice,
+        MetricId::Basis,
         // -- Carry --
         MetricId::Theta,
         MetricId::ThetaCarry,
@@ -1176,6 +1225,8 @@ impl MetricId {
         MetricId::ConvexityAdjustmentRisk,
         // -- Greeks --
         MetricId::Delta,
+        MetricId::DeltaForward,
+        MetricId::DeltaPremiumAdjusted,
         MetricId::Gamma,
         MetricId::Vega,
         MetricId::BucketedVega,
@@ -1233,6 +1284,16 @@ impl MetricId {
         MetricId::DepositParRate,
         MetricId::DfEndFromQuote,
         MetricId::QuoteRate,
+        MetricId::ImpliedForward,
+        MetricId::ConvexityAdjustment,
+        MetricId::FixedLegPaymentCount,
+        MetricId::FloatingLegPaymentCount,
+        MetricId::FixedFirstPaymentDate,
+        MetricId::FixedLastPaymentDate,
+        MetricId::FloatingFirstPaymentDate,
+        MetricId::FloatingLastPaymentDate,
+        MetricId::FixedFirstAccrualFactor,
+        MetricId::FloatingFirstAccrualFactor,
         // -- FX --
         MetricId::SpotRate,
         MetricId::BaseAmount,
@@ -1424,9 +1485,10 @@ impl fmt::Display for MetricGroup {
 
 // --- Per-group metric arrays ------------------------------------------------
 
-const PRICING_METRICS: [MetricId; 20] = [
+const PRICING_METRICS: [MetricId; 23] = [
     MetricId::DirtyPrice,
     MetricId::CleanPrice,
+    MetricId::ConversionFactor,
     MetricId::Accrued,
     MetricId::Ytm,
     MetricId::Ytw,
@@ -1445,6 +1507,8 @@ const PRICING_METRICS: [MetricId; 20] = [
     MetricId::Convexity,
     MetricId::ImpliedVol,
     MetricId::TimeToMaturity,
+    MetricId::FuturesPrice,
+    MetricId::Basis,
 ];
 
 const CARRY_METRICS: [MetricId; 11] = [
@@ -1483,8 +1547,10 @@ const SENSITIVITY_METRICS: [MetricId; 19] = [
     MetricId::ConvexityAdjustmentRisk,
 ];
 
-const GREEKS_METRICS: [MetricId; 22] = [
+const GREEKS_METRICS: [MetricId; 24] = [
     MetricId::Delta,
+    MetricId::DeltaForward,
+    MetricId::DeltaPremiumAdjusted,
     MetricId::Gamma,
     MetricId::Vega,
     MetricId::BucketedVega,
@@ -1527,7 +1593,7 @@ const CREDIT_METRICS: [MetricId; 16] = [
     MetricId::Recovery01,
 ];
 
-const RATES_METRICS: [MetricId; 18] = [
+const RATES_METRICS: [MetricId; 28] = [
     MetricId::Annuity,
     MetricId::ParRate,
     MetricId::PvFixed,
@@ -1546,6 +1612,16 @@ const RATES_METRICS: [MetricId; 18] = [
     MetricId::DepositParRate,
     MetricId::DfEndFromQuote,
     MetricId::QuoteRate,
+    MetricId::ImpliedForward,
+    MetricId::ConvexityAdjustment,
+    MetricId::FixedLegPaymentCount,
+    MetricId::FloatingLegPaymentCount,
+    MetricId::FixedFirstPaymentDate,
+    MetricId::FixedLastPaymentDate,
+    MetricId::FloatingFirstPaymentDate,
+    MetricId::FloatingLastPaymentDate,
+    MetricId::FixedFirstAccrualFactor,
+    MetricId::FloatingFirstAccrualFactor,
 ];
 
 const FX_METRICS: [MetricId; 7] = [

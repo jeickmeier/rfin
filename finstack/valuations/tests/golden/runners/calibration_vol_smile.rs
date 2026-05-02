@@ -9,6 +9,6 @@ pub struct CalibrationVolSmileRunner;
 
 impl DomainRunner for CalibrationVolSmileRunner {
     fn run(&self, fixture: &GoldenFixture) -> Result<BTreeMap<String, f64>, String> {
-        crate::golden::runners::reject_flattened_outputs("vol smile calibration runner", fixture)
+        crate::golden::runners::calibration_common::run_vol_smile_fixture(fixture)
     }
 }

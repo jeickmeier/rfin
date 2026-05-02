@@ -9,6 +9,6 @@ pub struct IntegrationCreditRunner;
 
 impl DomainRunner for IntegrationCreditRunner {
     fn run(&self, fixture: &GoldenFixture) -> Result<BTreeMap<String, f64>, String> {
-        crate::golden::runners::reject_flattened_outputs("credit integration runner", fixture)
+        crate::golden::runners::integration_common::run_credit_integration(fixture)
     }
 }

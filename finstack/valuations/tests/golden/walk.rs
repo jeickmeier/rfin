@@ -1,6 +1,7 @@
 //! Walk-test for validating every committed golden fixture.
 
 use crate::golden::schema::{GoldenFixture, SCHEMA_VERSION};
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -14,6 +15,21 @@ const VALID_SOURCES: &[&str] = &[
     "intex",
     "formula",
     "textbook",
+];
+const ZERO_RISK_METRICS_REQUIRING_REASON: &[&str] = &[
+    "bucketed_dv01",
+    "convexity",
+    "cs01",
+    "delta",
+    "duration_mod",
+    "dv01",
+    "foreign_rho",
+    "gamma",
+    "inflation01",
+    "recovery_01",
+    "rho",
+    "spread_dv01",
+    "vega",
 ];
 
 fn collect_fixture_paths() -> Vec<PathBuf> {
@@ -120,6 +136,10 @@ pub(crate) fn validate_fixture(path: &Path) -> Result<(), String> {
         }
     }
 
+    validate_zero_risk_metric_reasons(&fixture)?;
+    validate_source_reference_coverage(&fixture)?;
+    validate_required_pricing_risk_metrics(&fixture)?;
+
     if MANUAL_SCREENSHOT_SOURCES.contains(&fixture.provenance.source.as_str())
         && fixture.provenance.screenshots.is_empty()
     {
@@ -149,6 +169,190 @@ pub(crate) fn validate_fixture(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_required_pricing_risk_metrics(fixture: &GoldenFixture) -> Result<(), String> {
+    if fixture.domain.contains(".integration") || fixture.domain.contains(".calibration.") {
+        return Ok(());
+    }
+
+    if fixture.domain.starts_with("rates.")
+        && fixture.domain != "rates.integration"
+        && !fixture.domain.starts_with("rates.calibration.")
+        && !fixture.expected_outputs.contains_key("dv01")
+    {
+        return Err("rates pricing fixtures must assert dv01".to_string());
+    }
+
+    if fixture.domain.starts_with("fixed_income.") && !fixture.expected_outputs.contains_key("dv01")
+    {
+        return Err("fixed-income pricing fixtures must assert dv01".to_string());
+    }
+
+    if fixture.domain.starts_with("credit.") {
+        if !fixture.expected_outputs.contains_key("dv01") {
+            return Err("credit pricing fixtures must assert dv01".to_string());
+        }
+        if !fixture.expected_outputs.contains_key("cs01") {
+            return Err("credit pricing fixtures must assert cs01".to_string());
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_zero_risk_metric_reasons(fixture: &GoldenFixture) -> Result<(), String> {
+    for (metric, expected) in &fixture.expected_outputs {
+        if expected.abs() <= f64::EPSILON
+            && ZERO_RISK_METRICS_REQUIRING_REASON.contains(&metric.as_str())
+            && !has_zero_metric_reason(fixture, metric)
+        {
+            return Err(format!(
+                "zero risk metric '{metric}' requires a tolerance_reason or inputs.source_reference.zero_metric_reasons entry"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn has_zero_metric_reason(fixture: &GoldenFixture, metric: &str) -> bool {
+    if fixture
+        .tolerances
+        .get(metric)
+        .and_then(|tolerance| tolerance.tolerance_reason.as_deref())
+        .is_some_and(|reason| !reason.trim().is_empty())
+    {
+        return true;
+    }
+    fixture
+        .inputs
+        .get("source_reference")
+        .and_then(serde_json::Value::as_object)
+        .and_then(|source_reference| source_reference.get("zero_metric_reasons"))
+        .and_then(serde_json::Value::as_object)
+        .and_then(|reasons| reasons.get(metric))
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|reason| !reason.trim().is_empty())
+}
+
+fn validate_source_reference_coverage(fixture: &GoldenFixture) -> Result<(), String> {
+    let Some(source_reference) = fixture.inputs.get("source_reference") else {
+        return Ok(());
+    };
+    let Some(source_reference) = source_reference.as_object() else {
+        return Err("inputs.source_reference must be an object".to_string());
+    };
+
+    let planned = string_array(source_reference, "planned_metrics_not_compared")?;
+    let non_compared = string_array(source_reference, "non_compared_metrics")?;
+    if (!planned.is_empty() || !non_compared.is_empty())
+        && !has_metric_omission_reason(source_reference)
+    {
+        return Err(
+            "inputs.source_reference planned/non-compared metrics require an explicit reason"
+                .to_string(),
+        );
+    }
+
+    let expected = fixture
+        .expected_outputs
+        .keys()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+    let omitted = planned
+        .iter()
+        .chain(non_compared.iter())
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+
+    for metric in string_array(source_reference, "design_metrics")? {
+        let aliases = design_metric_aliases(source_reference, &metric);
+        let alias_asserted = aliases
+            .iter()
+            .any(|alias| expected.contains(alias.as_str()));
+        let alias_omitted = aliases.iter().any(|alias| omitted.contains(alias.as_str()));
+        if !expected.contains(metric.as_str())
+            && !omitted.contains(metric.as_str())
+            && !alias_asserted
+            && !alias_omitted
+        {
+            return Err(format!(
+                "inputs.source_reference design metric '{metric}' is neither asserted nor listed as planned/non-compared"
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn string_array(
+    object: &serde_json::Map<String, serde_json::Value>,
+    key: &str,
+) -> Result<Vec<String>, String> {
+    let Some(value) = object.get(key) else {
+        return Ok(Vec::new());
+    };
+    let Some(values) = value.as_array() else {
+        return Err(format!("inputs.source_reference.{key} must be an array"));
+    };
+    values
+        .iter()
+        .map(|value| {
+            value
+                .as_str()
+                .map(str::to_string)
+                .ok_or_else(|| format!("inputs.source_reference.{key} entries must be strings"))
+        })
+        .collect()
+}
+
+fn has_metric_omission_reason(object: &serde_json::Map<String, serde_json::Value>) -> bool {
+    [
+        "planned_metrics_reason",
+        "non_compared_metrics_reason",
+        "omission_reason",
+        "delta_convention_note",
+        "waterfall_reference",
+        "note",
+    ]
+    .iter()
+    .any(|key| {
+        object
+            .get(*key)
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|value| !value.trim().is_empty())
+    })
+}
+
+fn design_metric_aliases(
+    object: &serde_json::Map<String, serde_json::Value>,
+    metric: &str,
+) -> Vec<String> {
+    let mut aliases = Vec::new();
+    let key = format!("{metric}_key");
+    if let Some(alias) = object.get(&key).and_then(serde_json::Value::as_str) {
+        aliases.push(alias.to_string());
+    }
+    if metric == "mod_duration" {
+        if let Some(alias) = object
+            .get("duration_key")
+            .and_then(serde_json::Value::as_str)
+        {
+            aliases.push(alias.to_string());
+        }
+    }
+    if let Some(strict_metric_keys) = object
+        .get("strict_metric_keys")
+        .and_then(serde_json::Value::as_object)
+    {
+        if let Some(alias) = strict_metric_keys
+            .get(metric)
+            .and_then(serde_json::Value::as_str)
+        {
+            aliases.push(alias.to_string());
+        }
+    }
+    aliases
+}
+
 fn validate_non_empty(field: &str, value: &str) -> Result<(), String> {
     if value.trim().is_empty() {
         return Err(format!("{field} is empty"));
@@ -163,6 +367,41 @@ fn is_git_tracked(path: &Path) -> bool {
         .arg(path)
         .output()
         .is_ok_and(|output| output.status.success())
+}
+
+fn fixture_relative_path(path: &Path) -> Result<String, String> {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let data_root = Path::new(manifest_dir).join(DATA_ROOT);
+    path.strip_prefix(data_root)
+        .map(|relative| relative.to_string_lossy().to_string())
+        .map_err(|err| format!("fixture path {path:?} is outside {DATA_ROOT}: {err}"))
+}
+
+fn collect_declared_run_golden_paths() -> Result<BTreeSet<String>, String> {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
+    let golden_root = Path::new(manifest_dir).join("tests/golden");
+    let mut declared = BTreeSet::new();
+    for source in [
+        "pricing.rs",
+        "calibration.rs",
+        "integration.rs",
+        "attribution.rs",
+    ] {
+        let path = golden_root.join(source);
+        let raw = fs::read_to_string(&path).map_err(|err| format!("read {path:?}: {err}"))?;
+        for line in raw.lines() {
+            if let Some(relative) = extract_run_golden_path(line) {
+                declared.insert(relative);
+            }
+        }
+    }
+    Ok(declared)
+}
+
+fn extract_run_golden_path(line: &str) -> Option<String> {
+    let start = line.find("run_golden!(\"")? + "run_golden!(\"".len();
+    let end = line[start..].find('"')? + start;
+    Some(line[start..end].to_string())
 }
 
 #[test]
@@ -183,6 +422,26 @@ fn all_fixtures_well_formed() {
     assert!(
         failures.is_empty(),
         "{} fixture(s) failed validation:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn all_fixtures_are_declared_in_rust_golden_tests() {
+    let declared = collect_declared_run_golden_paths().expect("collect run_golden declarations");
+    let failures = collect_fixture_paths()
+        .iter()
+        .filter_map(|path| match fixture_relative_path(path) {
+            Ok(relative) if declared.contains(&relative) => None,
+            Ok(relative) => Some(format!("missing run_golden! declaration for {relative}")),
+            Err(err) => Some(err),
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        failures.is_empty(),
+        "{} fixture(s) are not declared in Rust golden tests:\n{}",
         failures.len(),
         failures.join("\n")
     );

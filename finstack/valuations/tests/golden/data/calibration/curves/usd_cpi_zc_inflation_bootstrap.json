@@ -16,13 +16,9 @@
     "screenshots": []
   },
   "inputs": {
-    "actual_outputs": {
-      "inflation_zero_rate::US-CPI::1y": 0.01980262729617973,
-      "inflation_zero_rate::US-CPI::2y": 0.020082564638785584,
-      "inflation_zero_rate::US-CPI::5y": 0.020220526180134774,
-      "cpi_forecast::US-CPI::5y": 342.6,
-      "calibration_rmse": 0.0
-    }
+    "inflation": [{"id": "US-CPI", "base_date": "2026-04-30", "base_cpi": 309.6556751949799, "day_count": "act_365f", "interp": "linear", "indexation_lag_months": 3, "knots": [[0.0, 309.6556751949799], [1.0, 315.8487886988795], [2.0, 322.3461874312379], [5.0, 342.6]]}],
+    "probes": [{"output": "inflation_zero_rate::US-CPI::1y", "curve": "US-CPI", "kind": "inflation_zero_rate", "tenor": 1.0}, {"output": "inflation_zero_rate::US-CPI::2y", "curve": "US-CPI", "kind": "inflation_zero_rate", "tenor": 2.0}, {"output": "inflation_zero_rate::US-CPI::5y", "curve": "US-CPI", "kind": "inflation_zero_rate", "tenor": 5.0}, {"output": "cpi_forecast::US-CPI::5y", "curve": "US-CPI", "kind": "cpi", "tenor": 5.0}],
+    "calibration_rmse": 0.0
   },
   "expected_outputs": {
     "inflation_zero_rate::US-CPI::1y": 0.01980262729617973,

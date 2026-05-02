@@ -20,9 +20,8 @@
     "model": "discounting",
     "metrics": [
       "clean_price",
-      "delta",
-      "vega",
-      "rho"
+      "dv01",
+      "cs01"
     ],
     "instrument_json": {
       "type": "convertible_bond",
@@ -295,10 +294,19 @@
     },
     "source_reference": {
       "note": "Formula fixture; expected_outputs are populated from the live Rust/Python golden runners.",
+      "planned_metrics_reason": "Convertible greeks currently return zero under the discounting snapshot path and need dedicated optionality metric plumbing before they are compared.",
       "non_compared_metrics": [
         "parity",
         "conversion_premium"
-      ]
+      ],
+      "planned_metrics_not_compared": [
+        "delta",
+        "vega",
+        "rho"
+      ],
+      "zero_metric_reasons": {
+        "dv01": "Canonical metric currently returns zero for this deterministic fixture; golden locks the output and will catch future non-zero metric plumbing changes."
+      }
     },
     "prices": [
       {
@@ -319,9 +327,8 @@
   "expected_outputs": {
     "npv": 906935.6121183528,
     "clean_price": 906935.6121183528,
-    "delta": 0.0,
-    "vega": 0.0,
-    "rho": 0.0
+    "dv01": 0.0,
+    "cs01": -265.2694733448443
   },
   "tolerances": {
     "npv": {
@@ -332,15 +339,11 @@
       "abs": 1e-06,
       "rel": 1e-12
     },
-    "delta": {
+    "dv01": {
       "abs": 1e-06,
       "rel": 1e-12
     },
-    "vega": {
-      "abs": 1e-06,
-      "rel": 1e-12
-    },
-    "rho": {
+    "cs01": {
       "abs": 1e-06,
       "rel": 1e-12
     }

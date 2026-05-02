@@ -20,7 +20,9 @@
     "model": "discounting",
     "metrics": [
       "delta",
-      "dv01"
+      "dv01",
+      "futures_price",
+      "basis"
     ],
     "instrument_json": {
       "type": "equity_index_future",
@@ -98,9 +100,8 @@
       ]
     },
     "source_reference": {
+      "planned_metrics_reason": "Design alias dv01_rate maps to strict dv01; futures_price and basis are now compared directly.",
       "planned_metrics_not_compared": [
-        "futures_price",
-        "basis",
         "dv01_rate"
       ],
       "spot": 4500.0,
@@ -121,7 +122,9 @@
   "expected_outputs": {
     "npv": 14181.422799385473,
     "delta": 500.0,
-    "dv01": 56.449454656786
+    "dv01": 56.44945465678575,
+    "futures_price": 4528.362845598771,
+    "basis": 28.362845598771
   },
   "tolerances": {
     "npv": {
@@ -133,6 +136,14 @@
       "rel": 1e-12
     },
     "dv01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "futures_price": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "basis": {
       "abs": 1e-06,
       "rel": 1e-12
     }

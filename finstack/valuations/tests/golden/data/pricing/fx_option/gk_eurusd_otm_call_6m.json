@@ -20,6 +20,8 @@
     "model": "black76",
     "metrics": [
       "delta",
+      "delta_forward",
+      "delta_premium_adjusted",
       "vega"
     ],
     "instrument_json": {
@@ -244,16 +246,14 @@
     },
     "source_reference": {
       "note": "Formula fixture; expected_outputs are populated from the live Rust/Python golden runners.",
-      "spot": 1.1,
-      "planned_metrics_not_compared": [
-        "delta_premium_adjusted"
-      ],
-      "delta_convention_note": "Premium-adjusted FX delta is computed internally but is not exposed as a public metric id yet."
+      "spot": 1.1
     }
   },
   "expected_outputs": {
     "npv": 16946.265480906663,
     "delta": 339333.8420470126,
+    "delta_forward": 344480.58056577947,
+    "delta_premium_adjusted": 323928.14615527925,
     "vega": 2825.235413649336
   },
   "tolerances": {
@@ -262,6 +262,14 @@
       "rel": 1e-12
     },
     "delta": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "delta_forward": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "delta_premium_adjusted": {
       "abs": 1e-06,
       "rel": 1e-12
     },

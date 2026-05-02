@@ -73,6 +73,8 @@
 use crate::metrics::MetricRegistry;
 use crate::pricer::InstrumentType;
 
+mod pricing;
+
 /// Register all bond future metrics to a registry.
 ///
 /// Registers the following metrics:
@@ -97,6 +99,8 @@ pub(crate) fn register_bond_future_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: InstrumentType::BondFuture,
         metrics: [
+            (FuturesPrice, pricing::FuturesPriceCalculator),
+            (ConversionFactor, pricing::ConversionFactorCalculator),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::fixed_income::bond_future::BondFuture,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
@@ -130,6 +134,14 @@ mod tests {
         assert!(
             metrics.contains(&MetricId::BucketedDv01),
             "BucketedDv01 metric should be registered for BondFuture"
+        );
+        assert!(
+            metrics.contains(&MetricId::FuturesPrice),
+            "FuturesPrice metric should be registered for BondFuture"
+        );
+        assert!(
+            metrics.contains(&MetricId::ConversionFactor),
+            "ConversionFactor metric should be registered for BondFuture"
         );
     }
 }

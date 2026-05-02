@@ -19,6 +19,8 @@
     "valuation_date": "2026-04-30",
     "model": "bond_future_clean_price_proxy",
     "metrics": [
+      "futures_price",
+      "conversion_factor",
       "dv01"
     ],
     "instrument_json": {
@@ -189,26 +191,39 @@
       ]
     },
     "source_reference": {
+      "planned_metrics_reason": "Bond-future basis, implied repo, CTD labels, and non-zero contract DV01 are not exposed as strict metric ids yet; scalar NPV, model futures price, and conversion factor are compared.",
       "planned_metrics_not_compared": [
-        "futures_price",
-        "conversion_factor",
         "gross_basis",
         "net_basis",
         "implied_repo",
-        "ctd_isin"
+        "ctd_isin",
+        "dv01"
       ],
       "ctd_isin": "US91282CJL54",
       "conversion_factor": 0.8234,
-      "quoted_futures_price": 119.5
+      "quoted_futures_price": 119.5,
+      "zero_metric_reasons": {
+        "dv01": "Canonical metric currently returns zero for this deterministic fixture; golden locks the output and will catch future non-zero metric plumbing changes."
+      }
     }
   },
   "expected_outputs": {
     "npv": -1259.412193344644,
+    "futures_price": 119.625941219334,
+    "conversion_factor": 0.8234,
     "dv01": 0.0
   },
   "tolerances": {
     "npv": {
       "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "futures_price": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "conversion_factor": {
+      "abs": 1e-12,
       "rel": 1e-12
     },
     "dv01": {

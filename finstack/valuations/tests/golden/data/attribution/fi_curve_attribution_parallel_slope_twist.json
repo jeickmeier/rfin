@@ -16,16 +16,8 @@
     "screenshots": []
   },
   "inputs": {
-    "actual_outputs": {
-      "parallel_shift": -0.0075,
-      "slope": 0.002,
-      "twist": 0.001,
-      "butterfly": -0.0004,
-      "curve_contribution": -0.0049,
-      "residual": 0.0001,
-      "total_curve_effect": -0.0048,
-      "components_sum": -0.0048
-    }
+    "components": {"parallel_shift": -0.0075, "slope": 0.002, "twist": 0.001, "butterfly": -0.0004, "residual": 0.0001},
+    "sums": {"curve_contribution": ["parallel_shift", "slope", "twist", "butterfly"], "components_sum": ["curve_contribution", "residual"], "total_curve_effect": ["components_sum"]}
   },
   "expected_outputs": {
     "parallel_shift": -0.0075,

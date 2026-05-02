@@ -199,7 +199,7 @@ impl std::str::FromStr for Position {
 }
 
 impl InterestRateFuture {
-    fn resolve_dates(&self) -> finstack_core::Result<(Date, Date, Date)> {
+    pub(crate) fn resolve_dates(&self) -> finstack_core::Result<(Date, Date, Date)> {
         let fixing = self.fixing_date.unwrap_or(self.expiry);
         let period_start = self
             .period_start
@@ -253,6 +253,57 @@ impl InterestRateFuture {
     /// implies a 2.50% rate.
     pub fn implied_rate(&self) -> Rate {
         Rate::from_percent(100.0 - self.quoted_price)
+    }
+
+    /// Forward rate over the underlying futures accrual period.
+    pub(crate) fn model_forward_rate(&self, context: &MarketContext) -> finstack_core::Result<f64> {
+        use finstack_core::dates::DayCountContext;
+        let (fixing_date, period_start, period_end) = self.resolve_dates()?;
+        let fwd = context.get_forward(&self.forward_curve_id)?;
+        let fwd_dc = fwd.day_count();
+        let fwd_base = fwd.base_date();
+        let _t_fixing = fwd_dc
+            .year_fraction(fwd_base, fixing_date, DayCountContext::default())?
+            .max(0.0);
+        let t_start = fwd_dc
+            .year_fraction(fwd_base, period_start, DayCountContext::default())?
+            .max(0.0);
+        let t_end = fwd_dc
+            .year_fraction(fwd_base, period_end, DayCountContext::default())?
+            .max(t_start);
+        Ok(fwd.rate_period(t_start, t_end))
+    }
+
+    /// Convexity adjustment applied to the model forward rate.
+    pub(crate) fn convexity_adjustment(
+        &self,
+        context: &MarketContext,
+    ) -> finstack_core::Result<f64> {
+        use finstack_core::dates::DayCountContext;
+        if let Some(adjustment) = self.contract_specs.convexity_adjustment {
+            return Ok(adjustment);
+        }
+        let (fixing_date, period_start, period_end) = self.resolve_dates()?;
+        let fwd = context.get_forward(&self.forward_curve_id)?;
+        let fwd_dc = fwd.day_count();
+        let fwd_base = fwd.base_date();
+        let t_fixing = fwd_dc
+            .year_fraction(fwd_base, fixing_date, DayCountContext::default())?
+            .max(0.0);
+        let t_start = fwd_dc
+            .year_fraction(fwd_base, period_start, DayCountContext::default())?
+            .max(0.0);
+        let t_end = fwd_dc
+            .year_fraction(fwd_base, period_end, DayCountContext::default())?
+            .max(t_start);
+        let forward_rate = fwd.rate_period(t_start, t_end);
+        Ok(self.calculate_convexity_adjusted_rate(
+            context,
+            forward_rate,
+            t_fixing,
+            t_start,
+            t_end,
+        )? - forward_rate)
     }
 
     /// Calculates the present value of the interest rate future.

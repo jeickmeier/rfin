@@ -20,7 +20,9 @@
     "model": "hazard_rate",
     "metrics": [
       "par_spread",
-      "spread_dv01"
+      "spread_dv01",
+      "dv01",
+      "cs01"
     ],
     "instrument_json": {
       "type": "cds_tranche",
@@ -194,9 +196,9 @@
         "par_spread",
         "cs01"
       ],
+      "non_compared_metrics_reason": "Upfront and base-correlation diagnostics are not exposed as strict tranche metric ids yet.",
       "non_compared_metrics": [
         "upfront",
-        "cs01",
         "base_correlation"
       ]
     },
@@ -233,7 +235,9 @@
   "expected_outputs": {
     "npv": 1851420.6034794892,
     "par_spread": 547.102473708064,
-    "spread_dv01": -4140.931245860993
+    "spread_dv01": -4140.931245860993,
+    "dv01": -580.391604453442,
+    "cs01": 15759.288705220213
   },
   "tolerances": {
     "npv": {
@@ -245,6 +249,14 @@
       "rel": 1e-12
     },
     "spread_dv01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "dv01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "cs01": {
       "abs": 1e-06,
       "rel": 1e-12
     }

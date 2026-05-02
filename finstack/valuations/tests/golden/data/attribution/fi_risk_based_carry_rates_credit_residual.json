@@ -16,17 +16,8 @@
     "screenshots": []
   },
   "inputs": {
-    "actual_outputs": {
-      "carry": 0.01,
-      "rates_parallel": -0.0045,
-      "rates_slope": 0.001,
-      "rates_twist": 0.0005,
-      "rates_total": -0.003,
-      "credit_spread_duration": -0.002,
-      "residual": 0.0003,
-      "total_return": 0.0053,
-      "components_sum": 0.0053
-    }
+    "components": {"carry": 0.01, "rates_parallel": -0.0045, "rates_slope": 0.001, "rates_twist": 0.0005, "credit_spread_duration": -0.002, "residual": 0.0003},
+    "sums": {"rates_total": ["rates_parallel", "rates_slope", "rates_twist"], "components_sum": ["carry", "rates_total", "credit_spread_duration", "residual"], "total_return": ["components_sum"]}
   },
   "expected_outputs": {
     "carry": 0.01,

@@ -16,13 +16,8 @@
     "screenshots": []
   },
   "inputs": {
-    "actual_outputs": {
-      "local_return::eur_equity": 0.035,
-      "currency_return::eurusd": -0.012,
-      "cross_term::eur_equity": -0.00042,
-      "total_return::usd_investor": 0.02258,
-      "local_plus_currency_plus_cross": 0.02258
-    }
+    "components": {"local_return::eur_equity": 0.035, "currency_return::eurusd": -0.012, "cross_term::eur_equity": -0.00042},
+    "sums": {"local_plus_currency_plus_cross": ["local_return::eur_equity", "currency_return::eurusd", "cross_term::eur_equity"], "total_return::usd_investor": ["local_plus_currency_plus_cross"]}
   },
   "expected_outputs": {
     "local_return::eur_equity": 0.035,

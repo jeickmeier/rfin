@@ -19,7 +19,9 @@
     "valuation_date": "2026-04-30",
     "model": "structured_credit_stochastic",
     "metrics": [
-      "expected_loss"
+      "expected_loss",
+      "dv01",
+      "cs01"
     ],
     "instrument_json": {
       "type": "structured_credit",
@@ -589,7 +591,7 @@
     "source_reference": {
       "design_metrics": [
         "waterfall outputs",
-        "irr",
+        "tranche_irr",
         "wal",
         "expected_loss"
       ],
@@ -606,7 +608,9 @@
   },
   "expected_outputs": {
     "npv": 14734742.112501808,
-    "expected_loss": 714206.8888378189
+    "expected_loss": 714206.8888378189,
+    "dv01": -3084.6498484108597,
+    "cs01": -1979.5075246412307
   },
   "tolerances": {
     "npv": {
@@ -614,6 +618,14 @@
       "rel": 1e-12
     },
     "expected_loss": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "dv01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "cs01": {
       "abs": 1e-06,
       "rel": 1e-12
     }

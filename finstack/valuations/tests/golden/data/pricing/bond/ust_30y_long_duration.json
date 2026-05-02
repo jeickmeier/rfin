@@ -22,7 +22,8 @@
       "clean_price",
       "ytm",
       "duration_mod",
-      "convexity"
+      "convexity",
+      "dv01"
     ],
     "instrument_json": {
       "type": "bond",
@@ -297,7 +298,8 @@
     "clean_price": 1057498.8009911077,
     "ytm": 0.041654859074,
     "duration_mod": 16.753519465128,
-    "convexity": 397.652387974873
+    "convexity": 397.652387974873,
+    "dv01": -1825.8205735266672
   },
   "tolerances": {
     "npv": {
@@ -317,6 +319,10 @@
       "rel": 1e-12
     },
     "convexity": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "dv01": {
       "abs": 1e-06,
       "rel": 1e-12
     }

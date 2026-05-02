@@ -20,7 +20,8 @@
     "model": "hazard_rate",
     "metrics": [
       "cs01",
-      "recovery_01"
+      "recovery_01",
+      "dv01"
     ],
     "instrument_json": {
       "type": "credit_default_swap",
@@ -201,7 +202,8 @@
   "expected_outputs": {
     "npv": -1437637.4166855598,
     "cs01": 2871.326906826347,
-    "recovery_01": -24197.11191437892
+    "recovery_01": -24197.11191437892,
+    "dv01": 321.8743657816667
   },
   "tolerances": {
     "npv": {
@@ -213,6 +215,10 @@
       "rel": 1e-12
     },
     "recovery_01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "dv01": {
       "abs": 1e-06,
       "rel": 1e-12
     }

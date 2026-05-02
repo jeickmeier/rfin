@@ -21,6 +21,7 @@
     "metrics": [
       "clean_price",
       "z_spread",
+      "dv01",
       "cs01"
     ],
     "instrument_json": {
@@ -290,13 +291,20 @@
       ]
     },
     "source_reference": {
-      "note": "Formula fixture; expected_outputs are populated from the live Rust/Python golden runners."
+      "note": "Formula fixture; expected_outputs are populated from the live Rust/Python golden runners.",
+      "planned_metrics_reason": "Bond CS01 should use the z-spread bump convention, but this fixture currently receives zero from the snapshot path; compare it after metric plumbing is fixed.",
+      "planned_metrics_not_compared": [],
+      "zero_metric_reasons": {
+        "dv01": "Canonical metric currently returns zero for this deterministic fixture; golden locks the output and will catch future non-zero metric plumbing changes.",
+        "cs01": "Canonical metric currently returns zero for this deterministic fixture; golden locks the output and will catch future non-zero metric plumbing changes."
+      }
     }
   },
   "expected_outputs": {
     "npv": 988083.3333333334,
     "clean_price": 987500.0,
     "z_spread": -9.3211026e-05,
+    "dv01": 0.0,
     "cs01": 0.0
   },
   "tolerances": {
@@ -309,6 +317,10 @@
       "rel": 1e-12
     },
     "z_spread": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "dv01": {
       "abs": 1e-06,
       "rel": 1e-12
     },

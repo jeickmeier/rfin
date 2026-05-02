@@ -166,13 +166,14 @@
         "inflation_dv01"
       ],
       "par_breakeven_rate_key": "par_rate",
+      "dv01_real_key": "dv01",
       "inflation_dv01_key": "inflation01"
     }
   },
   "expected_outputs": {
     "npv": -10322.265559182979,
     "par_rate": 0.020183783806,
-    "dv01": 5.163961012953,
+    "dv01": 5.163961012953223,
     "inflation01": 430.278762657053
   },
   "tolerances": {

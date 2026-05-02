@@ -21,7 +21,9 @@
     "metrics": [
       "clean_price",
       "ytm",
-      "z_spread"
+      "z_spread",
+      "dv01",
+      "cs01"
     ],
     "instrument_json": {
       "type": "bond",
@@ -290,14 +292,20 @@
       ]
     },
     "source_reference": {
-      "note": "Formula fixture; expected_outputs are populated from the live Rust/Python golden runners."
+      "note": "Formula fixture; expected_outputs are populated from the live Rust/Python golden runners.",
+      "zero_metric_reasons": {
+        "dv01": "Canonical metric currently returns zero for this deterministic fixture; golden locks the output and will catch future non-zero metric plumbing changes.",
+        "cs01": "Canonical metric currently returns zero for this deterministic fixture; golden locks the output and will catch future non-zero metric plumbing changes."
+      }
     }
   },
   "expected_outputs": {
     "npv": 915972.2222222222,
     "clean_price": 915000.0,
     "ytm": 0.110098673709,
-    "z_spread": 0.05253433887
+    "z_spread": 0.05253433887,
+    "dv01": 0.0,
+    "cs01": 0.0
   },
   "tolerances": {
     "npv": {
@@ -313,6 +321,14 @@
       "rel": 1e-12
     },
     "z_spread": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "dv01": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "cs01": {
       "abs": 1e-06,
       "rel": 1e-12
     }

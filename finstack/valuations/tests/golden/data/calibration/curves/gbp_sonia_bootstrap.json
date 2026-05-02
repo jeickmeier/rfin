@@ -4,7 +4,7 @@
   "domain": "rates.calibration.curves",
   "description": "Synthetic GBP SONIA curve calibration output flattened at selected pillars.",
   "provenance": {"as_of": "2026-04-30", "source": "formula", "source_detail": "Deterministic synthetic curve calibration fixture with flattened reference outputs", "captured_by": "jeickmeier", "captured_on": "2026-04-30", "last_reviewed_by": "jeickmeier", "last_reviewed_on": "2026-04-30", "review_interval_months": 6, "regen_command": "manual formula fixture; flattened outputs committed in fixture", "screenshots": []},
-  "inputs": {"actual_outputs": {"discount_factor::GBP-SONIA::1y": 0.956, "discount_factor::GBP-SONIA::5y": 0.8025, "zero_rate::GBP-SONIA::5y": 0.0440001392, "calibration_rmse": 0.0}},
-  "expected_outputs": {"discount_factor::GBP-SONIA::1y": 0.956, "discount_factor::GBP-SONIA::5y": 0.8025, "zero_rate::GBP-SONIA::5y": 0.0440001392, "calibration_rmse": 0.0},
+  "inputs": {"discount": [{"id": "GBP-SONIA", "base_date": "2026-04-30", "day_count": "act_365f", "interp": "log_linear", "knots": [[0.0, 1.0], [1.0, 0.956], [5.0, 0.8025]]}], "probes": [{"output": "discount_factor::GBP-SONIA::1y", "curve": "GBP-SONIA", "kind": "discount_factor", "tenor": 1.0}, {"output": "discount_factor::GBP-SONIA::5y", "curve": "GBP-SONIA", "kind": "discount_factor", "tenor": 5.0}, {"output": "zero_rate::GBP-SONIA::5y", "curve": "GBP-SONIA", "kind": "zero_rate", "tenor": 5.0}], "calibration_rmse": 0.0},
+  "expected_outputs": {"discount_factor::GBP-SONIA::1y": 0.956, "discount_factor::GBP-SONIA::5y": 0.8025, "zero_rate::GBP-SONIA::5y": 0.044004684796, "calibration_rmse": 0.0},
   "tolerances": {"discount_factor::GBP-SONIA::1y": {"abs": 1e-12}, "discount_factor::GBP-SONIA::5y": {"abs": 1e-12}, "zero_rate::GBP-SONIA::5y": {"abs": 1e-12}, "calibration_rmse": {"abs": 1e-12}}
 }

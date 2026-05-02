@@ -21,7 +21,8 @@
     "metrics": [
       "clean_price",
       "dirty_price",
-      "accrued"
+      "accrued",
+      "dv01"
     ],
     "instrument_json": {
       "type": "bond",
@@ -295,7 +296,8 @@
     "npv": 1035580.6487781211,
     "clean_price": 1025163.9821114545,
     "dirty_price": 1035580.6487781211,
-    "accrued": 10416.666666666668
+    "accrued": 10416.666666666668,
+    "dv01": -444.5168981112074
   },
   "tolerances": {
     "npv": {
@@ -311,6 +313,10 @@
       "rel": 1e-12
     },
     "accrued": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "dv01": {
       "abs": 1e-06,
       "rel": 1e-12
     }

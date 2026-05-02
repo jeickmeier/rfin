@@ -16,15 +16,8 @@
     "screenshots": []
   },
   "inputs": {
-    "actual_outputs": {
-      "coupon_income": 0.012,
-      "roll_down": 0.004,
-      "roll_up": -0.0015,
-      "carry": 0.0145,
-      "price_change": -0.006,
-      "total_return": 0.0085,
-      "components_sum": 0.0085
-    }
+    "components": {"coupon_income": 0.012, "roll_down": 0.004, "roll_up": -0.0015, "price_change": -0.006},
+    "sums": {"carry": ["coupon_income", "roll_down", "roll_up"], "components_sum": ["carry", "price_change"], "total_return": ["components_sum"]}
   },
   "expected_outputs": {
     "coupon_income": 0.012,

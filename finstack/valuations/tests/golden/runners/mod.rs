@@ -4,11 +4,13 @@ use crate::golden::schema::GoldenFixture;
 use std::collections::BTreeMap;
 
 pub mod attribution_common;
+pub mod calibration_common;
 pub mod calibration_curves;
 pub mod calibration_hazard;
 pub mod calibration_inflation_curves;
 pub mod calibration_swaption_vol;
 pub mod calibration_vol_smile;
+pub mod integration_common;
 pub mod integration_credit;
 pub mod integration_rates;
 pub mod pricing_bond;

@@ -9,6 +9,6 @@ pub struct CalibrationCurvesRunner;
 
 impl DomainRunner for CalibrationCurvesRunner {
     fn run(&self, fixture: &GoldenFixture) -> Result<BTreeMap<String, f64>, String> {
-        crate::golden::runners::reject_flattened_outputs("rates curve calibration runner", fixture)
+        crate::golden::runners::calibration_common::run_curve_fixture(fixture)
     }
 }

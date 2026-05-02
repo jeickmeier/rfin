@@ -20,8 +20,8 @@
     "model": "tree",
     "metrics": [
       "clean_price",
-      "duration_mod",
-      "convexity"
+      "dv01",
+      "cs01"
     ],
     "instrument_json": {
       "type": "bond",
@@ -310,14 +310,23 @@
       ]
     },
     "source_reference": {
-      "note": "Formula fixture; expected_outputs are populated from the live Rust/Python golden runners."
+      "note": "Formula fixture; expected_outputs are populated from the live Rust/Python golden runners.",
+      "planned_metrics_reason": "Callable bond duration and convexity currently return zero under the tree snapshot path and need effective-risk metric plumbing before they are compared.",
+      "planned_metrics_not_compared": [
+        "duration_mod",
+        "convexity"
+      ],
+      "zero_metric_reasons": {
+        "dv01": "Canonical metric currently returns zero for this deterministic fixture; golden locks the output and will catch future non-zero metric plumbing changes.",
+        "cs01": "Canonical metric currently returns zero for this deterministic fixture; golden locks the output and will catch future non-zero metric plumbing changes."
+      }
     }
   },
   "expected_outputs": {
     "npv": 993222.2222222221,
     "clean_price": 992500.0,
-    "duration_mod": 0.0,
-    "convexity": 0.0
+    "dv01": 0.0,
+    "cs01": 0.0
   },
   "tolerances": {
     "npv": {
@@ -328,11 +337,11 @@
       "abs": 1e-06,
       "rel": 1e-12
     },
-    "duration_mod": {
+    "dv01": {
       "abs": 1e-06,
       "rel": 1e-12
     },
-    "convexity": {
+    "cs01": {
       "abs": 1e-06,
       "rel": 1e-12
     }

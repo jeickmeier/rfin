@@ -9,6 +9,6 @@ pub struct CalibrationHazardRunner;
 
 impl DomainRunner for CalibrationHazardRunner {
     fn run(&self, fixture: &GoldenFixture) -> Result<BTreeMap<String, f64>, String> {
-        crate::golden::runners::reject_flattened_outputs("hazard calibration runner", fixture)
+        crate::golden::runners::calibration_common::run_hazard_fixture(fixture)
     }
 }

@@ -22,7 +22,8 @@
       "real_yield",
       "breakeven_inflation",
       "index_ratio",
-      "real_duration"
+      "real_duration",
+      "dv01"
     ],
     "instrument_json": {
       "type": "inflation_linked_bond",
@@ -181,6 +182,11 @@
         "inflation_adjusted_principal",
         "mod_duration"
       ],
+      "planned_metrics_reason": "Clean price and inflation-adjusted principal are not exposed as strict linker metric ids yet.",
+      "planned_metrics_not_compared": [
+        "clean_price",
+        "inflation_adjusted_principal"
+      ],
       "duration_key": "real_duration"
     }
   },
@@ -189,7 +195,8 @@
     "real_yield": 0.009932285188,
     "breakeven_inflation": 0.00453740883,
     "index_ratio": 1.041583775885,
-    "real_duration": 4.842303902839
+    "real_duration": 4.842303902839,
+    "dv01": -553.8741333798971
   },
   "tolerances": {
     "npv": {
@@ -209,6 +216,10 @@
       "rel": 1e-12
     },
     "real_duration": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "dv01": {
       "abs": 1e-06,
       "rel": 1e-12
     }

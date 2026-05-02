@@ -22,7 +22,8 @@
       "clean_price",
       "ytm",
       "duration_mod",
-      "wal"
+      "wal",
+      "dv01"
     ],
     "instrument_json": {
       "type": "bond",
@@ -309,7 +310,8 @@
     "clean_price": 1010863.2626607592,
     "ytm": 0.04394442234,
     "duration_mod": 2.888895984775,
-    "wal": 3.20197260274
+    "wal": 3.20197260274,
+    "dv01": -299.687865549
   },
   "tolerances": {
     "npv": {
@@ -329,6 +331,10 @@
       "rel": 1e-12
     },
     "wal": {
+      "abs": 1e-06,
+      "rel": 1e-12
+    },
+    "dv01": {
       "abs": 1e-06,
       "rel": 1e-12
     }

@@ -4,6 +4,7 @@
 //! them with the `MetricRegistry`. Calculators reuse the pricing engine
 //! helpers to ensure consistency between PV and greeks.
 
+mod delta_conventions;
 mod implied_vol;
 // delta/gamma/vega/theta/rho/vanna/volga are provided via common adapters
 // dv01 and bucketed_dv01 now using generic implementations
@@ -32,6 +33,16 @@ pub(crate) fn register_fx_option_metrics(registry: &mut MetricRegistry) {
         Arc::new(crate::metrics::OptionGreekCalculator::<
             crate::instruments::FxOption,
         >::foreign_rho()),
+        &[InstrumentType::FxOption],
+    );
+    registry.register_metric(
+        MetricId::DeltaForward,
+        Arc::new(delta_conventions::DeltaForwardCalculator),
+        &[InstrumentType::FxOption],
+    );
+    registry.register_metric(
+        MetricId::DeltaPremiumAdjusted,
+        Arc::new(delta_conventions::DeltaPremiumAdjustedCalculator),
         &[InstrumentType::FxOption],
     );
 
@@ -74,5 +85,22 @@ pub(crate) fn register_fx_option_metrics(registry: &mut MetricRegistry) {
             (Vanna, crate::metrics::OptionGreekCalculator::<crate::instruments::FxOption>::vanna()),
             (Volga, crate::metrics::OptionGreekCalculator::<crate::instruments::FxOption>::volga()),
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metrics::MetricId;
+    use crate::pricer::InstrumentType;
+
+    #[test]
+    fn registers_fx_delta_convention_metrics() {
+        let mut registry = MetricRegistry::new();
+        register_fx_option_metrics(&mut registry);
+        let metrics = registry.metrics_for_instrument(InstrumentType::FxOption);
+
+        assert!(metrics.contains(&MetricId::DeltaForward));
+        assert!(metrics.contains(&MetricId::DeltaPremiumAdjusted));
     }
 }

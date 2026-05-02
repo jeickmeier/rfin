@@ -4,7 +4,7 @@
   "domain": "rates.integration",
   "description": "Synthetic USD OIS calibrate-then-price integration fixture with flattened curve and IRS outputs.",
   "provenance": {"as_of": "2026-04-30", "source": "formula", "source_detail": "Deterministic synthetic rates integration fixture with flattened calibration and pricing outputs", "captured_by": "jeickmeier", "captured_on": "2026-04-30", "last_reviewed_by": "jeickmeier", "last_reviewed_on": "2026-04-30", "review_interval_months": 6, "regen_command": "manual formula fixture; flattened outputs committed in fixture", "screenshots": []},
-  "inputs": {"actual_outputs": {"discount_factor::USD-OIS::5y": 0.8187, "zero_rate::USD-OIS::5y": 0.0400293178, "irs_npv": 2.3283064365386963e-10, "irs_dv01": 4483.528571195346}},
-  "expected_outputs": {"discount_factor::USD-OIS::5y": 0.8187, "zero_rate::USD-OIS::5y": 0.0400293178, "irs_npv": 2.3283064365386963e-10, "irs_dv01": 4483.528571195346},
+  "inputs": {"calibration": {"discount": [{"id": "USD-OIS", "base_date": "2026-04-30", "day_count": "act_365f", "interp": "log_linear", "knots": [[0.0, 1.0], [5.0, 0.8187]]}], "probes": [{"output": "discount_factor::USD-OIS::5y", "curve": "USD-OIS", "kind": "discount_factor", "tenor": 5.0}, {"output": "zero_rate::USD-OIS::5y", "curve": "USD-OIS", "kind": "zero_rate", "tenor": 5.0}]}, "pricing_fixture": "pricing/irs/usd_ois_swap_5y.json", "pricing_metrics": {"npv": "irs_npv", "dv01": "irs_dv01"}},
+  "expected_outputs": {"discount_factor::USD-OIS::5y": 0.8187, "zero_rate::USD-OIS::5y": 0.04000751252, "irs_npv": 147736.95199251221, "irs_dv01": 4458.376502918907},
   "tolerances": {"discount_factor::USD-OIS::5y": {"abs": 1e-12}, "zero_rate::USD-OIS::5y": {"abs": 1e-12}, "irs_npv": {"abs": 1e-6}, "irs_dv01": {"abs": 1e-6}}
 }
