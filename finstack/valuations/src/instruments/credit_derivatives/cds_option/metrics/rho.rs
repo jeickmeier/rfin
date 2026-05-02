@@ -31,11 +31,7 @@ impl MetricCalculator for RhoCalculator {
         let as_of = context.as_of;
 
         // Check expiry
-        let t = cds_option.day_count.year_fraction(
-            as_of,
-            cds_option.expiry,
-            finstack_core::dates::DayCountContext::default(),
-        )?;
+        let t = cds_option.black_time_to_expiry(as_of)?;
         if t <= 0.0 {
             return Ok(0.0);
         }

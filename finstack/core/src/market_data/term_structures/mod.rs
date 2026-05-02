@@ -141,7 +141,8 @@ pub use base_correlation::{
 pub use basis_spread_curve::{BasisSpreadCurve, BasisSpreadCurveBuilder};
 pub use credit_index::{CreditIndexData, CreditIndexDataBuilder};
 pub use discount_curve::{
-    DiscountCurve, DiscountCurveBuilder, ValidationMode, DEFAULT_MIN_FORWARD_TENOR,
+    DiscountCurve, DiscountCurveBuilder, DiscountCurveRateCalibration, DiscountCurveRateQuote,
+    DiscountCurveRateQuoteType, ValidationMode, DEFAULT_MIN_FORWARD_TENOR,
 };
 pub use flat::FlatCurve;
 pub use forward_curve::{ForwardCurve, ForwardCurveBuilder};

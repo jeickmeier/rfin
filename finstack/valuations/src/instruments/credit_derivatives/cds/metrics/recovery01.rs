@@ -36,7 +36,7 @@
 //! and the premium leg (accrued on default settlement). This metric captures
 //! the full direct sensitivity across both legs.
 
-use super::market_doc_clause;
+use super::{hazard_with_deal_quote, market_doc_clause};
 use crate::calibration::bumps::hazard::recalibrate_hazard_with_recovery_and_doc_clause_and_valuation_convention;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
@@ -103,7 +103,11 @@ impl MetricCalculator for Recovery01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
         let as_of = context.as_of;
-        let market = context.curves.as_ref();
+        let original_market = context.curves.as_ref();
+        let hazard = original_market.get_hazard(cds.protection.credit_curve_id.as_str())?;
+        let adjusted_market = hazard_with_deal_quote(cds, hazard.as_ref())?
+            .map(|quote_hazard| original_market.clone().insert(quote_hazard));
+        let market = adjusted_market.as_ref().unwrap_or(original_market);
 
         let base_recovery = cds.protection.recovery_rate;
 

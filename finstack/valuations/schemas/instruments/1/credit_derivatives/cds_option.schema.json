@@ -1095,6 +1095,16 @@
                     "null"
                   ]
                 },
+                "cds_clean_price": {
+                  "default": false,
+                  "description": "CDSW-style clean CDS valuation.\n\nWhen true, CDS base value and bump revaluations exclude accrued premium\nfrom the dirty model PV, matching Bloomberg CDSW's clean Principal field.",
+                  "type": "boolean"
+                },
+                "cds_par_spread_uses_full_premium": {
+                  "default": false,
+                  "description": "CDSW-style par-spread denominator.\n\nWhen true, CDS par spread includes accrual-on-default in the premium\ndenominator instead of using scheduled risky annuity only.",
+                  "type": "boolean"
+                },
                 "cds_quote_bp": {
                   "description": "CDS par-spread quote in basis points (for CDS and CDS index pricers).\n\nRenamed from `quoted_spread_bp`; the legacy JSON field name is still\naccepted as a serde alias for backward compatibility.",
                   "format": "double",
@@ -1533,6 +1543,13 @@
               "default": {},
               "description": "Additional attributes"
             },
+            "cash_settlement_date": {
+              "description": "Cash premium settlement date for Black time-to-expiry, when the screen\nquotes option time from premium settlement rather than valuation date.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
             "cds_maturity": {
               "description": "Underlying CDS maturity date",
               "type": "string"
@@ -1548,6 +1565,13 @@
             "discount_curve_id": {
               "$ref": "#/$defs/Id",
               "description": "Discount curve identifier"
+            },
+            "exercise_settlement_date": {
+              "description": "Exercise settlement date for Black time-to-expiry, when distinct from\nthe legal option expiration date.",
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "exercise_style": {
               "$ref": "#/$defs/ExerciseStyle",
@@ -1591,6 +1615,8 @@
               "default": {
                 "adaptive_bumps": false,
                 "call_friction_cents": null,
+                "cds_clean_price": false,
+                "cds_par_spread_uses_full_premium": false,
                 "credit_spread_bump_bp": null,
                 "mc_seed_scenario": null,
                 "mean_reversion": null,
@@ -1629,6 +1655,13 @@
               "$ref": "#/$defs/CDSConvention",
               "default": "isda_na",
               "description": "Convention used by the underlying CDS contract.\n\nThis controls the CDS schedule, settlement lag, business day convention,\nand other market-standard mechanics used when deriving forward spread and\nrisky annuity for the option's underlying."
+            },
+            "underlying_effective_date": {
+              "description": "Underlying CDS accrual-effective date used for forward spread and risky\nannuity. Bloomberg CDSO can quote a standard CDS effective date before\noption expiry; in that case premium accrues from this date while\nprotection starts at expiry.",
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "underlying_is_index": {
               "default": false,

@@ -75,6 +75,9 @@
           "recovery_rate": 0.4,
           "settlement_delay": 2
         },
+        "pricing_overrides": {
+          "cds_quote_bp": 60.5
+        },
         "valuation_convention": "bloomberg_cdsw_clean",
         "doc_clause": "xr14",
         "protection_effective_date": "2026-05-02",
@@ -110,6 +113,31 @@
           "base_date": "2026-05-02",
           "day_count": "act_365f",
           "interp": "log_linear",
+          "bootstrap": {
+            "index": "USD-SOFR-OIS",
+            "currency": "USD",
+            "quotes": [
+              {"quote_type": "deposit", "tenor": "1M", "rate": 3.644},
+              {"quote_type": "deposit", "tenor": "2M", "rate": 3.6528},
+              {"quote_type": "deposit", "tenor": "3M", "rate": 3.6583},
+              {"quote_type": "deposit", "tenor": "6M", "rate": 3.672},
+              {"quote_type": "swap", "tenor": "1Y", "rate": 3.7255},
+              {"quote_type": "swap", "tenor": "2Y", "rate": 3.7125},
+              {"quote_type": "swap", "tenor": "3Y", "rate": 3.681},
+              {"quote_type": "swap", "tenor": "4Y", "rate": 3.684},
+              {"quote_type": "swap", "tenor": "5Y", "rate": 3.7115},
+              {"quote_type": "swap", "tenor": "6Y", "rate": 3.7555},
+              {"quote_type": "swap", "tenor": "7Y", "rate": 3.8045},
+              {"quote_type": "swap", "tenor": "8Y", "rate": 3.8505},
+              {"quote_type": "swap", "tenor": "9Y", "rate": 3.894},
+              {"quote_type": "swap", "tenor": "10Y", "rate": 3.937},
+              {"quote_type": "swap", "tenor": "12Y", "rate": 4.0235},
+              {"quote_type": "swap", "tenor": "15Y", "rate": 4.133},
+              {"quote_type": "swap", "tenor": "20Y", "rate": 4.221},
+              {"quote_type": "swap", "tenor": "25Y", "rate": 4.2265},
+              {"quote_type": "swap", "tenor": "30Y", "rate": 4.1935}
+            ]
+          },
           "knots": [
             [0.0, 1.0],
             [0.13972602739726028, 0.9948564304744848],
@@ -278,6 +306,11 @@
           "rate": 3.7125
         },
         {
+          "tenor": "3Y",
+          "years": 3.0,
+          "rate": 3.681
+        },
+        {
           "tenor": "4Y",
           "years": 4.0,
           "rate": 3.684
@@ -396,7 +429,7 @@
       },
       "hazard_scale_to_quoted_spread": 1.1225641656700382,
       "transcription_notes": [
-        "The S531 3Y rate cell is obscured by a Bloomberg tooltip in the attached screenshot; payment-date discount factors are transcribed directly from the Bloomberg cashflow schedule instead.",
+        "The S531 3Y rate is transcribed as 3.6810% from the follow-up Bloomberg benchmark curve screenshot; payment-date discount factors are transcribed directly from the Bloomberg cashflow schedule.",
         "Expected outputs use Bloomberg screen values where directly displayed. Tolerances document source precision, not finstack model differences.",
         "jump_to_default is not shown directly on the Bloomberg screenshot; default_exposure is the asserted Bloomberg Def Exposure screen measure."
       ],

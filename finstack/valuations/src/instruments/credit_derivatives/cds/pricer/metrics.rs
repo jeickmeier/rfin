@@ -166,6 +166,41 @@ impl CDSPricer {
         )
     }
 
+    fn clean_accrued_fraction(&self, cds: &CreditDefaultSwap, as_of: Date) -> Result<f64> {
+        if as_of <= cds.premium.start || as_of >= cds.premium.end {
+            return Ok(0.0);
+        }
+
+        let schedule = self.generate_schedule(cds, as_of)?;
+        let mut last_coupon = cds.premium.start;
+        for &coupon_date in &schedule {
+            if coupon_date <= as_of {
+                last_coupon = coupon_date;
+            } else {
+                break;
+            }
+        }
+
+        if cds.premium.day_count == finstack_core::dates::DayCount::Act360 {
+            let days = finstack_core::dates::DayCount::calendar_days(last_coupon, as_of) + 1;
+            return Ok((days.max(0) as f64) / 360.0);
+        }
+
+        year_fraction(cds.premium.day_count, last_coupon, as_of)
+    }
+
+    fn clean_par_spread_denominator(
+        &self,
+        cds: &CreditDefaultSwap,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
+        as_of: Date,
+    ) -> Result<f64> {
+        let full_premium_per_bp = self.premium_leg_pv_per_bp(cds, disc, surv, as_of)?;
+        let accrued_per_unit_spread = self.clean_accrued_fraction(cds, as_of)?;
+        Ok(full_premium_per_bp / ONE_BASIS_POINT - accrued_per_unit_spread)
+    }
+
     /// Calculate par spread (bps) that sets NPV to zero.
     ///
     /// # ISDA Standard Par Spread Definition
@@ -198,6 +233,12 @@ impl CDSPricer {
         surv: &HazardCurve,
         as_of: Date,
     ) -> Result<f64> {
+        if cds.uses_clean_price() {
+            if let Some(quote_bp) = cds.pricing_overrides.market_quotes.cds_quote_bp {
+                return Ok(quote_bp);
+            }
+        }
+
         let protection_pv = self.pv_protection_leg(cds, disc, surv, as_of)?;
 
         // Default behavior (par_spread_uses_full_premium = false) uses Risky Annuity only.
@@ -248,6 +289,8 @@ impl CDSPricer {
                 })?;
             }
             ann
+        } else if cds.uses_clean_price() {
+            self.clean_par_spread_denominator(cds, disc, surv, as_of)?
         } else {
             // ISDA Standard: Risky Annuity (sum of DF * SP * YearFrac)
             self.risky_annuity(cds, disc, surv, as_of)?

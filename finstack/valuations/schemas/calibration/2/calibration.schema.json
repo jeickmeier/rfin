@@ -441,6 +441,17 @@
               "description": "Base date for the curve.",
               "type": "string"
             },
+            "cds_valuation_convention": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/CdsValuationConvention"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional CDS valuation convention used by synthetic CDS instruments\nduring hazard calibration and rebootstrap."
+            },
             "currency": {
               "$ref": "#/$defs/Currency",
               "description": "Currency of the curve."
@@ -1251,6 +1262,21 @@
         "quote_set"
       ],
       "type": "object"
+    },
+    "CdsValuationConvention": {
+      "description": "Valuation presentation and pricing policy for CDS marks.",
+      "oneOf": [
+        {
+          "const": "isda_dirty",
+          "description": "ISDA-style dirty model PV.\n\nPremium-leg cashflows accrue between unadjusted IMM dates, the final\ncoupon excludes the maturity day, and the reported NPV is the dirty\nmodel PV (no add-back of accrued premium). Use only for direct\nreproduction of academic ISDA Standard Model literature.",
+          "type": "string"
+        },
+        {
+          "const": "bloomberg_cdsw_clean",
+          "description": "Bloomberg CDSW clean principal presentation and premium-leg policy.\n\nThis is the industry-standard convention used by Bloomberg CDSW and\nthe ISDA Standard Upfront Model. It is the default for new\n`CreditDefaultSwap` instances:\n\n- Premium cashflows accrue between business-day-adjusted dates that\n  match the Bloomberg CDSW cashflow schedule.\n- The final coupon period is inclusive of the maturity date (extra\n  day) per CDSW convention.\n- The reported NPV is the clean principal value (Bloomberg\n  \"Principal\" line). Cash settlement is `Principal + Accrued`.\n- Hazard rebootstrap inside risk metrics (CS01, recovery01, etc.)\n  inherits the same CDSW pricer convention so sensitivities are\n  self-consistent with the base PV.",
+          "type": "string"
+        }
+      ]
     },
     "Currency": {
       "description": "ISO 4217 currency enumeration",

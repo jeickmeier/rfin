@@ -8,7 +8,7 @@
 //! forward spread, risky annuity, and discount factor into the option
 //! PV via the modified Black formula implemented on the instrument.
 
-use crate::constants::credit;
+use crate::constants::{credit, ONE_BASIS_POINT};
 use crate::instruments::common_impl::models::{d1, d2, norm_cdf, norm_pdf};
 use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Instrument;
@@ -73,12 +73,7 @@ impl CDSOptionPricer {
         as_of: finstack_core::dates::Date,
     ) -> Result<Money> {
         option.validate_supported_configuration()?;
-        // Time to expiry
-        let t = option.day_count.year_fraction(
-            as_of,
-            option.expiry,
-            finstack_core::dates::DayCountContext::default(),
-        )?;
+        let t = option.black_time_to_expiry(as_of)?;
 
         // Note: t <= 0 (expired) is handled downstream in credit_option_price
         // which computes the intrinsic payoff.
@@ -241,12 +236,15 @@ fn synthetic_underlying_cds(option: &CDSOption) -> Result<CreditDefaultSwap> {
         PayReceive::PayFixed,
         option.underlying_convention,
         spread_bp,
-        option.expiry,
+        option.underlying_effective_date.unwrap_or(option.expiry),
         option.cds_maturity,
         option.recovery_rate,
         option.discount_curve_id.to_owned(),
         option.credit_curve_id.to_owned(),
     )?;
+    if cds.premium.start < option.expiry {
+        cds.protection_effective_date = Some(option.expiry);
+    }
     // The CDSO Black-76 forward spread / risky annuity model is anchored on
     // the ISDA Standard CDS Model conventions (unadjusted IMM accruals,
     // dirty PV). Pin the synthetic underlying explicitly so that the option
@@ -501,11 +499,7 @@ impl CDSOptionPricer {
         let dt_years = 1.0 / self.config.theta_days_per_year;
 
         // Check if already expired
-        let t = option.day_count.year_fraction(
-            as_of,
-            option.expiry,
-            finstack_core::dates::DayCountContext::default(),
-        )?;
+        let t = option.black_time_to_expiry(as_of)?;
         if t <= dt_years {
             return Ok(0.0);
         }
@@ -513,9 +507,16 @@ impl CDSOptionPricer {
         // Base PV at as_of
         let pv_base = self.npv(option, curves, as_of)?.amount();
 
-        // Shifted PV at as_of + 1 day (moving forward in time reduces time to expiry)
+        // Shifted PV at as_of + 1 day (moving forward in time reduces time to expiry).
+        // For Bloomberg-style cash-settled CDS options, the quoted premium settlement
+        // date also rolls forward with the valuation date; the exercise settlement date
+        // remains the fixed payoff date.
         let as_of_shifted = as_of + Duration::days(1);
-        let pv_shifted = self.npv(option, curves, as_of_shifted)?.amount();
+        let mut shifted_option = option.clone();
+        if let Some(cash_settlement_date) = shifted_option.cash_settlement_date.as_mut() {
+            *cash_settlement_date += Duration::days(1);
+        }
+        let pv_shifted = self.npv(&shifted_option, curves, as_of_shifted)?.amount();
 
         // Theta = (PV_shifted - PV_base) / dt
         // Since we moved forward in time by 1 day, this gives daily theta
@@ -553,11 +554,12 @@ impl CDSOptionPricer {
             return Ok(ann);
         }
 
-        // Market-standard: build a synthetic CDS from expiry to maturity and ask CDS pricer for RA
+        // Bloomberg CDSO scales Black PV by the full premium-leg risky annuity,
+        // including expected accrued premium on default, matching CDSW Spread DV01.
         let mut cds = synthetic_underlying_cds(option)?;
         cds.premium.spread_bp = Decimal::ZERO;
         let cds_pricer = CDSPricer::new();
-        cds_pricer.risky_annuity(&cds, disc, surv, as_of)
+        Ok(cds_pricer.premium_leg_pv_per_bp(&cds, disc, surv, as_of)? / ONE_BASIS_POINT)
     }
 
     /// Solve for implied volatility σ such that model price(σ) = target_price.
@@ -583,11 +585,7 @@ impl CDSOptionPricer {
         }
 
         // Pre-compute market inputs independent of σ
-        let t = option.day_count.year_fraction(
-            as_of,
-            option.expiry,
-            finstack_core::dates::DayCountContext::default(),
-        )?;
+        let t = option.black_time_to_expiry(as_of)?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -730,6 +728,20 @@ mod tests {
         );
     }
 
+    #[test]
+    fn synthetic_underlying_cds_uses_underlying_effective_date_for_accrual() {
+        let mut option = CDSOption::example().expect("CDSOption example is valid");
+        let effective =
+            finstack_core::dates::Date::from_calendar_date(2025, time::Month::March, 20)
+                .expect("valid date");
+        option.underlying_effective_date = Some(effective);
+
+        let cds = synthetic_underlying_cds(&option).expect("synthetic CDS should build");
+
+        assert_eq!(cds.premium.start, effective);
+        assert_eq!(cds.protection_effective_date, Some(option.expiry));
+    }
+
     /// Diagnostic-only: prints the intermediate Black-on-spreads inputs that
     /// the CDS option pricer feeds the Black formula for the Bloomberg
     /// `cds_option_payer_atm_3m` golden, plus comparable values when the
@@ -745,7 +757,7 @@ mod tests {
         use crate::instruments::credit_derivatives::cds_option::parameters::CDSOptionParams;
         use crate::instruments::credit_derivatives::cds_option::CDSOption;
         use finstack_core::currency::Currency;
-        use finstack_core::dates::{Date, DayCountContext};
+        use finstack_core::dates::Date;
         use finstack_core::market_data::context::MarketContext;
         use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
         use finstack_core::math::interp::InterpStyle;
@@ -787,27 +799,14 @@ mod tests {
             .expect("disc curve");
 
         let haz_knots: Vec<(f64, f64)> = vec![
-            (0.13972602739726028, 0.00997646002277055),
-            (0.38904109589041097, 0.010174852397118335),
-            (0.6383561643835617, 0.010172469869400271),
-            (0.8876712328767123, 0.010174050726913558),
-            (1.1369863013698631, 0.010175577951597636),
-            (1.3863013698630137, 0.010177051103745225),
-            (1.6356164383561644, 0.010174391557496821),
-            (1.8849315068493151, 0.010171645976754756),
-            (2.136986301369863, 0.010175861524607866),
-            (2.389041095890411, 0.010173574090087208),
-            (2.6383561643835617, 0.010175851741102628),
-            (2.884931506849315, 0.010177267513353205),
-            (3.136986301369863, 0.010173574731178204),
-            (3.389041095890411, 0.010175091002821083),
-            (3.6383561643835617, 0.01017184051056745),
-            (3.884931506849315, 0.010176000795259657),
-            (4.136986301369863, 0.01017429786109359),
-            (4.389041095890411, 0.010175565889646949),
-            (4.638356164383562, 0.010175080613668764),
-            (4.884931506849315, 0.010173650631709215),
-            (5.136986301369863, 0.010286841673740938),
+            (0.6356164383561644, 0.0017745644177803),
+            (1.1342465753424658, 0.0033197558026043),
+            (2.1369863013698631, 0.0051940157462903),
+            (3.1369863013698631, 0.0092299223474419),
+            (4.1369863013698627, 0.0139861785227869),
+            (5.1369863013698627, 0.0202486808214905),
+            (7.1397260273972600, 0.0174996558653136),
+            (10.1424657534246574, 0.0198215118527936),
         ];
         let par_knots: Vec<(f64, f64)> = vec![
             (0.5, 10.5),
@@ -841,10 +840,14 @@ mod tests {
             CDSOption::new("DIAG", &params, &credit, "USD-S531-SWAP", "DIAG-VOL").unwrap();
         option.pricing_overrides.market_quotes.implied_volatility = Some(0.8102);
 
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.expiry, DayCountContext::default())
-            .unwrap();
+        option.cash_settlement_date =
+            Some(Date::from_calendar_date(2026, time::Month::May, 7).unwrap());
+        option.exercise_settlement_date =
+            Some(Date::from_calendar_date(2026, time::Month::June, 24).unwrap());
+        option.underlying_effective_date =
+            Some(Date::from_calendar_date(2026, time::Month::June, 21).unwrap());
+
+        let t = option.black_time_to_expiry(as_of).unwrap();
 
         eprintln!("\n=== CDS OPTION DIAGNOSTIC ===");
         eprintln!(
@@ -852,8 +855,9 @@ mod tests {
             as_of, option.expiry, option.cds_maturity, option.day_count
         );
         eprintln!(
-            "  t (yf): {t:.10}    (calendar days {})",
-            (option.expiry - as_of).whole_days()
+            "  t (yf): {t:.10}    (settlement days {})",
+            (option.exercise_settlement_date.unwrap() - option.cash_settlement_date.unwrap())
+                .whole_days()
         );
 
         let synth_spread_bp = option.strike * Decimal::new(10000, 0);
@@ -927,6 +931,76 @@ mod tests {
             "  [premium=prior IMM, protection_eff=expiry]      F={par_fwd:.6} bp, RA={ra_fwd:.10}"
         );
 
+        let underlying_effective = Date::from_calendar_date(2026, time::Month::June, 21).unwrap();
+        let underlying_effective_adjusted =
+            Date::from_calendar_date(2026, time::Month::June, 22).unwrap();
+        for (label, start) in [
+            ("underlying effective 2026-06-21", underlying_effective),
+            (
+                "underlying effective adjusted 2026-06-22",
+                underlying_effective_adjusted,
+            ),
+        ] {
+            let eff = CreditDefaultSwap::new_isda(
+                option.id.clone(),
+                Money::new(option.notional.amount(), option.notional.currency()),
+                PayReceive::PayFixed,
+                option.underlying_convention,
+                synth_spread_bp,
+                start,
+                option.cds_maturity,
+                option.recovery_rate,
+                option.discount_curve_id.clone(),
+                option.credit_curve_id.clone(),
+            )
+            .unwrap();
+            let par_eff = cds_pricer
+                .par_spread(&eff, disc_arc.as_ref(), haz_arc.as_ref(), as_of)
+                .unwrap();
+            let mut zero_eff = eff.clone();
+            zero_eff.premium.spread_bp = Decimal::ZERO;
+            let ra_eff = cds_pricer
+                .risky_annuity(&zero_eff, disc_arc.as_ref(), haz_arc.as_ref(), as_of)
+                .unwrap();
+            eprintln!("  [{label}]                F={par_eff:.6} bp, RA={ra_eff:.10}");
+        }
+
+        let mut exercise_settle_prot = CreditDefaultSwap::new_isda(
+            option.id.clone(),
+            Money::new(option.notional.amount(), option.notional.currency()),
+            PayReceive::PayFixed,
+            option.underlying_convention,
+            synth_spread_bp,
+            underlying_effective,
+            option.cds_maturity,
+            option.recovery_rate,
+            option.discount_curve_id.clone(),
+            option.credit_curve_id.clone(),
+        )
+        .unwrap();
+        exercise_settle_prot.protection_effective_date = option.exercise_settlement_date;
+        let par_exercise_settle = cds_pricer
+            .par_spread(
+                &exercise_settle_prot,
+                disc_arc.as_ref(),
+                haz_arc.as_ref(),
+                as_of,
+            )
+            .unwrap();
+        let mut zero_exercise_settle = exercise_settle_prot.clone();
+        zero_exercise_settle.premium.spread_bp = Decimal::ZERO;
+        let ra_exercise_settle = cds_pricer
+            .risky_annuity(
+                &zero_exercise_settle,
+                disc_arc.as_ref(),
+                haz_arc.as_ref(),
+                as_of,
+            )
+            .unwrap();
+        eprintln!(
+            "  [premium=2026-06-21, prot_eff=exercise_settle] F={par_exercise_settle:.6} bp, RA={ra_exercise_settle:.10}"
+        );
+
         // Manual Black PV with current finstack inputs ----------------------
         let pricer = CDSOptionPricer::default();
         let pv_now = pricer
@@ -997,6 +1071,52 @@ mod tests {
         eprintln!(
             "  [bootstrapped haz, premium.start = expiry]      F={f_boot:.6} bp, RA={ra_boot:.10}"
         );
+        for (label, start, protection_effective_date) in [
+            (
+                "boot haz, underlying effective 2026-06-21",
+                underlying_effective,
+                None,
+            ),
+            (
+                "boot haz, effective adjusted 2026-06-22",
+                underlying_effective_adjusted,
+                None,
+            ),
+            (
+                "boot haz, premium=2026-06-21, prot_eff=expiry",
+                underlying_effective,
+                Some(option.expiry),
+            ),
+            (
+                "boot haz, premium=2026-06-22, prot_eff=expiry",
+                underlying_effective_adjusted,
+                Some(option.expiry),
+            ),
+        ] {
+            let mut eff_b = CreditDefaultSwap::new_isda(
+                option.id.clone(),
+                Money::new(option.notional.amount(), option.notional.currency()),
+                PayReceive::PayFixed,
+                option.underlying_convention,
+                synth_spread_bp,
+                start,
+                option.cds_maturity,
+                recovery,
+                option.discount_curve_id.clone(),
+                "IBM-USD-SENIOR-BOOT",
+            )
+            .unwrap();
+            eff_b.protection_effective_date = protection_effective_date;
+            let f_eff_b = cds_pricer
+                .par_spread(&eff_b, disc_arc.as_ref(), haz_b.as_ref(), as_of)
+                .unwrap();
+            let mut zero_eff_b = eff_b.clone();
+            zero_eff_b.premium.spread_bp = Decimal::ZERO;
+            let ra_eff_b = cds_pricer
+                .risky_annuity(&zero_eff_b, disc_arc.as_ref(), haz_b.as_ref(), as_of)
+                .unwrap();
+            eprintln!("  [{label}]     F={f_eff_b:.6} bp, RA={ra_eff_b:.10}");
+        }
 
         // What does the CDS pricer report as the *5Y spot* par spread under
         // the bootstrapped curve? (This sanity-checks the bootstrap.)

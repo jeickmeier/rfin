@@ -4,19 +4,33 @@ use crate::golden::schema::GoldenFixture;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::scalars::MarketScalar;
+use finstack_core::market_data::scalars::{MarketScalar, ScalarTimeSeries};
 use finstack_core::market_data::surfaces::{VolSurface, VolSurfaceAxis};
 use finstack_core::market_data::term_structures::{
-    BaseCorrelationCurve, CreditIndexData, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve,
+    BaseCorrelationCurve, CreditIndexData, DiscountCurve, DiscountCurveRateCalibration,
+    DiscountCurveRateQuote, DiscountCurveRateQuoteType, ForwardCurve, HazardCurve, InflationCurve,
 };
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
 use finstack_core::money::Money;
+use finstack_core::types::{CurveId, IndexId};
+use finstack_valuations::calibration::api::engine;
+use finstack_valuations::calibration::api::schema::{
+    CalibrationEnvelope, CalibrationPlan, CalibrationStep, DiscountCurveParams, StepParams,
+    CALIBRATION_SCHEMA,
+};
+use finstack_valuations::calibration::{
+    CalibrationConfig, CalibrationMethod, RatesStepConventions,
+};
+use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+use finstack_valuations::market::quotes::market_quote::MarketQuote;
+use finstack_valuations::market::quotes::rates::RateQuote;
 use finstack_valuations::pricer::{parse_as_of_date, price_instrument_json_with_metrics};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::str::FromStr;
 use std::sync::Arc;
+use time::Duration;
 
 #[derive(Debug, Deserialize)]
 struct PricingInputs {
@@ -58,7 +72,32 @@ struct DiscountCurveSpec {
     base_date: String,
     day_count: Option<String>,
     interp: Option<String>,
+    #[serde(default)]
     knots: Vec<[f64; 2]>,
+    #[serde(default)]
+    bootstrap: Option<DiscountCurveBootstrapSpec>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DiscountCurveBootstrapSpec {
+    index: String,
+    currency: String,
+    #[serde(default)]
+    quotes: Vec<RateCurveQuoteSpec>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RateCurveQuoteSpec {
+    quote_type: RateCurveQuoteType,
+    tenor: String,
+    rate: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum RateCurveQuoteType {
+    Deposit,
+    Swap,
 }
 
 #[derive(Debug, Deserialize)]
@@ -235,6 +274,16 @@ fn build_fx_matrix(quotes: &[FxQuoteSpec]) -> Result<FxMatrix, String> {
 }
 
 fn build_discount_curve(spec: &DiscountCurveSpec) -> Result<DiscountCurve, String> {
+    if spec.knots.is_empty() {
+        let bootstrap = spec.bootstrap.as_ref().ok_or_else(|| {
+            format!(
+                "build discount curve '{}': either knots or bootstrap quotes are required",
+                spec.id
+            )
+        })?;
+        return build_bootstrapped_discount_curve(spec, bootstrap);
+    }
+
     let mut builder = DiscountCurve::builder(spec.id.as_str())
         .base_date(parse_as_of_date(&spec.base_date).map_err(|err| err.to_string())?)
         .knots(to_knots(&spec.knots))
@@ -242,9 +291,165 @@ fn build_discount_curve(spec: &DiscountCurveSpec) -> Result<DiscountCurve, Strin
     if let Some(day_count) = spec.day_count.as_deref() {
         builder = builder.day_count(parse_day_count(day_count)?);
     }
-    builder
+    let curve = builder
         .build()
-        .map_err(|err| format!("build discount curve '{}': {err}", spec.id))
+        .map_err(|err| format!("build discount curve '{}': {err}", spec.id))?;
+    if let Some(bootstrap) = &spec.bootstrap {
+        attach_discount_curve_rate_calibration(curve, bootstrap)
+    } else {
+        Ok(curve)
+    }
+}
+
+fn build_bootstrapped_discount_curve(
+    spec: &DiscountCurveSpec,
+    bootstrap: &DiscountCurveBootstrapSpec,
+) -> Result<DiscountCurve, String> {
+    if bootstrap.quotes.is_empty() {
+        return Err(format!(
+            "build bootstrapped discount curve '{}': bootstrap quotes are empty",
+            spec.id
+        ));
+    }
+
+    let base_date = parse_as_of_date(&spec.base_date).map_err(|err| err.to_string())?;
+    let curve_day_count = spec
+        .day_count
+        .as_deref()
+        .map(parse_day_count)
+        .transpose()?
+        .unwrap_or(DayCount::Act365F);
+    let currency = parse_currency(&bootstrap.currency)?;
+    let index = IndexId::new(bootstrap.index.as_str());
+    let mut market_quotes = Vec::with_capacity(bootstrap.quotes.len());
+
+    for quote in &bootstrap.quotes {
+        let pillar = Pillar::Tenor(
+            quote
+                .tenor
+                .parse()
+                .map_err(|err| format!("invalid bootstrap tenor '{}': {err}", quote.tenor))?,
+        );
+        let id = QuoteId::new(format!("{}-{}", spec.id, quote.tenor).as_str());
+        let rate = quote.rate / 100.0;
+        let rate_quote = match quote.quote_type {
+            RateCurveQuoteType::Deposit => RateQuote::Deposit {
+                id,
+                index: index.clone(),
+                pillar,
+                rate,
+            },
+            RateCurveQuoteType::Swap => RateQuote::Swap {
+                id,
+                index: index.clone(),
+                pillar,
+                rate,
+                spread_decimal: None,
+            },
+        };
+        market_quotes.push(MarketQuote::Rates(rate_quote));
+    }
+
+    let mut quote_sets = finstack_core::HashMap::default();
+    quote_sets.insert("s531".to_string(), market_quotes);
+    let envelope = CalibrationEnvelope {
+        schema: CALIBRATION_SCHEMA.to_string(),
+        plan: CalibrationPlan {
+            id: format!("{}-bootstrap", spec.id),
+            description: None,
+            quote_sets,
+            steps: vec![CalibrationStep {
+                id: spec.id.clone(),
+                quote_set: "s531".to_string(),
+                params: StepParams::Discount(DiscountCurveParams {
+                    curve_id: CurveId::new(spec.id.as_str()),
+                    currency,
+                    base_date,
+                    method: CalibrationMethod::Bootstrap,
+                    interpolation: parse_interp(spec.interp.as_deref())?,
+                    extrapolation: Default::default(),
+                    pricing_discount_id: None,
+                    pricing_forward_id: None,
+                    conventions: RatesStepConventions {
+                        curve_day_count: Some(curve_day_count),
+                    },
+                }),
+            }],
+            settings: CalibrationConfig {
+                use_parallel: false,
+                ..CalibrationConfig::default()
+            },
+        },
+        initial_market: None,
+    };
+
+    let fixing_rate = bootstrap.quotes[0].rate / 100.0;
+    let fixings = ScalarTimeSeries::new(
+        format!("FIXING:{}", spec.id),
+        vec![
+            (base_date - Duration::days(3), fixing_rate),
+            (base_date - Duration::days(2), fixing_rate),
+            (base_date - Duration::days(1), fixing_rate),
+            (base_date, fixing_rate),
+        ],
+        None,
+    )
+    .map_err(|err| format!("build bootstrap fixing series '{}': {err}", spec.id))?;
+    let initial_market = MarketContext::new().insert_series(fixings);
+
+    let envelope = CalibrationEnvelope {
+        initial_market: Some((&initial_market).into()),
+        ..envelope
+    };
+
+    let result = engine::execute(&envelope)
+        .map_err(|err| format!("bootstrap discount curve '{}': {err}", spec.id))?;
+    let market = MarketContext::try_from(result.result.final_market)
+        .map_err(|err| format!("read bootstrapped market '{}': {err}", spec.id))?;
+    let curve = market
+        .get_discount(spec.id.as_str())
+        .map(|curve| curve.as_ref().clone())
+        .map_err(|err| format!("get bootstrapped discount curve '{}': {err}", spec.id))?;
+
+    attach_discount_curve_rate_calibration(curve, bootstrap)
+}
+
+fn attach_discount_curve_rate_calibration(
+    curve: DiscountCurve,
+    bootstrap: &DiscountCurveBootstrapSpec,
+) -> Result<DiscountCurve, String> {
+    let currency = parse_currency(&bootstrap.currency)?;
+    let curve_id = curve.id().to_string();
+    DiscountCurve::builder(curve.id().clone())
+        .base_date(curve.base_date())
+        .day_count(curve.day_count())
+        .knots(
+            curve
+                .knots()
+                .iter()
+                .copied()
+                .zip(curve.dfs().iter().copied()),
+        )
+        .interp(curve.interp_style())
+        .extrapolation(curve.extrapolation())
+        .rate_calibration(DiscountCurveRateCalibration {
+            index_id: bootstrap.index.clone(),
+            currency,
+            quotes: bootstrap
+                .quotes
+                .iter()
+                .map(|quote| DiscountCurveRateQuote {
+                    quote_type: match quote.quote_type {
+                        RateCurveQuoteType::Deposit => DiscountCurveRateQuoteType::Deposit,
+                        RateCurveQuoteType::Swap => DiscountCurveRateQuoteType::Swap,
+                    },
+                    tenor: quote.tenor.clone(),
+                    rate: quote.rate / 100.0,
+                })
+                .collect(),
+        })
+        .build()
+        .map_err(|err| format!("attach bootstrap metadata '{}': {err}", curve_id))
 }
 
 fn build_forward_curve(spec: &ForwardCurveSpec) -> Result<ForwardCurve, String> {

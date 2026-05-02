@@ -329,6 +329,21 @@
                 }
               ]
             },
+            "CdsValuationConvention": {
+              "description": "Valuation presentation and pricing policy for CDS marks.",
+              "oneOf": [
+                {
+                  "const": "isda_dirty",
+                  "description": "ISDA-style dirty model PV.\n\nPremium-leg cashflows accrue between unadjusted IMM dates, the final\ncoupon excludes the maturity day, and the reported NPV is the dirty\nmodel PV (no add-back of accrued premium). Use only for direct\nreproduction of academic ISDA Standard Model literature.",
+                  "type": "string"
+                },
+                {
+                  "const": "bloomberg_cdsw_clean",
+                  "description": "Bloomberg CDSW clean principal presentation and premium-leg policy.\n\nThis is the industry-standard convention used by Bloomberg CDSW and\nthe ISDA Standard Upfront Model. It is the default for new\n`CreditDefaultSwap` instances:\n\n- Premium cashflows accrue between business-day-adjusted dates that\n  match the Bloomberg CDSW cashflow schedule.\n- The final coupon period is inclusive of the maturity date (extra\n  day) per CDSW convention.\n- The reported NPV is the clean principal value (Bloomberg\n  \"Principal\" line). Cash settlement is `Principal + Accrued`.\n- Hazard rebootstrap inside risk metrics (CS01, recovery01, etc.)\n  inherits the same CDSW pricer convention so sensitivities are\n  self-consistent with the base PV.",
+                  "type": "string"
+                }
+              ]
+            },
             "ClearingStatus": {
               "description": "Clearing status for OTC derivatives.\n\nDetermines whether a trade is cleared through a CCP or remains bilateral\nunder a CSA agreement.",
               "oneOf": [
@@ -1642,6 +1657,16 @@
                     "null"
                   ]
                 },
+                "cds_clean_price": {
+                  "default": false,
+                  "description": "CDSW-style clean CDS valuation.\n\nWhen true, CDS base value and bump revaluations exclude accrued premium\nfrom the dirty model PV, matching Bloomberg CDSW's clean Principal field.",
+                  "type": "boolean"
+                },
+                "cds_par_spread_uses_full_premium": {
+                  "default": false,
+                  "description": "CDSW-style par-spread denominator.\n\nWhen true, CDS par spread includes accrual-on-default in the premium\ndenominator instead of using scheduled risky annuity only.",
+                  "type": "boolean"
+                },
                 "cds_quote_bp": {
                   "description": "CDS par-spread quote in basis points (for CDS and CDS index pricers).\n\nRenamed from `quoted_spread_bp`; the legacy JSON field name is still\naccepted as a serde alias for backward compatibility.",
                   "format": "double",
@@ -2250,6 +2275,8 @@
               "default": {
                 "adaptive_bumps": false,
                 "call_friction_cents": null,
+                "cds_clean_price": false,
+                "cds_par_spread_uses_full_premium": false,
                 "credit_spread_bump_bp": null,
                 "mc_seed_scenario": null,
                 "mean_reversion": null,
@@ -2298,6 +2325,11 @@
                 "array",
                 "null"
               ]
+            },
+            "valuation_convention": {
+              "$ref": "#/$defs/CdsValuationConvention",
+              "default": "bloomberg_cdsw_clean",
+              "description": "Valuation presentation convention."
             }
           },
           "required": [

@@ -16,6 +16,7 @@ mod gamma;
 mod implied_vol;
 mod recovery01;
 mod rho;
+mod theta;
 // risk_bucketed_dv01 - now using generic implementation
 mod vega;
 
@@ -44,7 +45,7 @@ pub(crate) fn register_cds_option_metrics(registry: &mut MetricRegistry) {
             (Cs01, cs01::Cs01Calculator::default()),
             (Cs01Hazard, cs01::Cs01HazardCalculator),
             (Dv01, dv01::CdsOptionDv01Calculator),
-            // Theta is now registered universally in metrics::standard_registry()
+            (Theta, theta::ThetaCalculator),
             (Rho, rho::RhoCalculator),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<

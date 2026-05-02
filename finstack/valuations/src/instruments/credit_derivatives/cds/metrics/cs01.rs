@@ -1,6 +1,6 @@
 //! CDS-specific CS01 calculator.
 
-use super::market_doc_clause;
+use super::{hazard_with_deal_quote, market_doc_clause};
 use crate::instruments::common_impl::traits::CurveDependencies;
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use crate::metrics::sensitivities::config as sens_config;
@@ -14,7 +14,7 @@ pub(crate) struct CdsCs01Calculator;
 
 impl MetricCalculator for CdsCs01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let cds: &CreditDefaultSwap = context.instrument_as()?;
+        let cds: CreditDefaultSwap = context.instrument_as::<CreditDefaultSwap>()?.clone();
 
         let curves = cds.curve_dependencies()?;
         let hazard_id = curves.credit_curves.first().cloned().ok_or_else(|| {
@@ -24,6 +24,20 @@ impl MetricCalculator for CdsCs01Calculator {
             ))
         })?;
         let discount_id = curves.discount_curves.first().cloned();
+        let original_curves = Arc::clone(&context.curves);
+        let effective_curves = {
+            let hazard = original_curves.get_hazard(hazard_id.as_str())?;
+            if let Some(quote_hazard) = hazard_with_deal_quote(&cds, hazard.as_ref())? {
+                Some(Arc::new(
+                    original_curves.as_ref().clone().insert(quote_hazard),
+                ))
+            } else {
+                None
+            }
+        };
+        if let Some(curves) = effective_curves {
+            context.curves = curves;
+        }
         let bump_bp =
             sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?
                 .credit_spread_bump_bp;
@@ -40,15 +54,18 @@ impl MetricCalculator for CdsCs01Calculator {
             inst_arc.value_raw(temp_ctx, as_of)
         };
 
-        let cs01 = compute_parallel_cs01_with_context_raw_and_doc_clause_and_valuation_convention(
-            context,
-            &hazard_id,
-            discount_id.as_ref(),
-            bump_bp,
-            Some(market_doc_clause(cds)),
-            Some(cds.valuation_convention),
-            reval,
-        )?;
+        let cs01_result =
+            compute_parallel_cs01_with_context_raw_and_doc_clause_and_valuation_convention(
+                context,
+                &hazard_id,
+                discount_id.as_ref(),
+                bump_bp,
+                Some(market_doc_clause(&cds)),
+                Some(cds.valuation_convention),
+                reval,
+            );
+        context.curves = original_curves;
+        let cs01 = cs01_result?;
         context.computed.insert(
             MetricId::custom(format!("cs01::{}", hazard_id.as_str())),
             cs01,

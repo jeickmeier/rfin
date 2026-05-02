@@ -78,6 +78,26 @@ pub struct CDSOption {
     pub notional: Money,
     /// Settlement type
     pub settlement: SettlementType,
+    /// Cash premium settlement date for Black time-to-expiry, when the screen
+    /// quotes option time from premium settlement rather than valuation date.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
+    #[builder(default)]
+    pub cash_settlement_date: Option<Date>,
+    /// Exercise settlement date for Black time-to-expiry, when distinct from
+    /// the legal option expiration date.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
+    #[builder(default)]
+    pub exercise_settlement_date: Option<Date>,
+    /// Underlying CDS accrual-effective date used for forward spread and risky
+    /// annuity. Bloomberg CDSO can quote a standard CDS effective date before
+    /// option expiry; in that case premium accrues from this date while
+    /// protection starts at expiry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<String>")]
+    #[builder(default)]
+    pub underlying_effective_date: Option<Date>,
     /// Recovery rate assumption
     pub recovery_rate: f64,
     /// Discount curve identifier
@@ -155,6 +175,30 @@ impl CDSOption {
                 "option expiry ({}) must be before CDS maturity ({})",
                 self.expiry, self.cds_maturity
             )));
+        }
+        if let (Some(cash_settlement), Some(exercise_settlement)) =
+            (self.cash_settlement_date, self.exercise_settlement_date)
+        {
+            if exercise_settlement <= cash_settlement {
+                return Err(finstack_core::Error::Validation(format!(
+                    "exercise_settlement_date ({}) must be after cash_settlement_date ({})",
+                    exercise_settlement, cash_settlement
+                )));
+            }
+            if exercise_settlement > self.expiry {
+                return Err(finstack_core::Error::Validation(format!(
+                    "exercise_settlement_date ({}) must be on or before option expiry ({})",
+                    exercise_settlement, self.expiry
+                )));
+            }
+        }
+        if let Some(underlying_effective_date) = self.underlying_effective_date {
+            if underlying_effective_date >= self.cds_maturity {
+                return Err(finstack_core::Error::Validation(format!(
+                    "underlying_effective_date ({}) must be before CDS maturity ({})",
+                    underlying_effective_date, self.cds_maturity
+                )));
+            }
         }
 
         // Recovery rate validation
@@ -251,6 +295,9 @@ impl CDSOption {
             day_count: option_params.day_count,
             notional: option_params.notional,
             settlement: SettlementType::Cash,
+            cash_settlement_date: None,
+            exercise_settlement_date: None,
+            underlying_effective_date: None,
             recovery_rate: credit_params.recovery_rate,
             discount_curve_id: discount_curve_id.into(),
             credit_curve_id: credit_params.credit_curve_id.to_owned(),
@@ -319,10 +366,8 @@ impl CDSOption {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Option<CDSOptionPricingInputs>> {
         self.validate_supported_configuration()?;
-        let ctx = DayCountContext::default();
-
         // Time to expiry
-        let t = self.day_count.year_fraction(as_of, self.expiry, ctx)?;
+        let t = self.black_time_to_expiry(as_of)?;
         if t <= 0.0 {
             return Ok(None);
         }
@@ -350,6 +395,22 @@ impl CDSOption {
             sigma,
             risky_annuity,
         }))
+    }
+
+    pub(crate) fn black_time_to_expiry(
+        &self,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        let (start, end) = if let (Some(cash_settlement), Some(exercise_settlement)) =
+            (self.cash_settlement_date, self.exercise_settlement_date)
+        {
+            (cash_settlement, exercise_settlement)
+        } else {
+            (as_of, self.expiry)
+        };
+
+        self.day_count
+            .year_fraction(start, end, DayCountContext::default())
     }
 
     /// Calculate delta of this CDS option.

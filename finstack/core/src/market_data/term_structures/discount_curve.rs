@@ -110,6 +110,7 @@ use super::common::{
 };
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
+    currency::Currency,
     dates::{Date, DayCount, DayCountContext},
     market_data::traits::{Discounting, TermStructure},
     math::interp::types::Interp,
@@ -123,6 +124,44 @@ use crate::{
 ///
 /// This constant can be overridden via [`DiscountCurveBuilder::min_forward_tenor`].
 pub const DEFAULT_MIN_FORWARD_TENOR: f64 = 1e-6;
+
+/// Market quote metadata used to build a discount curve.
+///
+/// This is optional sidecar data for risk calculations that need to shock the
+/// original benchmark quotes and re-bootstrap instead of applying direct
+/// zero-rate bumps to the fitted curve.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DiscountCurveRateCalibration {
+    /// Rate index used by the benchmark instruments.
+    pub index_id: String,
+    /// Currency of the calibrated curve.
+    pub currency: Currency,
+    /// Benchmark rate quotes used for calibration.
+    pub quotes: Vec<DiscountCurveRateQuote>,
+}
+
+/// A single benchmark rate quote used to calibrate a discount curve.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DiscountCurveRateQuote {
+    /// Instrument type represented by the quote.
+    pub quote_type: DiscountCurveRateQuoteType,
+    /// Tenor string, such as `3M` or `5Y`.
+    pub tenor: String,
+    /// Quoted rate in decimal form.
+    pub rate: f64,
+}
+
+/// Supported benchmark quote instruments for discount-curve quote metadata.
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiscountCurveRateQuoteType {
+    /// Money-market deposit quote.
+    Deposit,
+    /// Interest-rate swap quote.
+    Swap,
+}
 
 /// Piece-wise discount factor curve supporting several interpolation styles.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -147,6 +186,8 @@ pub struct DiscountCurve {
     pub(crate) allow_non_monotonic: bool,
     /// Minimum tenor for forward rate calculations (configurable)
     pub(crate) min_forward_tenor: f64,
+    /// Optional market quotes used to bootstrap this curve.
+    pub(crate) rate_calibration: Option<DiscountCurveRateCalibration>,
 }
 
 /// Raw serializable state of DiscountCurve
@@ -173,6 +214,9 @@ struct RawDiscountCurve {
     /// Minimum tenor for forward rate calculations
     #[serde(default = "default_min_forward_tenor")]
     pub min_forward_tenor: f64,
+    /// Optional market quotes used to bootstrap this curve.
+    #[serde(default)]
+    pub rate_calibration: Option<DiscountCurveRateCalibration>,
 }
 
 fn default_min_forward_tenor() -> f64 {
@@ -202,6 +246,7 @@ impl From<DiscountCurve> for RawDiscountCurve {
             min_forward_rate: curve.min_forward_rate,
             allow_non_monotonic: curve.allow_non_monotonic,
             min_forward_tenor: curve.min_forward_tenor,
+            rate_calibration: curve.rate_calibration,
         }
     }
 }
@@ -216,7 +261,8 @@ impl TryFrom<RawDiscountCurve> for DiscountCurve {
             .knots(state.points.knot_points)
             .interp(state.interp.interp_style)
             .extrapolation(state.interp.extrapolation)
-            .min_forward_tenor(state.min_forward_tenor);
+            .min_forward_tenor(state.min_forward_tenor)
+            .rate_calibration_opt(state.rate_calibration);
 
         if state.allow_non_monotonic {
             builder = builder.allow_non_monotonic();
@@ -265,6 +311,12 @@ impl DiscountCurve {
     #[inline]
     pub fn extrapolation(&self) -> ExtrapolationPolicy {
         self.extrapolation
+    }
+
+    /// Market quote metadata used to build this curve, when available.
+    #[inline]
+    pub fn rate_calibration(&self) -> Option<&DiscountCurveRateCalibration> {
+        self.rate_calibration.as_ref()
     }
 
     /// Number of knot points in the curve.
@@ -765,6 +817,7 @@ impl DiscountCurve {
             .interp(self.style)
             .extrapolation(self.extrapolation)
             .min_forward_tenor(self.min_forward_tenor)
+            .rate_calibration_opt(self.rate_calibration.clone())
             .apply_non_monotonic_settings(self.allow_non_monotonic, self.min_forward_rate)
             .build()
     }
@@ -870,6 +923,7 @@ impl DiscountCurve {
             .interp(self.style)
             .extrapolation(self.extrapolation)
             .min_forward_tenor(self.min_forward_tenor)
+            .rate_calibration_opt(self.rate_calibration.clone())
             .apply_non_monotonic_settings(self.allow_non_monotonic, self.min_forward_rate)
             .build()
     }
@@ -933,6 +987,7 @@ impl DiscountCurve {
             .interp(self.style)
             .extrapolation(self.extrapolation)
             .min_forward_tenor(self.min_forward_tenor)
+            .rate_calibration_opt(self.rate_calibration.clone())
             .apply_non_monotonic_settings(self.allow_non_monotonic, self.min_forward_rate)
             .build()
     }
@@ -994,6 +1049,7 @@ impl DiscountCurve {
             min_forward_rate: None,     // No floor by default
             allow_non_monotonic: false, // Strict validation by default
             min_forward_tenor: DEFAULT_MIN_FORWARD_TENOR, // Default ~30 seconds
+            rate_calibration: None,
         }
     }
 
@@ -1005,6 +1061,7 @@ impl DiscountCurve {
             .interp(self.style)
             .extrapolation(self.extrapolation)
             .min_forward_tenor(self.min_forward_tenor)
+            .rate_calibration_opt(self.rate_calibration.clone())
             .apply_non_monotonic_settings(self.allow_non_monotonic, self.min_forward_rate)
             .knots(self.knots.iter().copied().zip(self.dfs.iter().copied()))
     }
@@ -1211,6 +1268,7 @@ pub struct DiscountCurveBuilder {
     pub(crate) min_forward_rate: Option<f64>,
     pub(crate) allow_non_monotonic: bool,
     pub(crate) min_forward_tenor: f64,
+    pub(crate) rate_calibration: Option<DiscountCurveRateCalibration>,
 }
 
 impl DiscountCurveBuilder {
@@ -1409,6 +1467,21 @@ impl DiscountCurveBuilder {
         self
     }
 
+    /// Attach market quote metadata used to bootstrap this curve.
+    pub fn rate_calibration(mut self, calibration: DiscountCurveRateCalibration) -> Self {
+        self.rate_calibration = Some(calibration);
+        self
+    }
+
+    /// Optionally attach market quote metadata used to bootstrap this curve.
+    pub fn rate_calibration_opt(
+        mut self,
+        calibration: Option<DiscountCurveRateCalibration>,
+    ) -> Self {
+        self.rate_calibration = calibration;
+        self
+    }
+
     pub(crate) fn apply_non_monotonic_settings(
         mut self,
         allow_non_monotonic: bool,
@@ -1469,6 +1542,7 @@ impl DiscountCurveBuilder {
             min_forward_rate: self.min_forward_rate,
             allow_non_monotonic: self.allow_non_monotonic,
             min_forward_tenor: self.min_forward_tenor,
+            rate_calibration: self.rate_calibration,
         })
     }
 
@@ -1529,6 +1603,7 @@ impl DiscountCurveBuilder {
             min_forward_rate: self.min_forward_rate,
             allow_non_monotonic: self.allow_non_monotonic,
             min_forward_tenor: self.min_forward_tenor,
+            rate_calibration: self.rate_calibration,
         })
     }
 }

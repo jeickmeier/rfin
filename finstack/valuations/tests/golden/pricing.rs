@@ -5,8 +5,11 @@ use crate::golden::walk::collect_fixture_paths_under;
 
 #[test]
 fn golden_pricing_fixtures_from_existing_json_files() {
-    let paths =
+    let mut paths =
         collect_fixture_paths_under("pricing").expect("pricing fixture discovery should succeed");
+    if let Ok(filter) = std::env::var("GOLDEN_FIXTURE_FILTER") {
+        paths.retain(|path| path.to_string_lossy().contains(&filter));
+    }
     assert!(
         !paths.is_empty(),
         "pricing fixture discovery did not find any JSON files"

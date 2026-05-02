@@ -70,11 +70,11 @@ fn resolve_cds_dates(
 
     let maturity = match pillar {
         Pillar::Tenor(t) => {
-            // Maturity is the CDS roll date on or after the tenor target date.
-            // Use Unadjusted BDC to compute the raw target date, then roll to IMM.
-            // This prevents business-day adjustment from shifting us past the 20th
-            // into the next quarter (e.g., 20-Jun on Saturday -> 22-Jun -> 20-Sep).
-            let raw = t.add_to_date(start, Some(cal), BusinessDayConvention::Unadjusted)?;
+            // Market CDS tenors run from the trade/spot date and then roll to
+            // the next standard IMM-20 maturity. They do not run from the prior
+            // accrual start date; doing so turns a May 5Y quote into the March
+            // roll instead of the Bloomberg/ISDA June roll.
+            let raw = t.add_to_date(spot, Some(cal), BusinessDayConvention::Unadjusted)?;
             next_cds_date(raw - time::Duration::days(1))
         }
         Pillar::Date(d) => {
@@ -400,6 +400,41 @@ mod tests {
             ),
             "CDS maturity should be in a quarterly month, got {:?}",
             maturity_month
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_cds_tenor_pillar_runs_from_spot_not_prior_imm_start() -> Result<()> {
+        let as_of = Date::from_calendar_date(2026, Month::May, 2).unwrap();
+        let mut curve_ids = HashMap::default();
+        curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+        curve_ids.insert("credit".to_string(), "IBM-USD-SENIOR".to_string());
+        let ctx = BuildCtx::new(as_of, 10_000_000.0, curve_ids);
+
+        let quote = CdsQuote::CdsParSpread {
+            id: QuoteId::new("CDS-IBM-5Y"),
+            entity: "IBM".to_string(),
+            convention: CdsConventionKey {
+                currency: Currency::USD,
+                doc_clause: CdsDocClause::IsdaNa,
+            },
+            pillar: Pillar::Tenor("5Y".parse().unwrap()),
+            spread_bp: 60.5,
+            recovery_rate: 0.40,
+        };
+
+        let instrument = build_cds_instrument(&quote, &ctx)?;
+        use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
+        let cds = instrument
+            .as_any()
+            .downcast_ref::<CreditDefaultSwap>()
+            .expect("Expected CreditDefaultSwap");
+
+        assert_eq!(
+            cds.premium.end,
+            Date::from_calendar_date(2031, Month::June, 20).unwrap()
         );
 
         Ok(())

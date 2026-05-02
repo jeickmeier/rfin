@@ -29,6 +29,8 @@ mod risky_annuity;
 mod risky_pv01;
 
 use crate::metrics::MetricRegistry;
+use finstack_core::dates::DayCountContext;
+use finstack_core::market_data::term_structures::{HazardCurve, ParInterp};
 
 pub(crate) fn market_doc_clause(
     cds: &crate::instruments::credit_derivatives::cds::CreditDefaultSwap,
@@ -47,6 +49,39 @@ pub(crate) fn market_doc_clause(
         InstrumentClause::IsdaAu | InstrumentClause::IsdaNz => MarketClause::IsdaAs,
         InstrumentClause::Custom => MarketClause::Custom,
     }
+}
+
+pub(crate) fn hazard_with_deal_quote(
+    cds: &crate::instruments::credit_derivatives::cds::CreditDefaultSwap,
+    hazard: &HazardCurve,
+) -> finstack_core::Result<Option<HazardCurve>> {
+    let Some(quote_bp) = cds.pricing_overrides.market_quotes.cds_quote_bp else {
+        return Ok(None);
+    };
+    if !cds.uses_clean_price() {
+        return Ok(None);
+    }
+
+    let raw_quote_tenor = hazard.day_count().year_fraction(
+        hazard.base_date(),
+        cds.premium.end,
+        DayCountContext::default(),
+    )?;
+    let quote_tenor = raw_quote_tenor;
+
+    Ok(Some(
+        HazardCurve::builder(hazard.id().clone())
+            .base_date(hazard.base_date())
+            .recovery_rate(hazard.recovery_rate())
+            .day_count(hazard.day_count())
+            .knots(hazard.knot_points())
+            .par_spreads([(quote_tenor, quote_bp)])
+            .par_interp(ParInterp::Linear)
+            .issuer_opt(hazard.issuer().map(str::to_owned))
+            .seniority_opt(hazard.seniority)
+            .currency_opt(hazard.currency())
+            .build()?,
+    ))
 }
 
 /// Register all CDS metrics with the registry
