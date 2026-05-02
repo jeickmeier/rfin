@@ -118,9 +118,7 @@ pub(crate) fn register_cds_metrics(registry: &mut MetricRegistry) {
             (ParSpread, par_spread::ParSpreadCalculator),
             (RiskyAnnuity, risky_annuity::RiskyAnnuityCalculator),
             (Cs01, cs01::CdsCs01Calculator),
-            (BucketedCs01, crate::metrics::GenericBucketedCs01::<
-                crate::instruments::CreditDefaultSwap,
-            >::default()),
+            (BucketedCs01, cs01::CdsBucketedCs01Calculator),
             (CsGamma, cs_gamma::CsGammaCalculator),
             (ProtectionLegPv, pv_protection::ProtectionLegPvCalculator),
             (PremiumLegPv, pv_premium::PremiumLegPvCalculator),

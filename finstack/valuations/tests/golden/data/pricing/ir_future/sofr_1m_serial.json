@@ -3,18 +3,37 @@
   "name": "sofr_1m_serial",
   "domain": "rates.ir_future",
   "description": "Synthetic 1M SOFR serial future on committed USD discount and forward curves.",
-  "provenance": {"as_of": "2026-04-30", "source": "formula", "source_detail": "Finstack canonical IR future calculation with explicit zero convexity adjustment", "captured_by": "jeickmeier", "captured_on": "2026-04-30", "last_reviewed_by": "jeickmeier", "last_reviewed_on": "2026-04-30", "review_interval_months": 6, "regen_command": "manual formula fixture; values captured from canonical pricing runner", "screenshots": []},
+  "provenance": {
+    "as_of": "2026-04-30",
+    "source": "formula",
+    "source_detail": "Finstack canonical IR future calculation with explicit zero convexity adjustment",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-04-30",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-04-30",
+    "review_interval_months": 6,
+    "regen_command": "manual formula fixture; values captured from canonical pricing runner",
+    "screenshots": []
+  },
   "inputs": {
     "valuation_date": "2026-04-30",
     "model": "discounting",
-    "metrics": ["dv01", "futures_price", "implied_forward", "convexity_adjustment"],
+    "metrics": [
+      "dv01",
+      "futures_price",
+      "implied_forward",
+      "convexity_adjustment"
+    ],
     "instrument_json": {
       "schema": "finstack.instrument/1",
       "instrument": {
         "type": "interest_rate_future",
         "spec": {
           "id": "SOFR-1M-SERIAL-GOLDEN",
-          "notional": {"amount": "10000000", "currency": "USD"},
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
           "expiry": "2026-05-20",
           "fixing_date": "2026-05-20",
           "period_start": "2026-05-22",
@@ -22,19 +41,113 @@
           "quoted_price": 95.95,
           "day_count": "Act360",
           "position": "long",
-          "contract_specs": {"face_value": 1000000.0, "tick_size": 0.0025, "tick_value": 6.25, "delivery_months": 1, "convexity_adjustment": 0.0},
+          "contract_specs": {
+            "face_value": 1000000.0,
+            "tick_size": 0.0025,
+            "tick_value": 6.25,
+            "delivery_months": 1,
+            "convexity_adjustment": 0.0
+          },
           "discount_curve_id": "USD-OIS",
           "forward_curve_id": "USD-SOFR-3M",
           "vol_surface_id": null,
-          "attributes": {"tags": ["golden"], "meta": {}}
+          "attributes": {
+            "tags": [
+              "golden"
+            ],
+            "meta": {}
+          }
         }
       }
     },
     "curves": {
-      "discount": [{"id": "USD-OIS", "base_date": "2026-04-30", "day_count": "act_365f", "interp": "log_linear", "knots": [[0.0, 1.0], [0.25, 0.99], [0.5, 0.9802], [1.0, 0.9608], [2.0, 0.9231]]}],
-      "forward": [{"id": "USD-SOFR-3M", "tenor": 0.25, "base_date": "2026-04-30", "day_count": "act_360", "interp": "linear", "knots": [[0.0, 0.04], [0.25, 0.041], [0.5, 0.042], [1.0, 0.043], [2.0, 0.044]]}]
+      "discount": [
+        {
+          "id": "USD-OIS",
+          "base_date": "2026-04-30",
+          "day_count": "act_365f",
+          "interp": "log_linear",
+          "knots": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.99
+            ],
+            [
+              0.5,
+              0.9802
+            ],
+            [
+              1.0,
+              0.9608
+            ],
+            [
+              2.0,
+              0.9231
+            ]
+          ]
+        }
+      ],
+      "forward": [
+        {
+          "id": "USD-SOFR-3M",
+          "tenor": 0.25,
+          "base_date": "2026-04-30",
+          "day_count": "act_360",
+          "interp": "linear",
+          "knots": [
+            [
+              0.0,
+              0.04
+            ],
+            [
+              0.25,
+              0.041
+            ],
+            [
+              0.5,
+              0.042
+            ],
+            [
+              1.0,
+              0.043
+            ],
+            [
+              2.0,
+              0.044
+            ]
+          ]
+        }
+      ]
     }
   },
-  "expected_outputs": {"npv": 71.7592592592394, "dv01": -86.11111111111359, "futures_price": 95.95, "implied_forward": 0.040416666667, "convexity_adjustment": 0.0},
-  "tolerances": {"npv": {"abs": 1e-6, "rel": 1e-12}, "dv01": {"abs": 1e-6, "rel": 1e-12}, "futures_price": {"abs": 1e-12, "rel": 1e-12}, "implied_forward": {"abs": 1e-12, "rel": 1e-12}, "convexity_adjustment": {"abs": 1e-12, "rel": 1e-12, "tolerance_reason": "Fixture intentionally sets contract_specs.convexity_adjustment to zero."}}
+  "expected_outputs": {
+    "npv": 71.7592592592394,
+    "dv01": -86.11111111111359,
+    "futures_price": 95.95,
+    "implied_forward": 0.040416666667,
+    "convexity_adjustment": 0.0
+  },
+  "tolerances": {
+    "npv": {
+      "abs": 1e-06
+    },
+    "dv01": {
+      "abs": 1e-06
+    },
+    "futures_price": {
+      "abs": 1e-12
+    },
+    "implied_forward": {
+      "abs": 1e-12
+    },
+    "convexity_adjustment": {
+      "abs": 1e-12,
+      "rel": 1e-12,
+      "tolerance_reason": "Fixture intentionally sets contract_specs.convexity_adjustment to zero. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
+    }
+  }
 }

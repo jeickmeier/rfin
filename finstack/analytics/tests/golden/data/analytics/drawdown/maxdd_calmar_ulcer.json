@@ -15,11 +15,16 @@
     "regen_command": "manual formula fixture; flattened outputs committed in fixture"
   },
   "inputs": {
-    "actual_outputs": {
-      "max_dd": -0.244,
-      "ulcer_index": 0.15838676712402455,
-      "calmar": 204.37230597878622,
-      "martin_ratio": 314.84222807436726
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Fixture contains flattened analytics reference outputs but lacks raw return/price series and parameter inputs required for canonical analytics API execution.",
+      "required_for_execution": "Add raw return/price inputs plus an executable analytics computation map.",
+      "reference_outputs": {
+        "max_dd": -0.244,
+        "ulcer_index": 0.15838676712402455,
+        "calmar": 204.37230597878622,
+        "martin_ratio": 314.84222807436726
+      }
     }
   },
   "expected_outputs": {

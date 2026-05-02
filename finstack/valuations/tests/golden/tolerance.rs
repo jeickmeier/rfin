@@ -1,10 +1,13 @@
 //! Tolerance comparator for golden fixture metrics.
 //!
-//! A metric passes if either its absolute tolerance or relative tolerance is satisfied.
+//! A metric with both absolute and relative tolerances must satisfy both unless
+//! the fixture explicitly documents OR semantics in its tolerance reason.
 
 use crate::golden::schema::ToleranceEntry;
 
 const REL_DENOM_MIN: f64 = 1e-12;
+const OR_TOLERANCE_MARKERS: &[&str] =
+    &["abs-or-rel", "or semantics", "either absolute or relative"];
 
 /// Result of comparing one actual metric against its reference value.
 #[derive(Debug, Clone)]
@@ -19,7 +22,7 @@ pub struct ComparisonResult {
     pub abs_diff: f64,
     /// Relative difference, stabilized for expected values near zero.
     pub rel_diff: f64,
-    /// True when either absolute or relative tolerance passed.
+    /// True when the configured tolerance policy passed.
     pub passed: bool,
     /// Tolerance used for this comparison.
     pub used_tolerance: ToleranceEntry,
@@ -42,7 +45,7 @@ impl ComparisonResult {
     }
 }
 
-/// Compare one metric. The comparison passes if abs OR rel tolerance is satisfied.
+/// Compare one metric using strict tolerance semantics.
 ///
 /// Panics when neither tolerance is set because that indicates a malformed fixture.
 pub fn compare(metric: &str, actual: f64, expected: f64, tol: &ToleranceEntry) -> ComparisonResult {
@@ -62,9 +65,28 @@ pub fn compare(metric: &str, actual: f64, expected: f64, tol: &ToleranceEntry) -
         expected,
         abs_diff,
         rel_diff,
-        passed: abs_pass || rel_pass,
+        passed: passed(abs_pass, rel_pass, tol),
         used_tolerance: tol.clone(),
     }
+}
+
+fn passed(abs_pass: bool, rel_pass: bool, tol: &ToleranceEntry) -> bool {
+    if tol.abs.is_some() && tol.rel.is_some() && !uses_or_semantics(tol) {
+        abs_pass && rel_pass
+    } else {
+        abs_pass || rel_pass
+    }
+}
+
+fn uses_or_semantics(tol: &ToleranceEntry) -> bool {
+    tol.tolerance_reason
+        .as_deref()
+        .map(str::to_ascii_lowercase)
+        .is_some_and(|reason| {
+            OR_TOLERANCE_MARKERS
+                .iter()
+                .any(|marker| reason.contains(marker))
+        })
 }
 
 #[cfg(test)]
@@ -92,6 +114,14 @@ mod tests {
             abs: Some(abs),
             rel: Some(rel),
             tolerance_reason: None,
+        }
+    }
+
+    fn both_with_reason(abs: f64, rel: f64, reason: &str) -> ToleranceEntry {
+        ToleranceEntry {
+            abs: Some(abs),
+            rel: Some(rel),
+            tolerance_reason: Some(reason.to_string()),
         }
     }
 
@@ -124,8 +154,19 @@ mod tests {
     }
 
     #[test]
-    fn either_passes() {
+    fn both_required_by_default() {
         let result = compare("x", 1_000_000.5, 1_000_000.0, &both(0.01, 1e-6));
+        assert!(!result.passed);
+    }
+
+    #[test]
+    fn explicit_or_semantics_allows_either_tolerance() {
+        let result = compare(
+            "x",
+            1_000_000.5,
+            1_000_000.0,
+            &both_with_reason(0.01, 1e-6, "abs-or-rel tolerance reflects screen rounding"),
+        );
         assert!(result.passed);
     }
 

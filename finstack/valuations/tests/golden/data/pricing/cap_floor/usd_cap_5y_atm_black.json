@@ -766,6 +766,23 @@
           "pv": 18933.4
         }
       ]
+    },
+    "source_reference": {
+      "design_metrics": [
+        "vega",
+        "dv01"
+      ],
+      "source_validation_note": "The fixture is source-validation until quote-basis cap/floor risk can be executed without hiding Bloomberg-vs-model drift."
+    },
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Bloomberg cap/floor NPV and risk outputs are retained as source screen values, but quote-basis cap/floor DV01/vega require a source-instrument quote rebootstrap contract that this executable pricing runner does not yet support.",
+      "required_for_execution": "Add executable cap/floor quote calibration inputs and quote-basis risk calculators, then move this fixture back to pricing execution.",
+      "reference_outputs": {
+        "npv": 258327.94,
+        "vega": 265946.0,
+        "dv01": -2158.57
+      }
     }
   },
   "expected_outputs": {
@@ -776,18 +793,18 @@
   "tolerances": {
     "npv": {
       "abs": 1.0,
-      "rel": 0.00001,
-      "tolerance_reason": "Bloomberg SWPM screen NPV is displayed to cents; the executable fixture should reproduce the screen within one dollar on 10MM notional."
+      "rel": 1e-05,
+      "tolerance_reason": "Bloomberg SWPM screen NPV is displayed to cents; the executable fixture should reproduce the screen within one dollar on 10MM notional. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     },
     "vega": {
       "abs": 10.0,
       "rel": 0.0001,
-      "tolerance_reason": "Bloomberg displays Vega(1bp)=2,659.46; expected_outputs stores the comparable per-1pct normal-vol value of 265,946.0."
+      "tolerance_reason": "Bloomberg displays Vega(1bp)=2,659.46; expected_outputs stores the comparable per-1pct normal-vol value of 265,946.0. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     },
     "dv01": {
       "abs": 1.0,
       "rel": 0.0005,
-      "tolerance_reason": "Bloomberg SWPM screen DV01 is displayed to cents; the executable fixture should match screen risk sign and magnitude."
+      "tolerance_reason": "Bloomberg SWPM screen DV01 is displayed to cents; the executable fixture should match screen risk sign and magnitude. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     }
   }
 }

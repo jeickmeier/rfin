@@ -200,28 +200,22 @@
   },
   "tolerances": {
     "npv": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "real_yield": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "breakeven_inflation": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "index_ratio": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "real_duration": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "dv01": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     }
   }
 }

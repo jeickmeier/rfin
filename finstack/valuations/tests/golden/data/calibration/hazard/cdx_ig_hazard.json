@@ -16,9 +16,66 @@
     "screenshots": []
   },
   "inputs": {
-    "hazard": [{"id": "CDX.NA.IG", "base_date": "2026-04-30", "recovery_rate": 0.4, "day_count": "act_365f", "knots": [[1.0, 0.012], [3.0, 0.016], [5.0, 0.02]]}],
-    "probes": [{"output": "hazard_rate::CDX.NA.IG::1y", "curve": "CDX.NA.IG", "kind": "hazard_rate", "tenor": 1.0}, {"output": "hazard_rate::CDX.NA.IG::3y", "curve": "CDX.NA.IG", "kind": "hazard_rate", "tenor": 3.0}, {"output": "hazard_rate::CDX.NA.IG::5y", "curve": "CDX.NA.IG", "kind": "hazard_rate", "tenor": 5.0}, {"output": "survival_probability::CDX.NA.IG::5y", "curve": "CDX.NA.IG", "kind": "survival_probability", "tenor": 5.0}],
-    "calibration_rmse": 0.0
+    "hazard": [
+      {
+        "id": "CDX.NA.IG",
+        "base_date": "2026-04-30",
+        "recovery_rate": 0.4,
+        "day_count": "act_365f",
+        "knots": [
+          [
+            1.0,
+            0.012
+          ],
+          [
+            3.0,
+            0.016
+          ],
+          [
+            5.0,
+            0.02
+          ]
+        ]
+      }
+    ],
+    "probes": [
+      {
+        "output": "hazard_rate::CDX.NA.IG::1y",
+        "curve": "CDX.NA.IG",
+        "kind": "hazard_rate",
+        "tenor": 1.0
+      },
+      {
+        "output": "hazard_rate::CDX.NA.IG::3y",
+        "curve": "CDX.NA.IG",
+        "kind": "hazard_rate",
+        "tenor": 3.0
+      },
+      {
+        "output": "hazard_rate::CDX.NA.IG::5y",
+        "curve": "CDX.NA.IG",
+        "kind": "hazard_rate",
+        "tenor": 5.0
+      },
+      {
+        "output": "survival_probability::CDX.NA.IG::5y",
+        "curve": "CDX.NA.IG",
+        "kind": "survival_probability",
+        "tenor": 5.0
+      }
+    ],
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Fixture contains final curves, smiles, hazards, or SABR parameters but lacks quotes/source instruments required to run product calibration engines and compute RMSE.",
+      "required_for_execution": "Add market quotes/source instruments and wire the runner to the real calibration engine so RMSE is computed from calibration residuals.",
+      "reference_outputs": {
+        "hazard_rate::CDX.NA.IG::1y": 0.012,
+        "hazard_rate::CDX.NA.IG::3y": 0.016,
+        "hazard_rate::CDX.NA.IG::5y": 0.02,
+        "survival_probability::CDX.NA.IG::5y": 0.919431256095,
+        "calibration_rmse": 0.0
+      }
+    }
   },
   "expected_outputs": {
     "hazard_rate::CDX.NA.IG::1y": 0.012,

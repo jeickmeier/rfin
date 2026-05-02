@@ -13,8 +13,13 @@ use crate::market::quotes::rates::RateQuote;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::scalars::ScalarTimeSeries;
+use finstack_core::market_data::term_structures::{
+    DiscountCurve, DiscountCurveRateCalibration, DiscountCurveRateQuoteType,
+};
 use finstack_core::math::interp::ExtrapolationPolicy;
+use finstack_core::types::IndexId;
+use time::Duration;
 
 /// Infer currency from a discount curve ID using token-by-token heuristics.
 ///
@@ -63,6 +68,70 @@ pub fn bump_discount_curve(
         step_runtime::execute_params_and_apply(&step, &market_quotes, base_context, &cfg)?;
 
     Ok(ctx.get_discount(params.curve_id.as_str())?.as_ref().clone())
+}
+
+/// Bump a discount curve by shocking its stored market-rate calibration quotes.
+pub(crate) fn bump_discount_curve_from_rate_calibration(
+    curve: &DiscountCurve,
+    calibration: &DiscountCurveRateCalibration,
+    context: &MarketContext,
+    bump: &BumpRequest,
+) -> finstack_core::Result<DiscountCurve> {
+    let index = IndexId::new(calibration.index_id.as_str());
+    let mut quotes = Vec::with_capacity(calibration.quotes.len());
+    for quote in &calibration.quotes {
+        let pillar = Pillar::Tenor(quote.tenor.parse()?);
+        let id = QuoteId::new(format!("{}-{}", curve.id(), quote.tenor));
+        let rate_quote = match quote.quote_type {
+            DiscountCurveRateQuoteType::Deposit => RateQuote::Deposit {
+                id,
+                index: index.clone(),
+                pillar,
+                rate: quote.rate,
+            },
+            DiscountCurveRateQuoteType::Swap => RateQuote::Swap {
+                id,
+                index: index.clone(),
+                pillar,
+                rate: quote.rate,
+                spread_decimal: None,
+            },
+        };
+        quotes.push(rate_quote);
+    }
+
+    let first_rate = calibration
+        .quotes
+        .first()
+        .map(|quote| quote.rate)
+        .unwrap_or(0.0);
+    let fixings = ScalarTimeSeries::new(
+        format!("FIXING:{}", curve.id()),
+        vec![
+            (curve.base_date() - Duration::days(3), first_rate),
+            (curve.base_date() - Duration::days(2), first_rate),
+            (curve.base_date() - Duration::days(1), first_rate),
+            (curve.base_date(), first_rate),
+        ],
+        None,
+    )?;
+    let base_context = context.clone().insert_series(fixings);
+
+    let params = DiscountCurveParams {
+        curve_id: curve.id().clone(),
+        currency: calibration.currency,
+        base_date: curve.base_date(),
+        method: CalibrationMethod::Bootstrap,
+        interpolation: curve.interp_style(),
+        extrapolation: curve.extrapolation(),
+        pricing_discount_id: None,
+        pricing_forward_id: None,
+        conventions: RatesStepConventions {
+            curve_day_count: Some(curve.day_count()),
+        },
+    };
+
+    bump_discount_curve(&quotes, &params, &base_context, bump)
 }
 
 /// Helper to resolve maturity date of a quote.

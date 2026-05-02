@@ -128,24 +128,19 @@
   },
   "tolerances": {
     "npv": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "delta": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "dv01": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "futures_price": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "basis": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     }
   }
 }

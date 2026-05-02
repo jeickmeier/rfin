@@ -7,7 +7,7 @@ import re
 
 import pytest
 
-from .conftest import DATA_ROOTS, WORKSPACE_ROOT
+from .conftest import DATA_ROOTS, WORKSPACE_ROOT, is_git_tracked
 from .schema import SCHEMA_VERSION, GoldenFixture
 
 VALID_SOURCES = {
@@ -19,6 +19,7 @@ VALID_SOURCES = {
     "textbook",
 }
 MANUAL_SCREENSHOT_SOURCES = {"bloomberg-screen", "intex"}
+ZERO_RISK_EPSILON = 2.220446049250313e-16
 ZERO_RISK_METRICS_REQUIRING_REASON = {
     "bucketed_dv01",
     "convexity",
@@ -143,28 +144,26 @@ def test_fixture_well_formed(path: Path) -> None:
         )
 
     for metric, expected in fixture.expected_outputs.items():
-        if expected == 0.0 and metric in ZERO_RISK_METRICS_REQUIRING_REASON:
+        if abs(expected) <= ZERO_RISK_EPSILON and metric in ZERO_RISK_METRICS_REQUIRING_REASON:
             assert _has_zero_metric_reason(fixture, metric), (
                 f"zero risk metric {metric!r} requires a tolerance_reason or "
                 "inputs.source_reference.zero_metric_reasons entry"
             )
 
-    if ".integration" in fixture.domain or ".calibration." in fixture.domain:
-        return
+    if ".integration" not in fixture.domain and ".calibration." not in fixture.domain:
+        if (
+            fixture.domain.startswith("rates.")
+            and fixture.domain != "rates.integration"
+            and not fixture.domain.startswith("rates.calibration.")
+        ):
+            assert "dv01" in fixture.expected_outputs, "rates pricing fixtures must assert dv01"
 
-    if (
-        fixture.domain.startswith("rates.")
-        and fixture.domain != "rates.integration"
-        and not fixture.domain.startswith("rates.calibration.")
-    ):
-        assert "dv01" in fixture.expected_outputs, "rates pricing fixtures must assert dv01"
+        if fixture.domain.startswith("fixed_income."):
+            assert "dv01" in fixture.expected_outputs, "fixed-income pricing fixtures must assert dv01"
 
-    if fixture.domain.startswith("fixed_income."):
-        assert "dv01" in fixture.expected_outputs, "fixed-income pricing fixtures must assert dv01"
-
-    if fixture.domain.startswith("credit."):
-        assert "dv01" in fixture.expected_outputs, "credit pricing fixtures must assert dv01"
-        assert "cs01" in fixture.expected_outputs, "credit pricing fixtures must assert cs01"
+        if fixture.domain.startswith("credit."):
+            assert "dv01" in fixture.expected_outputs, "credit pricing fixtures must assert dv01"
+            assert "cs01" in fixture.expected_outputs, "credit pricing fixtures must assert cs01"
 
     if fixture.provenance.source in MANUAL_SCREENSHOT_SOURCES:
         assert fixture.provenance.screenshots, f"source {fixture.provenance.source!r} requires at least one screenshot"
@@ -174,6 +173,7 @@ def test_fixture_well_formed(path: Path) -> None:
         assert screenshot_path.exists(), (
             f"screenshot {screenshot.path!r} does not exist (resolved to {screenshot_path})"
         )
+        assert is_git_tracked(screenshot_path), f"screenshot {screenshot.path!r} exists but is not tracked by git"
 
     source_reference = fixture.inputs.get("source_reference")
     if source_reference is None:
@@ -203,8 +203,6 @@ def test_valuation_fixtures_are_declared_in_rust_golden_tests() -> None:
         if "screenshots" not in path.parts
     )
     missing = [
-        path
-        for path in fixture_paths
-        if path not in declared and not path.startswith(RUST_DISCOVERED_FIXTURE_PREFIXES)
+        path for path in fixture_paths if path not in declared and not path.startswith(RUST_DISCOVERED_FIXTURE_PREFIXES)
     ]
     assert not missing, "fixtures missing Rust run_golden! declarations:\n" + "\n".join(missing)

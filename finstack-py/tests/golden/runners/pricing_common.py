@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 import json
+from pathlib import Path
 from typing import Any
 
 from finstack.core.market_data import (
@@ -17,9 +18,13 @@ from finstack.core.market_data import (
     MarketContext,
     VolSurface,
 )
+from jsonschema import validators
 
-from finstack.valuations import ValuationResult, price_instrument_with_metrics
+from finstack.valuations import ValuationResult, price_instrument_with_metrics, validate_instrument_json
 from tests.golden.schema import GoldenFixture
+
+WORKSPACE_ROOT = Path(__file__).resolve().parents[4]
+INSTRUMENT_ENVELOPE_SCHEMA_PATH = WORKSPACE_ROOT / "finstack/valuations/schemas/instruments/1/instrument.schema.json"
 
 
 def run_pricing_fixture(fixture: GoldenFixture) -> dict[str, float]:
@@ -34,8 +39,9 @@ def run_pricing_fixture(fixture: GoldenFixture) -> dict[str, float]:
         _insert_credit_index(market, spec)
     if "fx" in inputs:
         market.insert_fx(_build_fx_matrix(inputs["fx"]))
+    instrument_json = _validated_instrument_json(inputs["instrument_json"])
     result_json = price_instrument_with_metrics(
-        json.dumps(inputs["instrument_json"]),
+        instrument_json,
         market,
         inputs["valuation_date"],
         model=inputs["model"],
@@ -81,7 +87,32 @@ def _build_vol_surface(spec: dict[str, Any]) -> VolSurface:
         expiries=[float(expiry) for expiry in spec["expiries"]],
         strikes=[float(strike) for strike in spec["strikes"]],
         vols_row_major=[float(vol) for vol in spec["vols_row_major"]],
+        secondary_axis=spec.get("secondary_axis", "strike"),
+        interpolation_mode=spec.get("interpolation_mode", spec.get("mode", "vol")),
     )
+
+
+def _validated_instrument_json(instrument_json: dict[str, Any]) -> str:
+    if _is_instrument_envelope(instrument_json):
+        _validate_instrument_envelope_schema(instrument_json)
+        return json.dumps(instrument_json)
+    return validate_instrument_json(json.dumps(instrument_json))
+
+
+def _is_instrument_envelope(instrument_json: dict[str, Any]) -> bool:
+    return "schema" in instrument_json and "instrument" in instrument_json
+
+
+def _validate_instrument_envelope_schema(instrument_json: dict[str, Any]) -> None:
+    schema = json.loads(INSTRUMENT_ENVELOPE_SCHEMA_PATH.read_text(encoding="utf-8"))
+    validator_cls = validators.validator_for(schema)
+    validator_cls.check_schema(schema)
+    validator = validator_cls(schema)
+    errors = sorted(validator.iter_errors(instrument_json), key=lambda error: list(error.path))
+    if errors:
+        details = "\n  ".join(error.message for error in errors)
+        msg = f"instrument_json failed {INSTRUMENT_ENVELOPE_SCHEMA_PATH.name} validation:\n  {details}"
+        raise ValueError(msg)
 
 
 def _insert_price(market: MarketContext, spec: dict[str, Any]) -> None:

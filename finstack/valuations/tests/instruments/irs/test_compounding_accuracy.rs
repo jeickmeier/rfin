@@ -126,6 +126,79 @@ fn test_compounding_lookback_sensitivity() {
 }
 
 #[test]
+fn test_rate_cutoff_uses_business_day_lockout_over_weekend() {
+    let base = Date::from_calendar_date(2025, Month::January, 2).unwrap();
+    let start = Date::from_calendar_date(2025, Month::January, 6).unwrap();
+    let end = Date::from_calendar_date(2025, Month::January, 13).unwrap();
+
+    let disc = DiscountCurve::builder("DISC")
+        .base_date(base)
+        .knots([(0.0, 1.0), (1.0, 0.95)])
+        .interp(InterpStyle::LogLinear)
+        .build()
+        .unwrap();
+    let fwd = ForwardCurve::builder("FWD", OVERNIGHT_FORWARD_TENOR)
+        .base_date(base)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, 0.02), (1.0, 0.20)])
+        .interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+    let ctx = MarketContext::new().insert(disc).insert(fwd);
+
+    let mut irs = InterestRateSwap::builder()
+        .id("TEST-RATE-CUTOFF-BUSINESS-DAY".into())
+        .notional(Money::new(10_000_000.0, Currency::USD))
+        .side(PayReceive::PayFixed)
+        .fixed(FixedLegSpec {
+            discount_curve_id: "DISC".into(),
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
+            frequency: Tenor::monthly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: Some("USNY".into()),
+            start,
+            end,
+            payment_lag_days: 0,
+            end_of_month: false,
+            stub: finstack_core::dates::StubKind::ShortFront,
+            par_method: None,
+            compounding_simple: true,
+        })
+        .float(FloatLegSpec {
+            discount_curve_id: "DISC".into(),
+            forward_curve_id: "FWD".into(),
+            frequency: Tenor::monthly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: Some("USNY".into()),
+            start,
+            end,
+            compounding: FloatingLegCompounding::CompoundedInArrears {
+                lookback_days: 0,
+                observation_shift: None,
+            },
+            payment_lag_days: 0,
+            end_of_month: false,
+            spread_bp: rust_decimal::Decimal::ZERO,
+            fixing_calendar_id: Some("USNY".into()),
+            stub: finstack_core::dates::StubKind::ShortFront,
+            reset_lag_days: 0,
+        })
+        .build()
+        .unwrap();
+
+    let no_cutoff = irs.value(&ctx, base).unwrap().amount();
+    irs.float.compounding = FloatingLegCompounding::CompoundedWithRateCutoff { cutoff_days: 1 };
+    let cutoff = irs.value(&ctx, base).unwrap().amount();
+
+    assert!(
+        cutoff < no_cutoff,
+        "one-business-day lockout ending after a weekend should reuse the prior business-day rate: cutoff={cutoff}, no_cutoff={no_cutoff}"
+    );
+}
+
+#[test]
 fn test_payment_delay_sensitivity() {
     let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let disc = DiscountCurve::builder("DISC")

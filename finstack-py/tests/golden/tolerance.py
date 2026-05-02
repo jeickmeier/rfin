@@ -7,6 +7,11 @@ from dataclasses import dataclass
 from .schema import ToleranceEntry
 
 REL_DENOM_MIN = 1e-12
+OR_TOLERANCE_MARKERS = (
+    "abs-or-rel",
+    "or semantics",
+    "either absolute or relative",
+)
 
 
 @dataclass
@@ -35,7 +40,11 @@ class ComparisonResult:
 
 
 def compare(metric: str, actual: float, expected: float, tol: ToleranceEntry) -> ComparisonResult:
-    """Compare one metric using abs-OR-rel tolerance semantics."""
+    """Compare one metric using strict tolerance semantics.
+
+    If both absolute and relative tolerances are present, both must pass unless
+    the fixture gives an explicit OR-semantics reason in ``tolerance_reason``.
+    """
     abs_diff = abs(actual - expected)
     rel_diff = abs_diff / max(abs(expected), REL_DENOM_MIN)
 
@@ -51,6 +60,17 @@ def compare(metric: str, actual: float, expected: float, tol: ToleranceEntry) ->
         expected=expected,
         abs_diff=abs_diff,
         rel_diff=rel_diff,
-        passed=abs_pass or rel_pass,
+        passed=_passed(abs_pass, rel_pass, tol),
         used_tolerance=tol,
     )
+
+
+def _passed(abs_pass: bool, rel_pass: bool, tol: ToleranceEntry) -> bool:
+    if tol.abs is not None and tol.rel is not None and not _uses_or_semantics(tol):
+        return abs_pass and rel_pass
+    return abs_pass or rel_pass
+
+
+def _uses_or_semantics(tol: ToleranceEntry) -> bool:
+    reason = (tol.tolerance_reason or "").lower()
+    return any(marker in reason for marker in OR_TOLERANCE_MARKERS)

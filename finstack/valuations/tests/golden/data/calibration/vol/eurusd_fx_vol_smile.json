@@ -16,8 +16,30 @@
     "screenshots": []
   },
   "inputs": {
-    "smiles": [{"id": "EURUSD", "expiry": "3m", "atm_vol": 0.096, "wing_25d_put_vol": 0.101, "wing_25d_call_vol": 0.099, "wing_10d_put_vol": 0.107, "wing_10d_call_vol": 0.103}],
-    "repriced_rmse": 0.0
+    "smiles": [
+      {
+        "id": "EURUSD",
+        "expiry": "3m",
+        "atm_vol": 0.096,
+        "wing_25d_put_vol": 0.101,
+        "wing_25d_call_vol": 0.099,
+        "wing_10d_put_vol": 0.107,
+        "wing_10d_call_vol": 0.103
+      }
+    ],
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Fixture contains final curves, smiles, hazards, or SABR parameters but lacks quotes/source instruments required to run product calibration engines and compute RMSE.",
+      "required_for_execution": "Add market quotes/source instruments and wire the runner to the real calibration engine so RMSE is computed from calibration residuals.",
+      "reference_outputs": {
+        "atm_vol::EURUSD::3m": 0.096,
+        "risk_reversal_25d::EURUSD::3m": -0.002,
+        "butterfly_25d::EURUSD::3m": 0.004,
+        "risk_reversal_10d::EURUSD::3m": -0.004,
+        "butterfly_10d::EURUSD::3m": 0.009,
+        "repriced_rmse": 0.0
+      }
+    }
   },
   "expected_outputs": {
     "atm_vol::EURUSD::3m": 0.096,

@@ -62,7 +62,8 @@ fn run_nested_calibration(
     fixture: &GoldenFixture,
     inputs: serde_json::Value,
 ) -> Result<BTreeMap<String, f64>, String> {
-    let nested = nested_fixture(fixture, inputs, BTreeMap::new());
+    let expected_outputs = source_validation_expected_outputs(&inputs)?;
+    let nested = nested_fixture(fixture, inputs, expected_outputs);
     crate::golden::runners::calibration_common::run_curve_fixture(&nested)
 }
 
@@ -70,7 +71,8 @@ fn run_nested_hazard(
     fixture: &GoldenFixture,
     inputs: serde_json::Value,
 ) -> Result<BTreeMap<String, f64>, String> {
-    let nested = nested_fixture(fixture, inputs, BTreeMap::new());
+    let expected_outputs = source_validation_expected_outputs(&inputs)?;
+    let nested = nested_fixture(fixture, inputs, expected_outputs);
     crate::golden::runners::calibration_common::run_hazard_fixture(&nested)
 }
 
@@ -78,8 +80,36 @@ fn run_nested_sabr(
     fixture: &GoldenFixture,
     inputs: serde_json::Value,
 ) -> Result<BTreeMap<String, f64>, String> {
-    let nested = nested_fixture(fixture, inputs, BTreeMap::new());
+    let expected_outputs = source_validation_expected_outputs(&inputs)?;
+    let nested = nested_fixture(fixture, inputs, expected_outputs);
     crate::golden::runners::calibration_common::run_sabr_cube_fixture(&nested)
+}
+
+fn source_validation_expected_outputs(
+    inputs: &serde_json::Value,
+) -> Result<BTreeMap<String, f64>, String> {
+    let Some(references) = inputs
+        .get("source_validation")
+        .and_then(|source_validation| source_validation.get("reference_outputs"))
+    else {
+        return Ok(BTreeMap::new());
+    };
+    let references = references
+        .as_object()
+        .ok_or("nested source_validation.reference_outputs must be an object")?;
+    references
+        .iter()
+        .map(|(metric, value)| {
+            value
+                .as_f64()
+                .map(|value| (metric.clone(), value))
+                .ok_or_else(|| {
+                    format!(
+                        "nested source_validation.reference_outputs['{metric}'] must be numeric"
+                    )
+                })
+        })
+        .collect()
 }
 
 fn run_nested_pricing(

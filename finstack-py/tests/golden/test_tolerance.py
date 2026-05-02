@@ -20,6 +20,14 @@ def both(abs_tolerance: float, rel_tolerance: float) -> ToleranceEntry:
     return ToleranceEntry(abs=abs_tolerance, rel=rel_tolerance)
 
 
+def both_or(abs_tolerance: float, rel_tolerance: float) -> ToleranceEntry:
+    return ToleranceEntry(
+        abs=abs_tolerance,
+        rel=rel_tolerance,
+        tolerance_reason="abs-or-rel tolerance reflects vendor screen rounding",
+    )
+
+
 def test_abs_only_pass() -> None:
     result = compare("x", 1.005, 1.0, abs_only(0.01))
     assert result.passed
@@ -40,8 +48,13 @@ def test_rel_handles_zero_expected() -> None:
     assert result.passed
 
 
-def test_either_passes() -> None:
+def test_both_required_by_default() -> None:
     result = compare("x", 1_000_000.5, 1_000_000.0, both(0.01, 1e-6))
+    assert not result.passed
+
+
+def test_explicit_or_semantics_allows_either_tolerance() -> None:
+    result = compare("x", 1_000_000.5, 1_000_000.0, both_or(0.01, 1e-6))
     assert result.passed
 
 

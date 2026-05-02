@@ -117,50 +117,192 @@
             "index": "USD-SOFR-OIS",
             "currency": "USD",
             "quotes": [
-              {"quote_type": "deposit", "tenor": "1M", "rate": 3.644},
-              {"quote_type": "deposit", "tenor": "2M", "rate": 3.6528},
-              {"quote_type": "deposit", "tenor": "3M", "rate": 3.6583},
-              {"quote_type": "deposit", "tenor": "6M", "rate": 3.672},
-              {"quote_type": "swap", "tenor": "1Y", "rate": 3.7255},
-              {"quote_type": "swap", "tenor": "2Y", "rate": 3.7125},
-              {"quote_type": "swap", "tenor": "3Y", "rate": 3.681},
-              {"quote_type": "swap", "tenor": "4Y", "rate": 3.684},
-              {"quote_type": "swap", "tenor": "5Y", "rate": 3.7115},
-              {"quote_type": "swap", "tenor": "6Y", "rate": 3.7555},
-              {"quote_type": "swap", "tenor": "7Y", "rate": 3.8045},
-              {"quote_type": "swap", "tenor": "8Y", "rate": 3.8505},
-              {"quote_type": "swap", "tenor": "9Y", "rate": 3.894},
-              {"quote_type": "swap", "tenor": "10Y", "rate": 3.937},
-              {"quote_type": "swap", "tenor": "12Y", "rate": 4.0235},
-              {"quote_type": "swap", "tenor": "15Y", "rate": 4.133},
-              {"quote_type": "swap", "tenor": "20Y", "rate": 4.221},
-              {"quote_type": "swap", "tenor": "25Y", "rate": 4.2265},
-              {"quote_type": "swap", "tenor": "30Y", "rate": 4.1935}
+              {
+                "quote_type": "deposit",
+                "tenor": "1M",
+                "rate": 3.644
+              },
+              {
+                "quote_type": "deposit",
+                "tenor": "2M",
+                "rate": 3.6528
+              },
+              {
+                "quote_type": "deposit",
+                "tenor": "3M",
+                "rate": 3.6583
+              },
+              {
+                "quote_type": "deposit",
+                "tenor": "6M",
+                "rate": 3.672
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "1Y",
+                "rate": 3.7255
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "2Y",
+                "rate": 3.7125
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "3Y",
+                "rate": 3.681
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "4Y",
+                "rate": 3.684
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "5Y",
+                "rate": 3.7115
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "6Y",
+                "rate": 3.7555
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "7Y",
+                "rate": 3.8045
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "8Y",
+                "rate": 3.8505
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "9Y",
+                "rate": 3.894
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "10Y",
+                "rate": 3.937
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "12Y",
+                "rate": 4.0235
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "15Y",
+                "rate": 4.133
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "20Y",
+                "rate": 4.221
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "25Y",
+                "rate": 4.2265
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "30Y",
+                "rate": 4.1935
+              }
             ]
           },
           "knots": [
-            [0.0, 1.0],
-            [0.13972602739726028, 0.9948564304744848],
-            [0.38904109589041097, 0.98574857],
-            [0.6383561643835617, 0.97668173],
-            [0.8876712328767123, 0.96764815],
-            [1.1369863013698631, 0.95875431],
-            [1.3863013698630137, 0.94999432],
-            [1.6356164383561644, 0.94131437],
-            [1.8849315068493151, 0.93271373],
-            [2.136986301369863, 0.92419467],
-            [2.389041095890411, 0.91584876],
-            [2.6383561643835617, 0.9076677],
-            [2.884931506849315, 0.89964844],
-            [3.136986301369863, 0.8914406],
-            [3.389041095890411, 0.88321729],
-            [3.6383561643835617, 0.87515799],
-            [3.884931506849315, 0.86725959],
-            [4.136986301369863, 0.85911547],
-            [4.389041095890411, 0.85089899],
-            [4.638356164383562, 0.84284912],
-            [4.884931506849315, 0.83496263],
-            [5.136986301369863, 0.82680571]
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.13972602739726028,
+              0.9948564304744848
+            ],
+            [
+              0.38904109589041097,
+              0.98574857
+            ],
+            [
+              0.6383561643835617,
+              0.97668173
+            ],
+            [
+              0.8876712328767123,
+              0.96764815
+            ],
+            [
+              1.1369863013698631,
+              0.95875431
+            ],
+            [
+              1.3863013698630138,
+              0.94999432
+            ],
+            [
+              1.6356164383561644,
+              0.94131437
+            ],
+            [
+              1.884931506849315,
+              0.93271373
+            ],
+            [
+              2.136986301369863,
+              0.92419467
+            ],
+            [
+              2.389041095890411,
+              0.91584876
+            ],
+            [
+              2.638356164383562,
+              0.9076677
+            ],
+            [
+              2.884931506849315,
+              0.89964844
+            ],
+            [
+              3.136986301369863,
+              0.8914406
+            ],
+            [
+              3.389041095890411,
+              0.88321729
+            ],
+            [
+              3.638356164383562,
+              0.87515799
+            ],
+            [
+              3.884931506849315,
+              0.86725959
+            ],
+            [
+              4.136986301369863,
+              0.85911547
+            ],
+            [
+              4.389041095890411,
+              0.85089899
+            ],
+            [
+              4.638356164383562,
+              0.84284912
+            ],
+            [
+              4.884931506849315,
+              0.83496263
+            ],
+            [
+              5.136986301369863,
+              0.82680571
+            ]
           ]
         }
       ],
@@ -171,27 +313,90 @@
           "recovery_rate": 0.4,
           "day_count": "act_365f",
           "knots": [
-            [0.13972602739726028, 0.00997646002277055],
-            [0.38904109589041097, 0.010174852397118335],
-            [0.6383561643835617, 0.010172469869400271],
-            [0.8876712328767123, 0.010174050726913558],
-            [1.1369863013698631, 0.010175577951597636],
-            [1.3863013698630137, 0.010177051103745225],
-            [1.6356164383561644, 0.010174391557496821],
-            [1.8849315068493151, 0.010171645976754756],
-            [2.136986301369863, 0.010175861524607866],
-            [2.389041095890411, 0.010173574090087208],
-            [2.6383561643835617, 0.010175851741102628],
-            [2.884931506849315, 0.010177267513353205],
-            [3.136986301369863, 0.010173574731178204],
-            [3.389041095890411, 0.010175091002821083],
-            [3.6383561643835617, 0.01017184051056745],
-            [3.884931506849315, 0.010176000795259657],
-            [4.136986301369863, 0.01017429786109359],
-            [4.389041095890411, 0.010175565889646949],
-            [4.638356164383562, 0.010175080613668764],
-            [4.884931506849315, 0.010173650631709215],
-            [5.136986301369863, 0.010286841673740938]
+            [
+              0.13972602739726028,
+              0.00997646002277055
+            ],
+            [
+              0.38904109589041097,
+              0.010174852397118335
+            ],
+            [
+              0.6383561643835617,
+              0.01017246986940027
+            ],
+            [
+              0.8876712328767123,
+              0.010174050726913558
+            ],
+            [
+              1.1369863013698631,
+              0.010175577951597636
+            ],
+            [
+              1.3863013698630138,
+              0.010177051103745225
+            ],
+            [
+              1.6356164383561644,
+              0.010174391557496821
+            ],
+            [
+              1.884931506849315,
+              0.010171645976754755
+            ],
+            [
+              2.136986301369863,
+              0.010175861524607865
+            ],
+            [
+              2.389041095890411,
+              0.010173574090087208
+            ],
+            [
+              2.638356164383562,
+              0.010175851741102629
+            ],
+            [
+              2.884931506849315,
+              0.010177267513353206
+            ],
+            [
+              3.136986301369863,
+              0.010173574731178204
+            ],
+            [
+              3.389041095890411,
+              0.010175091002821083
+            ],
+            [
+              3.638356164383562,
+              0.01017184051056745
+            ],
+            [
+              3.884931506849315,
+              0.010176000795259658
+            ],
+            [
+              4.136986301369863,
+              0.01017429786109359
+            ],
+            [
+              4.389041095890411,
+              0.010175565889646949
+            ],
+            [
+              4.638356164383562,
+              0.010175080613668765
+            ],
+            [
+              4.884931506849315,
+              0.010173650631709216
+            ],
+            [
+              5.136986301369863,
+              0.010286841673740938
+            ]
           ],
           "par_spreads": [
             [
@@ -251,27 +456,153 @@
       "discount_curve_note": "Discount factors are transcribed from the Bloomberg CDSW premium cashflow schedule at each future premium payment date.",
       "hazard_curve_note": "Hazard knots are derived from the Bloomberg CDSW premium cashflow schedule survival probabilities at each future premium payment date. Par spreads are retained as the quoted market curve for spread-risk rebootstrap.",
       "bloomberg_cashflow_schedule": [
-        {"date": "2026-06-22", "actual_cashflow": 26111.11, "discount_factor": 0.9948564304744848, "survival_probability": 0.998607, "discounted_cashflow": 25940.62},
-        {"date": "2026-09-21", "actual_cashflow": 25277.78, "discount_factor": 0.98574857, "survival_probability": 0.996077, "discounted_cashflow": 24819.79},
-        {"date": "2026-12-21", "actual_cashflow": 25277.78, "discount_factor": 0.97668173, "survival_probability": 0.993554, "discounted_cashflow": 24529.19},
-        {"date": "2027-03-22", "actual_cashflow": 25277.78, "discount_factor": 0.96764815, "survival_probability": 0.991037, "discounted_cashflow": 24240.75},
-        {"date": "2027-06-21", "actual_cashflow": 25277.78, "discount_factor": 0.95875431, "survival_probability": 0.988526, "discounted_cashflow": 23957.1},
-        {"date": "2027-09-20", "actual_cashflow": 25277.78, "discount_factor": 0.94999432, "survival_probability": 0.986021, "discounted_cashflow": 23678.07},
-        {"date": "2027-12-20", "actual_cashflow": 25277.78, "discount_factor": 0.94131437, "survival_probability": 0.983523, "discounted_cashflow": 23402.28},
-        {"date": "2028-03-20", "actual_cashflow": 25277.78, "discount_factor": 0.93271373, "survival_probability": 0.981032, "discounted_cashflow": 23129.71},
-        {"date": "2028-06-20", "actual_cashflow": 25555.56, "discount_factor": 0.92419467, "survival_probability": 0.978519, "discounted_cashflow": 23110.96},
-        {"date": "2028-09-20", "actual_cashflow": 25555.56, "discount_factor": 0.91584876, "survival_probability": 0.976013, "discounted_cashflow": 22843.6},
-        {"date": "2028-12-20", "actual_cashflow": 25277.78, "discount_factor": 0.9076677, "survival_probability": 0.97354, "discounted_cashflow": 22336.73},
-        {"date": "2029-03-20", "actual_cashflow": 25000.0, "discount_factor": 0.89964844, "survival_probability": 0.9711, "discounted_cashflow": 21841.23},
-        {"date": "2029-06-20", "actual_cashflow": 25555.56, "discount_factor": 0.8914406, "survival_probability": 0.968613, "discounted_cashflow": 22066.23},
-        {"date": "2029-09-20", "actual_cashflow": 25555.56, "discount_factor": 0.88321729, "survival_probability": 0.966132, "discounted_cashflow": 21806.68},
-        {"date": "2029-12-20", "actual_cashflow": 25277.78, "discount_factor": 0.87515799, "survival_probability": 0.963685, "discounted_cashflow": 21318.68},
-        {"date": "2030-03-20", "actual_cashflow": 25000.0, "discount_factor": 0.86725959, "survival_probability": 0.96127, "discounted_cashflow": 20841.76},
-        {"date": "2030-06-20", "actual_cashflow": 25555.56, "discount_factor": 0.85911547, "survival_probability": 0.958808, "discounted_cashflow": 21050.79},
-        {"date": "2030-09-20", "actual_cashflow": 25555.56, "discount_factor": 0.85089899, "survival_probability": 0.956352, "discounted_cashflow": 20796.06},
-        {"date": "2030-12-20", "actual_cashflow": 25277.78, "discount_factor": 0.84284912, "survival_probability": 0.953929, "discounted_cashflow": 20323.8},
-        {"date": "2031-03-20", "actual_cashflow": 25000.0, "discount_factor": 0.83496263, "survival_probability": 0.951539, "discounted_cashflow": 19862.49},
-        {"date": "2031-06-20", "actual_cashflow": 25833.33, "discount_factor": 0.82680571, "survival_probability": 0.949075, "discounted_cashflow": 20271.44}
+        {
+          "date": "2026-06-22",
+          "actual_cashflow": 26111.11,
+          "discount_factor": 0.9948564304744848,
+          "survival_probability": 0.998607,
+          "discounted_cashflow": 25940.62
+        },
+        {
+          "date": "2026-09-21",
+          "actual_cashflow": 25277.78,
+          "discount_factor": 0.98574857,
+          "survival_probability": 0.996077,
+          "discounted_cashflow": 24819.79
+        },
+        {
+          "date": "2026-12-21",
+          "actual_cashflow": 25277.78,
+          "discount_factor": 0.97668173,
+          "survival_probability": 0.993554,
+          "discounted_cashflow": 24529.19
+        },
+        {
+          "date": "2027-03-22",
+          "actual_cashflow": 25277.78,
+          "discount_factor": 0.96764815,
+          "survival_probability": 0.991037,
+          "discounted_cashflow": 24240.75
+        },
+        {
+          "date": "2027-06-21",
+          "actual_cashflow": 25277.78,
+          "discount_factor": 0.95875431,
+          "survival_probability": 0.988526,
+          "discounted_cashflow": 23957.1
+        },
+        {
+          "date": "2027-09-20",
+          "actual_cashflow": 25277.78,
+          "discount_factor": 0.94999432,
+          "survival_probability": 0.986021,
+          "discounted_cashflow": 23678.07
+        },
+        {
+          "date": "2027-12-20",
+          "actual_cashflow": 25277.78,
+          "discount_factor": 0.94131437,
+          "survival_probability": 0.983523,
+          "discounted_cashflow": 23402.28
+        },
+        {
+          "date": "2028-03-20",
+          "actual_cashflow": 25277.78,
+          "discount_factor": 0.93271373,
+          "survival_probability": 0.981032,
+          "discounted_cashflow": 23129.71
+        },
+        {
+          "date": "2028-06-20",
+          "actual_cashflow": 25555.56,
+          "discount_factor": 0.92419467,
+          "survival_probability": 0.978519,
+          "discounted_cashflow": 23110.96
+        },
+        {
+          "date": "2028-09-20",
+          "actual_cashflow": 25555.56,
+          "discount_factor": 0.91584876,
+          "survival_probability": 0.976013,
+          "discounted_cashflow": 22843.6
+        },
+        {
+          "date": "2028-12-20",
+          "actual_cashflow": 25277.78,
+          "discount_factor": 0.9076677,
+          "survival_probability": 0.97354,
+          "discounted_cashflow": 22336.73
+        },
+        {
+          "date": "2029-03-20",
+          "actual_cashflow": 25000.0,
+          "discount_factor": 0.89964844,
+          "survival_probability": 0.9711,
+          "discounted_cashflow": 21841.23
+        },
+        {
+          "date": "2029-06-20",
+          "actual_cashflow": 25555.56,
+          "discount_factor": 0.8914406,
+          "survival_probability": 0.968613,
+          "discounted_cashflow": 22066.23
+        },
+        {
+          "date": "2029-09-20",
+          "actual_cashflow": 25555.56,
+          "discount_factor": 0.88321729,
+          "survival_probability": 0.966132,
+          "discounted_cashflow": 21806.68
+        },
+        {
+          "date": "2029-12-20",
+          "actual_cashflow": 25277.78,
+          "discount_factor": 0.87515799,
+          "survival_probability": 0.963685,
+          "discounted_cashflow": 21318.68
+        },
+        {
+          "date": "2030-03-20",
+          "actual_cashflow": 25000.0,
+          "discount_factor": 0.86725959,
+          "survival_probability": 0.96127,
+          "discounted_cashflow": 20841.76
+        },
+        {
+          "date": "2030-06-20",
+          "actual_cashflow": 25555.56,
+          "discount_factor": 0.85911547,
+          "survival_probability": 0.958808,
+          "discounted_cashflow": 21050.79
+        },
+        {
+          "date": "2030-09-20",
+          "actual_cashflow": 25555.56,
+          "discount_factor": 0.85089899,
+          "survival_probability": 0.956352,
+          "discounted_cashflow": 20796.06
+        },
+        {
+          "date": "2030-12-20",
+          "actual_cashflow": 25277.78,
+          "discount_factor": 0.84284912,
+          "survival_probability": 0.953929,
+          "discounted_cashflow": 20323.8
+        },
+        {
+          "date": "2031-03-20",
+          "actual_cashflow": 25000.0,
+          "discount_factor": 0.83496263,
+          "survival_probability": 0.951539,
+          "discounted_cashflow": 19862.49
+        },
+        {
+          "date": "2031-06-20",
+          "actual_cashflow": 25833.33,
+          "discount_factor": 0.82680571,
+          "survival_probability": 0.949075,
+          "discounted_cashflow": 20271.44
+        }
       ],
       "bloomberg_future_discounted_cashflows_total": 472167.94,
       "swap_curve_rates_pct": [
@@ -466,7 +797,11 @@
         "recovery_01": "Finstack recovery_01 is signed PV change for a +1% recovery bump with hazard rebootstrap from stored par-spread quotes.",
         "jump_to_default": "Finstack jump_to_default includes accrued premium from the last coupon date to valuation date; Bloomberg Def Exposure is retained as a non-compared screen value.",
         "default_exposure": "Finstack default_exposure is signed clean LGD payout less current mark, matching Bloomberg Def Exposure style but using the transcribed curve proxy."
-      }
+      },
+      "non_compared_metrics": [
+        "par_spread"
+      ],
+      "non_compared_metrics_reason": "Bloomberg par spread is retained as the quoted source screen value, but executable par_spread recomputes from the transcribed hazard/survival curve proxy and differs by a small documented curve-construction residual."
     }
   },
   "expected_outputs": {
@@ -483,42 +818,42 @@
     "npv": {
       "abs": 2.0,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays Principal rounded to whole USD; widened slightly to allow the remaining model-vs-screen convention residual while preserving Bloomberg expected_outputs."
+      "tolerance_reason": "Bloomberg displays Principal rounded to whole USD; widened slightly to allow the remaining model-vs-screen convention residual while preserving Bloomberg expected_outputs. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     },
     "par_spread": {
       "abs": 0.0001,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays spread to four decimal places in bp; tolerance reflects source precision."
+      "tolerance_reason": "Bloomberg displays spread to four decimal places in bp; tolerance reflects source precision. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     },
     "risky_pv01": {
       "abs": 0.5,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays Spread DV01 to cents; widened to allow the remaining CDS curve/bootstrap convention residual while preserving Bloomberg expected_outputs."
+      "tolerance_reason": "Bloomberg displays Spread DV01 to cents; widened to allow the remaining CDS curve/bootstrap convention residual while preserving Bloomberg expected_outputs. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     },
     "dv01": {
       "abs": 1.5,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays IR DV01 to cents; widened to allow the remaining Rust/Python rate-shock convention residual while preserving Bloomberg expected_outputs."
+      "tolerance_reason": "Bloomberg displays IR DV01 to cents; widened to allow the remaining Rust/Python rate-shock convention residual while preserving Bloomberg expected_outputs. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     },
     "cs01": {
       "abs": 0.5,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays Spread DV01 to cents; widened to allow the remaining CDS curve/bootstrap convention residual while preserving Bloomberg expected_outputs."
+      "tolerance_reason": "Bloomberg displays Spread DV01 to cents; widened to allow the remaining CDS curve/bootstrap convention residual while preserving Bloomberg expected_outputs. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     },
     "recovery_01": {
       "abs": 0.3,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays Rec Risk (1%) to cents; widened to allow the remaining recovery-risk convention residual while preserving Bloomberg expected_outputs."
+      "tolerance_reason": "Bloomberg displays Rec Risk (1%) to cents; widened to allow the remaining recovery-risk convention residual while preserving Bloomberg expected_outputs. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     },
     "jump_to_default": {
       "abs": 1e-06,
       "rel": 1e-12,
-      "tolerance_reason": "The screenshot does not display accrued-premium-adjusted JTD; this asserts finstack JTD exactly while default_exposure below checks Bloomberg Def Exposure."
+      "tolerance_reason": "The screenshot does not display accrued-premium-adjusted JTD; this asserts finstack JTD exactly while default_exposure below checks Bloomberg Def Exposure. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     },
     "default_exposure": {
       "abs": 2.0,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays Def Exposure rounded to whole USD; widened slightly to allow the remaining model-vs-screen convention residual while preserving Bloomberg expected_outputs."
+      "tolerance_reason": "Bloomberg displays Def Exposure rounded to whole USD; widened slightly to allow the remaining model-vs-screen convention residual while preserving Bloomberg expected_outputs. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     }
   }
 }

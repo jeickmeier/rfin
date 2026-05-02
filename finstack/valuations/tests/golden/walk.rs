@@ -160,6 +160,7 @@ pub(crate) fn validate_fixture(path: &Path) -> Result<(), String> {
     validate_zero_risk_metric_reasons(&fixture)?;
     validate_source_reference_coverage(&fixture)?;
     validate_required_pricing_risk_metrics(&fixture)?;
+    validate_required_metrics_not_non_compared(&fixture)?;
 
     if MANUAL_SCREENSHOT_SOURCES.contains(&fixture.provenance.source.as_str())
         && fixture.provenance.screenshots.is_empty()
@@ -218,6 +219,46 @@ fn validate_required_pricing_risk_metrics(fixture: &GoldenFixture) -> Result<(),
     }
 
     Ok(())
+}
+
+fn validate_required_metrics_not_non_compared(fixture: &GoldenFixture) -> Result<(), String> {
+    if fixture.inputs.get("source_validation").is_some() {
+        return Ok(());
+    }
+    let Some(source_reference) = fixture
+        .inputs
+        .get("source_reference")
+        .and_then(serde_json::Value::as_object)
+    else {
+        return Ok(());
+    };
+    let non_compared = string_array(source_reference, "non_compared_metrics")?;
+    let invalid = non_compared
+        .iter()
+        .filter(|metric| is_required_executable_pricing_risk_metric(fixture, metric))
+        .cloned()
+        .collect::<Vec<_>>();
+    if invalid.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "required executable pricing/risk metrics cannot be listed in inputs.source_reference.non_compared_metrics: {}",
+            invalid.join(", ")
+        ))
+    }
+}
+
+fn is_required_executable_pricing_risk_metric(fixture: &GoldenFixture, metric: &str) -> bool {
+    if fixture.domain.contains(".integration") || fixture.domain.contains(".calibration.") {
+        return false;
+    }
+    if fixture.domain.starts_with("rates.") {
+        return metric == "dv01";
+    }
+    if fixture.domain.starts_with("fixed_income.") {
+        return metric == "dv01";
+    }
+    fixture.domain.starts_with("credit.") && matches!(metric, "dv01" | "cs01")
 }
 
 fn validate_zero_risk_metric_reasons(fixture: &GoldenFixture) -> Result<(), String> {

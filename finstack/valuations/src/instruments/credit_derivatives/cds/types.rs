@@ -978,17 +978,26 @@ impl CreditDefaultSwap {
                 "premium spread_bp cannot be represented as f64".to_string(),
             )
         })? / 10_000.0;
-        let schedule_dates = CDSPricer::new().generate_schedule(self, self.premium.start)?;
-        let flows = schedule_dates
-            .windows(2)
-            .map(|window| {
-                let start = window[0];
-                let end = window[1];
-                let accrual = self.premium.day_count.year_fraction(
-                    start,
-                    end,
-                    finstack_core::dates::DayCountContext::default(),
-                )?;
+        let pricer = CDSPricer::new();
+        let payment_accruals = if self.uses_adjusted_premium_accrual_dates() {
+            pricer.premium_cashflow_accruals(self, self.premium.start)?
+        } else {
+            pricer
+                .generate_schedule(self, self.premium.start)?
+                .windows(2)
+                .map(|window| {
+                    let accrual = self.premium.day_count.year_fraction(
+                        window[0],
+                        window[1],
+                        finstack_core::dates::DayCountContext::default(),
+                    )?;
+                    Ok((window[1], accrual))
+                })
+                .collect::<finstack_core::Result<Vec<_>>>()?
+        };
+        let flows = payment_accruals
+            .into_iter()
+            .map(|(end, accrual)| {
                 Ok(finstack_core::cashflow::CashFlow {
                     date: end,
                     reset_date: None,

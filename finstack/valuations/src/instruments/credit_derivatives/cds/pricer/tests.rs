@@ -6,7 +6,9 @@ use super::helpers::{
 };
 use super::*;
 use crate::constants::{credit, time as time_constants, ONE_BASIS_POINT};
-use crate::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
+use crate::instruments::credit_derivatives::cds::{
+    CdsValuationConvention, CreditDefaultSwap, PayReceive,
+};
 use crate::market::conventions::ids::CdsDocClause;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt, DayCount};
@@ -574,7 +576,8 @@ fn test_full_premium_par_spread_is_below_risky_annuity_par_spread() {
         .knots(vec![(0.25, 0.08), (1.0, 0.12), (3.0, 0.16), (5.0, 0.20)])
         .build()
         .expect("hazard curve");
-    let cds = create_test_cds("CDS-PAR-FULL", as_of, as_of.add_months(60), 100.0, 0.40);
+    let mut cds = create_test_cds("CDS-PAR-FULL", as_of, as_of.add_months(60), 100.0, 0.40);
+    cds.valuation_convention = CdsValuationConvention::IsdaDirty;
 
     let isda = CDSPricer::new();
     let full_premium = CDSPricer::with_config(CDSPricerConfig {

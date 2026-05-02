@@ -1,9 +1,11 @@
 //! Forward swap rate and annuity calculation tests
 
 use crate::swaption::common::*;
-use finstack_core::dates::DayCountContext;
+use finstack_core::dates::{BusinessDayConvention, DayCount, DayCountContext, StubKind, Tenor};
 use finstack_valuations::instruments::rates::swaption::Swaption;
 use finstack_valuations::instruments::rates::swaption::{CashSettlementMethod, SwaptionSettlement};
+use finstack_valuations::instruments::FixedLegSpec;
+use rust_decimal::Decimal;
 
 fn expected_forward_rate(
     swaption: &Swaption,
@@ -11,6 +13,56 @@ fn expected_forward_rate(
     as_of: finstack_core::dates::Date,
 ) -> f64 {
     equivalent_vanilla_irs_par_rate(swaption, market, as_of)
+}
+
+struct SingleCurveForwardSpec {
+    start: finstack_core::dates::Date,
+    end: finstack_core::dates::Date,
+    frequency: Tenor,
+    day_count: DayCount,
+    stub: StubKind,
+    payment_lag_days: i32,
+}
+
+fn expected_single_curve_payment_date_forward(
+    spec: SingleCurveForwardSpec,
+    market: &finstack_core::market_data::context::MarketContext,
+    as_of: finstack_core::dates::Date,
+) -> f64 {
+    let disc = market.get_discount("USD_OIS").expect("discount curve");
+    let schedule = finstack_valuations::cashflow::builder::periods::build_periods(
+        finstack_valuations::cashflow::builder::periods::BuildPeriodsParams {
+            start: spec.start,
+            end: spec.end,
+            frequency: spec.frequency,
+            stub: spec.stub,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: finstack_valuations::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
+            end_of_month: false,
+            day_count: spec.day_count,
+            payment_lag_days: spec.payment_lag_days,
+            reset_lag_days: None,
+            adjust_accrual_dates: false,
+        },
+    )
+    .expect("fixed schedule");
+    let mut forward_leg = 0.0;
+    let mut annuity = 0.0;
+    for period in schedule {
+        let df_start = disc
+            .df_between_dates(as_of, period.accrual_start)
+            .expect("df start");
+        let df_end = disc
+            .df_between_dates(as_of, period.accrual_end)
+            .expect("df end");
+        let df_pay = disc
+            .df_between_dates(as_of, period.payment_date)
+            .expect("df pay");
+        let forward = (df_start / df_end - 1.0) / period.accrual_year_fraction;
+        forward_leg += period.accrual_year_fraction * forward * df_pay;
+        annuity += period.accrual_year_fraction * df_pay;
+    }
+    forward_leg / annuity
 }
 
 #[test]
@@ -176,17 +228,71 @@ fn test_zero_coupon_cash_annuity_matches_tenor_times_maturity_df() {
 }
 
 #[test]
-fn test_forward_swap_rate_single_curve_matches_discount_factor_ratio() {
+fn test_forward_swap_rate_single_curve_matches_payment_date_cashflows() {
     let (as_of, expiry, swap_start, swap_end) = standard_dates();
     let market = create_flat_market(as_of, 0.05, 0.30);
     let mut swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
     swaption.forward_curve_id = swaption.discount_curve_id.clone();
 
     let forward = swaption.forward_swap_rate(&market, as_of).unwrap();
-    let disc = market.get_discount("USD_OIS").unwrap();
-    let annuity = swaption.swap_annuity(disc.as_ref(), as_of).unwrap();
-    let df_start = disc.df_between_dates(as_of, swap_start).unwrap();
-    let df_end = disc.df_between_dates(as_of, swap_end).unwrap();
-    let expected = (df_start - df_end) / annuity;
+    let expected = expected_single_curve_payment_date_forward(
+        SingleCurveForwardSpec {
+            start: swap_start,
+            end: swap_end,
+            frequency: swaption.fixed_freq,
+            day_count: swaption.day_count,
+            stub: StubKind::None,
+            payment_lag_days: 0,
+        },
+        &market,
+        as_of,
+    );
     assert_approx_eq(forward, expected, 1e-12, "single-curve forward swap rate");
+}
+
+#[test]
+fn test_single_curve_forward_honors_explicit_fixed_leg_payment_cashflows() {
+    let (as_of, expiry, swap_start, swap_end) = standard_dates();
+    let market = create_flat_market(as_of, 0.05, 0.30);
+    let mut swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
+    swaption.forward_curve_id = swaption.discount_curve_id.clone();
+    swaption.underlying_fixed_leg = Some(FixedLegSpec {
+        discount_curve_id: swaption.discount_curve_id.clone(),
+        rate: Decimal::ZERO,
+        frequency: Tenor::annual(),
+        day_count: DayCount::Act360,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: None,
+        stub: StubKind::ShortFront,
+        start: swap_start,
+        end: swap_end,
+        par_method: None,
+        compounding_simple: true,
+        payment_lag_days: 2,
+        end_of_month: false,
+    });
+
+    let expected = expected_single_curve_payment_date_forward(
+        SingleCurveForwardSpec {
+            start: swap_start,
+            end: swap_end,
+            frequency: Tenor::annual(),
+            day_count: DayCount::Act360,
+            stub: StubKind::ShortFront,
+            payment_lag_days: 2,
+        },
+        &market,
+        as_of,
+    );
+
+    let forward = swaption
+        .forward_swap_rate(&market, as_of)
+        .expect("forward swap rate");
+
+    assert_approx_eq(
+        forward,
+        expected,
+        1e-10,
+        "single-curve forward should match explicit underlier par rate",
+    );
 }

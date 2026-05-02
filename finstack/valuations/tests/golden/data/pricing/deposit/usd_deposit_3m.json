@@ -18,7 +18,10 @@
   "inputs": {
     "valuation_date": "2026-04-30",
     "model": "discounting",
-    "metrics": ["deposit_par_rate", "dv01"],
+    "metrics": [
+      "deposit_par_rate",
+      "dv01"
+    ],
     "instrument_json": {
       "schema": "finstack.instrument/1",
       "instrument": {
@@ -35,7 +38,9 @@
           "quote_rate": "0.041",
           "discount_curve_id": "USD-OIS",
           "attributes": {
-            "tags": ["golden"],
+            "tags": [
+              "golden"
+            ],
             "meta": {}
           },
           "spot_lag_days": 0,
@@ -52,12 +57,30 @@
           "day_count": "act_365f",
           "interp": "log_linear",
           "knots": [
-            [0.0, 1.0],
-            [0.25, 0.99],
-            [0.5, 0.9802],
-            [1.0, 0.9608],
-            [2.0, 0.9231],
-            [5.0, 0.8187]
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.99
+            ],
+            [
+              0.5,
+              0.9802
+            ],
+            [
+              1.0,
+              0.9608
+            ],
+            [
+              2.0,
+              0.9231
+            ],
+            [
+              5.0,
+              0.8187
+            ]
           ]
         }
       ],
@@ -85,8 +108,14 @@
     "dv01": -249.38681957910967
   },
   "tolerances": {
-    "npv": {"abs": 1e-6, "rel": 1e-12},
-    "deposit_par_rate": {"abs": 1e-12},
-    "dv01": {"abs": 1e-6, "rel": 1e-12}
+    "npv": {
+      "abs": 1e-06
+    },
+    "deposit_par_rate": {
+      "abs": 1e-12
+    },
+    "dv01": {
+      "abs": 1e-06
+    }
   }
 }

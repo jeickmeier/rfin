@@ -166,6 +166,17 @@ impl CDSPricer {
         )
     }
 
+    pub(crate) fn premium_cashflow_accruals(
+        &self,
+        cds: &CreditDefaultSwap,
+        as_of: Date,
+    ) -> Result<Vec<(Date, f64)>> {
+        self.coupon_periods(cds, as_of)?
+            .into_iter()
+            .map(|period| Ok((period.payment_date, self.coupon_accrual(cds, &period)?)))
+            .collect()
+    }
+
     fn clean_accrued_fraction(&self, cds: &CreditDefaultSwap, as_of: Date) -> Result<f64> {
         if as_of <= cds.premium.start || as_of >= cds.premium.end {
             return Ok(0.0);
@@ -233,12 +244,6 @@ impl CDSPricer {
         surv: &HazardCurve,
         as_of: Date,
     ) -> Result<f64> {
-        if cds.uses_clean_price() {
-            if let Some(quote_bp) = cds.pricing_overrides.market_quotes.cds_quote_bp {
-                return Ok(quote_bp);
-            }
-        }
-
         let protection_pv = self.pv_protection_leg(cds, disc, surv, as_of)?;
 
         // Default behavior (par_spread_uses_full_premium = false) uses Risky Annuity only.

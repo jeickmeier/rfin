@@ -16,8 +16,36 @@
     "screenshots": []
   },
   "inputs": {
-    "components": {"weighted_contribution::AAPL": 0.006, "weighted_contribution::MSFT": 0.0045, "weighted_contribution::UST_10Y": -0.001, "weighted_contribution::CASH": 0.0002},
-    "sums": {"total_contribution": ["weighted_contribution::AAPL", "weighted_contribution::MSFT", "weighted_contribution::UST_10Y", "weighted_contribution::CASH"], "portfolio_return": ["total_contribution"]}
+    "components": {
+      "weighted_contribution::AAPL": 0.006,
+      "weighted_contribution::MSFT": 0.0045,
+      "weighted_contribution::UST_10Y": -0.001,
+      "weighted_contribution::CASH": 0.0002
+    },
+    "sums": {
+      "total_contribution": [
+        "weighted_contribution::AAPL",
+        "weighted_contribution::MSFT",
+        "weighted_contribution::UST_10Y",
+        "weighted_contribution::CASH"
+      ],
+      "portfolio_return": [
+        "total_contribution"
+      ]
+    },
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Fixture contains committed attribution components and component-sum formulas but lacks holdings, portfolio returns, benchmark returns, or factor/source data required for product attribution execution.",
+      "required_for_execution": "Add portfolio holdings/returns, benchmark or factor inputs, and route through the attribution engine; keep component sums as auxiliary validation only.",
+      "reference_outputs": {
+        "weighted_contribution::AAPL": 0.006,
+        "weighted_contribution::MSFT": 0.0045,
+        "weighted_contribution::UST_10Y": -0.001,
+        "weighted_contribution::CASH": 0.0002,
+        "total_contribution": 0.0097,
+        "portfolio_return": 0.0097
+      }
+    }
   },
   "expected_outputs": {
     "weighted_contribution::AAPL": 0.006,

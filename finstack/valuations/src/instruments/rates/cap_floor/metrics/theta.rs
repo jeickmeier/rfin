@@ -6,6 +6,7 @@
 use crate::instruments::rates::cap_floor::CapFloor;
 use crate::metrics::calculate_theta_date;
 use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::dates::Date;
 use finstack_core::Result;
 
 /// Theta calculator (bump-and-reprice with customizable period)
@@ -21,36 +22,7 @@ impl MetricCalculator for ThetaCalculator {
             .and_then(|po| po.theta_period.as_deref())
             .unwrap_or("1D");
 
-        // Calculate rolled date (capping at instrument expiry)
-        // For caps/floors, find the next fixing date after as_of as the effective expiry
-        let expiry_date = if option.start_date > context.as_of {
-            Some(option.start_date)
-        } else {
-            // Cap has already started, find next fixing date
-            use crate::cashflow::builder::date_generation::build_dates;
-            let schedule = build_dates(
-                option.start_date,
-                option.maturity,
-                option.frequency,
-                option.stub,
-                option.bdc,
-                false,
-                0,
-                option
-                    .calendar_id
-                    .as_deref()
-                    .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
-            )?;
-
-            // Find the first fixing date that's after as_of
-            let next_fixing = schedule
-                .dates
-                .iter()
-                .find(|&&date| date > context.as_of)
-                .copied();
-
-            next_fixing.or(Some(option.maturity)) // Fallback to end_date if no future fixings
-        };
+        let expiry_date = next_option_theta_expiry(option, context.as_of)?;
 
         let rolled_date = calculate_theta_date(context.as_of, period_str, expiry_date)?;
 
@@ -66,5 +38,58 @@ impl MetricCalculator for ThetaCalculator {
         let bumped = context.instrument_value_with_scenario(&context.curves, rolled_date)?;
 
         Ok(bumped.amount() - base_pv)
+    }
+}
+
+fn next_option_theta_expiry(option: &CapFloor, as_of: Date) -> Result<Option<Date>> {
+    let next_fixing = option
+        .pricing_periods()?
+        .into_iter()
+        .map(|period| option.option_fixing_date(&period))
+        .find(|fixing_date| *fixing_date > as_of);
+    Ok(next_fixing.or(Some(option.maturity)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::instruments::rates::cap_floor::{CapFloorVolType, RateOptionType};
+    use crate::instruments::{ExerciseStyle, SettlementType};
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+    use finstack_core::money::Money;
+    use rust_decimal::Decimal;
+    use time::macros::date;
+
+    #[test]
+    fn theta_expiry_uses_rfr_accrual_end_fixing() {
+        let option = CapFloor {
+            id: "RFR-THETA-FIXING".into(),
+            rate_option_type: RateOptionType::Cap,
+            notional: Money::new(1_000_000.0, Currency::USD),
+            strike: Decimal::try_from(0.05).expect("valid decimal"),
+            start_date: date!(2024 - 01 - 03),
+            maturity: date!(2024 - 07 - 03),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            stub: StubKind::None,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            exercise_style: ExerciseStyle::European,
+            settlement: SettlementType::Cash,
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-SOFR-OIS".into(),
+            vol_surface_id: "USD-CAP-VOL".into(),
+            vol_type: CapFloorVolType::Lognormal,
+            vol_shift: 0.0,
+            pricing_overrides: crate::instruments::PricingOverrides::default(),
+            attributes: Default::default(),
+        };
+
+        let next = next_option_theta_expiry(&option, date!(2024 - 02 - 01))
+            .expect("theta expiry")
+            .expect("next fixing");
+
+        assert_eq!(next, date!(2024 - 04 - 03));
     }
 }

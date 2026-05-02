@@ -309,28 +309,22 @@
   },
   "tolerances": {
     "npv": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "clean_price": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "ytm": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "z_spread": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "dv01": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "cs01": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     }
   }
 }

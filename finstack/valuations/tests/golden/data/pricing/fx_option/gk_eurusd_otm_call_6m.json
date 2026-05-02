@@ -258,24 +258,19 @@
   },
   "tolerances": {
     "npv": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "delta": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "delta_forward": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "delta_premium_adjusted": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "vega": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     }
   }
 }

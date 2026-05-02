@@ -15,7 +15,10 @@ use crate::calibration::bumps::BumpRequest;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds_tranche::CDSTranche;
 use crate::metrics::sensitivities::config as sens_config;
-use crate::metrics::sensitivities::cs01::sensitivity_central_diff;
+use crate::metrics::sensitivities::cs01::{
+    compute_key_rate_cs01_series_with_context_raw, compute_parallel_cs01_with_context_raw,
+    sensitivity_central_diff,
+};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::types::CurveId;
@@ -50,54 +53,54 @@ pub(crate) struct CdsTrancheCs01Calculator;
 
 impl MetricCalculator for CdsTrancheCs01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        let tranche: &CDSTranche = context.instrument_as()?;
-        let (hazard_id, _discount_id) =
-            resolve_tranche_cs01_curves(tranche, context.curves.as_ref())?;
+        let tranche: CDSTranche = context.instrument_as::<CDSTranche>()?.clone();
+        let (hazard_id, discount_id) =
+            resolve_tranche_cs01_curves(&tranche, context.curves.as_ref())?;
+        let hazard = context.curves.get_hazard(hazard_id.as_str())?;
+        if hazard.par_spread_points().next().is_none() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "CDS tranche '{}' CS01 requires par-spread points on hazard curve '{}'; \
+                     use cs01_hazard for direct hazard-rate bumps",
+                    tranche.id(),
+                    hazard_id.as_str()
+                ),
+                category: "cs01_rebootstrap".to_string(),
+            });
+        }
 
         let bump_bp =
             sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?
                 .credit_spread_bump_bp;
 
+        let index_data = context.curves.get_credit_index(&tranche.credit_index_id)?;
+        let credit_index_id = tranche.credit_index_id.clone();
+        let hazard_id_for_reval = hazard_id.clone();
+        let inst_arc = Arc::clone(&context.instrument);
         let (model, registry) = context.clone_pricer_dispatch();
         let as_of = context.as_of;
-        let base_ctx = context.curves.as_ref();
-        let index_data = base_ctx.get_credit_index(&tranche.credit_index_id)?;
-        let hazard = base_ctx.get_hazard(hazard_id.as_str())?;
-        let bumped_up = Arc::new(bump_hazard_shift(
-            hazard.as_ref(),
-            &BumpRequest::Parallel(bump_bp),
-        )?);
-        let bumped_down = Arc::new(bump_hazard_shift(
-            hazard.as_ref(),
-            &BumpRequest::Parallel(-bump_bp),
-        )?);
-        let ctx_up = base_ctx
-            .clone()
-            .insert(Arc::clone(&bumped_up))
-            .insert_credit_index(
-                tranche.credit_index_id.as_str(),
-                rebuild_index(&index_data, bumped_up)?,
-            );
-        let ctx_down = base_ctx
-            .clone()
-            .insert(Arc::clone(&bumped_down))
-            .insert_credit_index(
-                tranche.credit_index_id.as_str(),
-                rebuild_index(&index_data, bumped_down)?,
-            );
 
-        let reprice = |temp_ctx: &finstack_core::market_data::context::MarketContext| {
+        let reval = move |temp_ctx: &finstack_core::market_data::context::MarketContext| {
+            let bumped_hazard = temp_ctx.get_hazard(hazard_id_for_reval.as_str())?;
+            let indexed_ctx = temp_ctx.clone().insert_credit_index(
+                credit_index_id.as_str(),
+                rebuild_index(index_data.as_ref(), bumped_hazard)?,
+            );
             if let (Some(model), Some(registry)) = (model, registry.as_ref()) {
-                registry
-                    .price_raw(context.instrument.as_ref(), model, temp_ctx, as_of)
-                    .map_err(Into::into)
-            } else {
-                context.instrument.value_raw(temp_ctx, as_of)
+                return registry
+                    .price_raw(inst_arc.as_ref(), model, &indexed_ctx, as_of)
+                    .map_err(Into::into);
             }
+            inst_arc.value_raw(&indexed_ctx, as_of)
         };
-        let pv_up = reprice(&ctx_up)?;
-        let pv_down = reprice(&ctx_down)?;
-        let cs01 = sensitivity_central_diff(pv_up, pv_down, bump_bp);
+
+        let cs01 = compute_parallel_cs01_with_context_raw(
+            context,
+            &hazard_id,
+            discount_id.as_ref(),
+            bump_bp,
+            reval,
+        )?;
 
         context.computed.insert(
             MetricId::custom(format!("cs01::{}", hazard_id.as_str())),
@@ -134,31 +137,51 @@ pub(crate) struct CdsTrancheBucketedCs01Calculator;
 
 impl MetricCalculator for CdsTrancheBucketedCs01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        let tranche: &CDSTranche = context.instrument_as()?;
+        let tranche: CDSTranche = context.instrument_as::<CDSTranche>()?.clone();
         let (hazard_id, discount_id) =
-            resolve_tranche_cs01_curves(tranche, context.curves.as_ref())?;
+            resolve_tranche_cs01_curves(&tranche, context.curves.as_ref())?;
+        let hazard = context.curves.get_hazard(hazard_id.as_str())?;
+        if hazard.par_spread_points().next().is_none() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "CDS tranche '{}' bucketed CS01 requires par-spread points on hazard curve '{}'; \
+                     use bucketed_cs01_hazard for direct hazard-rate bumps",
+                    tranche.id(),
+                    hazard_id.as_str()
+                ),
+                category: "cs01_rebootstrap".to_string(),
+            });
+        }
 
         let defaults =
             sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?;
         let buckets = defaults.cs01_buckets_years;
         let bump_bp = defaults.credit_spread_bump_bp;
 
+        let index_data = context.curves.get_credit_index(&tranche.credit_index_id)?;
+        let credit_index_id = tranche.credit_index_id.clone();
+        let hazard_id_for_reval = hazard_id.clone();
         let inst_arc = Arc::clone(&context.instrument);
         let (model, registry) = context.clone_pricer_dispatch();
         let as_of = context.as_of;
 
         let reval = move |temp_ctx: &finstack_core::market_data::context::MarketContext| {
+            let bumped_hazard = temp_ctx.get_hazard(hazard_id_for_reval.as_str())?;
+            let indexed_ctx = temp_ctx.clone().insert_credit_index(
+                credit_index_id.as_str(),
+                rebuild_index(index_data.as_ref(), bumped_hazard)?,
+            );
             if let (Some(model), Some(registry)) = (model, registry.as_ref()) {
                 return registry
-                    .price_raw(inst_arc.as_ref(), model, temp_ctx, as_of)
+                    .price_raw(inst_arc.as_ref(), model, &indexed_ctx, as_of)
                     .map_err(Into::into);
             }
-            inst_arc.value_raw(temp_ctx, as_of)
+            inst_arc.value_raw(&indexed_ctx, as_of)
         };
 
         let series_id = MetricId::custom(format!("bucketed_cs01::{}", hazard_id.as_str()));
 
-        crate::metrics::sensitivities::cs01::compute_key_rate_cs01_series_with_context_raw(
+        compute_key_rate_cs01_series_with_context_raw(
             context,
             &hazard_id,
             discount_id.as_ref(),
@@ -184,16 +207,38 @@ impl MetricCalculator for CdsTrancheCs01HazardCalculator {
                 .credit_spread_bump_bp;
 
         let base_ctx = context.curves.as_ref();
+        let index_data = base_ctx.get_credit_index(&tranche.credit_index_id)?;
         let hazard = base_ctx.get_hazard(hazard_id.as_str())?;
         let hazard_ref = hazard.as_ref();
 
         let as_of = context.as_of;
 
-        let bumped_up = bump_hazard_shift(hazard_ref, &BumpRequest::Parallel(bump_bp))?;
-        let bumped_down = bump_hazard_shift(hazard_ref, &BumpRequest::Parallel(-bump_bp))?;
+        let bumped_up = Arc::new(bump_hazard_shift(
+            hazard_ref,
+            &BumpRequest::Parallel(bump_bp),
+        )?);
+        let bumped_down = Arc::new(bump_hazard_shift(
+            hazard_ref,
+            &BumpRequest::Parallel(-bump_bp),
+        )?);
 
-        let pv_up = context.reprice_raw(&base_ctx.clone().insert(bumped_up), as_of)?;
-        let pv_down = context.reprice_raw(&base_ctx.clone().insert(bumped_down), as_of)?;
+        let ctx_up = base_ctx
+            .clone()
+            .insert(Arc::clone(&bumped_up))
+            .insert_credit_index(
+                tranche.credit_index_id.as_str(),
+                rebuild_index(index_data.as_ref(), bumped_up)?,
+            );
+        let ctx_down = base_ctx
+            .clone()
+            .insert(Arc::clone(&bumped_down))
+            .insert_credit_index(
+                tranche.credit_index_id.as_str(),
+                rebuild_index(index_data.as_ref(), bumped_down)?,
+            );
+
+        let pv_up = context.reprice_raw(&ctx_up, as_of)?;
+        let pv_down = context.reprice_raw(&ctx_down, as_of)?;
 
         let cs01 = sensitivity_central_diff(pv_up, pv_down, bump_bp);
 
@@ -221,6 +266,7 @@ impl MetricCalculator for CdsTrancheBucketedCs01HazardCalculator {
         let bump_bp = defaults.credit_spread_bump_bp;
 
         let base_ctx = context.curves.as_ref();
+        let index_data = base_ctx.get_credit_index(&tranche.credit_index_id)?;
         let hazard = base_ctx.get_hazard(hazard_id.as_str())?;
         let hazard_ref = hazard.as_ref();
 
@@ -232,13 +278,32 @@ impl MetricCalculator for CdsTrancheBucketedCs01HazardCalculator {
         for t in buckets {
             let label = sens_config::format_bucket_label_cow(t);
 
-            let bumped_up =
-                bump_hazard_shift(hazard_ref, &BumpRequest::Tenors(vec![(t, bump_bp)]))?;
-            let bumped_down =
-                bump_hazard_shift(hazard_ref, &BumpRequest::Tenors(vec![(t, -bump_bp)]))?;
+            let bumped_up = Arc::new(bump_hazard_shift(
+                hazard_ref,
+                &BumpRequest::Tenors(vec![(t, bump_bp)]),
+            )?);
+            let bumped_down = Arc::new(bump_hazard_shift(
+                hazard_ref,
+                &BumpRequest::Tenors(vec![(t, -bump_bp)]),
+            )?);
 
-            let pv_up = context.reprice_raw(&base_ctx.clone().insert(bumped_up), as_of)?;
-            let pv_down = context.reprice_raw(&base_ctx.clone().insert(bumped_down), as_of)?;
+            let ctx_up = base_ctx
+                .clone()
+                .insert(Arc::clone(&bumped_up))
+                .insert_credit_index(
+                    tranche.credit_index_id.as_str(),
+                    rebuild_index(index_data.as_ref(), bumped_up)?,
+                );
+            let ctx_down = base_ctx
+                .clone()
+                .insert(Arc::clone(&bumped_down))
+                .insert_credit_index(
+                    tranche.credit_index_id.as_str(),
+                    rebuild_index(index_data.as_ref(), bumped_down)?,
+                );
+
+            let pv_up = context.reprice_raw(&ctx_up, as_of)?;
+            let pv_down = context.reprice_raw(&ctx_down, as_of)?;
 
             let cs01 = sensitivity_central_diff(pv_up, pv_down, bump_bp);
             series.push((label, cs01));

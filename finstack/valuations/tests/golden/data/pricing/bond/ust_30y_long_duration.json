@@ -303,28 +303,22 @@
   },
   "tolerances": {
     "npv": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "clean_price": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "ytm": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "duration_mod": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "convexity": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "dv01": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     }
   }
 }

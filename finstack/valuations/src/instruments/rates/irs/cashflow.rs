@@ -15,17 +15,16 @@
 //! the pricer applies floating-leg payment lag when discounting those flows.
 
 use finstack_core::dates::CalendarRegistry;
-use finstack_core::dates::{Date, DateExt, DayCountContext};
+use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::ScalarTimeSeries;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::Result;
 use rust_decimal::Decimal;
-use time::Duration;
 
 use crate::cashflow::builder::{
-    periods::{build_periods, BuildPeriodsParams},
+    periods::{build_periods, BuildPeriodsParams, SchedulePeriod},
     CashFlowSchedule, FloatingCouponSpec, FloatingRateSpec, Notional,
 };
 use crate::instruments::common_impl::numeric::decimal_to_f64;
@@ -76,6 +75,54 @@ fn rate_cutoff_days(compounding: FloatingLegCompounding) -> Option<i32> {
         }
         _ => None,
     }
+}
+
+fn shift_business_or_weekdays(
+    date: Date,
+    days: i32,
+    cal: Option<&dyn finstack_core::dates::HolidayCalendar>,
+) -> Result<Date> {
+    if let Some(cal) = cal {
+        date.add_business_days(days, cal)
+    } else {
+        Ok(date.add_weekdays(days))
+    }
+}
+
+fn is_irregular_fixed_period(
+    period: &SchedulePeriod,
+    fixed: &crate::instruments::common_impl::parameters::legs::FixedLegSpec,
+    cal: &dyn finstack_core::dates::HolidayCalendar,
+    adjust_accrual_dates: bool,
+) -> Result<bool> {
+    let mut expected_regular_end = fixed.frequency.add_to_date(
+        period.accrual_start,
+        None,
+        BusinessDayConvention::Unadjusted,
+    )?;
+    if fixed.end_of_month {
+        expected_regular_end = expected_regular_end.end_of_month();
+    }
+    if adjust_accrual_dates {
+        expected_regular_end = finstack_core::dates::adjust(expected_regular_end, fixed.bdc, cal)?;
+    }
+
+    let dc_ctx = DayCountContext {
+        calendar: Some(cal),
+        frequency: Some(fixed.frequency),
+        bus_basis: None,
+        coupon_period: None,
+    };
+    let expected_regular_accrual =
+        fixed
+            .day_count
+            .year_fraction(period.accrual_start, expected_regular_end, dc_ctx)?;
+
+    let date_matches = period.accrual_end == expected_regular_end;
+    let accrual_matches =
+        (period.accrual_year_fraction - expected_regular_accrual).abs() <= 1.0e-10;
+
+    Ok(!(date_matches || accrual_matches))
 }
 
 fn adjust_accrual_dates(irs: &InterestRateSwap) -> bool {
@@ -324,8 +371,8 @@ pub(crate) fn projected_compounded_float_leg_schedule(
             )?
         } else {
             let cutoff = if let Some(days) = cutoff_days {
-                let lockout_start = accrual_end - Duration::days(i64::from(days));
-                let lockout_ref_start = lockout_start - Duration::days(1);
+                let lockout_start = shift_business_or_weekdays(accrual_end, -days, cal)?;
+                let lockout_ref_start = shift_business_or_weekdays(lockout_start, -1, cal)?;
                 Some((lockout_start, lockout_ref_start, lockout_start))
             } else {
                 None
@@ -467,6 +514,7 @@ pub(crate) fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSched
         .calendar_id
         .as_deref()
         .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID);
+    let adjust_accrual_dates = adjust_accrual_dates(irs);
     let periods = build_periods(BuildPeriodsParams {
         start: fixed.start,
         end: fixed.end,
@@ -478,20 +526,19 @@ pub(crate) fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSched
         day_count: fixed.day_count,
         payment_lag_days: fixed.payment_lag_days,
         reset_lag_days: None,
-        adjust_accrual_dates: adjust_accrual_dates(irs),
+        adjust_accrual_dates,
     })?;
-    let first = periods.first().map(|period| period.payment_date);
-    let last = periods.last().map(|period| period.payment_date);
+    let cal = crate::cashflow::builder::calendar::resolve_calendar_strict(calendar_id)?;
     let rate = decimal_to_f64(fixed.rate, "fixed leg rate")?;
     let flows = periods
         .into_iter()
-        .map(|period| {
-            let kind = if Some(period.payment_date) == first || Some(period.payment_date) == last {
+        .map(|period| -> Result<CashFlow> {
+            let kind = if is_irregular_fixed_period(&period, &fixed, cal, adjust_accrual_dates)? {
                 CFKind::Stub
             } else {
                 CFKind::Fixed
             };
-            CashFlow {
+            Ok(CashFlow {
                 date: period.payment_date,
                 reset_date: None,
                 amount: Money::new(
@@ -501,9 +548,9 @@ pub(crate) fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSched
                 kind,
                 accrual_factor: period.accrual_year_fraction,
                 rate: Some(rate),
-            }
+            })
         })
-        .collect();
+        .collect::<Result<Vec<_>>>()?;
     Ok(crate::cashflow::traits::schedule_from_classified_flows(
         flows,
         fixed.day_count,

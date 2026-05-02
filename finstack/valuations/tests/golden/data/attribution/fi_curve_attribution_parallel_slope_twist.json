@@ -16,8 +16,43 @@
     "screenshots": []
   },
   "inputs": {
-    "components": {"parallel_shift": -0.0075, "slope": 0.002, "twist": 0.001, "butterfly": -0.0004, "residual": 0.0001},
-    "sums": {"curve_contribution": ["parallel_shift", "slope", "twist", "butterfly"], "components_sum": ["curve_contribution", "residual"], "total_curve_effect": ["components_sum"]}
+    "components": {
+      "parallel_shift": -0.0075,
+      "slope": 0.002,
+      "twist": 0.001,
+      "butterfly": -0.0004,
+      "residual": 0.0001
+    },
+    "sums": {
+      "curve_contribution": [
+        "parallel_shift",
+        "slope",
+        "twist",
+        "butterfly"
+      ],
+      "components_sum": [
+        "curve_contribution",
+        "residual"
+      ],
+      "total_curve_effect": [
+        "components_sum"
+      ]
+    },
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Fixture contains committed attribution components and component-sum formulas but lacks holdings, portfolio returns, benchmark returns, or factor/source data required for product attribution execution.",
+      "required_for_execution": "Add portfolio holdings/returns, benchmark or factor inputs, and route through the attribution engine; keep component sums as auxiliary validation only.",
+      "reference_outputs": {
+        "parallel_shift": -0.0075,
+        "slope": 0.002,
+        "twist": 0.001,
+        "butterfly": -0.0004,
+        "curve_contribution": -0.0049,
+        "residual": 0.0001,
+        "total_curve_effect": -0.0048,
+        "components_sum": -0.0048
+      }
+    }
   },
   "expected_outputs": {
     "parallel_shift": -0.0075,

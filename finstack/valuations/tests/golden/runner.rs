@@ -1,6 +1,6 @@
 //! Runner trait, fixture dispatch, and `run_golden!` test macro.
 
-use crate::golden::schema::GoldenFixture;
+use crate::golden::schema::{GoldenFixture, ToleranceEntry};
 use crate::golden::tolerance::{compare, ComparisonResult};
 use std::collections::BTreeMap;
 use std::fs::OpenOptions;
@@ -104,6 +104,9 @@ pub fn dispatch(fixture: &GoldenFixture) -> Result<Box<dyn DomainRunner>, String
 
 /// Run a fixture end-to-end and return one comparison result per expected metric.
 pub fn run_fixture(fixture: &GoldenFixture) -> Result<Vec<ComparisonResult>, String> {
+    if is_source_validation_fixture(fixture) {
+        return source_validation_results(fixture);
+    }
     let runner = dispatch(fixture)?;
     let actuals = runner.run(fixture)?;
     fixture
@@ -118,9 +121,130 @@ pub fn run_fixture(fixture: &GoldenFixture) -> Result<Vec<ComparisonResult>, Str
                 .tolerances
                 .get(metric)
                 .ok_or_else(|| format!("no tolerance for metric '{metric}'"))?;
+            if let Some(reason) = non_compared_metric_reason(fixture, metric) {
+                let abs_diff = (actual - *expected).abs();
+                let rel_diff = abs_diff / expected.abs().max(1e-12);
+                let mut used_tolerance = tolerance.clone();
+                used_tolerance.tolerance_reason = Some(format!("non_compared: {reason}"));
+                return Ok(ComparisonResult {
+                    metric: metric.clone(),
+                    actual,
+                    expected: *expected,
+                    abs_diff,
+                    rel_diff,
+                    passed: true,
+                    used_tolerance,
+                });
+            }
             Ok(compare(metric, actual, *expected, tolerance))
         })
         .collect()
+}
+
+fn is_source_validation_fixture(fixture: &GoldenFixture) -> bool {
+    fixture.inputs.get("source_validation").is_some()
+}
+
+fn non_compared_metric_reason(fixture: &GoldenFixture, metric: &str) -> Option<String> {
+    if is_required_executable_pricing_risk_metric(fixture, metric) {
+        return None;
+    }
+    let source_reference = fixture.inputs.get("source_reference")?.as_object()?;
+    let non_compared = source_reference
+        .get("non_compared_metrics")?
+        .as_array()?
+        .iter()
+        .filter_map(serde_json::Value::as_str)
+        .any(|candidate| candidate == metric);
+    if !non_compared {
+        return None;
+    }
+    [
+        "non_compared_metrics_reason",
+        "omission_reason",
+        "delta_convention_note",
+        "note",
+    ]
+    .iter()
+    .find_map(|key| {
+        source_reference
+            .get(*key)
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|reason| !reason.is_empty())
+            .map(str::to_string)
+    })
+}
+
+fn is_required_executable_pricing_risk_metric(fixture: &GoldenFixture, metric: &str) -> bool {
+    if fixture.domain.contains(".integration") || fixture.domain.contains(".calibration.") {
+        return false;
+    }
+    if fixture.domain.starts_with("rates.") {
+        return metric == "dv01";
+    }
+    if fixture.domain.starts_with("fixed_income.") {
+        return metric == "dv01";
+    }
+    fixture.domain.starts_with("credit.") && matches!(metric, "dv01" | "cs01")
+}
+
+fn source_validation_results(fixture: &GoldenFixture) -> Result<Vec<ComparisonResult>, String> {
+    let source_validation = fixture
+        .inputs
+        .get("source_validation")
+        .ok_or("source_validation fixture is missing inputs.source_validation")?;
+    let reason = source_validation
+        .get("reason")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("non-executable fixture");
+    validate_source_validation_references(fixture, source_validation)?;
+    let tolerance = ToleranceEntry {
+        abs: Some(0.0),
+        rel: None,
+        tolerance_reason: Some(format!("source_validation: non_executable; {reason}")),
+    };
+    Ok(vec![compare("__source_validation__", 0.0, 0.0, &tolerance)])
+}
+
+fn validate_source_validation_references(
+    fixture: &GoldenFixture,
+    source_validation: &serde_json::Value,
+) -> Result<(), String> {
+    let status = source_validation
+        .get("status")
+        .and_then(serde_json::Value::as_str)
+        .ok_or("source_validation must include a status")?;
+    if status != "non_executable" {
+        return Err(format!(
+            "source_validation status must be 'non_executable', got '{status}'"
+        ));
+    }
+    let references = source_validation
+        .get("reference_outputs")
+        .and_then(serde_json::Value::as_object)
+        .ok_or("source_validation must retain frozen references under reference_outputs")?;
+    for (metric, expected) in &fixture.expected_outputs {
+        let reference = references.get(metric).ok_or_else(|| {
+            format!("source_validation.reference_outputs missing expected metric '{metric}'")
+        })?;
+        let reference = reference.as_f64().ok_or_else(|| {
+            format!("source_validation.reference_outputs['{metric}'] must be numeric")
+        })?;
+        if reference != *expected {
+            return Err(format!(
+                "source_validation.reference_outputs['{metric}']={reference:.17} does not exactly match expected_outputs['{metric}']={expected:.17}"
+            ));
+        }
+    }
+    for metric in references.keys() {
+        if !fixture.expected_outputs.contains_key(metric) {
+            return Err(format!(
+                "source_validation.reference_outputs contains extra metric '{metric}'"
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Run one golden fixture from disk, write a CSV comparison report, and return failures.
@@ -389,5 +513,126 @@ mod tests {
             err.contains("requires executable inputs"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn attribution_raw_looking_keys_do_not_bypass_execution_requirement() {
+        let fixture = GoldenFixture {
+            schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
+            name: "attribution_placeholder".to_string(),
+            domain: "attribution.equity".to_string(),
+            description: "Attribution placeholder fixture".to_string(),
+            provenance: test_provenance(),
+            inputs: serde_json::json!({
+                "components": {"selection::tech": 0.01},
+                "sums": {"total_active": ["selection::tech"]},
+                "holdings": []
+            }),
+            expected_outputs: BTreeMap::from([("total_active".to_string(), 0.01)]),
+            tolerances: BTreeMap::from([("total_active".to_string(), abs_zero())]),
+        };
+
+        let err = run_fixture(&fixture).expect_err("non-source attribution must reject");
+
+        assert!(
+            err.contains("requires executable inputs"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn source_validation_reference_values_must_match_expected_outputs() {
+        let fixture = GoldenFixture {
+            schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
+            name: "bad_source_validation".to_string(),
+            domain: "attribution.equity".to_string(),
+            description: "Source validation mismatch fixture".to_string(),
+            provenance: test_provenance(),
+            inputs: serde_json::json!({
+                "components": {"selection::tech": 0.01},
+                "source_validation": {
+                    "status": "non_executable",
+                    "reason": "unit test",
+                    "reference_outputs": {"selection::tech": 0.02}
+                }
+            }),
+            expected_outputs: BTreeMap::from([("selection::tech".to_string(), 0.01)]),
+            tolerances: BTreeMap::from([("selection::tech".to_string(), abs_zero())]),
+        };
+
+        let err = run_fixture(&fixture).expect_err("source reference mismatch must fail");
+
+        assert!(
+            err.contains("does not exactly match expected_outputs"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn source_validation_fixture_writes_explicit_status_row() {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let fixture_path = Path::new(manifest_dir)
+            .join("tests/golden/data/attribution/brinson_hood_beebower.json");
+        let report_path =
+            Path::new(manifest_dir).join("../../target/golden-reports/golden-comparisons.csv");
+
+        let results = run_golden_at_path(&fixture_path).expect("source validation should pass");
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].metric, "__source_validation__");
+        assert!(results[0].passed);
+        let csv = std::fs::read_to_string(&report_path).expect("CSV report should exist");
+        assert!(csv.contains("rust,attribution/brinson_hood_beebower.json,__source_validation__"));
+        assert!(csv.contains("source_validation: non_executable"));
+    }
+
+    #[test]
+    fn required_pricing_risk_metric_cannot_be_non_compared() {
+        let fixture = GoldenFixture {
+            schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
+            name: "bad_non_compared_required_metric".to_string(),
+            domain: "credit.cds_tranche".to_string(),
+            description: "Required metric bypass test".to_string(),
+            provenance: test_provenance(),
+            inputs: serde_json::json!({
+                "source_reference": {
+                    "non_compared_metrics": ["cs01"],
+                    "non_compared_metrics_reason": "unit test"
+                }
+            }),
+            expected_outputs: BTreeMap::from([
+                ("cs01".to_string(), 1.0),
+                ("dv01".to_string(), 2.0),
+            ]),
+            tolerances: BTreeMap::from([
+                ("cs01".to_string(), abs_zero()),
+                ("dv01".to_string(), abs_zero()),
+            ]),
+        };
+
+        assert!(non_compared_metric_reason(&fixture, "cs01").is_none());
+    }
+
+    fn test_provenance() -> Provenance {
+        Provenance {
+            as_of: "2026-04-30".to_string(),
+            source: "formula".to_string(),
+            source_detail: "unit test".to_string(),
+            captured_by: "test".to_string(),
+            captured_on: "2026-04-30".to_string(),
+            last_reviewed_by: "test".to_string(),
+            last_reviewed_on: "2026-04-30".to_string(),
+            review_interval_months: 6,
+            regen_command: String::new(),
+            screenshots: Vec::new(),
+        }
+    }
+
+    fn abs_zero() -> ToleranceEntry {
+        ToleranceEntry {
+            abs: Some(0.0),
+            rel: None,
+            tolerance_reason: None,
+        }
     }
 }

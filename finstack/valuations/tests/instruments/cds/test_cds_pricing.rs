@@ -9,6 +9,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
+use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use rust_decimal::Decimal;
@@ -470,6 +471,56 @@ fn test_schedule_generation_isda() {
             day
         );
     }
+}
+
+#[test]
+fn test_cdsw_final_coupon_cashflow_accrual_matches_pricer_premium_pv() {
+    let as_of = date!(2025 - 03 - 20);
+    let maturity = date!(2025 - 06 - 20);
+    let notional = Money::new(10_000_000.0, Currency::USD);
+    let spread_bp = 100.0;
+
+    let disc = build_discount_curve(0.0, as_of, "USD_OIS");
+    let hazard = build_hazard_curve(0.0, 0.40, as_of, "CORP");
+    let market = MarketContext::new().insert(disc).insert(hazard);
+
+    let cds = test_utils::cds_buy_protection(
+        "CDSW_FINAL_COUPON_CASHFLOW",
+        notional,
+        spread_bp,
+        as_of,
+        maturity,
+        "USD_OIS",
+        "CORP",
+    )
+    .expect("CDS construction should succeed");
+
+    let schedule = cds
+        .cashflow_schedule(&market, as_of)
+        .expect("cashflow schedule should build");
+    let final_coupon = schedule
+        .flows
+        .iter()
+        .find(|flow| flow.date == maturity)
+        .expect("final coupon should be exported");
+
+    let expected_accrual = 93.0 / 360.0;
+    assert!(
+        (final_coupon.accrual_factor - expected_accrual).abs() < 1e-12,
+        "exported final coupon accrual should use CDSW inclusive Act/360"
+    );
+
+    let expected_coupon = notional.amount() * (spread_bp / 10_000.0) * expected_accrual;
+    assert!(
+        (final_coupon.amount.amount() + expected_coupon).abs() < 1e-8,
+        "protection-buyer exported premium cashflow should match signed CDSW coupon"
+    );
+
+    let premium_pv = metric_value(&cds, &market, as_of, MetricId::PremiumLegPv);
+    assert!(
+        (premium_pv - expected_coupon).abs() < 1e-8,
+        "premium PV explain should use the same final coupon accrual"
+    );
 }
 
 #[test]

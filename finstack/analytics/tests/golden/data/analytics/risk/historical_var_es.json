@@ -15,11 +15,16 @@
     "regen_command": "manual formula fixture; flattened outputs committed in fixture"
   },
   "inputs": {
-    "actual_outputs": {
-      "historical_var_95": -0.026999999999999996,
-      "historical_es_95": -0.03,
-      "historical_var_99": -0.0294,
-      "historical_es_99": -0.03
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Fixture contains flattened analytics reference outputs but lacks raw return/price series and parameter inputs required for canonical analytics API execution.",
+      "required_for_execution": "Add raw return/price inputs plus an executable analytics computation map.",
+      "reference_outputs": {
+        "historical_var_95": -0.026999999999999996,
+        "historical_es_95": -0.03,
+        "historical_var_99": -0.0294,
+        "historical_es_99": -0.03
+      }
     }
   },
   "expected_outputs": {

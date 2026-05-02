@@ -18,43 +18,58 @@ struct AttributionInputs {
 
 impl DomainRunner for AttributionRunner {
     fn run(&self, fixture: &GoldenFixture) -> Result<BTreeMap<String, f64>, String> {
+        let source_validation = crate::golden::runners::validate_source_validation_fixture(
+            "attribution runner",
+            fixture,
+        )?;
+        if source_validation.is_none() {
+            return crate::golden::runners::reject_flattened_outputs("attribution runner", fixture);
+        }
+
         let inputs: AttributionInputs = serde_json::from_value(fixture.inputs.clone())
             .map_err(|err| format!("parse attribution inputs: {err}"))?;
-        let mut actuals = inputs.components;
-        let mut pending = inputs.sums;
-        while !pending.is_empty() {
-            let ready = pending
+        resolve_component_sums(inputs.components, inputs.sums)?;
+        Ok(BTreeMap::new())
+    }
+}
+
+fn resolve_component_sums(
+    mut actuals: BTreeMap<String, f64>,
+    sums: BTreeMap<String, Vec<String>>,
+) -> Result<BTreeMap<String, f64>, String> {
+    let mut pending = sums;
+    while !pending.is_empty() {
+        let ready = pending
+            .iter()
+            .filter_map(|(output, terms)| {
+                terms
+                    .iter()
+                    .map(|term| actuals.get(term).copied())
+                    .sum::<Option<f64>>()
+                    .map(|total| (output.clone(), total))
+            })
+            .collect::<Vec<_>>();
+        if ready.is_empty() {
+            let missing = pending
                 .iter()
-                .filter_map(|(output, terms)| {
-                    terms
+                .map(|(output, terms)| {
+                    let unresolved = terms
                         .iter()
-                        .map(|term| actuals.get(term).copied())
-                        .sum::<Option<f64>>()
-                        .map(|total| (output.clone(), total))
+                        .filter(|term| !actuals.contains_key(*term))
+                        .cloned()
+                        .collect::<Vec<_>>();
+                    format!("{output}: {}", unresolved.join(", "))
                 })
                 .collect::<Vec<_>>();
-            if ready.is_empty() {
-                let missing = pending
-                    .iter()
-                    .map(|(output, terms)| {
-                        let unresolved = terms
-                            .iter()
-                            .filter(|term| !actuals.contains_key(*term))
-                            .cloned()
-                            .collect::<Vec<_>>();
-                        format!("{output}: {}", unresolved.join(", "))
-                    })
-                    .collect::<Vec<_>>();
-                return Err(format!(
-                    "attribution sums contain unresolved references: {}",
-                    missing.join("; ")
-                ));
-            }
-            for (output, total) in ready {
-                pending.remove(&output);
-                actuals.insert(output, total);
-            }
+            return Err(format!(
+                "attribution sums contain unresolved references: {}",
+                missing.join("; ")
+            ));
         }
-        Ok(actuals)
+        for (output, total) in ready {
+            pending.remove(&output);
+            actuals.insert(output, total);
+        }
     }
+    Ok(actuals)
 }

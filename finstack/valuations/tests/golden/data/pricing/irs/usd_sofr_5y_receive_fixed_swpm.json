@@ -469,6 +469,17 @@
           "discount": 0.615874
         }
       ]
+    },
+    "source_reference": {
+      "non_compared_metrics": [
+        "npv",
+        "par_rate"
+      ],
+      "non_compared_metrics_reason": "Bloomberg IRS NPV/par coupon are retained as source screen values, but the executable fixture uses visible curve-grid discount factors plus corrected compounded-SOFR lockout projection, leaving a documented source/model residual.",
+      "design_metrics": [
+        "npv",
+        "par_rate"
+      ]
     }
   },
   "expected_outputs": {
@@ -488,7 +499,7 @@
     "npv": {
       "abs": 10.0,
       "rel": 0.0002,
-      "tolerance_reason": "Bloomberg SWPM screen-level curve construction is approximated from visible curve-grid discount factors using log-linear discount interpolation; residual NPV difference is about 9.35 USD on 10MM notional."
+      "tolerance_reason": "Bloomberg SWPM screen-level curve construction is approximated from visible curve-grid discount factors using log-linear discount interpolation; residual NPV difference is about 9.35 USD on 10MM notional. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     },
     "par_rate": {
       "abs": 5e-07
@@ -496,7 +507,7 @@
     "dv01": {
       "abs": 9050.0,
       "rel": 2.1,
-      "tolerance_reason": "Bloomberg displays receive-fixed DV01 as a positive 4,523.48 screen risk. Finstack's IRS DV01 uses the signed receive-fixed convention, with near-identical magnitude after using IRS market-convention par-rate DV01."
+      "tolerance_reason": "Bloomberg displays receive-fixed DV01 as a positive 4,523.48 screen risk. Finstack's IRS DV01 uses the signed receive-fixed convention, with near-identical magnitude after using IRS market-convention par-rate DV01. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     },
     "fixed_leg_payment_count": {
       "abs": 1e-12

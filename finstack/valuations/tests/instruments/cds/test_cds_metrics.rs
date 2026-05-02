@@ -7,14 +7,37 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+use finstack_core::market_data::scalars::ScalarTimeSeries;
+use finstack_core::market_data::term_structures::{
+    DiscountCurve, DiscountCurveRateCalibration, DiscountCurveRateQuote,
+    DiscountCurveRateQuoteType, HazardCurve,
+};
 use finstack_core::money::Money;
-use finstack_core::types::CurveId;
-use finstack_valuations::calibration::bumps::{bump_hazard_spreads, BumpRequest};
-use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
+use finstack_core::types::{CurveId, IndexId};
+use finstack_valuations::calibration::api::schema::DiscountCurveParams;
+use finstack_valuations::calibration::bumps::{
+    bump_discount_curve, bump_hazard_spreads, BumpRequest,
+};
+use finstack_valuations::calibration::{CalibrationMethod, RatesStepConventions};
+use finstack_valuations::instruments::credit_derivatives::cds::{
+    CdsValuationConvention, CreditDefaultSwap,
+};
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::market::conventions::ids::CdsDocClause;
+use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+use finstack_valuations::market::quotes::rates::RateQuote;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
+use time::Duration;
+
+fn sum_bucketed_cs01(result: &finstack_valuations::results::ValuationResult) -> f64 {
+    result
+        .measures
+        .iter()
+        .filter(|(id, _)| id.as_str().starts_with("bucketed_cs01::"))
+        .map(|(_, v)| *v)
+        .sum()
+}
 
 fn sum_bucketed_dv01(result: &finstack_valuations::results::ValuationResult) -> f64 {
     result
@@ -37,6 +60,89 @@ fn build_test_discount(rate: f64, base: Date, id: &str) -> DiscountCurve {
         ])
         .build()
         .unwrap()
+}
+
+fn build_quote_calibrated_discount(rate: f64, base: Date, id: &str) -> DiscountCurve {
+    build_test_discount(rate, base, id)
+        .to_builder_with_id(id)
+        .rate_calibration(DiscountCurveRateCalibration {
+            index_id: "USD-SOFR-1M".to_string(),
+            currency: Currency::USD,
+            quotes: vec![
+                DiscountCurveRateQuote {
+                    quote_type: DiscountCurveRateQuoteType::Deposit,
+                    tenor: "1Y".to_string(),
+                    rate,
+                },
+                DiscountCurveRateQuote {
+                    quote_type: DiscountCurveRateQuoteType::Deposit,
+                    tenor: "5Y".to_string(),
+                    rate,
+                },
+                DiscountCurveRateQuote {
+                    quote_type: DiscountCurveRateQuoteType::Deposit,
+                    tenor: "10Y".to_string(),
+                    rate,
+                },
+            ],
+        })
+        .build()
+        .unwrap()
+}
+
+fn bump_quote_calibrated_discount(
+    curve: &DiscountCurve,
+    calibration: &DiscountCurveRateCalibration,
+    market: &MarketContext,
+    bump_bp: f64,
+) -> DiscountCurve {
+    let index = IndexId::new(calibration.index_id.as_str());
+    let quotes: Vec<RateQuote> = calibration
+        .quotes
+        .iter()
+        .map(|quote| RateQuote::Deposit {
+            id: QuoteId::new(format!("{}-{}", curve.id(), quote.tenor)),
+            index: index.clone(),
+            pillar: Pillar::Tenor(quote.tenor.parse().unwrap()),
+            rate: quote.rate,
+        })
+        .collect();
+    let first_rate = calibration
+        .quotes
+        .first()
+        .map(|quote| quote.rate)
+        .unwrap_or(0.0);
+    let fixings = ScalarTimeSeries::new(
+        format!("FIXING:{}", curve.id()),
+        vec![
+            (curve.base_date() - Duration::days(3), first_rate),
+            (curve.base_date() - Duration::days(2), first_rate),
+            (curve.base_date() - Duration::days(1), first_rate),
+            (curve.base_date(), first_rate),
+        ],
+        None,
+    )
+    .unwrap();
+    let params = DiscountCurveParams {
+        curve_id: curve.id().clone(),
+        currency: calibration.currency,
+        base_date: curve.base_date(),
+        method: CalibrationMethod::Bootstrap,
+        interpolation: curve.interp_style(),
+        extrapolation: curve.extrapolation(),
+        pricing_discount_id: None,
+        pricing_forward_id: None,
+        conventions: RatesStepConventions {
+            curve_day_count: Some(curve.day_count()),
+        },
+    };
+    bump_discount_curve(
+        &quotes,
+        &params,
+        &market.clone().insert_series(fixings),
+        &BumpRequest::Parallel(bump_bp),
+    )
+    .unwrap()
 }
 
 fn build_test_hazard(hz: f64, rec: f64, base: Date, id: &str) -> HazardCurve {
@@ -162,6 +268,60 @@ fn test_cs01_hazard_vs_risky_pv01_consistency() {
         expected_cs01,
         (cs01 - expected_cs01).abs(),
         tol
+    );
+}
+
+#[test]
+fn test_bucketed_cs01_reconciles_with_parallel_under_cds_convention() {
+    let as_of = date!(2026 - 03 - 20);
+    let maturity = date!(2031 - 06 - 20);
+    let discount_id = CurveId::new("USD_OIS");
+    let hazard_id = CurveId::new("CORP");
+
+    let mut cds = create_test_cds(as_of, maturity);
+    cds.valuation_convention = CdsValuationConvention::IsdaDirty;
+    cds.doc_clause = Some(CdsDocClause::IsdaNa);
+
+    let discount = build_test_discount(0.035, as_of, discount_id.as_str());
+    let hazard = HazardCurve::builder(hazard_id.clone())
+        .base_date(as_of)
+        .day_count(DayCount::Act365F)
+        .recovery_rate(0.4)
+        .knots([
+            (0.0, 0.0060),
+            (1.0, 0.0080),
+            (3.0, 0.0120),
+            (5.0, 0.0180),
+            (7.0, 0.0200),
+        ])
+        .par_spreads([(1.0, 50.0), (3.0, 80.0), (5.0, 120.0), (7.0, 150.0)])
+        .build()
+        .unwrap();
+    let market = MarketContext::new().insert(discount).insert(hazard);
+
+    let result = cds
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Cs01, MetricId::BucketedCs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
+    let parallel = *result.measures.get("cs01").unwrap();
+    let bucket_total = *result.measures.get("bucketed_cs01").unwrap();
+    let bucket_sum = sum_bucketed_cs01(&result);
+
+    let total_tol = 1e-6_f64.max(1e-10 * bucket_total.abs());
+    assert!(
+        (bucket_sum - bucket_total).abs() <= total_tol,
+        "Bucketed CS01 stored total should equal bucket sum: total={bucket_total}, sum={bucket_sum}"
+    );
+
+    let parallel_tol = 1e-4_f64.max(2e-2 * parallel.abs());
+    assert!(
+        (bucket_total - parallel).abs() <= parallel_tol,
+        "CDS bucketed CS01 should use the same doc clause and valuation convention as parallel CS01: bucketed={bucket_total}, parallel={parallel}, diff={}, tol={parallel_tol}",
+        (bucket_total - parallel).abs()
     );
 }
 
@@ -657,6 +817,46 @@ fn test_cds_dv01_recalibrates_par_spread_hazard_curve() {
     assert!(
         (dv01 - expected).abs() <= tol,
         "CDS DV01 should rebootstrap par-spread hazard curves under rate bumps: metric={dv01}, expected={expected}, diff={}, tol={tol}",
+        (dv01 - expected).abs()
+    );
+}
+
+#[test]
+fn test_cds_dv01_uses_discount_quote_bump_when_calibration_exists() {
+    let as_of = date!(2024 - 03 - 20);
+    let maturity = date!(2029 - 03 - 20);
+    let discount_id = CurveId::new("USD_OIS");
+    let hazard_id = CurveId::new("CORP");
+
+    let cds = create_test_cds(as_of, maturity);
+    let discount = build_quote_calibrated_discount(0.04, as_of, discount_id.as_str());
+    let hazard = build_test_hazard(0.015, 0.4, as_of, hazard_id.as_str());
+    let market = MarketContext::new().insert(discount).insert(hazard);
+
+    let result = cds
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
+    let dv01 = *result.measures.get("dv01").unwrap();
+
+    let bumped_pv = |bump_bp: f64| {
+        let base_discount = market.get_discount(discount_id.as_str()).unwrap();
+        let calibration = base_discount.rate_calibration().unwrap();
+        let bumped_discount =
+            bump_quote_calibrated_discount(base_discount.as_ref(), calibration, &market, bump_bp);
+        cds.value_raw(&market.clone().insert(bumped_discount), as_of)
+            .unwrap()
+    };
+    let expected = (bumped_pv(1.0) - bumped_pv(-1.0)) / 2.0;
+
+    let tol = 1e-6_f64.max(1e-8 * expected.abs());
+    assert!(
+        (dv01 - expected).abs() <= tol,
+        "CDS DV01 should bump stored discount calibration quotes before repricing: metric={dv01}, expected={expected}, diff={}, tol={tol}",
         (dv01 - expected).abs()
     );
 }

@@ -15,11 +15,16 @@
     "regen_command": "manual formula fixture; flattened outputs committed in fixture"
   },
   "inputs": {
-    "actual_outputs": {
-      "nan_count": 2.0,
-      "finite_count": 3.0,
-      "partial_period_return": 0.015,
-      "post_nan_is_nan": 1.0
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Fixture contains flattened analytics reference outputs but lacks raw return/price series and parameter inputs required for canonical analytics API execution.",
+      "required_for_execution": "Add raw return/price inputs plus an executable analytics computation map.",
+      "reference_outputs": {
+        "nan_count": 2.0,
+        "finite_count": 3.0,
+        "partial_period_return": 0.015,
+        "post_nan_is_nan": 1.0
+      }
     }
   },
   "expected_outputs": {

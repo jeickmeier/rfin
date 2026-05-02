@@ -455,6 +455,235 @@ fn test_irs_full_schedule_with_cfkind() {
 }
 
 #[test]
+fn test_regular_short_front_schedule_does_not_tag_first_coupon_as_stub() {
+    let swap = InterestRateSwap::builder()
+        .id("IRS-REGULAR-SHORT-FRONT-NO-STUB-KIND".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .side(PayReceive::ReceiveFixed)
+        .fixed(finstack_valuations::instruments::FixedLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
+            frequency: Tenor::semi_annual(),
+            day_count: DayCount::Thirty360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::ShortFront,
+            start: date!(2024 - 01 - 01),
+            end: date!(2026 - 01 - 01),
+            par_method: None,
+            compounding_simple: true,
+            payment_lag_days: 0,
+            end_of_month: false,
+        })
+        .float(finstack_valuations::instruments::FloatLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            forward_curve_id: "USD_LIBOR_3M".into(),
+            spread_bp: rust_decimal::Decimal::ZERO,
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            fixing_calendar_id: None,
+            stub: StubKind::ShortFront,
+            reset_lag_days: 0,
+            compounding: Default::default(),
+            payment_lag_days: 0,
+            end_of_month: false,
+            start: date!(2024 - 01 - 01),
+            end: date!(2026 - 01 - 01),
+        })
+        .build()
+        .unwrap();
+
+    let market = build_test_curves();
+    let schedule = swap
+        .cashflow_schedule(&market, date!(2024 - 01 - 01))
+        .expect("full schedule");
+
+    let fixed_stub_count = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == finstack_valuations::cashflow::primitives::CFKind::Stub)
+        .count();
+
+    assert_eq!(
+        fixed_stub_count, 0,
+        "regular fixed coupons should not be classified as stub cashflows"
+    );
+}
+
+#[test]
+fn test_genuine_front_stub_fixed_coupon_is_tagged_as_stub() {
+    let swap = InterestRateSwap::builder()
+        .id("IRS-GENUINE-FRONT-STUB-KIND".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .side(PayReceive::ReceiveFixed)
+        .fixed(finstack_valuations::instruments::FixedLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
+            frequency: Tenor::semi_annual(),
+            day_count: DayCount::Thirty360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::ShortFront,
+            start: date!(2024 - 01 - 15),
+            end: date!(2026 - 01 - 01),
+            par_method: None,
+            compounding_simple: true,
+            payment_lag_days: 0,
+            end_of_month: false,
+        })
+        .float(finstack_valuations::instruments::FloatLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            forward_curve_id: "USD_LIBOR_3M".into(),
+            spread_bp: rust_decimal::Decimal::ZERO,
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            fixing_calendar_id: None,
+            stub: StubKind::ShortFront,
+            reset_lag_days: 0,
+            compounding: Default::default(),
+            payment_lag_days: 0,
+            end_of_month: false,
+            start: date!(2024 - 01 - 15),
+            end: date!(2026 - 01 - 01),
+        })
+        .build()
+        .unwrap();
+
+    let market = build_test_curves();
+    let schedule = swap
+        .cashflow_schedule(&market, date!(2024 - 01 - 01))
+        .expect("full schedule");
+
+    let fixed_stub_count = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == finstack_valuations::cashflow::primitives::CFKind::Stub)
+        .count();
+
+    assert_eq!(fixed_stub_count, 1);
+}
+
+#[test]
+fn test_regular_holiday_end_coupon_under_stub_rule_is_not_tagged_stub() {
+    let swap = InterestRateSwap::builder()
+        .id("IRS-HOLIDAY-END-NO-STUB-KIND".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .side(PayReceive::ReceiveFixed)
+        .fixed(finstack_valuations::instruments::FixedLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
+            frequency: Tenor::semi_annual(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("nyse".to_string()),
+            stub: StubKind::ShortBack,
+            start: date!(2024 - 01 - 04),
+            end: date!(2025 - 01 - 04),
+            par_method: None,
+            compounding_simple: true,
+            payment_lag_days: 0,
+            end_of_month: false,
+        })
+        .float(finstack_valuations::instruments::FloatLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            forward_curve_id: "USD_LIBOR_3M".into(),
+            spread_bp: rust_decimal::Decimal::ZERO,
+            frequency: Tenor::semi_annual(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("nyse".to_string()),
+            fixing_calendar_id: Some("nyse".to_string()),
+            stub: StubKind::ShortBack,
+            reset_lag_days: 0,
+            compounding: Default::default(),
+            payment_lag_days: 0,
+            end_of_month: false,
+            start: date!(2024 - 01 - 04),
+            end: date!(2025 - 01 - 04),
+        })
+        .build()
+        .unwrap();
+
+    let market = build_test_curves();
+    let schedule = swap
+        .cashflow_schedule(&market, date!(2024 - 01 - 01))
+        .expect("full schedule");
+
+    let fixed_stub_count = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == finstack_valuations::cashflow::primitives::CFKind::Stub)
+        .count();
+
+    assert_eq!(
+        fixed_stub_count, 0,
+        "regular fixed coupons ending on a weekend should not be classified as stubs"
+    );
+}
+
+#[test]
+fn test_regular_eom_schedule_under_stub_rule_is_not_tagged_stub() {
+    let swap = InterestRateSwap::builder()
+        .id("IRS-EOM-NO-STUB-KIND".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .side(PayReceive::ReceiveFixed)
+        .fixed(finstack_valuations::instruments::FixedLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
+            frequency: Tenor::monthly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::ShortFront,
+            start: date!(2024 - 01 - 31),
+            end: date!(2024 - 04 - 30),
+            par_method: None,
+            compounding_simple: true,
+            payment_lag_days: 0,
+            end_of_month: true,
+        })
+        .float(finstack_valuations::instruments::FloatLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            forward_curve_id: "USD_LIBOR_3M".into(),
+            spread_bp: rust_decimal::Decimal::ZERO,
+            frequency: Tenor::monthly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            fixing_calendar_id: None,
+            stub: StubKind::ShortFront,
+            reset_lag_days: 0,
+            compounding: Default::default(),
+            payment_lag_days: 0,
+            end_of_month: true,
+            start: date!(2024 - 01 - 31),
+            end: date!(2024 - 04 - 30),
+        })
+        .build()
+        .unwrap();
+
+    let market = build_test_curves();
+    let schedule = swap
+        .cashflow_schedule(&market, date!(2024 - 01 - 01))
+        .expect("full schedule");
+
+    let fixed_stub_count = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == finstack_valuations::cashflow::primitives::CFKind::Stub)
+        .count();
+
+    assert_eq!(
+        fixed_stub_count, 0,
+        "regular EOM fixed coupons should not be classified as stub cashflows"
+    );
+}
+
+#[test]
 fn test_irs_different_frequencies() {
     // Fixed semiannual, float quarterly
     let swap = InterestRateSwap::builder()

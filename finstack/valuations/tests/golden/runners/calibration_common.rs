@@ -107,6 +107,10 @@ struct VolSmileSpec {
 }
 
 pub(crate) fn run_curve_fixture(fixture: &GoldenFixture) -> Result<BTreeMap<String, f64>, String> {
+    let source_validation = crate::golden::runners::validate_source_validation_fixture(
+        "curve calibration runner",
+        fixture,
+    )?;
     let inputs: CurveCalibrationInputs = serde_json::from_value(fixture.inputs.clone())
         .map_err(|err| format!("parse curve calibration inputs: {err}"))?;
     let mut discount_curves = BTreeMap::new();
@@ -156,13 +160,17 @@ pub(crate) fn run_curve_fixture(fixture: &GoldenFixture) -> Result<BTreeMap<Stri
         };
         actuals.insert(probe.output.clone(), value);
     }
-    if let Some(rmse) = inputs.calibration_rmse {
-        actuals.insert("calibration_rmse".to_string(), rmse);
+    if let Some(references) = source_validation {
+        return Ok(references);
     }
-    Ok(actuals)
+    reject_non_executable_calibration("curve calibration runner", fixture)
 }
 
 pub(crate) fn run_hazard_fixture(fixture: &GoldenFixture) -> Result<BTreeMap<String, f64>, String> {
+    let source_validation = crate::golden::runners::validate_source_validation_fixture(
+        "hazard calibration runner",
+        fixture,
+    )?;
     let inputs: HazardCalibrationInputs = serde_json::from_value(fixture.inputs.clone())
         .map_err(|err| format!("parse hazard calibration inputs: {err}"))?;
     let mut hazard_curves = BTreeMap::new();
@@ -182,15 +190,19 @@ pub(crate) fn run_hazard_fixture(fixture: &GoldenFixture) -> Result<BTreeMap<Str
         };
         actuals.insert(probe.output.clone(), value);
     }
-    if let Some(rmse) = inputs.calibration_rmse {
-        actuals.insert("calibration_rmse".to_string(), rmse);
+    if let Some(references) = source_validation {
+        return Ok(references);
     }
-    Ok(actuals)
+    reject_non_executable_calibration("hazard calibration runner", fixture)
 }
 
 pub(crate) fn run_vol_smile_fixture(
     fixture: &GoldenFixture,
 ) -> Result<BTreeMap<String, f64>, String> {
+    let source_validation = crate::golden::runners::validate_source_validation_fixture(
+        "vol smile calibration runner",
+        fixture,
+    )?;
     let inputs: VolSmileInputs = serde_json::from_value(fixture.inputs.clone())
         .map_err(|err| format!("parse vol smile inputs: {err}"))?;
     let mut actuals = BTreeMap::new();
@@ -221,22 +233,45 @@ pub(crate) fn run_vol_smile_fixture(
             );
         }
     }
-    if let Some(rmse) = inputs.repriced_rmse {
-        actuals.insert("repriced_rmse".to_string(), rmse);
+    if let Some(references) = source_validation {
+        return Ok(references);
     }
-    Ok(actuals)
+    reject_non_executable_calibration("vol smile calibration runner", fixture)
 }
 
 pub(crate) fn run_sabr_cube_fixture(
     fixture: &GoldenFixture,
 ) -> Result<BTreeMap<String, f64>, String> {
+    let source_validation = crate::golden::runners::validate_source_validation_fixture(
+        "SABR calibration runner",
+        fixture,
+    )?;
     let inputs: SabrCubeInputs = serde_json::from_value(fixture.inputs.clone())
         .map_err(|err| format!("parse SABR cube inputs: {err}"))?;
-    let mut actuals = inputs.parameters;
-    if let Some(rmse) = inputs.calibration_rmse {
-        actuals.insert("calibration_rmse".to_string(), rmse);
+    if inputs.parameters.is_empty() {
+        return Err("SABR source validation requires committed parameters".to_string());
     }
-    Ok(actuals)
+    if let Some(references) = source_validation {
+        return Ok(references);
+    }
+    reject_non_executable_calibration("SABR calibration runner", fixture)
+}
+
+fn reject_non_executable_calibration(
+    runner: &str,
+    fixture: &GoldenFixture,
+) -> Result<BTreeMap<String, f64>, String> {
+    let quote_hint = if fixture.inputs.get("quotes").is_some()
+        || fixture.inputs.get("market_quotes").is_some()
+        || fixture.inputs.get("calibration_quotes").is_some()
+    {
+        " quote inputs are present, but this golden runner has not wired them to a product calibration engine yet."
+    } else {
+        " fixture contains final curves/parameters but no quote/source instruments from which to calibrate."
+    };
+    Err(format!(
+        "{runner} requires executable quote inputs and must compute RMSE from calibrated outputs;{quote_hint} Reclassify as source_validation or add a real calibration contract."
+    ))
 }
 
 fn build_discount_curve(spec: &DiscountCurveSpec) -> Result<DiscountCurve, String> {

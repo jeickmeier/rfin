@@ -186,6 +186,28 @@
               10.0,
               0.025
             ]
+          ],
+          "par_spreads": [
+            [
+              0.25,
+              60.0
+            ],
+            [
+              1.0,
+              72.0
+            ],
+            [
+              3.0,
+              96.0
+            ],
+            [
+              5.0,
+              120.0
+            ],
+            [
+              10.0,
+              150.0
+            ]
           ]
         }
       ]
@@ -200,7 +222,9 @@
       "non_compared_metrics": [
         "upfront",
         "base_correlation"
-      ]
+      ],
+      "cs01_methodology_note": "CS01 is an executable regression gate using the corrected par-spread rebootstrap methodology from the explicit CDX.NA.IG.HAZARD par_spreads committed in this fixture.",
+      "fixture_correction_note": "Expected cs01 was updated from the pre-correction direct/formula value after Phase 5 required par-spread inputs made tranche CS01 executable under the market par-spread bump methodology."
     },
     "credit_indices": [
       {
@@ -237,28 +261,23 @@
     "par_spread": 547.102473708064,
     "spread_dv01": -4140.931245860993,
     "dv01": -580.391604453442,
-    "cs01": 15759.288705220213
+    "cs01": 27935.204706176417
   },
   "tolerances": {
     "npv": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "par_spread": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "spread_dv01": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "dv01": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     },
     "cs01": {
-      "abs": 1e-06,
-      "rel": 1e-12
+      "abs": 1e-06
     }
   }
 }

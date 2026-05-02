@@ -9,9 +9,10 @@
 //! Falls back to a hazard-held-constant rate bump when the hazard curve does
 //! not carry par-spread points (uncalibratable curve).
 
-use crate::calibration::bumps::hazard::bump_hazard_spreads_with_doc_clause;
+use crate::calibration::bumps::hazard::bump_hazard_spreads_with_doc_clause_and_valuation_convention;
+use crate::calibration::bumps::rates::bump_discount_curve_from_rate_calibration;
 use crate::calibration::bumps::BumpRequest;
-use crate::instruments::credit_derivatives::cds::CDSConvention;
+use crate::instruments::credit_derivatives::cds::{CDSConvention, CdsValuationConvention};
 use crate::instruments::credit_derivatives::cds_option::CDSOption;
 use crate::market::conventions::ids::CdsDocClause as MarketClause;
 use crate::metrics::sensitivities::config as sens_config;
@@ -34,17 +35,33 @@ impl CdsOptionDv01Calculator {
         rebootstrap_hazard: bool,
     ) -> Result<f64> {
         let mut bumped_market: MarketContext = context.curves.as_ref().clone();
-        bumped_market
-            .apply_curve_bump_in_place(&option.discount_curve_id, BumpSpec::parallel_bp(bump_bp))?;
+        let base_discount = context
+            .curves
+            .get_discount(option.discount_curve_id.as_str())?;
+        if let Some(calibration) = base_discount.rate_calibration() {
+            let bumped_discount = bump_discount_curve_from_rate_calibration(
+                base_discount.as_ref(),
+                calibration,
+                context.curves.as_ref(),
+                &BumpRequest::Parallel(bump_bp),
+            )?;
+            bumped_market = bumped_market.insert(bumped_discount);
+        } else {
+            bumped_market.apply_curve_bump_in_place(
+                &option.discount_curve_id,
+                BumpSpec::parallel_bp(bump_bp),
+            )?;
+        }
 
         if rebootstrap_hazard {
             let base_hazard = context.curves.get_hazard(option.credit_curve_id.as_str())?;
-            let recalibrated = bump_hazard_spreads_with_doc_clause(
+            let recalibrated = bump_hazard_spreads_with_doc_clause_and_valuation_convention(
                 base_hazard.as_ref(),
                 &bumped_market,
                 &BumpRequest::Parallel(0.0),
                 Some(&option.discount_curve_id),
                 Some(option_market_doc_clause(option)),
+                Some(CdsValuationConvention::IsdaDirty),
             )?;
             bumped_market = bumped_market.insert(recalibrated);
         }
@@ -74,7 +91,7 @@ impl MetricCalculator for CdsOptionDv01Calculator {
 }
 
 /// Map the option's underlying CDS convention to the bootstrap doc-clause
-/// identifier expected by `bump_hazard_spreads_with_doc_clause`.
+/// identifier expected by `bump_hazard_spreads_with_doc_clause_and_valuation_convention`.
 fn option_market_doc_clause(option: &CDSOption) -> MarketClause {
     match option.underlying_convention {
         CDSConvention::IsdaNa => MarketClause::IsdaNa,

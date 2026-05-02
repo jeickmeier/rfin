@@ -110,28 +110,94 @@
           "day_count": "act_365f",
           "interp": "log_linear",
           "knots": [
-            [0.0, 1.0],
-            [0.13972602739726028, 0.9948564304744848],
-            [0.38904109589041097, 0.98574857],
-            [0.6383561643835617, 0.97668173],
-            [0.8876712328767123, 0.96764815],
-            [1.1369863013698631, 0.95875431],
-            [1.3863013698630137, 0.94999432],
-            [1.6356164383561644, 0.94131437],
-            [1.8849315068493151, 0.93271373],
-            [2.136986301369863, 0.92419467],
-            [2.389041095890411, 0.91584876],
-            [2.6383561643835617, 0.9076677],
-            [2.884931506849315, 0.89964844],
-            [3.136986301369863, 0.8914406],
-            [3.389041095890411, 0.88321729],
-            [3.6383561643835617, 0.87515799],
-            [3.884931506849315, 0.86725959],
-            [4.136986301369863, 0.85911547],
-            [4.389041095890411, 0.85089899],
-            [4.638356164383562, 0.84284912],
-            [4.884931506849315, 0.83496263],
-            [5.136986301369863, 0.82680571]
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.13972602739726028,
+              0.9948564304744848
+            ],
+            [
+              0.38904109589041097,
+              0.98574857
+            ],
+            [
+              0.6383561643835617,
+              0.97668173
+            ],
+            [
+              0.8876712328767123,
+              0.96764815
+            ],
+            [
+              1.1369863013698631,
+              0.95875431
+            ],
+            [
+              1.3863013698630138,
+              0.94999432
+            ],
+            [
+              1.6356164383561644,
+              0.94131437
+            ],
+            [
+              1.884931506849315,
+              0.93271373
+            ],
+            [
+              2.136986301369863,
+              0.92419467
+            ],
+            [
+              2.389041095890411,
+              0.91584876
+            ],
+            [
+              2.638356164383562,
+              0.9076677
+            ],
+            [
+              2.884931506849315,
+              0.89964844
+            ],
+            [
+              3.136986301369863,
+              0.8914406
+            ],
+            [
+              3.389041095890411,
+              0.88321729
+            ],
+            [
+              3.638356164383562,
+              0.87515799
+            ],
+            [
+              3.884931506849315,
+              0.86725959
+            ],
+            [
+              4.136986301369863,
+              0.85911547
+            ],
+            [
+              4.389041095890411,
+              0.85089899
+            ],
+            [
+              4.638356164383562,
+              0.84284912
+            ],
+            [
+              4.884931506849315,
+              0.83496263
+            ],
+            [
+              5.136986301369863,
+              0.82680571
+            ]
           ]
         }
       ],
@@ -142,24 +208,72 @@
           "recovery_rate": 0.4,
           "day_count": "act_365f",
           "knots": [
-            [0.6356164383561644, 0.0017745644177803],
-            [1.1342465753424658, 0.0033197558026043],
-            [2.1369863013698631, 0.0051940157462903],
-            [3.1369863013698631, 0.0092299223474419],
-            [4.1369863013698627, 0.0139861785227869],
-            [5.1369863013698627, 0.0202486808214905],
-            [7.1397260273972600, 0.0174996558653136],
-            [10.1424657534246574, 0.0198215118527936]
+            [
+              0.6356164383561644,
+              0.0017745644177803
+            ],
+            [
+              1.1342465753424658,
+              0.0033197558026043
+            ],
+            [
+              2.136986301369863,
+              0.0051940157462903
+            ],
+            [
+              3.136986301369863,
+              0.0092299223474419
+            ],
+            [
+              4.136986301369863,
+              0.0139861785227869
+            ],
+            [
+              5.136986301369863,
+              0.0202486808214905
+            ],
+            [
+              7.13972602739726,
+              0.0174996558653136
+            ],
+            [
+              10.142465753424657,
+              0.0198215118527936
+            ]
           ],
           "par_spreads": [
-            [0.5, 10.5],
-            [1.0, 14.5],
-            [2.0, 22.0],
-            [3.0, 32.0],
-            [4.0, 43.5],
-            [5.0, 57.0],
-            [7.0, 68.5],
-            [10.0, 80.4]
+            [
+              0.5,
+              10.5
+            ],
+            [
+              1.0,
+              14.5
+            ],
+            [
+              2.0,
+              22.0
+            ],
+            [
+              3.0,
+              32.0
+            ],
+            [
+              4.0,
+              43.5
+            ],
+            [
+              5.0,
+              57.0
+            ],
+            [
+              7.0,
+              68.5
+            ],
+            [
+              10.0,
+              80.4
+            ]
           ]
         }
       ]
@@ -178,16 +292,36 @@
           "strikes": [
             0.0025,
             0.005,
-            0.0058395400,
+            0.00583954,
             0.0075,
             0.01
           ],
           "vols_row_major": [
-            0.8102, 0.8102, 0.8102, 0.8102, 0.8102,
-            0.8102, 0.8102, 0.8102, 0.8102, 0.8102,
-            0.8102, 0.8102, 0.8102, 0.8102, 0.8102,
-            0.8102, 0.8102, 0.8102, 0.8102, 0.8102,
-            0.8102, 0.8102, 0.8102, 0.8102, 0.8102
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102,
+            0.8102
           ]
         }
       ]
@@ -216,35 +350,151 @@
       "hazard_curve_note": "IBM USD Senior credit curve par spreads transcribed from the Bloomberg CDSO/CDSD MSG1 Mid screen; hazard knots are bootstrapped on-demand from those par spreads using finstack's CDS pricer + Brent root finding (sequential per-pillar, IMM-rolled maturities, knot times in act/365f years). The bootstrap is deterministic and reproduced by the diagnostic unit test `instruments::credit_derivatives::cds_option::pricer::tests::diag_cds_option_payer_atm_3m` (run with --include-ignored). Sanity: spot 5Y par on the bootstrapped curve = 57.000000bp (matches the input par_spread). The synthetic forward CDS par spread matches Bloomberg ATM Forward 58.3954bp to within 0.30%.",
       "vol_surface_note": "Bloomberg displays a single Spread Vol of 81.02% for this option; the surface is intentionally a flat 81.02% surface so that the model picks up the screen-quoted volatility regardless of strike or expiry interpolation. The pricing override implied_volatility is also set to 0.8102 for determinism.",
       "swap_curve_rates_pct": [
-        {"tenor": "1M", "years": 0.08333333333333333, "rate": 3.644},
-        {"tenor": "2M", "years": 0.16666666666666666, "rate": 3.6528},
-        {"tenor": "3M", "years": 0.25, "rate": 3.6583},
-        {"tenor": "6M", "years": 0.5, "rate": 3.672},
-        {"tenor": "1Y", "years": 1.0, "rate": 3.7255},
-        {"tenor": "2Y", "years": 2.0, "rate": 3.7125},
-        {"tenor": "3Y", "years": 3.0, "rate": 3.681},
-        {"tenor": "4Y", "years": 4.0, "rate": 3.684},
-        {"tenor": "5Y", "years": 5.0, "rate": 3.7115},
-        {"tenor": "6Y", "years": 6.0, "rate": 3.7555},
-        {"tenor": "7Y", "years": 7.0, "rate": 3.8045},
-        {"tenor": "8Y", "years": 8.0, "rate": 3.8505},
-        {"tenor": "9Y", "years": 9.0, "rate": 3.894},
-        {"tenor": "10Y", "years": 10.0, "rate": 3.937},
-        {"tenor": "12Y", "years": 12.0, "rate": 4.0235},
-        {"tenor": "15Y", "years": 15.0, "rate": 4.133},
-        {"tenor": "20Y", "years": 20.0, "rate": 4.221},
-        {"tenor": "25Y", "years": 25.0, "rate": 4.2265},
-        {"tenor": "30Y", "years": 30.0, "rate": 4.1935}
+        {
+          "tenor": "1M",
+          "years": 0.08333333333333333,
+          "rate": 3.644
+        },
+        {
+          "tenor": "2M",
+          "years": 0.16666666666666666,
+          "rate": 3.6528
+        },
+        {
+          "tenor": "3M",
+          "years": 0.25,
+          "rate": 3.6583
+        },
+        {
+          "tenor": "6M",
+          "years": 0.5,
+          "rate": 3.672
+        },
+        {
+          "tenor": "1Y",
+          "years": 1.0,
+          "rate": 3.7255
+        },
+        {
+          "tenor": "2Y",
+          "years": 2.0,
+          "rate": 3.7125
+        },
+        {
+          "tenor": "3Y",
+          "years": 3.0,
+          "rate": 3.681
+        },
+        {
+          "tenor": "4Y",
+          "years": 4.0,
+          "rate": 3.684
+        },
+        {
+          "tenor": "5Y",
+          "years": 5.0,
+          "rate": 3.7115
+        },
+        {
+          "tenor": "6Y",
+          "years": 6.0,
+          "rate": 3.7555
+        },
+        {
+          "tenor": "7Y",
+          "years": 7.0,
+          "rate": 3.8045
+        },
+        {
+          "tenor": "8Y",
+          "years": 8.0,
+          "rate": 3.8505
+        },
+        {
+          "tenor": "9Y",
+          "years": 9.0,
+          "rate": 3.894
+        },
+        {
+          "tenor": "10Y",
+          "years": 10.0,
+          "rate": 3.937
+        },
+        {
+          "tenor": "12Y",
+          "years": 12.0,
+          "rate": 4.0235
+        },
+        {
+          "tenor": "15Y",
+          "years": 15.0,
+          "rate": 4.133
+        },
+        {
+          "tenor": "20Y",
+          "years": 20.0,
+          "rate": 4.221
+        },
+        {
+          "tenor": "25Y",
+          "years": 25.0,
+          "rate": 4.2265
+        },
+        {
+          "tenor": "30Y",
+          "years": 30.0,
+          "rate": 4.1935
+        }
       ],
       "credit_curve_spreads_bp": [
-        {"tenor": "6M", "years": 0.5, "spread": 10.5, "default_probability": 0.0011},
-        {"tenor": "1Y", "years": 1.0, "spread": 14.5, "default_probability": 0.0028},
-        {"tenor": "2Y", "years": 2.0, "spread": 22.0, "default_probability": 0.008},
-        {"tenor": "3Y", "years": 3.0, "spread": 32.0, "default_probability": 0.0171},
-        {"tenor": "4Y", "years": 4.0, "spread": 43.5, "default_probability": 0.0308},
-        {"tenor": "5Y", "years": 5.0, "spread": 57.0, "default_probability": 0.0503},
-        {"tenor": "7Y", "years": 7.0, "spread": 68.5, "default_probability": 0.0831},
-        {"tenor": "10Y", "years": 10.0, "spread": 80.4, "default_probability": 0.1365}
+        {
+          "tenor": "6M",
+          "years": 0.5,
+          "spread": 10.5,
+          "default_probability": 0.0011
+        },
+        {
+          "tenor": "1Y",
+          "years": 1.0,
+          "spread": 14.5,
+          "default_probability": 0.0028
+        },
+        {
+          "tenor": "2Y",
+          "years": 2.0,
+          "spread": 22.0,
+          "default_probability": 0.008
+        },
+        {
+          "tenor": "3Y",
+          "years": 3.0,
+          "spread": 32.0,
+          "default_probability": 0.0171
+        },
+        {
+          "tenor": "4Y",
+          "years": 4.0,
+          "spread": 43.5,
+          "default_probability": 0.0308
+        },
+        {
+          "tenor": "5Y",
+          "years": 5.0,
+          "spread": 57.0,
+          "default_probability": 0.0503
+        },
+        {
+          "tenor": "7Y",
+          "years": 7.0,
+          "spread": 68.5,
+          "default_probability": 0.0831
+        },
+        {
+          "tenor": "10Y",
+          "years": 10.0,
+          "spread": 80.4,
+          "default_probability": 0.1365
+        }
       ],
       "bloomberg_outputs": {
         "market_value": 31177.82,
@@ -261,13 +511,19 @@
         "Bloomberg CDSO Spread Vol field is shown in percent and equals 81.02; pricing_overrides.implied_volatility is set to the decimal equivalent 0.8102 to pin the lognormal vol used by the Black-on-spreads pricer.",
         "The synthetic underlying CDS uses Bloomberg's underlying effective date (2026-06-21) as the premium accrual start and uses option expiry (2026-06-26) as the protection start, matching the CDSO forward-start convention shown on the screen.",
         "Delta (% = N(d1)) and Gamma (+/-5bp) are Bloomberg display conventions whose units differ from the registered finstack delta/gamma metrics; they are intentionally excluded from the metrics list and live in bloomberg_outputs for human reference only.",
-        "Hazard knots were rebuilt by sequential par-spread bootstrap (Brent root finding, IMM-rolled maturities, knot times in act/365f years). With these self-consistent knots and the CDSO underlying-effective-date convention, finstack's synthetic forward CDS par spread is 58.4479bp vs Bloomberg ATM Forward 58.3954bp (0.09% drift) — down from 60.545bp (3.7% drift) under the previously transcribed survival-probability-derived hazards.",
+        "Hazard knots were rebuilt by sequential par-spread bootstrap (Brent root finding, IMM-rolled maturities, knot times in act/365f years). With these self-consistent knots and the CDSO underlying-effective-date convention, finstack's synthetic forward CDS par spread is 58.4479bp vs Bloomberg ATM Forward 58.3954bp (0.09% drift) \u2014 down from 60.545bp (3.7% drift) under the previously transcribed survival-probability-derived hazards.",
         "DV01 uses a CDS-option-specific calculator (CdsOptionDv01Calculator) that re-bootstraps the hazard curve from the par-spread term structure under the bumped discount curve, matching the corresponding CDS DV01 calculator and the Bloomberg CDSO IR DV01 convention. Without this, IR DV01 was ~3.5x too large because the rate bump was implicitly perturbing the implied par spreads as well.",
         "Expected outputs use Bloomberg screen values directly. Tolerances are set at screen display precision (cents). Documented finstack-vs-Bloomberg drift lives in finstack_reconciliation."
       ],
       "finstack_reconciliation": {
         "expected_outputs_policy": "Bloomberg screen values for displayed metrics. Tolerances reflect Bloomberg display precision (USD cents); deltas vs. finstack are documented below for visibility into model-vs-market drift, not as a tolerance override.",
-        "metrics_compared": ["npv", "vega", "dv01", "cs01", "theta"],
+        "metrics_compared": [
+          "npv",
+          "vega",
+          "dv01",
+          "cs01",
+          "theta"
+        ],
         "model_fixes_applied": [
           "Replaced transcribed hazard knots (~1.017% IBM survival-probability-derived) with self-consistent knots bootstrapped from the par-spread term structure (Brent root finding, IMM-rolled maturities). Drops forward-spread drift from 3.7% to 0.30% and NPV drift from 23.0% to 7.8%.",
           "Added CdsOptionDv01Calculator that re-bootstraps the hazard curve from par_spreads under the bumped discount curve before repricing (Bloomberg CDSO convention), replacing the generic UnifiedDv01Calculator(parallel_combined). Drops IR DV01 magnitude from -20.54 (256% drift) to -9.35 (62% drift).",
@@ -275,7 +531,7 @@
         ],
         "npv": 31119.489316107094,
         "npv_minus_bloomberg_market_value": -58.330683892906,
-        "npv_rel_diff": 0.00187090,
+        "npv_rel_diff": 0.0018709,
         "npv_note": "Residual ~0.19% drift after underlying-effective-date and full-premium-annuity conventions. Remaining bias appears to be in the credit-curve bootstrap / risk-shock conventions rather than the Black forward/annuity wiring.",
         "vega": 379.847365912415,
         "vega_minus_bloomberg_vega_1pct": -1.172634087585,
@@ -287,7 +543,7 @@
         "dv01_note": "Bloomberg-style IR DV01: bump rates by +/-1bp parallel, re-bootstrap hazard from the unchanged par-spread term structure, reprice option (CdsOptionDv01Calculator). Residual drift on the small (-$5.77/bp) Bloomberg base points to remaining curve bootstrap / rate-shock convention differences.",
         "cs01": 2512.840255456638,
         "cs01_minus_bloomberg_spread_dv01": -50.599744543362,
-        "cs01_rel_diff": 0.01973900,
+        "cs01_rel_diff": 0.019739,
         "cs01_note": "Finstack CS01 is the par-spread bump + hazard re-bootstrap CS01 (GenericParallelCs01). Residual ~2.0% drift is much smaller after using the full premium-leg annuity but still indicates a remaining Bloomberg CDSO spread-shock convention difference.",
         "theta": -319.035464562359,
         "theta_minus_bloomberg_theta_per_day": -9.955464562359,
@@ -314,27 +570,27 @@
     "npv": {
       "abs": 60.0,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays Market Value in USD to cents; widened to allow the remaining CDSO model-vs-screen convention residual while preserving Bloomberg expected_outputs."
+      "tolerance_reason": "Bloomberg displays Market Value in USD to cents; widened to allow the remaining CDSO model-vs-screen convention residual while preserving Bloomberg expected_outputs. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     },
     "vega": {
       "abs": 1.5,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays Vega(1%) to cents; widened to allow the remaining CDSO annuity/curve convention residual while preserving Bloomberg expected_outputs."
+      "tolerance_reason": "Bloomberg displays Vega(1%) to cents; widened to allow the remaining CDSO annuity/curve convention residual while preserving Bloomberg expected_outputs. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     },
     "dv01": {
       "abs": 2.0,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays IR DV01 to cents; widened to allow the remaining CDSO rate-shock convention residual while preserving Bloomberg expected_outputs."
+      "tolerance_reason": "Bloomberg displays IR DV01 to cents; widened to allow the remaining CDSO rate-shock convention residual while preserving Bloomberg expected_outputs. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     },
     "cs01": {
       "abs": 55.0,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays Spread DV01 to cents; widened to allow the remaining CDSO spread-shock convention residual while preserving Bloomberg expected_outputs."
+      "tolerance_reason": "Bloomberg displays Spread DV01 to cents; widened to allow the remaining CDSO spread-shock convention residual while preserving Bloomberg expected_outputs. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     },
     "theta": {
       "abs": 10.5,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays Theta per day to cents; widened to allow the remaining CDSO theta convention residual while preserving Bloomberg expected_outputs."
+      "tolerance_reason": "Bloomberg displays Theta per day to cents; widened to allow the remaining CDSO theta convention residual while preserving Bloomberg expected_outputs. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     }
   }
 }

@@ -16,9 +16,88 @@
     "screenshots": []
   },
   "inputs": {
-    "hazard": [{"id": "ACME-HZD", "base_date": "2026-04-30", "recovery_rate": 0.4, "day_count": "act_365f", "knots": [[1.0, 0.014], [3.0, 0.018], [5.0, 0.022], [7.0, 0.025], [10.0, 0.028]]}],
-    "probes": [{"output": "hazard_rate::ACME-HZD::1y", "curve": "ACME-HZD", "kind": "hazard_rate", "tenor": 1.0}, {"output": "hazard_rate::ACME-HZD::3y", "curve": "ACME-HZD", "kind": "hazard_rate", "tenor": 3.0}, {"output": "hazard_rate::ACME-HZD::5y", "curve": "ACME-HZD", "kind": "hazard_rate", "tenor": 5.0}, {"output": "hazard_rate::ACME-HZD::7y", "curve": "ACME-HZD", "kind": "hazard_rate", "tenor": 7.0}, {"output": "hazard_rate::ACME-HZD::10y", "curve": "ACME-HZD", "kind": "hazard_rate", "tenor": 10.0}, {"output": "survival_probability::ACME-HZD::5y", "curve": "ACME-HZD", "kind": "survival_probability", "tenor": 5.0}],
-    "calibration_rmse": 0.0
+    "hazard": [
+      {
+        "id": "ACME-HZD",
+        "base_date": "2026-04-30",
+        "recovery_rate": 0.4,
+        "day_count": "act_365f",
+        "knots": [
+          [
+            1.0,
+            0.014
+          ],
+          [
+            3.0,
+            0.018
+          ],
+          [
+            5.0,
+            0.022
+          ],
+          [
+            7.0,
+            0.025
+          ],
+          [
+            10.0,
+            0.028
+          ]
+        ]
+      }
+    ],
+    "probes": [
+      {
+        "output": "hazard_rate::ACME-HZD::1y",
+        "curve": "ACME-HZD",
+        "kind": "hazard_rate",
+        "tenor": 1.0
+      },
+      {
+        "output": "hazard_rate::ACME-HZD::3y",
+        "curve": "ACME-HZD",
+        "kind": "hazard_rate",
+        "tenor": 3.0
+      },
+      {
+        "output": "hazard_rate::ACME-HZD::5y",
+        "curve": "ACME-HZD",
+        "kind": "hazard_rate",
+        "tenor": 5.0
+      },
+      {
+        "output": "hazard_rate::ACME-HZD::7y",
+        "curve": "ACME-HZD",
+        "kind": "hazard_rate",
+        "tenor": 7.0
+      },
+      {
+        "output": "hazard_rate::ACME-HZD::10y",
+        "curve": "ACME-HZD",
+        "kind": "hazard_rate",
+        "tenor": 10.0
+      },
+      {
+        "output": "survival_probability::ACME-HZD::5y",
+        "curve": "ACME-HZD",
+        "kind": "survival_probability",
+        "tenor": 5.0
+      }
+    ],
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Fixture contains final curves, smiles, hazards, or SABR parameters but lacks quotes/source instruments required to run product calibration engines and compute RMSE.",
+      "required_for_execution": "Add market quotes/source instruments and wire the runner to the real calibration engine so RMSE is computed from calibration residuals.",
+      "reference_outputs": {
+        "hazard_rate::ACME-HZD::1y": 0.014,
+        "hazard_rate::ACME-HZD::3y": 0.018,
+        "hazard_rate::ACME-HZD::5y": 0.022,
+        "hazard_rate::ACME-HZD::7y": 0.025,
+        "hazard_rate::ACME-HZD::10y": 0.028,
+        "survival_probability::ACME-HZD::5y": 0.910282762241,
+        "calibration_rmse": 0.0
+      }
+    }
   },
   "expected_outputs": {
     "hazard_rate::ACME-HZD::1y": 0.014,

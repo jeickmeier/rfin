@@ -16,8 +16,40 @@
     "screenshots": []
   },
   "inputs": {
-    "components": {"coupon_income": 0.012, "roll_down": 0.004, "roll_up": -0.0015, "price_change": -0.006},
-    "sums": {"carry": ["coupon_income", "roll_down", "roll_up"], "components_sum": ["carry", "price_change"], "total_return": ["components_sum"]}
+    "components": {
+      "coupon_income": 0.012,
+      "roll_down": 0.004,
+      "roll_up": -0.0015,
+      "price_change": -0.006
+    },
+    "sums": {
+      "carry": [
+        "coupon_income",
+        "roll_down",
+        "roll_up"
+      ],
+      "components_sum": [
+        "carry",
+        "price_change"
+      ],
+      "total_return": [
+        "components_sum"
+      ]
+    },
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Fixture contains committed attribution components and component-sum formulas but lacks holdings, portfolio returns, benchmark returns, or factor/source data required for product attribution execution.",
+      "required_for_execution": "Add portfolio holdings/returns, benchmark or factor inputs, and route through the attribution engine; keep component sums as auxiliary validation only.",
+      "reference_outputs": {
+        "coupon_income": 0.012,
+        "roll_down": 0.004,
+        "roll_up": -0.0015,
+        "carry": 0.0145,
+        "price_change": -0.006,
+        "total_return": 0.0085,
+        "components_sum": 0.0085
+      }
+    }
   },
   "expected_outputs": {
     "coupon_income": 0.012,

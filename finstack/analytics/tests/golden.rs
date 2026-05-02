@@ -62,9 +62,19 @@ fn run_golden(relative_path: &str) {
     assert!(fixture.provenance.review_interval_months > 0);
     assert!(!fixture.provenance.regen_command.trim().is_empty());
 
-    let actuals: BTreeMap<String, f64> =
-        serde_json::from_value(fixture.inputs["actual_outputs"].clone())
-            .unwrap_or_else(|err| panic!("parse actual_outputs {}: {err}", path.display()));
+    if fixture.inputs.get("source_validation").is_some() {
+        validate_source_validation_fixture(&path, &fixture);
+        return;
+    }
+
+    if fixture.inputs.get("actual_outputs").is_some() {
+        panic!(
+            "{} analytics golden requires executable inputs; inputs.actual_outputs is a frozen reference snapshot, not product-code execution",
+            path.display()
+        );
+    }
+
+    let actuals = run_analytics_fixture(&path, &fixture);
 
     for (metric, expected) in &fixture.expected_outputs {
         let actual = actuals
@@ -91,6 +101,80 @@ fn run_golden(relative_path: &str) {
             path.display()
         );
     }
+}
+
+fn validate_source_validation_fixture(path: &Path, fixture: &GoldenFixture) {
+    let source_validation = &fixture.inputs["source_validation"];
+    let status = source_validation
+        .get("status")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_else(|| panic!("{} source_validation missing status", path.display()));
+    assert_eq!(
+        status,
+        "non_executable",
+        "{} source_validation status must be non_executable",
+        path.display()
+    );
+    let reason = source_validation
+        .get("reason")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    assert!(
+        !reason.trim().is_empty(),
+        "{} source_validation must explain why fixture is non-executable",
+        path.display()
+    );
+    assert!(
+        fixture.inputs.get("actual_outputs").is_none(),
+        "{} source-validation fixture must not keep inputs.actual_outputs; move frozen references under source_validation.reference_outputs",
+        path.display()
+    );
+    let references = source_validation
+        .get("reference_outputs")
+        .and_then(serde_json::Value::as_object)
+        .unwrap_or_else(|| {
+            panic!(
+                "{} source_validation must retain frozen references under reference_outputs",
+                path.display()
+            )
+        });
+    for (metric, expected) in &fixture.expected_outputs {
+        let reference = references
+            .get(metric)
+            .and_then(serde_json::Value::as_f64)
+            .unwrap_or_else(|| {
+                panic!(
+                    "{} source_validation.reference_outputs metric {metric} must exist and be numeric",
+                    path.display()
+                )
+            });
+        assert!(
+            reference == *expected,
+            "{} source_validation.reference_outputs[{metric}]={reference:.17} does not exactly match expected_outputs[{metric}]={expected:.17}",
+            path.display()
+        );
+    }
+    for metric in references.keys() {
+        assert!(
+            fixture.expected_outputs.contains_key(metric),
+            "{} source_validation.reference_outputs contains extra metric {metric}",
+            path.display()
+        );
+    }
+}
+
+fn run_analytics_fixture(path: &Path, fixture: &GoldenFixture) -> BTreeMap<String, f64> {
+    if fixture.inputs.get("computations").is_none() {
+        panic!(
+            "{} analytics golden has no executable computations; add canonical analytics inputs or mark it as source_validation",
+            path.display()
+        );
+    }
+    panic!(
+        "{} executable analytics computations are not yet wired for domain {}; source fixtures must be marked source_validation until raw return/price inputs are added",
+        path.display(),
+        fixture.domain
+    );
 }
 
 macro_rules! analytics_golden {

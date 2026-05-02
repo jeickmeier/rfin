@@ -18,7 +18,10 @@
   "inputs": {
     "valuation_date": "2026-04-30",
     "model": "discounting",
-    "metrics": ["dv01_domestic", "dv01_foreign"],
+    "metrics": [
+      "dv01_domestic",
+      "dv01_foreign"
+    ],
     "instrument_json": {
       "schema": "finstack.instrument/1",
       "instrument": {
@@ -38,7 +41,9 @@
           "near_rate": 1.1,
           "far_rate": 1.105,
           "attributes": {
-            "tags": ["golden"],
+            "tags": [
+              "golden"
+            ],
             "meta": {}
           }
         }
@@ -51,14 +56,40 @@
           "base_date": "2026-04-30",
           "day_count": "act_365f",
           "interp": "log_linear",
-          "knots": [[0.0, 1.0], [0.25, 0.99], [1.0, 0.9504]]
+          "knots": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.99
+            ],
+            [
+              1.0,
+              0.9504
+            ]
+          ]
         },
         {
           "id": "EUR-OIS",
           "base_date": "2026-04-30",
           "day_count": "act_365f",
           "interp": "log_linear",
-          "knots": [[0.0, 1.0], [0.25, 0.992], [1.0, 0.95232]]
+          "knots": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.992
+            ],
+            [
+              1.0,
+              0.95232
+            ]
+          ]
         }
       ],
       "forward": []
@@ -77,8 +108,14 @@
     "dv01_foreign": 274.74677893445187
   },
   "tolerances": {
-    "npv": {"abs": 1e-6, "rel": 1e-12},
-    "dv01_domestic": {"abs": 1e-6, "rel": 1e-12},
-    "dv01_foreign": {"abs": 1e-6, "rel": 1e-12}
+    "npv": {
+      "abs": 1e-06
+    },
+    "dv01_domestic": {
+      "abs": 1e-06
+    },
+    "dv01_foreign": {
+      "abs": 1e-06
+    }
   }
 }

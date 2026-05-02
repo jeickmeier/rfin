@@ -16,8 +16,40 @@
     "screenshots": []
   },
   "inputs": {
-    "components": {"allocation::energy": 0.0018, "selection::energy": -0.0006, "allocation::financials": -0.0009, "selection::financials": 0.0021},
-    "sums": {"total_allocation": ["allocation::energy", "allocation::financials"], "total_selection": ["selection::energy", "selection::financials"], "total_active": ["total_allocation", "total_selection"]}
+    "components": {
+      "allocation::energy": 0.0018,
+      "selection::energy": -0.0006,
+      "allocation::financials": -0.0009,
+      "selection::financials": 0.0021
+    },
+    "sums": {
+      "total_allocation": [
+        "allocation::energy",
+        "allocation::financials"
+      ],
+      "total_selection": [
+        "selection::energy",
+        "selection::financials"
+      ],
+      "total_active": [
+        "total_allocation",
+        "total_selection"
+      ]
+    },
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Fixture contains committed attribution components and component-sum formulas but lacks holdings, portfolio returns, benchmark returns, or factor/source data required for product attribution execution.",
+      "required_for_execution": "Add portfolio holdings/returns, benchmark or factor inputs, and route through the attribution engine; keep component sums as auxiliary validation only.",
+      "reference_outputs": {
+        "allocation::energy": 0.0018,
+        "selection::energy": -0.0006,
+        "allocation::financials": -0.0009,
+        "selection::financials": 0.0021,
+        "total_allocation": 0.0009,
+        "total_selection": 0.0015,
+        "total_active": 0.0024
+      }
+    }
   },
   "expected_outputs": {
     "allocation::energy": 0.0018,

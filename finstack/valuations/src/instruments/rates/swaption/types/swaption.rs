@@ -807,23 +807,72 @@ impl Swaption {
     /// - Annuity = Σ (accrual_i × DF_i) for all fixed leg payments.
     pub fn forward_swap_rate(&self, curves: &MarketContext, as_of: Date) -> Result<f64> {
         let disc = curves.get_discount(self.discount_curve_id.as_ref())?;
+        if self.underlying_float_leg.is_none() && self.forward_curve_id == self.discount_curve_id {
+            return self.single_curve_forward_from_fixed_schedule(disc.as_ref(), as_of);
+        }
+
         let annuity = self.swap_annuity(disc.as_ref(), as_of)?;
         if annuity.abs() < 1e-10 {
             return Ok(0.0);
-        }
-
-        if self.underlying_float_leg.is_none() && self.forward_curve_id == self.discount_curve_id {
-            use crate::instruments::common_impl::pricing::time::relative_df_discounting;
-
-            let df_start = relative_df_discounting(disc.as_ref(), as_of, self.swap_start)?;
-            let df_end = relative_df_discounting(disc.as_ref(), as_of, self.swap_end)?;
-            return Ok((df_start - df_end) / annuity);
         }
 
         let underlier = self.underlying_irs_for_market(0.0, PayReceive::ReceiveFixed, curves)?;
         let pv_float = underlier.pv_float_leg(curves, as_of)?;
 
         Ok(pv_float / (self.notional.amount() * annuity))
+    }
+
+    fn single_curve_forward_from_fixed_schedule(
+        &self,
+        disc: &dyn Discounting,
+        as_of: Date,
+    ) -> Result<f64> {
+        use crate::cashflow::builder::periods::{build_periods, BuildPeriodsParams};
+        use crate::instruments::common_impl::pricing::time::relative_df_discounting;
+        use finstack_core::math::NeumaierAccumulator;
+
+        let fixed = self.underlying_fixed_leg_with_rate(Decimal::ONE);
+        let periods = build_periods(BuildPeriodsParams {
+            start: fixed.start,
+            end: fixed.end,
+            frequency: fixed.frequency,
+            stub: fixed.stub,
+            bdc: fixed.bdc,
+            calendar_id: fixed
+                .calendar_id
+                .as_deref()
+                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
+            end_of_month: fixed.end_of_month,
+            day_count: fixed.day_count,
+            payment_lag_days: fixed.payment_lag_days,
+            reset_lag_days: None,
+            adjust_accrual_dates: false,
+        })?;
+
+        let mut forward_leg = NeumaierAccumulator::new();
+        let mut annuity = NeumaierAccumulator::new();
+        for period in periods {
+            if period.payment_date <= as_of {
+                continue;
+            }
+            let tau = period.accrual_year_fraction;
+            if tau.abs() <= f64::EPSILON {
+                continue;
+            }
+
+            let df_start = relative_df_discounting(disc, as_of, period.accrual_start)?;
+            let df_end = relative_df_discounting(disc, as_of, period.accrual_end)?;
+            let df_pay = relative_df_discounting(disc, as_of, period.payment_date)?;
+            let forward = (df_start / df_end - 1.0) / tau;
+            forward_leg.add(tau * forward * df_pay);
+            annuity.add(tau * df_pay);
+        }
+
+        let annuity = annuity.total();
+        if annuity.abs() < 1e-10 {
+            return Ok(0.0);
+        }
+        Ok(forward_leg.total() / annuity)
     }
 
     /// Resolve volatility from SABR parameters, pricing override, or volatility surface.

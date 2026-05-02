@@ -7,6 +7,15 @@ use super::helpers::*;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 
+fn sum_bucketed_cs01(result: &finstack_valuations::results::ValuationResult) -> f64 {
+    result
+        .measures
+        .iter()
+        .filter(|(id, _)| id.as_str().starts_with("bucketed_cs01::"))
+        .map(|(_, v)| *v)
+        .sum()
+}
+
 // ==================== Individual Metric Calculation Tests ====================
 
 #[ignore = "slow"]
@@ -122,6 +131,39 @@ fn test_cs01_metric_via_price_with_metrics() {
         .get("cs01")
         .expect("cs01 should be in measures");
     assert!(cs01.is_finite(), "CS01 should be finite");
+}
+
+#[test]
+fn test_parallel_cs01_reconciles_with_bucketed_cs01() {
+    let tranche = mezzanine_tranche();
+    let market = standard_market_context();
+    let as_of = base_date();
+
+    let result = tranche
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Cs01, MetricId::BucketedCs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
+
+    let parallel = *result.measures.get("cs01").unwrap();
+    let bucket_total = *result.measures.get("bucketed_cs01").unwrap();
+    let bucket_sum = sum_bucketed_cs01(&result);
+
+    let total_tol = 1e-6_f64.max(1e-10 * bucket_total.abs());
+    assert!(
+        (bucket_sum - bucket_total).abs() <= total_tol,
+        "Tranche bucketed CS01 total should equal bucket sum: total={bucket_total}, sum={bucket_sum}"
+    );
+
+    let parallel_tol = 1e-4_f64.max(5e-2 * parallel.abs());
+    assert!(
+        (bucket_total - parallel).abs() <= parallel_tol,
+        "Tranche parallel CS01 should reconcile with bucketed CS01 under par-spread rebootstrap: bucketed={bucket_total}, parallel={parallel}, diff={}, tol={parallel_tol}",
+        (bucket_total - parallel).abs()
+    );
 }
 
 #[ignore = "slow"]

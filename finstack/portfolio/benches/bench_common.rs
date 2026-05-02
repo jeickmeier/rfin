@@ -25,7 +25,8 @@ use finstack_portfolio::{Portfolio, PortfolioBuilder};
 use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
 use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::credit_derivatives::cds::{
-    CDSConvention, CreditDefaultSwap, PayReceive, PremiumLegSpec, ProtectionLegSpec,
+    CDSConvention, CdsValuationConvention, CreditDefaultSwap, PayReceive, PremiumLegSpec,
+    ProtectionLegSpec,
 };
 use finstack_valuations::instruments::credit_derivatives::cds_option::{
     CDSOption, CDSOptionParams,
@@ -583,6 +584,7 @@ pub fn create_institutional_portfolio(num_positions: usize) -> Portfolio {
             doc_clause: None,
             protection_effective_date: None,
             pricing_overrides: Default::default(),
+            valuation_convention: CdsValuationConvention::default(),
             attributes: Default::default(),
             margin_spec: None,
         };

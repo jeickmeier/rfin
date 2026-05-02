@@ -26,6 +26,8 @@ pub(crate) mod inflation;
 pub(crate) mod rates;
 pub(crate) mod vol;
 
+#[doc(hidden)]
+pub use hazard::bump_hazard_spreads_with_doc_clause_and_valuation_convention;
 pub use hazard::{bump_hazard_shift, bump_hazard_spreads};
 pub use inflation::{
     bump_inflation_rates, infer_currency_from_curve_id, observation_lag_from_curve,

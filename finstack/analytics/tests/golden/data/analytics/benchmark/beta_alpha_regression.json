@@ -15,10 +15,15 @@
     "regen_command": "manual formula fixture; flattened outputs committed in fixture"
   },
   "inputs": {
-    "actual_outputs": {
-      "beta": 1.2741203178206584,
-      "alpha": -0.0006015891032917151,
-      "r_squared": 0.9821116269553227
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Fixture contains flattened analytics reference outputs but lacks raw return/price series and parameter inputs required for canonical analytics API execution.",
+      "required_for_execution": "Add raw return/price inputs plus an executable analytics computation map.",
+      "reference_outputs": {
+        "beta": 1.2741203178206584,
+        "alpha": -0.0006015891032917151,
+        "r_squared": 0.9821116269553227
+      }
     }
   },
   "expected_outputs": {
