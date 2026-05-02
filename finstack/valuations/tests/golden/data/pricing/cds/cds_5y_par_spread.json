@@ -802,6 +802,21 @@
         "par_spread"
       ],
       "non_compared_metrics_reason": "Bloomberg par spread is retained as the quoted source screen value, but executable par_spread recomputes from the transcribed hazard/survival curve proxy and differs by a small documented curve-construction residual."
+    },
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Bloomberg CDSW price and risk values are retained as source values, but current executable pricing still has documented CDS curve/bootstrap and risk-convention residuals. Keep this non-gating until hazard construction and risk shocks reproduce the screen within source precision.",
+      "required_for_execution": "Reconcile the canonical pricing/calibration inputs and risk methodology to the external source, then remove this source_validation block so expected_outputs are compared by Rust and Python runners.",
+      "reference_outputs": {
+        "npv": -181992.0,
+        "par_spread": 60.5,
+        "risky_pv01": 4680.88,
+        "dv01": 45.91,
+        "cs01": 4680.88,
+        "recovery_01": 76.03,
+        "jump_to_default": 5988055.555555556,
+        "default_exposure": 6181992.0
+      }
     }
   },
   "expected_outputs": {

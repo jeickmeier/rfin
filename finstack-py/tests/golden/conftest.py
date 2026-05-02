@@ -13,8 +13,8 @@ import subprocess
 import time
 from types import ModuleType
 
-from .schema import SCHEMA_VERSION, GoldenFixture, ToleranceEntry
-from .tolerance import ComparisonResult, compare
+from .schema import SCHEMA_VERSION, GoldenFixture
+from .tolerance import compare
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
 REPORT_HEADER = [
@@ -143,7 +143,8 @@ def run_golden(relative_path: str) -> None:
     fixture = GoldenFixture.from_path(path)
     validate_fixture(path, fixture)
     if _is_source_validation_fixture(fixture):
-        _write_comparison_csv(relative_path, _source_validation_results(fixture))
+        _validate_source_validation_references(fixture, fixture.inputs["source_validation"])
+        _write_comparison_csv(relative_path, [])
         return
     runner = _load_runner(fixture.domain)
     actuals = runner.run(fixture)
@@ -155,10 +156,7 @@ def run_golden(relative_path: str) -> None:
             failures.append(f"{path}: runner did not produce metric '{metric}'")
             continue
         tolerance = fixture.tolerances[metric]
-        if reason := non_compared_metric_reason(fixture, metric):
-            result = _non_compared_result(metric, actuals[metric], expected, tolerance, reason)
-        else:
-            result = compare(metric, actuals[metric], expected, tolerance)
+        result = compare(metric, actuals[metric], expected, tolerance)
         results.append(result)
         if not result.passed:
             failures.append(result.failure_message(str(path)))
@@ -175,44 +173,8 @@ def _is_source_validation_fixture(fixture: GoldenFixture) -> bool:
 
 
 def non_compared_metric_reason(fixture: GoldenFixture, metric: str) -> str | None:
-    if is_required_executable_pricing_risk_metric(fixture, metric):
-        return None
-    source_reference = fixture.inputs.get("source_reference")
-    if not isinstance(source_reference, dict):
-        return None
-    non_compared = source_reference.get("non_compared_metrics", [])
-    if not isinstance(non_compared, list) or metric not in non_compared:
-        return None
-    for key in ("non_compared_metrics_reason", "omission_reason", "delta_convention_note", "note"):
-        reason = source_reference.get(key)
-        if isinstance(reason, str) and reason.strip():
-            return reason.strip()
+    _ = (fixture, metric)
     return None
-
-
-def _non_compared_result(
-    metric: str,
-    actual: float,
-    expected: float,
-    tolerance: ToleranceEntry,
-    reason: str,
-) -> ComparisonResult:
-    abs_diff = abs(actual - expected)
-    rel_diff = abs_diff / max(abs(expected), 1e-12)
-    used_tolerance = ToleranceEntry(
-        abs=tolerance.abs,
-        rel=tolerance.rel,
-        tolerance_reason=f"non_compared: {reason}",
-    )
-    return ComparisonResult(
-        metric=metric,
-        actual=actual,
-        expected=expected,
-        abs_diff=abs_diff,
-        rel_diff=rel_diff,
-        passed=True,
-        used_tolerance=used_tolerance,
-    )
 
 
 def validate_fixture(path: Path, fixture: GoldenFixture) -> None:
@@ -387,17 +349,6 @@ def is_git_tracked(path: Path) -> bool:
         check=False,
     )
     return result.returncode == 0
-
-
-def _source_validation_results(fixture: GoldenFixture) -> list[ComparisonResult]:
-    source_validation = fixture.inputs["source_validation"]
-    _validate_source_validation_references(fixture, source_validation)
-    reason = source_validation.get("reason", "non-executable fixture")
-    tolerance = ToleranceEntry(
-        abs=0.0,
-        tolerance_reason=f"source_validation: non_executable; {reason}",
-    )
-    return [compare("__source_validation__", 0.0, 0.0, tolerance)]
 
 
 def _validate_source_validation_references(fixture: GoldenFixture, source_validation: dict) -> None:

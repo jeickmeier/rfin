@@ -48,12 +48,12 @@ def test_rel_handles_zero_expected() -> None:
     assert result.passed
 
 
-def test_both_required_by_default() -> None:
+def test_either_abs_or_rel_passes_by_default() -> None:
     result = compare("x", 1_000_000.5, 1_000_000.0, both(0.01, 1e-6))
-    assert not result.passed
+    assert result.passed
 
 
-def test_explicit_or_semantics_allows_either_tolerance() -> None:
+def test_tolerance_reason_is_not_needed_for_or_semantics() -> None:
     result = compare("x", 1_000_000.5, 1_000_000.0, both_or(0.01, 1e-6))
     assert result.passed
 

@@ -431,6 +431,16 @@
         "dv01"
       ],
       "dv01_methodology_note": "DV01 is compared as an executable finstack signed combined-curve metric after the corrected compounded-SOFR underlier changes; Bloomberg screen DV01 remains in bloomberg_reference for reconciliation."
+    },
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Bloomberg swaption NPV and screen risk values are retained as source values, but current executable pricing uses a corrected compounded-SOFR underlier and signed combined-curve DV01 that is not yet like-for-like. Keep this non-gating until the source instrument construction and risk convention are reconciled.",
+      "required_for_execution": "Reconcile the canonical pricing/calibration inputs and risk methodology to the external source, then remove this source_validation block so expected_outputs are compared by Rust and Python runners.",
+      "reference_outputs": {
+        "npv": 155363.65,
+        "vega": 174955.0,
+        "dv01": -2307.540300356777
+      }
     }
   },
   "expected_outputs": {

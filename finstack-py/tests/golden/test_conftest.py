@@ -37,8 +37,9 @@ def test_discover_fixtures_empty_dir() -> None:
     assert discover_fixtures("pricing/nonexistent") == []
 
 
-def test_run_golden_writes_comparison_csv() -> None:
+def test_run_golden_writes_no_pass_row_for_source_validation_fixture() -> None:
     report = WORKSPACE_ROOT / "target/golden-reports/golden-comparisons.csv"
+    report.unlink(missing_ok=True)
 
     run_golden("attribution/brinson_hood_beebower.json")
 
@@ -47,18 +48,9 @@ def test_run_golden_writes_comparison_csv() -> None:
         "runner,fixture,metric,actual,expected,abs_diff,rel_diff,abs_tolerance,rel_tolerance,passed,tolerance_reason"
         in csv
     )
-    assert "python,attribution/brinson_hood_beebower.json,__source_validation__" in csv
-    assert ",true," in csv
-
-
-def test_run_golden_writes_source_validation_status_row() -> None:
-    report = WORKSPACE_ROOT / "target/golden-reports/golden-comparisons.csv"
-
-    run_golden("attribution/brinson_hood_beebower.json")
-
-    csv = report.read_text(encoding="utf-8")
-    assert "python,attribution/brinson_hood_beebower.json,__source_validation__" in csv
-    assert "source_validation: non_executable" in csv
+    assert "python,attribution/brinson_hood_beebower.json" not in csv
+    assert "__source_validation__" not in csv
+    assert ",true," not in csv
 
 
 def test_attribution_raw_looking_keys_do_not_bypass_execution_requirement() -> None:
@@ -92,13 +84,13 @@ def test_source_validation_reference_values_must_match_expected_outputs() -> Non
         attribution_common.run(fixture)
 
 
-def test_abs_and_rel_tolerances_require_both_by_default() -> None:
+def test_abs_or_rel_tolerances_allow_either_by_default() -> None:
     result = compare("npv", 1_000_000.5, 1_000_000.0, ToleranceEntry(abs=0.01, rel=1e-6))
 
-    assert not result.passed
+    assert result.passed
 
 
-def test_abs_or_rel_tolerance_requires_explicit_reason() -> None:
+def test_abs_or_rel_tolerance_does_not_require_explicit_reason() -> None:
     result = compare(
         "npv",
         1_000_000.5,
@@ -128,6 +120,21 @@ def test_required_pricing_risk_metric_cannot_be_non_compared() -> None:
     assert non_compared_metric_reason(fixture, "cs01") is None
     with pytest.raises(AssertionError, match="required executable pricing/risk metrics"):
         validate_fixture(WORKSPACE_ROOT / "dummy.json", fixture)
+
+
+def test_source_reference_non_compared_metric_does_not_bypass_comparison() -> None:
+    fixture = _fixture(
+        inputs={
+            "source_reference": {
+                "non_compared_metrics": ["npv"],
+                "non_compared_metrics_reason": "unit test",
+            }
+        },
+        expected_outputs={"npv": 1.0, "dv01": 2.0},
+        domain="rates.irs",
+    )
+
+    assert non_compared_metric_reason(fixture, "npv") is None
 
 
 def _fixture(

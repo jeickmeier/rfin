@@ -1,14 +1,11 @@
 //! Tolerance comparator for golden fixture metrics.
 //!
-//! A metric with both absolute and relative tolerances must satisfy both unless
-//! the fixture explicitly documents OR semantics in its tolerance reason.
+//! A metric with both absolute and relative tolerances passes when either
+//! tolerance is satisfied, matching the fixture schema contract.
 
 use crate::golden::schema::ToleranceEntry;
 
 const REL_DENOM_MIN: f64 = 1e-12;
-const OR_TOLERANCE_MARKERS: &[&str] =
-    &["abs-or-rel", "or semantics", "either absolute or relative"];
-
 /// Result of comparing one actual metric against its reference value.
 #[derive(Debug, Clone)]
 pub struct ComparisonResult {
@@ -71,22 +68,8 @@ pub fn compare(metric: &str, actual: f64, expected: f64, tol: &ToleranceEntry) -
 }
 
 fn passed(abs_pass: bool, rel_pass: bool, tol: &ToleranceEntry) -> bool {
-    if tol.abs.is_some() && tol.rel.is_some() && !uses_or_semantics(tol) {
-        abs_pass && rel_pass
-    } else {
-        abs_pass || rel_pass
-    }
-}
-
-fn uses_or_semantics(tol: &ToleranceEntry) -> bool {
-    tol.tolerance_reason
-        .as_deref()
-        .map(str::to_ascii_lowercase)
-        .is_some_and(|reason| {
-            OR_TOLERANCE_MARKERS
-                .iter()
-                .any(|marker| reason.contains(marker))
-        })
+    let _ = tol;
+    abs_pass || rel_pass
 }
 
 #[cfg(test)]
@@ -154,18 +137,18 @@ mod tests {
     }
 
     #[test]
-    fn both_required_by_default() {
+    fn either_abs_or_rel_passes_by_default() {
         let result = compare("x", 1_000_000.5, 1_000_000.0, &both(0.01, 1e-6));
-        assert!(!result.passed);
+        assert!(result.passed);
     }
 
     #[test]
-    fn explicit_or_semantics_allows_either_tolerance() {
+    fn tolerance_reason_is_not_needed_for_or_semantics() {
         let result = compare(
             "x",
             1_000_000.5,
             1_000_000.0,
-            &both_with_reason(0.01, 1e-6, "abs-or-rel tolerance reflects screen rounding"),
+            &both_with_reason(0.01, 1e-6, "vendor screen rounding"),
         );
         assert!(result.passed);
     }

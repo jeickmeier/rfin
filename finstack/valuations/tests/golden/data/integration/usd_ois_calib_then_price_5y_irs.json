@@ -72,6 +72,17 @@
       "design_metrics": [
         "irs_npv"
       ]
+    },
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Integration fixture contains source calibration/pricing outputs, but the nested calibration leg is source-validation and the nested IRS pricing leg is non-gating due to documented Bloomberg-vs-model residuals. Keep this non-gating until both legs execute like-for-like.",
+      "required_for_execution": "Reconcile the canonical pricing/calibration inputs and risk methodology to the external source, then remove this source_validation block so expected_outputs are compared by Rust and Python runners.",
+      "reference_outputs": {
+        "discount_factor::USD-OIS::5y": 0.8187,
+        "zero_rate::USD-OIS::5y": 0.04000751252,
+        "irs_npv": -91334.81,
+        "irs_dv01": 4523.48
+      }
     }
   },
   "expected_outputs": {

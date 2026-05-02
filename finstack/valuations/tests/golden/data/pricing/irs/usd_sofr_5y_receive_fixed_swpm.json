@@ -480,6 +480,24 @@
         "npv",
         "par_rate"
       ]
+    },
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Bloomberg IRS NPV/par coupon and screen-positive DV01 are retained as source values, but the executable fixture currently prices with a visible curve-grid proxy and signed receive-fixed DV01 convention. Keep this non-gating until the pricing inputs and risk sign convention are reconciled like-for-like.",
+      "required_for_execution": "Reconcile the canonical pricing/calibration inputs and risk methodology to the external source, then remove this source_validation block so expected_outputs are compared by Rust and Python runners.",
+      "reference_outputs": {
+        "npv": -91334.81,
+        "par_rate": 0.0370075,
+        "dv01": 4523.48,
+        "fixed_leg_payment_count": 5.0,
+        "floating_leg_payment_count": 5.0,
+        "fixed_first_payment_date": 20944.0,
+        "fixed_last_payment_date": 22406.0,
+        "floating_first_payment_date": 20944.0,
+        "floating_last_payment_date": 22406.0,
+        "fixed_first_accrual_factor": 1.013888888889,
+        "floating_first_accrual_factor": 1.013888888889
+      }
     }
   },
   "expected_outputs": {

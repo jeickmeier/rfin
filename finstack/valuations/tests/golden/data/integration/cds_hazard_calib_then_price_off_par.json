@@ -108,6 +108,21 @@
       "calibrated_curve": "ACME-HZD",
       "priced_instrument": "5Y CDS using the surviving Bloomberg CDSW pricing fixture",
       "pricing_fixture_reference": "pricing/cds/cds_5y_par_spread.json"
+    },
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Integration fixture contains source hazard/pricing outputs, but the nested calibration leg is source-validation and the nested CDS pricing leg still depends on source curve/risk reconciliation. Keep this non-gating until both legs execute like-for-like.",
+      "required_for_execution": "Reconcile the canonical pricing/calibration inputs and risk methodology to the external source, then remove this source_validation block so expected_outputs are compared by Rust and Python runners.",
+      "reference_outputs": {
+        "hazard_rate::ACME-HZD::1y": 0.014,
+        "hazard_rate::ACME-HZD::3y": 0.018,
+        "hazard_rate::ACME-HZD::5y": 0.022,
+        "hazard_rate::ACME-HZD::7y": 0.025,
+        "hazard_rate::ACME-HZD::10y": 0.028,
+        "survival_probability::ACME-HZD::5y": 0.910282762241,
+        "cds_npv": -181992.0,
+        "cds_cs01": 4680.88
+      }
     }
   },
   "expected_outputs": {

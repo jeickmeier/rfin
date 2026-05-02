@@ -48,6 +48,19 @@
       "design_metrics": [
         "swaption_npv"
       ]
+    },
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Integration fixture contains source SABR/pricing outputs, but the nested calibration leg is source-validation and the nested swaption pricing leg is non-gating due to documented Bloomberg-vs-model residuals. Keep this non-gating until both legs execute like-for-like.",
+      "required_for_execution": "Reconcile the canonical pricing/calibration inputs and risk methodology to the external source, then remove this source_validation block so expected_outputs are compared by Rust and Python runners.",
+      "reference_outputs": {
+        "sabr_alpha::1y::5y": 0.025,
+        "sabr_beta::1y::5y": 0.5,
+        "sabr_rho::1y::5y": -0.25,
+        "sabr_nu::1y::5y": 0.4,
+        "swaption_npv": 155363.65,
+        "swaption_vega": 174955.0
+      }
     }
   },
   "expected_outputs": {

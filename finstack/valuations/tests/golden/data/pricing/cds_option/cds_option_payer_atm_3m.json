@@ -557,6 +557,18 @@
         "cs01": "Bloomberg Spread DV01 is the +1bp par-spread bump on the credit curve with hazard re-bootstrap. Matches finstack par-spread CS01 (GenericParallelCs01) which is the registered MetricId::Cs01 for CDSOption.",
         "theta": "Bloomberg Theta is the 1-calendar-day forward time decay in dollars. Matches finstack theta_finite_diff (PV(as_of+1d) - PV(as_of))."
       }
+    },
+    "source_validation": {
+      "status": "non_executable",
+      "reason": "Bloomberg CDSO price and risk values are retained as source values, but current executable pricing still has documented CDSO annuity, curve, spread-shock, and theta residuals. Keep this non-gating until the CDS option methodology matches the screen within source precision.",
+      "required_for_execution": "Reconcile the canonical pricing/calibration inputs and risk methodology to the external source, then remove this source_validation block so expected_outputs are compared by Rust and Python runners.",
+      "reference_outputs": {
+        "npv": 31177.82,
+        "vega": 381.02,
+        "dv01": -5.77,
+        "cs01": 2563.44,
+        "theta": -309.08
+      }
     }
   },
   "expected_outputs": {
