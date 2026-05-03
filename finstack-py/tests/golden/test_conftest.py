@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
+
 import pytest
 
 from .conftest import (
+    DATA_ROOTS,
     WORKSPACE_ROOT,
     discover_fixtures,
     fixture_path,
@@ -83,6 +86,40 @@ def test_source_validation_reference_values_must_match_expected_outputs() -> Non
         attribution_common.run(fixture)
 
 
+def test_validate_fixture_source_validation_requires_reason() -> None:
+    fixture = _fixture(
+        inputs={
+            "components": {"selection::tech": 0.01},
+            "source_validation": {
+                "status": "non_executable",
+                "reference_outputs": {"selection::tech": 0.01},
+            },
+        },
+        expected_outputs={"selection::tech": 0.01},
+    )
+
+    with pytest.raises(ValueError, match="must explain"):
+        validate_fixture(WORKSPACE_ROOT / "dummy.json", fixture)
+
+
+def test_validate_fixture_source_validation_rejects_actual_outputs() -> None:
+    fixture = _fixture(
+        inputs={
+            "actual_outputs": {"selection::tech": 0.01},
+            "components": {"selection::tech": 0.01},
+            "source_validation": {
+                "status": "non_executable",
+                "reason": "unit test",
+                "reference_outputs": {"selection::tech": 0.01},
+            },
+        },
+        expected_outputs={"selection::tech": 0.01},
+    )
+
+    with pytest.raises(ValueError, match="actual_outputs"):
+        validate_fixture(WORKSPACE_ROOT / "dummy.json", fixture)
+
+
 def test_abs_or_rel_tolerances_allow_either_by_default() -> None:
     result = compare("npv", 1_000_000.5, 1_000_000.0, ToleranceEntry(abs=0.01, rel=1e-6))
 
@@ -121,6 +158,27 @@ def test_required_pricing_risk_metric_cannot_be_non_compared() -> None:
         validate_fixture(WORKSPACE_ROOT / "dummy.json", fixture)
 
 
+def test_source_validation_cannot_hide_required_pricing_risk_metric() -> None:
+    fixture = _fixture(
+        inputs={
+            "source_validation": {
+                "status": "non_executable",
+                "reason": "unit test",
+                "reference_outputs": {"cs01": 1.0, "dv01": 2.0},
+            },
+            "source_reference": {
+                "non_compared_metrics": ["cs01"],
+                "non_compared_metrics_reason": "unit test",
+            },
+        },
+        expected_outputs={"cs01": 1.0, "dv01": 2.0},
+        domain="credit.cds_tranche",
+    )
+
+    with pytest.raises(AssertionError, match="required executable pricing/risk metrics"):
+        validate_fixture(WORKSPACE_ROOT / "dummy.json", fixture)
+
+
 def test_source_reference_non_compared_metric_does_not_bypass_comparison() -> None:
     fixture = _fixture(
         inputs={
@@ -134,6 +192,36 @@ def test_source_reference_non_compared_metric_does_not_bypass_comparison() -> No
     )
 
     assert non_compared_metric_reason(fixture, "npv") is None
+
+
+def test_pricing_validation_rejects_invalid_instrument_json() -> None:
+    path, fixture = _deposit_fixture()
+    fixture.inputs["instrument_json"] = {
+        "schema": "finstack.instrument/1",
+        "instrument": {
+            "type": "deposit",
+            "spec": {},
+        },
+    }
+
+    with pytest.raises(AssertionError, match="instrument_json"):
+        validate_fixture(path, fixture)
+
+
+def test_pricing_validation_rejects_unknown_metric_name() -> None:
+    path, fixture = _deposit_fixture()
+    fixture.inputs["metrics"] = ["deposit_par_rate", "dv01x"]
+
+    with pytest.raises(AssertionError, match="dv01x"):
+        validate_fixture(path, fixture)
+
+
+def test_pricing_validation_requires_expected_metrics_to_be_requested() -> None:
+    path, fixture = _deposit_fixture()
+    fixture.inputs["metrics"] = ["deposit_par_rate"]
+
+    with pytest.raises(AssertionError, match="dv01"):
+        validate_fixture(path, fixture)
 
 
 def _fixture(
@@ -161,3 +249,10 @@ def _fixture(
         expected_outputs=expected_outputs,
         tolerances={metric: ToleranceEntry(abs=0.0) for metric in expected_outputs},
     )
+
+
+def _deposit_fixture() -> tuple[object, GoldenFixture]:
+    path = DATA_ROOTS["pricing"] / "pricing/deposit/usd_deposit_3m.json"
+    fixture = GoldenFixture.from_path(path)
+    fixture.inputs = deepcopy(fixture.inputs)
+    return path, fixture

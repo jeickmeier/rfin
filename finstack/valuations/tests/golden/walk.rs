@@ -2,6 +2,8 @@
 
 use crate::golden::schema::{GoldenFixture, SCHEMA_VERSION};
 use finstack_core::market_data::context::MarketContext;
+use finstack_valuations::metrics::MetricId;
+use finstack_valuations::pricer::parse_boxed_instrument_json;
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -169,6 +171,7 @@ pub(crate) fn validate_fixture(path: &Path) -> Result<(), String> {
 
     validate_zero_risk_metric_reasons(&fixture)?;
     validate_source_reference_coverage(&fixture)?;
+    validate_source_validation_metadata(&fixture)?;
     validate_pricing_input_schema(path, &fixture)?;
     validate_required_pricing_risk_metrics(&fixture)?;
     validate_required_metrics_not_non_compared(&fixture)?;
@@ -228,6 +231,29 @@ fn validate_pricing_input_schema(path: &Path, fixture: &GoldenFixture) -> Result
         format!("pricing fixture inputs.market is not a valid MarketContext: {err}")
     })?;
 
+    let instrument_json = inputs
+        .get("instrument_json")
+        .ok_or("pricing fixture inputs.instrument_json is required")?;
+    let instrument_json = serde_json::to_string(instrument_json)
+        .map_err(|err| format!("serialize pricing fixture inputs.instrument_json: {err}"))?;
+    parse_boxed_instrument_json(&instrument_json, None).map_err(|err| {
+        format!("pricing fixture inputs.instrument_json is not a valid instrument: {err}")
+    })?;
+
+    let metrics = string_array(inputs, "metrics")?;
+    for metric in &metrics {
+        MetricId::parse_strict(metric)
+            .map_err(|err| format!("pricing fixture inputs.metrics contains '{metric}': {err}"))?;
+    }
+    let requested = metrics.iter().map(String::as_str).collect::<BTreeSet<_>>();
+    for metric in fixture.expected_outputs.keys() {
+        if metric != "npv" && !requested.contains(metric.as_str()) {
+            return Err(format!(
+                "expected_outputs has '{metric}' but inputs.metrics does not request it"
+            ));
+        }
+    }
+
     Ok(())
 }
 
@@ -286,9 +312,6 @@ fn validate_required_pricing_risk_metrics(fixture: &GoldenFixture) -> Result<(),
 }
 
 fn validate_required_metrics_not_non_compared(fixture: &GoldenFixture) -> Result<(), String> {
-    if fixture.inputs.get("source_validation").is_some() {
-        return Ok(());
-    }
     let Some(source_reference) = fixture
         .inputs
         .get("source_reference")
@@ -323,6 +346,14 @@ fn is_required_executable_pricing_risk_metric(fixture: &GoldenFixture, metric: &
         return metric == "dv01";
     }
     fixture.domain.starts_with("credit.") && matches!(metric, "dv01" | "cs01")
+}
+
+fn validate_source_validation_metadata(fixture: &GoldenFixture) -> Result<(), String> {
+    if fixture.inputs.get("source_validation").is_none() {
+        return Ok(());
+    }
+    crate::golden::runners::validate_source_validation_fixture("walk validation", fixture)
+        .map(|_| ())
 }
 
 fn validate_zero_risk_metric_reasons(fixture: &GoldenFixture) -> Result<(), String> {
@@ -528,6 +559,122 @@ fn extract_run_golden_path(line: &str) -> Option<String> {
     let start = line.find("run_golden!(\"")? + "run_golden!(\"".len();
     let end = line[start..].find('"')? + start;
     Some(line[start..end].to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const DEPOSIT_FIXTURE: &str = "pricing/deposit/usd_deposit_3m.json";
+
+    #[test]
+    fn pricing_input_schema_rejects_invalid_instrument_json() {
+        let path = data_root().join(DEPOSIT_FIXTURE);
+        let mut fixture = load_fixture(DEPOSIT_FIXTURE);
+        fixture.inputs["instrument_json"] = serde_json::json!({
+            "schema": "finstack.instrument/1",
+            "instrument": {
+                "type": "deposit",
+                "spec": {}
+            }
+        });
+
+        let err = validate_pricing_input_schema(&path, &fixture)
+            .expect_err("invalid instrument_json must fail pricing walk validation");
+
+        assert!(
+            err.contains("instrument_json"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn pricing_input_schema_rejects_unknown_metric_name() {
+        let path = data_root().join(DEPOSIT_FIXTURE);
+        let mut fixture = load_fixture(DEPOSIT_FIXTURE);
+        fixture.inputs["metrics"] = serde_json::json!(["deposit_par_rate", "dv01x"]);
+
+        let err = validate_pricing_input_schema(&path, &fixture)
+            .expect_err("unknown metric names must fail pricing walk validation");
+
+        assert!(err.contains("dv01x"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn pricing_input_schema_requires_expected_metrics_to_be_requested() {
+        let path = data_root().join(DEPOSIT_FIXTURE);
+        let mut fixture = load_fixture(DEPOSIT_FIXTURE);
+        fixture.inputs["metrics"] = serde_json::json!(["deposit_par_rate"]);
+
+        let err = validate_pricing_input_schema(&path, &fixture)
+            .expect_err("expected risk metrics must be requested in pricing inputs");
+
+        assert!(err.contains("dv01"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn source_validation_does_not_allow_required_metric_as_non_compared() {
+        let mut fixture = load_fixture(DEPOSIT_FIXTURE);
+        fixture.inputs["source_validation"] = serde_json::json!({
+            "status": "non_executable",
+            "reason": "unit test",
+            "reference_outputs": fixture.expected_outputs
+        });
+        fixture.inputs["source_reference"]["non_compared_metrics"] = serde_json::json!(["dv01"]);
+        fixture.inputs["source_reference"]["non_compared_metrics_reason"] =
+            serde_json::json!("unit test");
+
+        let err = validate_required_metrics_not_non_compared(&fixture)
+            .expect_err("source_validation must not hide required executable risk metrics");
+
+        assert!(err.contains("dv01"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn source_validation_metadata_requires_reason() {
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let path = manifest_dir.join("../../target/golden-source-validation-missing-reason.json");
+        std::fs::write(
+            &path,
+            r#"{
+              "schema_version": "finstack.golden/1",
+              "name": "missing_source_validation_reason",
+              "domain": "attribution.equity",
+              "description": "Source validation missing reason test.",
+              "provenance": {
+                "as_of": "2026-04-30",
+                "source": "formula",
+                "source_detail": "unit test",
+                "captured_by": "test",
+                "captured_on": "2026-04-30",
+                "last_reviewed_by": "test",
+                "last_reviewed_on": "2026-04-30",
+                "review_interval_months": 6,
+                "regen_command": "",
+                "screenshots": []
+              },
+              "inputs": {
+                "components": {"selection::tech": 0.01},
+                "source_validation": {
+                  "status": "non_executable",
+                  "reference_outputs": {"selection::tech": 0.01}
+                }
+              },
+              "expected_outputs": {"selection::tech": 0.01},
+              "tolerances": {"selection::tech": {"abs": 0.0}}
+            }"#,
+        )
+        .expect("write source validation fixture");
+
+        let err = validate_fixture(&path).expect_err("source_validation reason is required");
+
+        assert!(err.contains("must explain"), "unexpected error: {err}");
+    }
+
+    fn load_fixture(relative_path: &str) -> GoldenFixture {
+        let raw = fs::read_to_string(data_root().join(relative_path)).expect("read fixture");
+        serde_json::from_str(&raw).expect("parse fixture")
+    }
 }
 
 #[test]

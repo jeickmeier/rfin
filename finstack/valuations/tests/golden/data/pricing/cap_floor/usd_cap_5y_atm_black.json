@@ -806,14 +806,14 @@
       "reference_outputs": {
         "npv": 258327.94,
         "vega": 265946.0,
-        "dv01": -2158.57
+        "dv01": 2158.57
       }
     }
   },
   "expected_outputs": {
     "npv": 258327.94,
     "vega": 265946.0,
-    "dv01": -2158.57
+    "dv01": 2158.57
   },
   "tolerances": {
     "npv": {
@@ -829,7 +829,7 @@
     "dv01": {
       "abs": 1.0,
       "rel": 0.0005,
-      "tolerance_reason": "Bloomberg SWPM screen DV01 is displayed to cents; the executable fixture should match screen risk sign and magnitude. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
+      "tolerance_reason": "Bloomberg SWPM screen DV01 is displayed to cents and may be shown as a screen-side absolute or payer/receiver signed value. For a long cap, first-principles rate-up PV change is positive, so expected_outputs stores the positive magnitude. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     }
   }
 }

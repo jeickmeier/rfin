@@ -27,4 +27,4 @@ def run(fixture: GoldenFixture) -> dict[str, float]:
         for output, total in ready.items():
             actuals[output] = total
             del pending[output]
-    return {}
+    return source_validation

@@ -16,6 +16,8 @@ from types import ModuleType
 
 from finstack.core.market_data import MarketContext
 
+from .pricing_validation import validate_requested_metrics, validated_instrument_json
+from .runners import validate_source_validation_fixture
 from .schema import SCHEMA_VERSION, GoldenFixture
 from .tolerance import compare
 
@@ -154,10 +156,6 @@ def run_golden(relative_path: str) -> None:
     path = fixture_path(relative_path)
     fixture = GoldenFixture.from_path(path)
     validate_fixture(path, fixture)
-    if _is_source_validation_fixture(fixture):
-        results = _source_validation_results(fixture, fixture.inputs["source_validation"])
-        _write_comparison_csv(relative_path, results)
-        return
     runner = _load_runner(fixture.domain)
     actuals = runner.run(fixture)
 
@@ -178,19 +176,6 @@ def run_golden(relative_path: str) -> None:
     if failures:
         msg = f"{len(failures)} metric(s) failed:\n" + "\n\n".join(failures)
         raise AssertionError(msg)
-
-
-def _is_source_validation_fixture(fixture: GoldenFixture) -> bool:
-    return "source_validation" in fixture.inputs
-
-
-def _source_validation_results(fixture: GoldenFixture, source_validation: dict) -> list:
-    _validate_source_validation_references(fixture, source_validation)
-    references = source_validation["reference_outputs"]
-    return [
-        compare(metric, float(references[metric]), expected, fixture.tolerances[metric])
-        for metric, expected in fixture.expected_outputs.items()
-    ]
 
 
 def non_compared_metric_reason(fixture: GoldenFixture, metric: str) -> str | None:
@@ -234,6 +219,7 @@ def validate_fixture(path: Path, fixture: GoldenFixture) -> None:
     _validate_required_pricing_risk_metrics(fixture)
     _validate_screenshots(path, fixture)
     _validate_source_reference_coverage(fixture)
+    _validate_source_validation_metadata(fixture)
     _validate_pricing_input_schema(path, fixture)
 
 
@@ -252,6 +238,11 @@ def _validate_pricing_input_schema(path: Path, fixture: GoldenFixture) -> None:
         MarketContext.from_json(json.dumps(inputs["market"]))
     except Exception as exc:
         raise AssertionError(f"pricing fixture inputs.market is not a valid MarketContext: {exc}") from exc
+    try:
+        validated_instrument_json(inputs["instrument_json"])
+    except Exception as exc:
+        raise AssertionError(f"pricing fixture inputs.instrument_json is not valid: {exc}") from exc
+    validate_requested_metrics(list(inputs["metrics"]), fixture.expected_outputs)
 
 
 def _validate_object_keys(field: str, obj: dict, required: set[str], optional: set[str]) -> None:
@@ -304,12 +295,11 @@ def _validate_source_reference_coverage(fixture: GoldenFixture) -> None:
         assert _has_metric_omission_reason(source_reference), (
             "inputs.source_reference planned/non-compared metrics require an explicit reason"
         )
-    if "source_validation" not in fixture.inputs:
-        invalid = [metric for metric in non_compared if is_required_executable_pricing_risk_metric(fixture, metric)]
-        assert not invalid, (
-            "required executable pricing/risk metrics cannot be listed in "
-            f"inputs.source_reference.non_compared_metrics: {invalid}"
-        )
+    invalid = [metric for metric in non_compared if is_required_executable_pricing_risk_metric(fixture, metric)]
+    assert not invalid, (
+        "required executable pricing/risk metrics cannot be listed in "
+        f"inputs.source_reference.non_compared_metrics: {invalid}"
+    )
 
     asserted = set(fixture.expected_outputs)
     omitted = planned | non_compared
@@ -363,6 +353,12 @@ def is_required_executable_pricing_risk_metric(fixture: GoldenFixture, metric: s
     return fixture.domain.startswith("credit.") and metric in {"dv01", "cs01"}
 
 
+def _validate_source_validation_metadata(fixture: GoldenFixture) -> None:
+    if "source_validation" not in fixture.inputs:
+        return
+    validate_source_validation_fixture("walk validation", fixture)
+
+
 def _design_metric_aliases(source_reference: dict, metric: str) -> set[str]:
     aliases: set[str] = set()
     alias = source_reference.get(f"{metric}_key")
@@ -396,25 +392,6 @@ def is_git_tracked(path: Path) -> bool:
         check=False,
     )
     return result.returncode == 0
-
-
-def _validate_source_validation_references(fixture: GoldenFixture, source_validation: dict) -> None:
-    status = source_validation.get("status")
-    assert status == "non_executable", f"source_validation status must be 'non_executable', got {status!r}"
-    references = source_validation.get("reference_outputs")
-    assert isinstance(references, dict), "source_validation must retain frozen references under reference_outputs"
-    missing = [metric for metric in fixture.expected_outputs if metric not in references]
-    assert not missing, f"source_validation.reference_outputs missing expected metrics: {missing}"
-    extra = [metric for metric in references if metric not in fixture.expected_outputs]
-    assert not extra, f"source_validation.reference_outputs contains extra metrics: {extra}"
-    for metric, expected in fixture.expected_outputs.items():
-        reference = references[metric]
-        assert not isinstance(reference, bool), f"source_validation.reference_outputs[{metric!r}] must be numeric"
-        assert isinstance(reference, int | float), f"source_validation.reference_outputs[{metric!r}] must be numeric"
-        assert float(reference) == expected, (
-            f"source_validation.reference_outputs[{metric!r}]={float(reference):.17g} "
-            f"does not exactly match expected_outputs[{metric!r}]={expected:.17g}"
-        )
 
 
 def _write_comparison_csv(relative_path: str, results: list) -> None:

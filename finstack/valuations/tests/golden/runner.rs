@@ -104,9 +104,6 @@ pub fn dispatch(fixture: &GoldenFixture) -> Result<Box<dyn DomainRunner>, String
 
 /// Run a fixture end-to-end and return one comparison result per expected metric.
 pub fn run_fixture(fixture: &GoldenFixture) -> Result<Vec<ComparisonResult>, String> {
-    if is_source_validation_fixture(fixture) {
-        return source_validation_results(fixture);
-    }
     let runner = dispatch(fixture)?;
     let actuals = runner.run(fixture)?;
     fixture
@@ -126,89 +123,9 @@ pub fn run_fixture(fixture: &GoldenFixture) -> Result<Vec<ComparisonResult>, Str
         .collect()
 }
 
-fn source_validation_results(fixture: &GoldenFixture) -> Result<Vec<ComparisonResult>, String> {
-    validate_source_validation_fixture(fixture)?;
-    let references = fixture
-        .inputs
-        .get("source_validation")
-        .and_then(|source_validation| source_validation.get("reference_outputs"))
-        .and_then(serde_json::Value::as_object)
-        .ok_or("source_validation must retain frozen references under reference_outputs")?;
-
-    fixture
-        .expected_outputs
-        .iter()
-        .map(|(metric, expected)| {
-            let actual = references
-                .get(metric)
-                .and_then(serde_json::Value::as_f64)
-                .ok_or_else(|| {
-                    format!("source_validation.reference_outputs['{metric}'] must be numeric")
-                })?;
-            let tolerance = fixture
-                .tolerances
-                .get(metric)
-                .ok_or_else(|| format!("no tolerance for metric '{metric}'"))?;
-            Ok(compare(metric, actual, *expected, tolerance))
-        })
-        .collect()
-}
-
-fn is_source_validation_fixture(fixture: &GoldenFixture) -> bool {
-    fixture.inputs.get("source_validation").is_some()
-}
-
 fn non_compared_metric_reason(fixture: &GoldenFixture, metric: &str) -> Option<String> {
     let _ = (fixture, metric);
     None
-}
-
-fn validate_source_validation_fixture(fixture: &GoldenFixture) -> Result<(), String> {
-    let source_validation = fixture
-        .inputs
-        .get("source_validation")
-        .ok_or("source_validation fixture is missing inputs.source_validation")?;
-    validate_source_validation_references(fixture, source_validation)
-}
-
-fn validate_source_validation_references(
-    fixture: &GoldenFixture,
-    source_validation: &serde_json::Value,
-) -> Result<(), String> {
-    let status = source_validation
-        .get("status")
-        .and_then(serde_json::Value::as_str)
-        .ok_or("source_validation must include a status")?;
-    if status != "non_executable" {
-        return Err(format!(
-            "source_validation status must be 'non_executable', got '{status}'"
-        ));
-    }
-    let references = source_validation
-        .get("reference_outputs")
-        .and_then(serde_json::Value::as_object)
-        .ok_or("source_validation must retain frozen references under reference_outputs")?;
-    for (metric, expected) in &fixture.expected_outputs {
-        let reference = references.get(metric).ok_or_else(|| {
-            format!("source_validation.reference_outputs missing expected metric '{metric}'")
-        })?;
-        let reference = reference.as_f64().ok_or_else(|| {
-            format!("source_validation.reference_outputs['{metric}'] must be numeric")
-        })?;
-        if reference != *expected {
-            return Err(format!(
-                "source_validation.reference_outputs['{metric}']={reference:.17} does not exactly match expected_outputs['{metric}']={expected:.17}"
-            ));
-        }
-    }
-    for metric in references.keys() {
-        if !fixture.expected_outputs.contains_key(metric) {
-            return Err(format!(
-                "source_validation.reference_outputs contains extra metric '{metric}'"
-            ));
-        }
-    }
-    Ok(())
 }
 
 /// Run one golden fixture from disk, write a CSV comparison report, and return failures.
@@ -528,6 +445,86 @@ mod tests {
 
         assert!(
             err.contains("does not exactly match expected_outputs"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn pricing_source_validation_still_dispatches_to_runner() {
+        let fixture = GoldenFixture {
+            schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
+            name: "source_validation_pricing_dispatch".to_string(),
+            domain: "rates.deposit".to_string(),
+            description: "Source validation pricing dispatch test".to_string(),
+            provenance: test_provenance(),
+            inputs: serde_json::json!({
+                "source_validation": {
+                    "status": "non_executable",
+                    "reason": "unit test",
+                    "reference_outputs": {"npv": 0.0}
+                }
+            }),
+            expected_outputs: BTreeMap::from([("npv".to_string(), 0.0)]),
+            tolerances: BTreeMap::from([("npv".to_string(), abs_zero())]),
+        };
+
+        let err = run_fixture(&fixture).expect_err("pricing source validation must execute runner");
+
+        assert!(
+            err.contains("parse pricing inputs"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn source_validation_requires_reason_before_reference_comparison() {
+        let fixture = GoldenFixture {
+            schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
+            name: "source_validation_missing_reason".to_string(),
+            domain: "attribution.equity".to_string(),
+            description: "Source validation reason test".to_string(),
+            provenance: test_provenance(),
+            inputs: serde_json::json!({
+                "components": {"selection::tech": 0.01},
+                "source_validation": {
+                    "status": "non_executable",
+                    "reference_outputs": {"selection::tech": 0.01}
+                }
+            }),
+            expected_outputs: BTreeMap::from([("selection::tech".to_string(), 0.01)]),
+            tolerances: BTreeMap::from([("selection::tech".to_string(), abs_zero())]),
+        };
+
+        let err = run_fixture(&fixture).expect_err("source validation must explain non-execution");
+
+        assert!(err.contains("must explain"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn source_validation_rejects_legacy_actual_outputs() {
+        let fixture = GoldenFixture {
+            schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
+            name: "source_validation_actual_outputs".to_string(),
+            domain: "attribution.equity".to_string(),
+            description: "Source validation actual_outputs test".to_string(),
+            provenance: test_provenance(),
+            inputs: serde_json::json!({
+                "actual_outputs": {"selection::tech": 0.01},
+                "components": {"selection::tech": 0.01},
+                "source_validation": {
+                    "status": "non_executable",
+                    "reason": "unit test",
+                    "reference_outputs": {"selection::tech": 0.01}
+                }
+            }),
+            expected_outputs: BTreeMap::from([("selection::tech".to_string(), 0.01)]),
+            tolerances: BTreeMap::from([("selection::tech".to_string(), abs_zero())]),
+        };
+
+        let err = run_fixture(&fixture).expect_err("source validation must reject actual_outputs");
+
+        assert!(
+            err.contains("must not keep inputs.actual_outputs"),
             "unexpected error: {err}"
         );
     }

@@ -29,7 +29,7 @@ impl DomainRunner for AttributionRunner {
         let inputs: AttributionInputs = serde_json::from_value(fixture.inputs.clone())
             .map_err(|err| format!("parse attribution inputs: {err}"))?;
         resolve_component_sums(inputs.components, inputs.sums)?;
-        Ok(BTreeMap::new())
+        Ok(source_validation.unwrap_or_default())
     }
 }
 

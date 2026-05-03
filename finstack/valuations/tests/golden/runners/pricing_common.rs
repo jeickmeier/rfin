@@ -19,6 +19,8 @@ struct PricingInputs {
 pub(crate) fn run_pricing_fixture(
     fixture: &GoldenFixture,
 ) -> Result<BTreeMap<String, f64>, String> {
+    crate::golden::runners::validate_source_validation_fixture("pricing runner", fixture)?;
+
     let inputs: PricingInputs = serde_json::from_value(fixture.inputs.clone())
         .map_err(|err| format!("parse pricing inputs: {err}"))?;
     let instrument_json = serde_json::to_string(&inputs.instrument_json)
