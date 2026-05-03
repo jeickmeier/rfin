@@ -245,11 +245,10 @@ fn synthetic_underlying_cds(option: &CDSOption) -> Result<CreditDefaultSwap> {
     if cds.premium.start < option.expiry {
         cds.protection_effective_date = Some(option.expiry);
     }
-    // The CDSO Black-76 forward spread / risky annuity model is anchored on
-    // the ISDA Standard CDS Model conventions (unadjusted IMM accruals,
-    // dirty PV). Pin the synthetic underlying explicitly so that the option
-    // pricer is invariant to the default `CreditDefaultSwap` convention.
-    cds.valuation_convention = CdsValuationConvention::IsdaDirty;
+    // Forward CDS uses the Bloomberg CDSW conventions shown on the option
+    // underlying screen: adjusted-to-adjusted accruals plus the +1-day rule
+    // on the final ACT/360 period.
+    cds.valuation_convention = CdsValuationConvention::BloombergCdswClean;
     Ok(cds)
 }
 
@@ -1256,5 +1255,618 @@ mod tests {
                 panic!("could not roll to IMM on or after {d}");
             }
         }
+    }
+
+    /// Diagnostic for the Bloomberg `cds_option_payer_atm_3m` golden.
+    ///
+    /// Decomposes the residual gaps vs. Bloomberg into:
+    /// 1. **Forward CDS RPV01** — per-period schedule + DF + SP rows under
+    ///    several calendar / hazard / AOD variants, then totals.
+    /// 2. **Black time-to-expiry** — sweeps `(start, end, day_count)`
+    ///    combinations holding annuity, forward, and σ fixed.
+    /// 3. **CS01 building blocks** — `∂F/∂S` from a par-spread bump, and
+    ///    the analytic `annuity · Φ(d1) · ∂F/∂S · N · 1bp` reference.
+    /// 4. **Production sanity** — invokes the actual CDSO pricer through
+    ///    the registered metric path so the diagnostic and runner agree.
+    ///
+    /// Run with:
+    /// ```text
+    /// cargo test -p finstack-valuations --lib \
+    ///   instruments::credit_derivatives::cds_option::pricer::tests::diag_cds_option_phase_a \
+    ///   -- --include-ignored --nocapture
+    /// ```
+    #[test]
+    #[ignore = "diagnostic only; prints per-period RPV01 contributions and T-convention NPV table"]
+    #[allow(clippy::excessive_precision, clippy::too_many_lines)]
+    fn diag_cds_option_phase_a() {
+        use crate::constants::ONE_BASIS_POINT;
+        use crate::instruments::credit_derivatives::cds::{
+            CDSConvention, CdsValuationConvention, CreditDefaultSwap, PayReceive,
+        };
+        use finstack_core::currency::Currency;
+        use finstack_core::dates::calendar::{calendar_by_id, CompositeCalendar, CompositeMode};
+        use finstack_core::dates::{
+            adjust, BusinessDayConvention, Date, DayCount, DayCountContext,
+        };
+        use finstack_core::market_data::context::MarketContext;
+        use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+        use finstack_core::math::interp::InterpStyle;
+        use finstack_core::money::Money;
+        use rust_decimal::Decimal;
+
+        // ----- 1. Build the same market context as the golden ------------------
+        let as_of = Date::from_calendar_date(2026, time::Month::May, 2).unwrap();
+
+        let disc_knots: Vec<(f64, f64)> = vec![
+            (0.0, 1.0),
+            (0.13972602739726028, 0.9948564304744848),
+            (0.38904109589041097, 0.98574857),
+            (0.6383561643835617, 0.97668173),
+            (0.8876712328767123, 0.96764815),
+            (1.1369863013698631, 0.95875431),
+            (1.3863013698630137, 0.94999432),
+            (1.6356164383561644, 0.94131437),
+            (1.8849315068493151, 0.93271373),
+            (2.136986301369863, 0.92419467),
+            (2.389041095890411, 0.91584876),
+            (2.6383561643835617, 0.9076677),
+            (2.884931506849315, 0.89964844),
+            (3.136986301369863, 0.8914406),
+            (3.389041095890411, 0.88321729),
+            (3.6383561643835617, 0.87515799),
+            (3.884931506849315, 0.86725959),
+            (4.136986301369863, 0.85911547),
+            (4.389041095890411, 0.85089899),
+            (4.638356164383562, 0.84284912),
+            (4.884931506849315, 0.83496263),
+            (5.136986301369863, 0.82680571),
+        ];
+        let disc = DiscountCurve::builder("USD-S531-SWAP")
+            .base_date(as_of)
+            .knots(disc_knots)
+            .interp(InterpStyle::LogLinear)
+            .build()
+            .expect("disc curve");
+        let disc_arc = std::sync::Arc::new(disc.clone());
+
+        // Bootstrap hazard knots from the par-spread term structure
+        let par_term: Vec<(f64, f64)> = vec![
+            (0.5, 10.5),
+            (1.0, 14.5),
+            (2.0, 22.0),
+            (3.0, 32.0),
+            (4.0, 43.5),
+            (5.0, 57.0),
+            (7.0, 68.5),
+            (10.0, 80.4),
+        ];
+        let recovery = 0.4_f64;
+        let dc = finstack_core::dates::DayCount::Act360;
+        let bootstrapped = bootstrap_flat_hazard_pieces(&disc_arc, &par_term, recovery, dc, as_of);
+
+        let hazard = HazardCurve::builder("IBM-USD-SENIOR-BOOT")
+            .base_date(as_of)
+            .recovery_rate(recovery)
+            .knots(bootstrapped.clone())
+            .par_spreads(par_term.clone())
+            .build()
+            .expect("haz");
+        let market = MarketContext::new()
+            .insert(disc.clone())
+            .insert(hazard.clone());
+        let haz_arc = market.get_hazard("IBM-USD-SENIOR-BOOT").unwrap();
+
+        // ----- 2. Build the option's underlying forward CDS exactly --------------
+        //
+        // Bloomberg CDSW screen for the option underlying (cf. screenshots):
+        //   1st Accr Start: 06/21/26 (Sun, displayed unadjusted)
+        //   1st Coupon:    09/21/26 (BDC-adjusted from 09/20 Sun → next BD)
+        //   Pen Coupon:    03/20/31
+        //   Maturity:      06/20/31 (Sat, BDC-adjusted to 06/22 Mon)
+        //   Day Cnt:       ACT/360
+        //   Freq:          Q (quarterly)
+        //   Calendar:      US, GB
+        //   Bus Day Adj:   Modified Following
+
+        let underlying_eff = Date::from_calendar_date(2026, time::Month::June, 21).unwrap();
+        let cds_maturity = Date::from_calendar_date(2031, time::Month::June, 20).unwrap();
+        let option_expiry = Date::from_calendar_date(2026, time::Month::June, 26).unwrap();
+        let cash_settle = Date::from_calendar_date(2026, time::Month::May, 7).unwrap();
+        let exercise_settle = Date::from_calendar_date(2026, time::Month::June, 24).unwrap();
+        let strike_bp = 58.3954_f64;
+
+        // Build several CDS variants. The CDS pricer's per-period APIs are
+        // private; we instead vary the *total* annuity via `risky_annuity`
+        // (no AOD) and `premium_leg_pv_per_bp` (with AOD), and reconstruct
+        // the schedule via the public `generate_isda_schedule` to print
+        // per-period DF/SP rows for context.
+        let make_cds = |id: &str, calendar_id: Option<&str>| -> CreditDefaultSwap {
+            let mut cds = CreditDefaultSwap::new_isda(
+                id,
+                Money::new(10_000_000.0, Currency::USD),
+                PayReceive::PayFixed,
+                CDSConvention::IsdaNa,
+                Decimal::from_str_exact("58.3954").unwrap(),
+                underlying_eff,
+                cds_maturity,
+                recovery,
+                "USD-S531-SWAP",
+                "IBM-USD-SENIOR-BOOT",
+            )
+            .unwrap();
+            cds.protection_effective_date = Some(option_expiry);
+            cds.valuation_convention = CdsValuationConvention::IsdaDirty;
+            if let Some(id) = calendar_id {
+                cds.premium.calendar_id = Some(id.to_string());
+            }
+            cds
+        };
+
+        let cds_nyse = make_cds("DIAG-NYSE", Some("nyse"));
+        let cds_gblo = make_cds("DIAG-GBLO", Some("gblo"));
+        let cds_no_cal = make_cds("DIAG-NOCAL", None);
+
+        // Variant: BloombergCdswClean — uses adjusted-to-adjusted accrual periods
+        // (matches the cds_5y_par_spread golden) AND applies the +1 day rule on
+        // the final ACT/360 period (CDSW convention). This is the most likely
+        // Bloomberg-aligned premium accrual scheme.
+        let mut cds_cdsw = make_cds("DIAG-CDSW", Some("nyse"));
+        cds_cdsw.valuation_convention = CdsValuationConvention::BloombergCdswClean;
+
+        // Variant: hazard axis ACT/365L
+        let haz_365l = HazardCurve::builder("IBM-365L")
+            .base_date(as_of)
+            .recovery_rate(recovery)
+            .day_count(DayCount::Act365L)
+            .knots(bootstrapped.clone())
+            .build()
+            .expect("haz_365l");
+
+        let cds_pricer = CDSPricer::new();
+        let dc_ctx = DayCountContext::default();
+        eprintln!("\n=== Forward CDS RPV01 attribution ===");
+        eprintln!("  Bloomberg CDSW (option underlying) Spread DV01 = 4515.52");
+        eprintln!("    ⇒ implied RPV01_per_unit_notional               = 4.51552");
+        eprintln!("    Finstack today (boot haz, NYSE calendar)         = 4.5029  (-0.28%)\n");
+
+        // Per-period table for the NYSE variant: accrual fractions come from
+        // public premium_cashflow_accruals; SP/DF from the curves directly.
+        let schedule_nyse = cds_pricer.generate_isda_schedule(&cds_nyse).unwrap();
+        let cf_accruals_nyse = cds_pricer
+            .premium_cashflow_accruals(&cds_nyse, as_of)
+            .unwrap();
+        eprintln!("  [period schedule, calendar=NYSE, ACT/360, MF, IsdaNa, IsdaDirty]");
+        eprintln!(
+            "    {:>3}  {:>10}  {:>10}  {:>9}  {:>10}  {:>10}  {:>11}",
+            "i", "accr_start", "pay_date", "yf_a360", "SP_pay", "DF_pay", "coupon/bp"
+        );
+        let mut sum_no_aod_manual = 0.0_f64;
+        for (i, ((pay_date, yf), &start)) in cf_accruals_nyse
+            .iter()
+            .zip(schedule_nyse.iter())
+            .enumerate()
+        {
+            // pay_date is BDC-adjusted IMM; use it both as "accrual end (effective)"
+            // and as the discounting date.
+            let t_end = haz_arc
+                .day_count()
+                .year_fraction(haz_arc.base_date(), *pay_date, dc_ctx)
+                .unwrap();
+            let sp_end = haz_arc.sp(t_end);
+            let df_pay = disc.df_between_dates(as_of, *pay_date).unwrap();
+            let contrib = yf * sp_end * df_pay;
+            sum_no_aod_manual += contrib;
+            eprintln!(
+                "    {:>3}  {:>10}  {:>10}  {:>9.6}  {:>10.7}  {:>10.7}  {:>11.7}",
+                i, start, pay_date, yf, sp_end, df_pay, contrib
+            );
+        }
+        eprintln!("    Σ manual no-AOD (using pay_date for SP & DF) = {sum_no_aod_manual:.7}");
+
+        // Total annuity (with and without AOD) for each variant
+        eprintln!(
+            "\n  Total annuity (per unit notional, decimal RPV01) — Bloomberg implied = 4.51552:"
+        );
+        let print_totals = |label: &str, cds: &CreditDefaultSwap, haz: &HazardCurve| -> () {
+            let no_aod = cds_pricer.risky_annuity(cds, &disc, haz, as_of).unwrap();
+            let with_aod = cds_pricer
+                .premium_leg_pv_per_bp(cds, &disc, haz, as_of)
+                .unwrap()
+                / ONE_BASIS_POINT;
+            let aod_only = with_aod - no_aod;
+            eprintln!(
+                "    {label:<46}  no_aod = {no_aod:.7}  with_aod = {with_aod:.7}  AOD = {aod_only:.7}  Δ_vs_BBG = {:+.5}",
+                with_aod - 4.51552
+            );
+        };
+        print_totals(
+            "IsdaDirty,         calendar=NYSE,  haz ACT/365F (current)",
+            &cds_nyse,
+            haz_arc.as_ref(),
+        );
+        print_totals(
+            "IsdaDirty,         calendar=GBLO,  haz ACT/365F",
+            &cds_gblo,
+            haz_arc.as_ref(),
+        );
+        print_totals(
+            "IsdaDirty,         calendar=<none>, haz ACT/365F",
+            &cds_no_cal,
+            haz_arc.as_ref(),
+        );
+        print_totals(
+            "IsdaDirty,         calendar=NYSE,  haz ACT/365L",
+            &cds_nyse,
+            &haz_365l,
+        );
+        print_totals(
+            "BloombergCdswClean, calendar=NYSE, haz ACT/365F",
+            &cds_cdsw,
+            haz_arc.as_ref(),
+        );
+
+        // Try a "joint NYSE+GBLO" via custom-built schedule manually constructed
+        // from the union calendar. We can't pass a composite to
+        // `premium_leg_pv_per_bp` directly through `calendar_id`, so we
+        // approximate by computing the schedule manually using the union
+        // calendar then summing the contributions (no-AOD only — AOD is
+        // private).
+        let calendars: Vec<&'static dyn finstack_core::dates::HolidayCalendar> = vec![
+            calendar_by_id("nyse").expect("NYSE calendar"),
+            calendar_by_id("gblo").expect("GBLO calendar"),
+        ];
+        let composite = CompositeCalendar::with_mode(&calendars, CompositeMode::Union);
+        let mut accrual_dates_union = vec![cds_nyse.premium.start];
+        let mut current = cds_nyse.premium.start;
+        while current < cds_nyse.premium.end {
+            current = finstack_core::dates::next_cds_date(current);
+            if current <= cds_nyse.premium.end {
+                accrual_dates_union.push(current);
+            }
+        }
+        if accrual_dates_union.last() != Some(&cds_nyse.premium.end) {
+            accrual_dates_union.push(cds_nyse.premium.end);
+        }
+        let n_union = accrual_dates_union.len();
+        let mut union_no_aod = 0.0_f64;
+        for (idx, window) in accrual_dates_union.windows(2).enumerate() {
+            let pay = adjust(
+                window[1],
+                BusinessDayConvention::ModifiedFollowing,
+                &composite,
+            )
+            .unwrap_or(window[1]);
+            // accrual fraction (Act/360) — apply +1 day rule on final period
+            let mut days = (window[1] - window[0]).whole_days();
+            if idx + 2 == n_union && pay == cds_nyse.premium.end && days > 0 {
+                days += 1;
+            }
+            let yf = (days as f64) / 360.0;
+            let t_end = haz_arc
+                .day_count()
+                .year_fraction(haz_arc.base_date(), pay, dc_ctx)
+                .unwrap();
+            let sp_end = haz_arc.sp(t_end);
+            let df_pay = disc.df_between_dates(as_of, pay).unwrap();
+            union_no_aod += yf * sp_end * df_pay;
+        }
+        eprintln!(
+            "    {:<46}  no_aod = {union_no_aod:.7}                                                  Δ_vs_BBG = {:+.5}",
+            "calendar=NYSE∪GBLO (manual), no AOD",
+            union_no_aod - 4.51552
+        );
+
+        // ----- 6. T-convention table ---------------------------------------------
+        //
+        // Hold annuity = 4.51552, F = K = 0.0058395, σ = 0.8102 fixed; vary T.
+        // NPV(T) = annuity * 10M * F * (2N(0.5σ√T) - 1)
+        eprintln!(
+            "\n=== Black T-convention NPV table (annuity=4.51552, F=K=58.3954bp, σ=0.8102) ==="
+        );
+        eprintln!("  Bloomberg target NPV = 31177.82 (back-implied T ≈ 0.13455 → 48.44 days/360)");
+
+        let strike = strike_bp / 10_000.0;
+        let sigma = 0.8102_f64;
+        let ra_ref = 4.51552_f64;
+        let notional = 10_000_000.0_f64;
+        let bloomberg_npv = 31_177.82_f64;
+
+        let nyse_cal = calendar_by_id("nyse").expect("NYSE");
+        let gblo_cal = calendar_by_id("gblo").expect("GBLO");
+        let cals = vec![nyse_cal, gblo_cal];
+        let composite_cal = CompositeCalendar::with_mode(&cals, CompositeMode::Union);
+
+        let bdc = BusinessDayConvention::ModifiedFollowing;
+        let bdc_prev = BusinessDayConvention::Preceding;
+        let pbdc = BusinessDayConvention::ModifiedPreceding;
+        let _ = (pbdc, bdc_prev);
+
+        // Variations. Endpoints we sweep across.
+        let cs_minus_1 = adjust(cash_settle - time::Duration::days(1), bdc, &composite_cal)
+            .unwrap_or(cash_settle - time::Duration::days(1));
+        let cs_plus_1 = adjust(cash_settle + time::Duration::days(1), bdc, &composite_cal)
+            .unwrap_or(cash_settle + time::Duration::days(1));
+        let xs_minus_1 = adjust(
+            exercise_settle - time::Duration::days(1),
+            bdc,
+            &composite_cal,
+        )
+        .unwrap_or(exercise_settle - time::Duration::days(1));
+        let xs_plus_1 = adjust(
+            exercise_settle + time::Duration::days(1),
+            bdc,
+            &composite_cal,
+        )
+        .unwrap_or(exercise_settle + time::Duration::days(1));
+
+        let cases: Vec<(&str, Date, Date, i32)> = vec![
+            (
+                "(cs, xs)            current ACT/360",
+                cash_settle,
+                exercise_settle,
+                0,
+            ),
+            (
+                "(cs, xs)            +1d (CDSW final-period rule)",
+                cash_settle,
+                exercise_settle,
+                1,
+            ),
+            (
+                "(cs-1d, xs)         start back one day",
+                cs_minus_1,
+                exercise_settle,
+                0,
+            ),
+            (
+                "(cs+1d, xs)         start forward one day",
+                cs_plus_1,
+                exercise_settle,
+                0,
+            ),
+            (
+                "(cs, xs-1d)         end back one day (BDC adj)",
+                cash_settle,
+                xs_minus_1,
+                0,
+            ),
+            (
+                "(cs, xs+1d)         end forward one day",
+                cash_settle,
+                xs_plus_1,
+                0,
+            ),
+            (
+                "(cs, expiry)        cash settle to expiration",
+                cash_settle,
+                option_expiry,
+                0,
+            ),
+            (
+                "(cs, expiry-1d)     cash settle to (expiry - 1 BD)",
+                cash_settle,
+                adjust(option_expiry - time::Duration::days(1), bdc, &composite_cal)
+                    .unwrap_or(option_expiry),
+                0,
+            ),
+            (
+                "(cs, expiry+1d)",
+                cash_settle,
+                option_expiry + time::Duration::days(1),
+                0,
+            ),
+            (
+                "(trade, xs)         trade date 05/02 to xs",
+                as_of,
+                exercise_settle,
+                0,
+            ),
+            (
+                "(trade_adj, xs)     trade date BDC-adj 05/04 to xs",
+                adjust(as_of, bdc, &composite_cal).unwrap_or(as_of),
+                exercise_settle,
+                0,
+            ),
+        ];
+
+        // Two day-count denominators: ACT/360 (premium-leg style) and ACT/365
+        // (typical option/vol annualization convention used by OVME/OVCV/OVSW).
+        // CDSO is documented as Black-on-spreads with σ in lognormal vol, T in
+        // years; the "year" convention is not on the screen.
+        let denoms: [(f64, &str); 2] = [(360.0, "ACT/360"), (365.0, "ACT/365")];
+        eprintln!(
+            "  {:<48}  {:>10}  {:>10}  {:>5}  {:>9}  {:>9}  {:>10}",
+            "case", "start", "end", "days", "denom", "T", "NPV (Δ)"
+        );
+        for (label, start, end, plus) in &cases {
+            let raw_days = (*end - *start).whole_days() + i64::from(*plus);
+            for (denom, denom_name) in denoms.iter() {
+                let t = (raw_days as f64) / *denom;
+                let d1 = 0.5 * sigma * t.sqrt();
+                let two_n = 2.0 * finstack_core::math::special_functions::norm_cdf(d1) - 1.0;
+                let npv = ra_ref * notional * strike * two_n;
+                let diff = npv - bloomberg_npv;
+                eprintln!(
+                    "  {:<48}  {:>10}  {:>10}  {:>5}  {:>9}  {:>9.6}  {:>9.2} ({:+7.2})",
+                    label, start, end, raw_days, denom_name, t, npv, diff,
+                );
+            }
+        }
+
+        // Bloomberg-implied T (back-solved from NPV via Φ⁻¹).
+        let target_two_n = bloomberg_npv / (ra_ref * notional * strike);
+        let n_d1 = 0.5 * (1.0 + target_two_n);
+        let d1_implied = finstack_core::math::special_functions::standard_normal_inv_cdf(n_d1);
+        let t_implied = (d1_implied / (0.5 * sigma)).powi(2);
+        eprintln!(
+            "\n  ⇒ Bloomberg-implied T (annuity=4.51552, ATM, σ=0.8102) = {t_implied:.6}  →  {:.3} days × ACT/360",
+            t_implied * 360.0
+        );
+
+        // ----- 7. CS01 building blocks ------------------------------------------
+        //
+        // ∂F/∂S_par via numerical bump of par spreads + rebootstrap, holding the
+        // synthetic CDS conventions fixed.
+        let mut bumped_up = par_term.clone();
+        let mut bumped_dn = par_term.clone();
+        for (_, s) in bumped_up.iter_mut() {
+            *s += 1.0;
+        }
+        for (_, s) in bumped_dn.iter_mut() {
+            *s -= 1.0;
+        }
+        let boot_up = bootstrap_flat_hazard_pieces(&disc_arc, &bumped_up, recovery, dc, as_of);
+        let boot_dn = bootstrap_flat_hazard_pieces(&disc_arc, &bumped_dn, recovery, dc, as_of);
+        let haz_up = HazardCurve::builder("IBM-UP")
+            .base_date(as_of)
+            .recovery_rate(recovery)
+            .knots(boot_up)
+            .build()
+            .unwrap();
+        let haz_dn = HazardCurve::builder("IBM-DN")
+            .base_date(as_of)
+            .recovery_rate(recovery)
+            .knots(boot_dn)
+            .build()
+            .unwrap();
+        let f_up = cds_pricer
+            .par_spread(&cds_nyse, disc_arc.as_ref(), &haz_up, as_of)
+            .unwrap();
+        let f_dn = cds_pricer
+            .par_spread(&cds_nyse, disc_arc.as_ref(), &haz_dn, as_of)
+            .unwrap();
+        let df_ds = (f_up - f_dn) / 2.0;
+        eprintln!(
+            "\n  ∂F/∂S (par-spread bump ±1bp, boot-hazard re-cal): F+1bp={f_up:.4}  F-1bp={f_dn:.4}  ⇒ ∂F/∂S = {df_ds:.4}"
+        );
+        // Reference Bloomberg CS01 = annuity * Φ(d1) * (∂F/∂S) * notional * 1bp
+        let t_cur: f64 = 48.0 / 360.0;
+        let d1_cur = 0.5 * sigma * t_cur.sqrt();
+        let phi_d1 = finstack_core::math::special_functions::norm_cdf(d1_cur);
+        let cs01_analytical = ra_ref * phi_d1 * df_ds * notional * 1e-4;
+        eprintln!(
+            "  Analytic CS01 = annuity·Φ(d1)·(∂F/∂S)·N·1bp = {ra_ref}·{phi_d1:.4}·{df_ds:.4}·10M·1bp = {cs01_analytical:.2}"
+        );
+        eprintln!("  Bloomberg Spread DV01 = 2563.44");
+
+        // ----- Production CDSO pricer sanity --------------------------------
+        // Build the option with Bloomberg's exact dates and pin the σ override,
+        // then invoke the production pricer for NPV/Vega/Theta and the metrics
+        // registry for CS01/DV01.
+        use crate::instruments::common_impl::parameters::CreditParams;
+        use crate::instruments::common_impl::traits::Instrument;
+        use crate::instruments::credit_derivatives::cds_option::parameters::CDSOptionParams;
+        use crate::instruments::credit_derivatives::cds_option::CDSOption;
+        let option_params = CDSOptionParams::call(
+            Decimal::from_str_exact("0.0058395400").unwrap(),
+            option_expiry,
+            cds_maturity,
+            Money::new(notional, Currency::USD),
+        )
+        .unwrap();
+        let credit = CreditParams::corporate_standard("IBM", "IBM-USD-SENIOR-BOOT");
+        let mut option = CDSOption::new(
+            "DIAG-PRODUCTION",
+            &option_params,
+            &credit,
+            "USD-S531-SWAP",
+            "DIAG-VOL",
+        )
+        .unwrap();
+        option.pricing_overrides.market_quotes.implied_volatility = Some(0.8102);
+        option.cash_settlement_date = Some(cash_settle);
+        option.exercise_settlement_date = Some(exercise_settle);
+        option.underlying_effective_date = Some(underlying_eff);
+
+        let production_pricer = CDSOptionPricer::default();
+        let actual_f_bp = production_pricer
+            .forward_spread_bp(&option, &market, as_of)
+            .unwrap();
+        let actual_ra = production_pricer
+            .risky_annuity(&option, &market, as_of)
+            .unwrap();
+        eprintln!("\n=== Production CDSO pricer NPV under T-convention sweep ===");
+        eprintln!("  Forward F_bp     = {actual_f_bp:.6}  (Bloomberg 58.3954)");
+        eprintln!("  Risky annuity    = {actual_ra:.7}    (Bloomberg-implied 4.51552)");
+
+        let day_count_variants = [DayCount::Act360, DayCount::Act365F];
+        for dc in &day_count_variants {
+            for inclusive in [false, true] {
+                let mut probe = option.clone();
+                probe.day_count = *dc;
+                let raw_t = if inclusive {
+                    dc.year_fraction(
+                        cash_settle,
+                        exercise_settle + time::Duration::days(1),
+                        DayCountContext::default(),
+                    )
+                    .unwrap()
+                } else {
+                    dc.year_fraction(cash_settle, exercise_settle, DayCountContext::default())
+                        .unwrap()
+                };
+                // Reproduce production NPV using credit_option_price with this T value.
+                let pv = production_pricer
+                    .credit_option_price(&probe, actual_f_bp, actual_ra, 0.8102, raw_t)
+                    .unwrap()
+                    .amount();
+                eprintln!(
+                    "    {:?}, inclusive={}: T = {:.6}  →  NPV = {:.2}  (Δ vs Bloomberg = {:+.2})",
+                    dc,
+                    inclusive,
+                    raw_t,
+                    pv,
+                    pv - bloomberg_npv
+                );
+            }
+        }
+
+        let actual_npv = option.value(&market, as_of).unwrap().amount();
+        let actual_t = option.black_time_to_expiry(as_of).unwrap();
+        let actual_vega = option.vega(&market, as_of).unwrap();
+        let actual_theta = option.theta(&market, as_of).unwrap();
+        eprintln!("  → live black_time_to_expiry = {actual_t:.6}");
+        eprintln!(
+            "  → live NPV    = {actual_npv:.4}  (Δ {:+.2})",
+            actual_npv - bloomberg_npv
+        );
+        eprintln!(
+            "  → live Vega   = {actual_vega:.4}  (Δ {:+.4})",
+            actual_vega - 381.02
+        );
+        eprintln!(
+            "  → live Theta  = {actual_theta:.4}  (Δ {:+.4})",
+            actual_theta - (-309.08)
+        );
+
+        // CS01 and DV01 — invoke through the registry-based path so we hit
+        // the registered Cs01Calculator (par-spread bump + re-bootstrap) and
+        // CdsOptionDv01Calculator (rate bump + re-bootstrap), the same code
+        // exercised by the golden runner.
+        use crate::pricer::price_instrument_json_with_metrics;
+        let instrument_json = serde_json::to_string(&serde_json::json!({
+            "type": "cds_option",
+            "spec": option.clone(),
+        }))
+        .unwrap();
+        let result = price_instrument_json_with_metrics(
+            &instrument_json,
+            &market,
+            "2026-05-02",
+            "black76",
+            &["cs01".to_string(), "dv01".to_string()],
+            None,
+        )
+        .unwrap();
+        let cs01 = result.measures.get("cs01").copied().unwrap_or(f64::NAN);
+        let dv01 = result.measures.get("dv01").copied().unwrap_or(f64::NAN);
+        eprintln!(
+            "  → live CS01   = {cs01:.4}  (Bloomberg 2563.44, Δ {:+.4})",
+            cs01 - 2563.44
+        );
+        eprintln!(
+            "  → live DV01   = {dv01:.4}  (Bloomberg -5.77,    Δ {:+.4})",
+            dv01 - (-5.77)
+        );
     }
 }

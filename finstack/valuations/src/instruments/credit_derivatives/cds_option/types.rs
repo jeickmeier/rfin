@@ -397,6 +397,15 @@ impl CDSOption {
         }))
     }
 
+    /// Black time-to-expiry under the Bloomberg CDSO convention.
+    ///
+    /// Counts calendar days **inclusive of the end date** (one extra day
+    /// beyond `end - start`) and divides by `day_count`'s denominator. This
+    /// mirrors the Act/360 +1-day rule that CDSW uses on the final premium
+    /// accrual period.
+    ///
+    /// `start = cash_settlement_date`, `end = exercise_settlement_date` when
+    /// both are supplied; otherwise falls back to `(as_of, expiry)`.
     pub(crate) fn black_time_to_expiry(
         &self,
         as_of: finstack_core::dates::Date,
@@ -409,8 +418,9 @@ impl CDSOption {
             (as_of, self.expiry)
         };
 
+        let end_inclusive = end + time::Duration::days(1);
         self.day_count
-            .year_fraction(start, end, DayCountContext::default())
+            .year_fraction(start, end_inclusive, DayCountContext::default())
     }
 
     /// Calculate delta of this CDS option.

@@ -58,7 +58,10 @@ pub struct CDSOptionParams {
     /// Forward spread adjustment as a decimal rate (e.g., 0.0025 = 25bp)
     #[serde(default)]
     pub forward_spread_adjust: Decimal,
-    /// Day count convention for time calculations (defaults to Act/360 per ISDA)
+    /// Day count for the option's Black time-to-expiry. Defaults to
+    /// `Act/360` per ISDA SNAC; the inclusive-end +1d rule that aligns with
+    /// the Bloomberg CDSO display lives in
+    /// [`CDSOption::black_time_to_expiry`](crate::instruments::credit_derivatives::cds_option::CDSOption::black_time_to_expiry).
     pub day_count: DayCount,
 }
 
@@ -128,7 +131,7 @@ impl CDSOptionParams {
             underlying_is_index: false,
             index_factor: None,
             forward_spread_adjust: Decimal::ZERO,
-            day_count: DayCount::Act360, // ISDA standard
+            day_count: DayCount::Act360,
         };
         params.validate()?;
         Ok(params)
@@ -228,9 +231,7 @@ impl CDSOptionParams {
         self
     }
 
-    /// Set the day count convention for time calculations.
-    ///
-    /// Defaults to Act/360 per ISDA CDS standard conventions.
+    /// Set the day count for the option's Black time-to-expiry.
     #[must_use]
     pub fn with_day_count(mut self, day_count: DayCount) -> Self {
         self.day_count = day_count;
