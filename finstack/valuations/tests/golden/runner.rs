@@ -513,13 +513,20 @@ mod tests {
         let report_path =
             Path::new(manifest_dir).join("../../target/golden-reports/golden-comparisons.csv");
 
-        let _ = std::fs::remove_file(&report_path);
         let results = run_golden_at_path(&fixture_path).expect("source validation should validate");
 
         assert!(results.is_empty());
         let csv = std::fs::read_to_string(&report_path).expect("CSV report should exist");
-        assert!(!csv.contains("rust,attribution/brinson_hood_beebower.json"));
-        assert!(!csv.contains("__source_validation__"));
+        for line in csv.lines().skip(1) {
+            assert!(
+                !line.starts_with("rust,attribution/brinson_hood_beebower.json,"),
+                "source-validation fixture must not write a rust row: {line}"
+            );
+            assert!(
+                !line.contains(",__source_validation__,"),
+                "source-validation fixture must not write a __source_validation__ metric: {line}"
+            );
+        }
     }
 
     #[test]
