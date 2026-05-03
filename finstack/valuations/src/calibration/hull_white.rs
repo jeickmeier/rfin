@@ -42,7 +42,7 @@
 
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
-use finstack_core::math::special_functions::norm_cdf;
+use finstack_core::math::special_functions::{norm_cdf, norm_pdf};
 use std::collections::BTreeMap;
 
 use crate::calibration::CalibrationReport;
@@ -151,6 +151,59 @@ pub struct SwaptionQuote {
     pub is_normal_vol: bool,
 }
 
+/// Market quote for an interest-rate cap/floor used in HW1F calibration.
+///
+/// The quote represents a flat volatility for a full cap/floor from today to
+/// `maturity`, with caplet/floorlet periods generated from the calibration
+/// frequency. Normal vols are represented in decimal rate units: `0.0088`
+/// means 88bp normal volatility.
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+pub struct CapFloorQuote {
+    /// Cap/floor maturity in years.
+    pub maturity: f64,
+    /// Strike rate as a decimal.
+    pub strike: f64,
+    /// Market-quoted volatility.
+    pub volatility: f64,
+    /// `true` for cap, `false` for floor.
+    pub is_cap: bool,
+    /// `true` for normal (Bachelier) vol. Lognormal cap/floor HW1F
+    /// calibration is intentionally not accepted yet.
+    pub is_normal_vol: bool,
+}
+
+impl CapFloorQuote {
+    /// Construct a validated cap/floor market quote.
+    pub fn try_new(
+        maturity: f64,
+        strike: f64,
+        volatility: f64,
+        is_cap: bool,
+        is_normal_vol: bool,
+    ) -> finstack_core::Result<Self> {
+        validate_cap_floor_quote(maturity, strike, volatility, is_normal_vol)?;
+        Ok(Self {
+            maturity,
+            strike,
+            volatility,
+            is_cap,
+            is_normal_vol,
+        })
+    }
+}
+
+/// Configuration for cap/floor HW1F calibration.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CapFloorCalibrationConfig {
+    /// Payment frequency used to decompose full caps/floors into caplets.
+    pub frequency: SwapFrequency,
+    /// Optional source mean reversion. Required when calibrating from a
+    /// single cap/floor quote because one quote cannot identify both κ and σ.
+    pub fixed_kappa: Option<f64>,
+    /// Optional initial guess when solving both κ and σ.
+    pub initial_guess: Option<HullWhiteParams>,
+}
+
 impl SwaptionQuote {
     /// Construct a validated swaption market quote.
     pub fn try_new(
@@ -186,7 +239,17 @@ impl SwaptionQuote {
 /// Number of coupon payments per year for the underlying swap in HW1F calibration.
 ///
 /// USD swaps are semi-annual (2), EUR swaps are annual (1).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+    Default,
+)]
 pub enum SwapFrequency {
     /// 1 payment per year (EUR, GBP standard).
     Annual,
@@ -443,6 +506,141 @@ pub fn calibrate_hull_white_to_swaptions(
     Ok((params, report))
 }
 
+/// Calibrate Hull-White 1-factor parameters to cap/floor market quotes.
+///
+/// Normal cap/floor quotes are first converted to Bachelier cap/floor prices
+/// using the supplied discount and projection curves. The HW1F objective then
+/// reprices the same cap/floor decomposition using HW1F-implied normal caplet
+/// volatilities. A single quote requires `config.fixed_kappa`; otherwise the
+/// two model parameters are underdetermined.
+pub fn calibrate_hull_white_to_cap_floors(
+    discount_df: &dyn Fn(f64) -> f64,
+    forward_df: &dyn Fn(f64) -> f64,
+    quotes: &[CapFloorQuote],
+    config: CapFloorCalibrationConfig,
+) -> finstack_core::Result<(HullWhiteParams, CalibrationReport)> {
+    if quotes.is_empty() {
+        return Err(finstack_core::Error::Validation(
+            "Need at least one cap/floor quote for HW1F calibration".to_string(),
+        ));
+    }
+    if quotes.len() == 1 && config.fixed_kappa.is_none() {
+        return Err(finstack_core::Error::Validation(
+            "One cap/floor quote cannot calibrate both HW1F kappa and sigma; provide fixed_kappa"
+                .to_string(),
+        ));
+    }
+    for (idx, quote) in quotes.iter().enumerate() {
+        validate_cap_floor_quote(
+            quote.maturity,
+            quote.strike,
+            quote.volatility,
+            quote.is_normal_vol,
+        )
+        .map_err(|err| {
+            finstack_core::Error::Validation(format!(
+                "Invalid cap/floor quote at index {idx}: {err}"
+            ))
+        })?;
+    }
+
+    let frequency = config.frequency;
+    let market_prices: Vec<f64> = quotes
+        .iter()
+        .map(|quote| {
+            bachelier_cap_floor_price(
+                discount_df,
+                forward_df,
+                quote.maturity,
+                quote.strike,
+                quote.volatility,
+                quote.is_cap,
+                frequency,
+            )
+        })
+        .collect();
+    let vegas: Vec<f64> = quotes
+        .iter()
+        .map(|quote| {
+            cap_floor_bachelier_vega(
+                discount_df,
+                forward_df,
+                quote.maturity,
+                quote.strike,
+                quote.volatility,
+                frequency,
+            )
+            .max(1e-8)
+        })
+        .collect();
+
+    let (kappa, sigma, iterations) = if let Some(fixed_kappa) = config.fixed_kappa {
+        let fixed = HullWhiteParams::new(fixed_kappa, 1e-4)?.kappa;
+        let sigma = solve_cap_floor_sigma_for_fixed_kappa(
+            fixed,
+            discount_df,
+            forward_df,
+            quotes,
+            &market_prices,
+            frequency,
+        )?;
+        (fixed, sigma, 1)
+    } else {
+        solve_cap_floor_kappa_sigma(
+            discount_df,
+            forward_df,
+            quotes,
+            &market_prices,
+            &vegas,
+            frequency,
+            config.initial_guess,
+        )?
+    };
+
+    let mut residuals = BTreeMap::new();
+    for (idx, quote) in quotes.iter().enumerate() {
+        let model_price = hw1f_cap_floor_price(
+            kappa,
+            sigma,
+            discount_df,
+            forward_df,
+            quote.maturity,
+            quote.strike,
+            quote.is_cap,
+            frequency,
+        );
+        residuals.insert(
+            format!(
+                "{}Y_{}_{:.6}",
+                quote.maturity,
+                if quote.is_cap { "cap" } else { "floor" },
+                quote.strike
+            ),
+            model_price - market_prices[idx],
+        );
+    }
+
+    let report = CalibrationReport::for_type_with_tolerance(
+        "hull_white_1f_cap_floor",
+        residuals,
+        iterations,
+        1e-6,
+    )
+    .with_model_version(finstack_core::versions::HULL_WHITE_1F)
+    .with_metadata("kappa", format!("{kappa:.6}"))
+    .with_metadata("sigma", format!("{sigma:.6}"))
+    .with_metadata("quote_count", quotes.len().to_string())
+    .with_metadata("fixed_kappa", config.fixed_kappa.is_some().to_string())
+    .with_metadata(
+        "residual_weighting",
+        "1/vega (vega-weighted price residual)".to_string(),
+    )
+    .with_metadata("calibration_family", "cap_floor_hw1f".to_string())
+    .with_metadata("frequency", format!("{frequency:?}"));
+
+    Ok((HullWhiteParams::new(kappa, sigma)?, report))
+}
+
 /// ATM vega for a swaption expressed in the same volatility units as the
 /// quote (Bachelier σ for normal vol, Black-76 σ for lognormal).
 ///
@@ -454,6 +652,316 @@ fn swaption_atm_vega(annuity: f64, fwd_rate: f64, expiry: f64, vol: f64, is_norm
     } else {
         annuity * finstack_core::math::volatility::black_vega(fwd_rate, fwd_rate, vol, expiry)
     }
+}
+
+fn validate_cap_floor_quote(
+    maturity: f64,
+    strike: f64,
+    volatility: f64,
+    is_normal_vol: bool,
+) -> finstack_core::Result<()> {
+    if !maturity.is_finite() || maturity <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "cap/floor maturity must be positive, got {maturity}"
+        )));
+    }
+    if !strike.is_finite() {
+        return Err(finstack_core::Error::Validation(format!(
+            "cap/floor strike must be finite, got {strike}"
+        )));
+    }
+    if !volatility.is_finite() || volatility <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "cap/floor volatility must be positive, got {volatility}"
+        )));
+    }
+    if !is_normal_vol {
+        return Err(finstack_core::Error::Validation(
+            "cap/floor HW1F calibration currently requires normal/Bachelier vol quotes".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn solve_cap_floor_sigma_for_fixed_kappa(
+    kappa: f64,
+    discount_df: &dyn Fn(f64) -> f64,
+    forward_df: &dyn Fn(f64) -> f64,
+    quotes: &[CapFloorQuote],
+    market_prices: &[f64],
+    frequency: SwapFrequency,
+) -> finstack_core::Result<f64> {
+    let residual = |sigma: f64| -> f64 {
+        quotes
+            .iter()
+            .zip(market_prices.iter())
+            .map(|(quote, market_price)| {
+                hw1f_cap_floor_price(
+                    kappa,
+                    sigma,
+                    discount_df,
+                    forward_df,
+                    quote.maturity,
+                    quote.strike,
+                    quote.is_cap,
+                    frequency,
+                ) - market_price
+            })
+            .sum()
+    };
+
+    let lo = 1e-8;
+    let mut hi = 0.01;
+    let r_lo = residual(lo);
+    let mut r_hi = residual(hi);
+    while r_lo.signum() == r_hi.signum() && hi < 1.0 {
+        hi *= 2.0;
+        r_hi = residual(hi);
+    }
+    if r_lo.signum() == r_hi.signum() {
+        return Err(finstack_core::Error::Validation(
+            "Could not bracket cap/floor HW1F sigma calibration".to_string(),
+        ));
+    }
+
+    let solver = BrentSolver::new().tolerance(1e-12).bracket_bounds(lo, hi);
+    solver.solve(residual, (lo + hi) * 0.5)
+}
+
+#[allow(clippy::needless_borrows_for_generic_args)]
+fn solve_cap_floor_kappa_sigma(
+    discount_df: &dyn Fn(f64) -> f64,
+    forward_df: &dyn Fn(f64) -> f64,
+    quotes: &[CapFloorQuote],
+    market_prices: &[f64],
+    vegas: &[f64],
+    frequency: SwapFrequency,
+    initial_guess: Option<HullWhiteParams>,
+) -> finstack_core::Result<(f64, f64, usize)> {
+    let init = initial_guess.unwrap_or_default();
+    let x0 = [init.kappa.ln(), init.sigma.ln()];
+    let n_quotes = quotes.len();
+
+    let residuals = |x: &[f64], resid: &mut [f64]| {
+        let kappa = x[0].exp();
+        let sigma = x[1].exp();
+        for (idx, quote) in quotes.iter().enumerate() {
+            let model_price = hw1f_cap_floor_price(
+                kappa,
+                sigma,
+                discount_df,
+                forward_df,
+                quote.maturity,
+                quote.strike,
+                quote.is_cap,
+                frequency,
+            );
+            resid[idx] = if model_price.is_finite() {
+                (model_price - market_prices[idx]) / vegas[idx]
+            } else {
+                1e6
+            };
+        }
+    };
+
+    let solver = LevenbergMarquardtSolver::new()
+        .with_tolerance(1e-12)
+        .with_max_iterations(300);
+    let solution = solver.solve_system_with_dim_stats(&residuals, &x0, n_quotes)?;
+    let kappa = solution.params[0].exp();
+    let sigma = solution.params[1].exp();
+
+    const KAPPA_MIN: f64 = 0.001;
+    const KAPPA_MAX: f64 = 1.0;
+    if !(KAPPA_MIN..=KAPPA_MAX).contains(&kappa) {
+        return Err(finstack_core::Error::Validation(format!(
+            "Hull-White cap/floor calibration produced κ = {kappa:.6} outside the bounded range [{KAPPA_MIN}, {KAPPA_MAX}]"
+        )));
+    }
+    HullWhiteParams::new(kappa, sigma)?;
+    Ok((kappa, sigma, solution.stats.iterations))
+}
+
+/// Price a full cap/floor with a flat normal volatility quote.
+pub(crate) fn bachelier_cap_floor_price(
+    discount_df: &dyn Fn(f64) -> f64,
+    forward_df: &dyn Fn(f64) -> f64,
+    maturity: f64,
+    strike: f64,
+    normal_vol: f64,
+    is_cap: bool,
+    frequency: SwapFrequency,
+) -> f64 {
+    cap_floor_periods(maturity, frequency)
+        .map(|(t_start, t_end, accrual)| {
+            let forward = forward_rate_from_df(forward_df, t_start, t_end);
+            let df = discount_df(t_end);
+            normal_caplet_price(forward, strike, normal_vol, t_end, accrual, df, is_cap)
+        })
+        .sum()
+}
+
+fn cap_floor_bachelier_vega(
+    discount_df: &dyn Fn(f64) -> f64,
+    forward_df: &dyn Fn(f64) -> f64,
+    maturity: f64,
+    strike: f64,
+    normal_vol: f64,
+    frequency: SwapFrequency,
+) -> f64 {
+    cap_floor_periods(maturity, frequency)
+        .map(|(t_start, t_end, accrual)| {
+            let forward = forward_rate_from_df(forward_df, t_start, t_end);
+            let df = discount_df(t_end);
+            normal_caplet_vega(forward, strike, normal_vol, t_end) * accrual * df
+        })
+        .sum()
+}
+
+/// Price a full cap/floor with HW1F-implied normal caplet volatilities.
+pub(crate) fn hw1f_cap_floor_price(
+    kappa: f64,
+    sigma: f64,
+    discount_df: &dyn Fn(f64) -> f64,
+    forward_df: &dyn Fn(f64) -> f64,
+    maturity: f64,
+    strike: f64,
+    is_cap: bool,
+    frequency: SwapFrequency,
+) -> f64 {
+    cap_floor_periods(maturity, frequency)
+        .map(|(t_start, t_end, accrual)| {
+            let forward = forward_rate_from_df(forward_df, t_start, t_end);
+            let df = discount_df(t_end);
+            let hw_vol = hw1f_caplet_forward_rate_normal_vol(kappa, sigma, t_end, accrual);
+            normal_caplet_price(forward, strike, hw_vol, t_end, accrual, df, is_cap)
+        })
+        .sum()
+}
+
+/// Return the flat normal vol that reproduces the HW1F cap/floor model price.
+#[cfg(test)]
+pub(crate) fn hw1f_cap_floor_implied_normal_vol(
+    kappa: f64,
+    sigma: f64,
+    discount_df: &dyn Fn(f64) -> f64,
+    forward_df: &dyn Fn(f64) -> f64,
+    maturity: f64,
+    strike: f64,
+    is_cap: bool,
+    frequency: SwapFrequency,
+) -> f64 {
+    let target = hw1f_cap_floor_price(
+        kappa,
+        sigma,
+        discount_df,
+        forward_df,
+        maturity,
+        strike,
+        is_cap,
+        frequency,
+    );
+    let residual = |vol: f64| -> f64 {
+        bachelier_cap_floor_price(
+            discount_df,
+            forward_df,
+            maturity,
+            strike,
+            vol,
+            is_cap,
+            frequency,
+        ) - target
+    };
+    let mut hi = sigma.max(0.01);
+    while residual(hi) < 0.0 && hi < 1.0 {
+        hi *= 2.0;
+    }
+    BrentSolver::new()
+        .tolerance(1e-12)
+        .bracket_bounds(1e-10, hi)
+        .solve(residual, hi * 0.5)
+        .unwrap_or(hi)
+}
+
+pub(crate) fn hw1f_caplet_forward_rate_normal_vol(
+    kappa: f64,
+    sigma: f64,
+    t_fix: f64,
+    accrual: f64,
+) -> f64 {
+    if sigma <= 0.0 || t_fix <= 0.0 || accrual <= 0.0 {
+        return 0.0;
+    }
+    const SMALL_KAPPA: f64 = 1e-8;
+    let accrual_factor = if kappa.abs() < SMALL_KAPPA {
+        1.0
+    } else {
+        (1.0 - (-kappa * accrual).exp()) / (kappa * accrual)
+    };
+    let integrated_variance_time = if kappa.abs() < SMALL_KAPPA {
+        t_fix
+    } else {
+        (1.0 - (-2.0 * kappa * t_fix).exp()) / (2.0 * kappa)
+    };
+    sigma * accrual_factor * (integrated_variance_time / t_fix).sqrt()
+}
+
+fn cap_floor_periods(
+    maturity: f64,
+    frequency: SwapFrequency,
+) -> impl Iterator<Item = (f64, f64, f64)> {
+    let periods = (maturity * frequency.periods_per_year() as f64)
+        .round()
+        .max(1.0) as usize;
+    let accrual = maturity / periods as f64;
+    (0..periods).map(move |idx| {
+        let start = idx as f64 * accrual;
+        let end = (idx + 1) as f64 * accrual;
+        (start, end, accrual)
+    })
+}
+
+fn forward_rate_from_df(df: &dyn Fn(f64) -> f64, start: f64, end: f64) -> f64 {
+    let accrual = (end - start).max(1e-12);
+    let p_start = df(start).max(1e-12);
+    let p_end = df(end).max(1e-12);
+    (p_start / p_end - 1.0) / accrual
+}
+
+fn normal_caplet_price(
+    forward: f64,
+    strike: f64,
+    vol: f64,
+    expiry: f64,
+    accrual: f64,
+    df: f64,
+    is_cap: bool,
+) -> f64 {
+    let annuity = accrual * df;
+    if vol <= 0.0 || expiry <= 0.0 {
+        let intrinsic = if is_cap {
+            (forward - strike).max(0.0)
+        } else {
+            (strike - forward).max(0.0)
+        };
+        return intrinsic * annuity;
+    }
+    let sqrt_t = expiry.sqrt();
+    let d = (forward - strike) / (vol * sqrt_t);
+    let undiscounted = if is_cap {
+        (forward - strike) * norm_cdf(d) + vol * sqrt_t * norm_pdf(d)
+    } else {
+        (strike - forward) * norm_cdf(-d) + vol * sqrt_t * norm_pdf(d)
+    };
+    undiscounted * annuity
+}
+
+fn normal_caplet_vega(forward: f64, strike: f64, vol: f64, expiry: f64) -> f64 {
+    if vol <= 0.0 || expiry <= 0.0 {
+        return 0.0;
+    }
+    let d = (forward - strike) / (vol * expiry.sqrt());
+    expiry.sqrt() * norm_pdf(d)
 }
 
 /// Compute √(Σ r_i²) for the vega-weighted residual vector at the given
@@ -1086,5 +1594,122 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn cap_floor_hw1f_calibration_rejects_one_quote_without_fixed_kappa() {
+        let df_fn = flat_df(0.03);
+        let quotes = vec![CapFloorQuote {
+            maturity: 5.0,
+            strike: 0.03,
+            volatility: 0.0075,
+            is_cap: true,
+            is_normal_vol: true,
+        }];
+
+        let result = calibrate_hull_white_to_cap_floors(
+            &df_fn,
+            &df_fn,
+            &quotes,
+            CapFloorCalibrationConfig::default(),
+        );
+
+        assert!(
+            result.is_err(),
+            "one cap/floor quote cannot calibrate both kappa and sigma"
+        );
+    }
+
+    #[test]
+    fn cap_floor_hw1f_calibration_solves_sigma_with_fixed_kappa() {
+        let true_kappa = 0.0342;
+        let true_sigma = 0.0095;
+        let df_fn = flat_df(0.037);
+        let quotes = vec![CapFloorQuote {
+            maturity: 5.0,
+            strike: 0.0365,
+            volatility: hw1f_cap_floor_implied_normal_vol(
+                true_kappa,
+                true_sigma,
+                &df_fn,
+                &df_fn,
+                5.0,
+                0.0365,
+                true,
+                SwapFrequency::Quarterly,
+            ),
+            is_cap: true,
+            is_normal_vol: true,
+        }];
+
+        let (params, report) = calibrate_hull_white_to_cap_floors(
+            &df_fn,
+            &df_fn,
+            &quotes,
+            CapFloorCalibrationConfig {
+                fixed_kappa: Some(true_kappa),
+                ..CapFloorCalibrationConfig::default()
+            },
+        )
+        .expect("fixed-kappa cap/floor calibration succeeds");
+
+        assert!(report.success, "report should be successful: {report:?}");
+        assert!((params.kappa - true_kappa).abs() < 1e-12);
+        assert!(
+            (params.sigma - true_sigma).abs() < 1e-4,
+            "sigma {} should recover true sigma {true_sigma}",
+            params.sigma
+        );
+    }
+
+    #[test]
+    fn cap_floor_hw1f_calibration_recovers_two_parameters_on_synthetic_grid() {
+        let true_kappa = 0.05;
+        let true_sigma = 0.011;
+        let df_fn = flat_df(0.035);
+        let specs = [(2.0, 0.034), (5.0, 0.036), (7.0, 0.037)];
+        let quotes: Vec<CapFloorQuote> = specs
+            .iter()
+            .map(|(maturity, strike)| CapFloorQuote {
+                maturity: *maturity,
+                strike: *strike,
+                volatility: hw1f_cap_floor_implied_normal_vol(
+                    true_kappa,
+                    true_sigma,
+                    &df_fn,
+                    &df_fn,
+                    *maturity,
+                    *strike,
+                    true,
+                    SwapFrequency::Quarterly,
+                ),
+                is_cap: true,
+                is_normal_vol: true,
+            })
+            .collect();
+
+        let (params, report) = calibrate_hull_white_to_cap_floors(
+            &df_fn,
+            &df_fn,
+            &quotes,
+            CapFloorCalibrationConfig {
+                frequency: SwapFrequency::Quarterly,
+                initial_guess: Some(HullWhiteParams::new(0.04, 0.01).expect("guess")),
+                ..CapFloorCalibrationConfig::default()
+            },
+        )
+        .expect("two-parameter cap/floor calibration succeeds");
+
+        assert!(report.success, "report should be successful: {report:?}");
+        assert!(
+            (true_kappa * 0.8..=true_kappa * 1.2).contains(&params.kappa),
+            "kappa {} should recover true kappa {true_kappa}",
+            params.kappa
+        );
+        assert!(
+            (true_sigma * 0.8..=true_sigma * 1.2).contains(&params.sigma),
+            "sigma {} should recover true sigma {true_sigma}",
+            params.sigma
+        );
     }
 }

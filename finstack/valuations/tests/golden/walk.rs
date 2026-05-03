@@ -565,6 +565,7 @@ fn extract_run_golden_path(line: &str) -> Option<String> {
 mod tests {
     use super::*;
 
+    const CAP_FLOOR_FIXTURE: &str = "pricing/cap_floor/usd_cap_5y_atm_black.json";
     const DEPOSIT_FIXTURE: &str = "pricing/deposit/usd_deposit_3m.json";
 
     #[test]
@@ -582,10 +583,7 @@ mod tests {
         let err = validate_pricing_input_schema(&path, &fixture)
             .expect_err("invalid instrument_json must fail pricing walk validation");
 
-        assert!(
-            err.contains("instrument_json"),
-            "unexpected error: {err}"
-        );
+        assert!(err.contains("instrument_json"), "unexpected error: {err}");
     }
 
     #[test]
@@ -669,6 +667,33 @@ mod tests {
         let err = validate_fixture(&path).expect_err("source_validation reason is required");
 
         assert!(err.contains("must explain"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn cap_floor_bloomberg_fixture_executes_with_hw1f_inputs() {
+        let fixture = load_fixture(CAP_FLOOR_FIXTURE);
+        assert_eq!(
+            fixture
+                .inputs
+                .get("model")
+                .and_then(serde_json::Value::as_str),
+            Some("hull_white_1f")
+        );
+
+        let spec = fixture
+            .inputs
+            .pointer("/instrument_json/spec")
+            .and_then(serde_json::Value::as_object)
+            .expect("cap/floor fixture has instrument spec");
+        let pricing_overrides = spec
+            .get("pricing_overrides")
+            .and_then(serde_json::Value::as_object);
+        for forbidden in ["quoted_dv01", "quoted_vega"] {
+            assert!(
+                !pricing_overrides.is_some_and(|overrides| overrides.contains_key(forbidden)),
+                "cap/floor fixture must not force {forbidden} through pricing_overrides"
+            );
+        }
     }
 
     fn load_fixture(relative_path: &str) -> GoldenFixture {

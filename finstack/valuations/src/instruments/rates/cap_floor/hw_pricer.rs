@@ -25,10 +25,14 @@
 //! - Brigo, D. & Mercurio, F. (2006). *Interest Rate Models - Theory and Practice*,
 //!   Chapter 3: One-factor Short-Rate Models, Section 3.3.2.
 
+use crate::calibration::hull_white::hw1f_caplet_forward_rate_normal_vol;
 use crate::calibration::hull_white::HullWhiteParams;
 use crate::instruments::common_impl::helpers::year_fraction;
-use crate::instruments::common_impl::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
+use crate::instruments::common_impl::pricing::time::{
+    rate_period_on_dates, relative_df_discount_curve,
+};
 use crate::instruments::common_impl::traits::Instrument;
+use crate::instruments::rates::cap_floor::pricing::payoff::CapletFloorletInputs;
 use crate::instruments::rates::cap_floor::types::{CapFloor, RateOptionType};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
@@ -36,7 +40,6 @@ use crate::pricer::{
 use crate::results::ValuationResult;
 use finstack_core::dates::DayCountContext;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 
 /// Number of tree steps per caplet period.
@@ -90,9 +93,18 @@ impl CapFloorHullWhitePricer {
     ) -> Result<ValuationResult, PricingError> {
         let ctx = DayCountContext::default();
 
-        // Get discount curve
+        // Get discount and projection curves. Bloomberg's HW1F cap/floor setup is
+        // still a projected SOFR payoff discounted on the OIS curve.
         let disc = market
             .get_discount(cap_floor.discount_curve_id.as_str())
+            .map_err(|e| {
+                PricingError::missing_market_data_with_context(
+                    e.to_string(),
+                    PricingErrorContext::default(),
+                )
+            })?;
+        let fwd = market
+            .get_forward(cap_floor.forward_curve_id.as_str())
             .map_err(|e| {
                 PricingError::missing_market_data_with_context(
                     e.to_string(),
@@ -155,28 +167,16 @@ impl CapFloorHullWhitePricer {
             (periods.len() * DEFAULT_STEPS_PER_PERIOD).clamp(MIN_TREE_STEPS, MAX_TREE_STEPS)
         });
 
-        // Calibrate a single HW tree over the full maturity horizon
-        let config = HullWhiteTreeConfig::new(hw_params.kappa, hw_params.sigma, tree_steps);
-        let tree = HullWhiteTree::calibrate(config, disc.as_ref(), maturity_time).map_err(|e| {
-            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
-        })?;
+        let _tree_steps = tree_steps;
 
         // Price each caplet/floorlet using the tree
         let mut total_pv = 0.0;
 
         for period in &periods {
-            let t_start = cap_floor
+            let fixing_date = cap_floor.option_fixing_date(period);
+            let t_fix = cap_floor
                 .day_count
-                .year_fraction(as_of, period.accrual_start, ctx)
-                .map_err(|e| {
-                    PricingError::model_failure_with_context(
-                        e.to_string(),
-                        PricingErrorContext::default(),
-                    )
-                })?;
-            let t_end = cap_floor
-                .day_count
-                .year_fraction(as_of, period.accrual_end, ctx)
+                .year_fraction(as_of, fixing_date, ctx)
                 .map_err(|e| {
                     PricingError::model_failure_with_context(
                         e.to_string(),
@@ -185,7 +185,7 @@ impl CapFloorHullWhitePricer {
                 })?;
 
             // Skip expired caplets
-            if t_start <= 0.0 {
+            if t_fix <= 0.0 {
                 continue;
             }
 
@@ -205,27 +205,44 @@ impl CapFloorHullWhitePricer {
                 continue;
             }
 
-            // Price this caplet using the tree.
-            //
-            // A caplet paying N * tau * max(L - K, 0) at T_end where
-            // L = (1/P(T_start,T_end) - 1) / tau is equivalent to
-            // (1 + K*tau) * put on ZCB P(T_start, T_end) with strike X = 1/(1+K*tau).
-            //
-            // Similarly a floorlet is equivalent to (1+K*tau) * call on ZCB.
-            //
-            // We evaluate this via backward induction on the tree: the payoff
-            // is evaluated at the fixing step (T_start) and then discounted
-            // back to today.
-            let caplet_pv = self.price_caplet(
-                &tree,
-                disc.as_ref(),
-                t_start,
-                t_end,
-                tau,
-                strike,
-                notional,
-                is_cap,
-            );
+            let forward =
+                rate_period_on_dates(fwd.as_ref(), period.accrual_start, period.accrual_end)
+                    .map_err(|e| {
+                        PricingError::model_failure_with_context(
+                            e.to_string(),
+                            PricingErrorContext::default(),
+                        )
+                    })?;
+            let df = relative_df_discount_curve(disc.as_ref(), as_of, period.payment_date)
+                .map_err(|e| {
+                    PricingError::model_failure_with_context(
+                        e.to_string(),
+                        PricingErrorContext::default(),
+                    )
+                })?;
+            let hw_vol =
+                hw1f_caplet_forward_rate_normal_vol(hw_params.kappa, hw_params.sigma, t_fix, tau);
+            let caplet_pv =
+                crate::instruments::rates::cap_floor::pricing::normal::price_caplet_floorlet(
+                    CapletFloorletInputs {
+                        is_cap,
+                        notional,
+                        strike,
+                        forward,
+                        discount_factor: df,
+                        volatility: hw_vol,
+                        time_to_fixing: t_fix,
+                        accrual_year_fraction: tau,
+                        currency: cap_floor.notional.currency(),
+                    },
+                )
+                .map_err(|e| {
+                    PricingError::model_failure_with_context(
+                        e.to_string(),
+                        PricingErrorContext::default(),
+                    )
+                })?
+                .amount();
 
             total_pv += caplet_pv;
         }
@@ -235,60 +252,5 @@ impl CapFloorHullWhitePricer {
             as_of,
             Money::new(total_pv, cap_floor.notional.currency()),
         ))
-    }
-
-    /// Price a single caplet/floorlet using the HW tree.
-    ///
-    /// The caplet fixes at `t_start` and pays at `t_end`. The payoff at
-    /// `t_end` is `N * tau * max(L - K, 0)` for a caplet, where
-    /// `L = (1/P(t_start, t_end) - 1) / tau`.
-    ///
-    /// Equivalently, the caplet PV at `t_start` is:
-    /// `N * max(1 - (1 + K*tau) * P(t_start, t_end), 0)` for a caplet
-    /// `N * max((1 + K*tau) * P(t_start, t_end) - 1, 0)` for a floorlet
-    ///
-    /// We evaluate this at every node at the fixing step and then use
-    /// backward induction to discount to today.
-    #[allow(clippy::too_many_arguments)]
-    fn price_caplet(
-        &self,
-        tree: &HullWhiteTree,
-        disc: &dyn Discounting,
-        t_start: f64,
-        t_end: f64,
-        tau: f64,
-        strike: f64,
-        notional: f64,
-        is_cap: bool,
-    ) -> f64 {
-        let fixing_step = tree.time_to_step(t_start);
-        let n = tree.num_steps();
-
-        // Strike price for the ZCB option
-        let zcb_strike = 1.0 / (1.0 + strike * tau);
-
-        // Terminal values: zero
-        let terminal: Vec<f64> = vec![0.0; tree.num_nodes(n)];
-
-        // Backward induction with caplet payoff at fixing step
-        tree.backward_induction(&terminal, |step, node_idx, continuation| {
-            if step == fixing_step {
-                // Compute ZCB price P(t_start, t_end) at this node
-                let zcb = tree.bond_price(step, node_idx, t_end, disc);
-
-                // Caplet: option to receive max(L - K, 0) * tau * N at T_end
-                // At T_start, PV of caplet = N * max(1 - (1+K*tau)*P, 0) for cap
-                //                          = N * max((1+K*tau)*P - 1, 0) for floor
-                let payoff = if is_cap {
-                    notional * (1.0 - zcb / zcb_strike).max(0.0)
-                } else {
-                    notional * (zcb / zcb_strike - 1.0).max(0.0)
-                };
-
-                continuation.max(payoff)
-            } else {
-                continuation
-            }
-        })
     }
 }

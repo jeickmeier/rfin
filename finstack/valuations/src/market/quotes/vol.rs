@@ -5,7 +5,9 @@
 //! volatility surfaces.
 
 use crate::instruments::OptionType;
-use crate::market::conventions::ids::{OptionConventionId, SwaptionConventionId};
+use crate::market::conventions::ids::{
+    CapFloorConventionId, OptionConventionId, SwaptionConventionId,
+};
 use finstack_core::dates::Date;
 use finstack_core::types::UnderlyingId;
 #[cfg(feature = "ts_export")]
@@ -98,6 +100,52 @@ pub enum VolQuote {
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         convention: SwaptionConventionId,
     },
+    /// Interest rate cap/floor implied volatility quote.
+    CapFloorVol {
+        /// Cap/floor maturity or caplet expiry.
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
+        #[schemars(with = "String")]
+        expiry: Date,
+        /// Strike rate.
+        strike: f64,
+        /// Implied volatility.
+        vol: f64,
+        /// Quote type, e.g. "normal".
+        quote_type: String,
+        /// `true` for cap, `false` for floor.
+        is_cap: bool,
+        /// Cap/floor market conventions.
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
+        convention: CapFloorConventionId,
+    },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::market::conventions::ids::CapFloorConventionId;
+    use time::macros::date;
+
+    #[test]
+    fn cap_floor_vol_quote_bumps_absolute_vol() {
+        let quote = VolQuote::CapFloorVol {
+            expiry: date!(2031 - 05 - 06),
+            strike: 0.0366561,
+            vol: 0.0088,
+            quote_type: "normal".to_string(),
+            is_cap: true,
+            convention: CapFloorConventionId::new("USD-SOFR-CAP"),
+        };
+
+        let bumped = quote.bump_vol_absolute(0.0001);
+
+        match bumped {
+            VolQuote::CapFloorVol { vol, .. } => {
+                assert!((vol - 0.0089).abs() < 1e-12);
+            }
+            other => panic!("unexpected bumped quote: {other:?}"),
+        }
+    }
 }
 
 impl VolQuote {
@@ -162,6 +210,21 @@ impl VolQuote {
                 strike: *strike,
                 vol: vol + vol_bump,
                 quote_type: quote_type.clone(),
+                convention: convention.clone(),
+            },
+            VolQuote::CapFloorVol {
+                expiry,
+                strike,
+                vol,
+                quote_type,
+                is_cap,
+                convention,
+            } => VolQuote::CapFloorVol {
+                expiry: *expiry,
+                strike: *strike,
+                vol: vol + vol_bump,
+                quote_type: quote_type.clone(),
+                is_cap: *is_cap,
                 convention: convention.clone(),
             },
         }

@@ -56,7 +56,7 @@ pub(crate) fn preflight_step(
         StepParams::SwaptionVol(p) => validate_swaption_vol_step(p, context),
         StepParams::BaseCorrelation(p) => validate_base_correlation_step(p, quotes, context),
         StepParams::StudentT(p) => validate_student_t_step(p, quotes, context),
-        StepParams::HullWhite(_) => Ok(()), // HW1F calibration validates quotes at execution time
+        StepParams::HullWhite(_) | StepParams::CapFloorHullWhite(_) => Ok(()), // HW1F calibration validates quotes at execution time
         StepParams::SviSurface(p) => validate_svi_surface_step(p, context),
         StepParams::XccyBasis(p) => validate_xccy_basis_step(p, context),
         StepParams::Parametric(_) => Ok(()), // Parametric curves validate at execution time

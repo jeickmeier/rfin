@@ -3,6 +3,7 @@
 //! Defines the JSON contract for plan-driven calibration.
 
 use crate::calibration::config::{CalibrationConfig, CalibrationMethod, RatesStepConventions};
+use crate::calibration::hull_white::SwapFrequency;
 use crate::calibration::CalibrationReport;
 use crate::instruments::credit_derivatives::cds::CdsValuationConvention;
 use crate::market::quotes::market_quote::MarketQuote;
@@ -145,6 +146,9 @@ pub enum StepParams {
 
     /// Hull-White 1-factor model calibration.
     HullWhite(HullWhiteStepParams),
+
+    /// Hull-White 1-factor calibration to cap/floor volatility quotes.
+    CapFloorHullWhite(CapFloorHullWhiteStepParams),
 
     /// SVI volatility surface calibration.
     SviSurface(SviSurfaceParams),
@@ -592,6 +596,34 @@ pub struct HullWhiteStepParams {
     /// Optional initial guess for short rate vol σ.
     #[serde(default)]
     pub initial_sigma: Option<f64>,
+}
+
+/// Parameters for Hull-White 1-factor calibration to cap/floor volatility quotes.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CapFloorHullWhiteStepParams {
+    /// Discount curve ID (must already exist in market context).
+    pub discount_curve_id: CurveId,
+    /// Forward/projection curve ID. If equal to `discount_curve_id`, the
+    /// discount curve is used as the single-curve projection proxy.
+    pub forward_curve_id: CurveId,
+    /// Currency for conventions.
+    pub currency: Currency,
+    /// Base date for the calibration.
+    #[schemars(with = "String")]
+    pub base_date: Date,
+    /// Optional source mean reversion κ. Required for one-quote calibration.
+    #[serde(default)]
+    pub fixed_kappa: Option<f64>,
+    /// Optional initial guess for mean reversion κ when solving both κ and σ.
+    #[serde(default)]
+    pub initial_kappa: Option<f64>,
+    /// Optional initial guess for short-rate volatility σ when solving both κ and σ.
+    #[serde(default)]
+    pub initial_sigma: Option<f64>,
+    /// Payment frequency used to decompose quoted caps/floors into caplets.
+    #[serde(default)]
+    pub payment_frequency: SwapFrequency,
 }
 
 /// Parameters for SVI volatility surface calibration step.

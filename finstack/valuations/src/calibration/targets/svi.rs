@@ -89,7 +89,7 @@ impl SviSurfaceTarget {
                 VolQuote::OptionVol { underlying, .. } => {
                     underlying.as_str() == params.underlying_ticker.as_str()
                 }
-                VolQuote::SwaptionVol { .. } => false,
+                VolQuote::SwaptionVol { .. } | VolQuote::CapFloorVol { .. } => false,
             })
             .collect();
 

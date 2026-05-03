@@ -60,6 +60,11 @@ define_convention_id!(
 );
 
 define_convention_id!(
+    /// Identifier for cap/floor market conventions (e.g., "USD-SOFR-CAP").
+    CapFloorConventionId
+);
+
+define_convention_id!(
     /// Identifier for Inflation Swap market conventions (e.g., "USD-CPI", "UK-RPI").
     ///
     /// Used to look up [`InflationSwapConventions`](crate::market::conventions::defs::InflationSwapConventions)

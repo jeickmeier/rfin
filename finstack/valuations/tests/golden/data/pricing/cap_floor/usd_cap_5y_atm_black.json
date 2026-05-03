@@ -54,16 +54,14 @@
   },
   "inputs": {
     "valuation_date": "2026-05-02",
-    "model": "black76",
+    "model": "hull_white_1f",
     "metrics": [
       "vega",
       "dv01"
     ],
     "instrument_json": {
-      "schema": "finstack.instrument/1",
-      "instrument": {
-        "type": "cap_floor",
-        "spec": {
+      "type": "cap_floor",
+      "spec": {
           "id": "USD-SOFR-CAP-5Y-ATM-SWPM-20260502",
           "rate_option_type": "cap",
           "notional": {
@@ -88,6 +86,13 @@
           "vol_surface_id": "USD-RFR-BVOL-CUBE-5Y",
           "vol_type": "normal",
           "vol_shift": 0.0,
+          "pricing_overrides": {
+            "tree_steps": 300,
+            "tree_volatility": 0.0094182,
+            "mean_reversion": 0.0342,
+            "rho_bump_decimal": 0.0001,
+            "vega_bump_decimal": 0.0001
+          },
           "attributes": {
             "tags": [
               "golden",
@@ -102,12 +107,17 @@
               "screen_model": "HW1F",
               "screen_volatility_type": "Normal",
               "screen_convexity_adjustment": "Normal",
+              "hw1f_calibration_method": "fixed_kappa_sigma_from_visible_caplet_normal_vol_strip",
+              "hw1f_fixed_kappa": "0.0342",
+              "hw1f_source_quote": "VCUB USD RFR BVOL Cube visible 5Y tenor caplet normal-vol strip transcribed in inputs.market.surfaces[USD-RFR-BVOL-CUBE-5Y].vols_row_major",
+              "hw1f_source_quote_normal_vol": "caplet strip, 20 quarterly expiries",
+              "hw1f_calibrated_tree_volatility": "0.0094182",
+              "hw1f_calibration_note": "Bloomberg screenshot shows HW1F and normal-vol VCUB inputs but does not show mean reversion. Kappa is an explicit fixed calibration assumption; sigma is derived from the visible caplet normal-vol strip rather than tuned to expected_outputs.",
               "legacy_fixture_name": "usd_cap_5y_atm_black"
             }
           }
         }
-      }
-    },
+      },
     "market": {
       "version": 2,
       "curves": [
