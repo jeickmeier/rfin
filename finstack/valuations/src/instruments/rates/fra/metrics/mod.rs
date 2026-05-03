@@ -10,9 +10,11 @@
 //!
 //! See unit tests and `examples/` for usage.
 
+mod dv01;
 mod par_rate;
 
 use crate::metrics::MetricRegistry;
+pub(crate) use dv01::FraRateCurveDv01Calculator;
 pub(crate) use par_rate::FraParRateCalculator;
 
 /// Registers all FRA metrics to a registry.
@@ -26,12 +28,13 @@ pub(crate) fn register_fra_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: InstrumentType::FRA,
         metrics: [
-            (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::ForwardRateAgreement,
-            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (Dv01, FraRateCurveDv01Calculator),
             (Pv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::ForwardRateAgreement,
-            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_forward_only())),
+            (ForwardPv01, crate::metrics::UnifiedDv01Calculator::<
+                crate::instruments::ForwardRateAgreement,
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_forward_only())),
             (ParRate, FraParRateCalculator),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::ForwardRateAgreement,

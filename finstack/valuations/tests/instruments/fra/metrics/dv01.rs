@@ -170,6 +170,55 @@ fn test_dv01_pay_fixed_positive() {
 }
 
 #[test]
+fn test_fra_pv01_matches_forward_pv01_br01() {
+    let market = standard_market();
+    let fra = create_standard_fra();
+
+    let result = fra
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Pv01, MetricId::ForwardPv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
+
+    let pv01 = *result.measures.get("pv01").unwrap();
+    let forward_pv01 = *result.measures.get("forward_pv01").unwrap();
+
+    assert_negative(pv01, "Receive-fixed FRA forward PV01 should be negative");
+    assert_approx_equal(
+        pv01,
+        forward_pv01,
+        1e-10,
+        "FRA pv01 should alias forward_pv01",
+    );
+}
+
+#[test]
+fn test_fra_dv01_is_not_pv01_for_off_market_fra() {
+    let market = standard_market();
+    let fra = TestFraBuilder::new().fixed_rate(0.045).build();
+
+    let result = fra
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Dv01, MetricId::Pv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
+
+    let dv01 = *result.measures.get("dv01").unwrap();
+    let pv01 = *result.measures.get("pv01").unwrap();
+
+    assert!(
+        (dv01 - pv01).abs() > 1e-6,
+        "FRA dv01 should include total rate-curve risk, not just forward BR01"
+    );
+}
+
+#[test]
 fn test_dv01_short_period() {
     let market = standard_market();
 

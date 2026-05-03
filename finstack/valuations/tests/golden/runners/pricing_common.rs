@@ -8,7 +8,8 @@ use finstack_core::market_data::scalars::{MarketScalar, ScalarTimeSeries};
 use finstack_core::market_data::surfaces::{VolSurface, VolSurfaceAxis};
 use finstack_core::market_data::term_structures::{
     BaseCorrelationCurve, CreditIndexData, DiscountCurve, DiscountCurveRateCalibration,
-    DiscountCurveRateQuote, DiscountCurveRateQuoteType, ForwardCurve, HazardCurve, InflationCurve,
+    DiscountCurveRateQuote, DiscountCurveRateQuoteType, ForwardCurve, ForwardCurveRateCalibration,
+    ForwardCurveRateQuote, HazardCurve, InflationCurve,
 };
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
@@ -108,6 +109,41 @@ struct ForwardCurveSpec {
     day_count: Option<String>,
     interp: Option<String>,
     knots: Vec<[f64; 2]>,
+    #[serde(default)]
+    bootstrap: Option<ForwardCurveBootstrapSpec>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ForwardCurveBootstrapSpec {
+    index: String,
+    currency: String,
+    discount_curve_id: String,
+    #[serde(default)]
+    quotes: Vec<ForwardCurveQuoteSpec>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "quote_type", rename_all = "snake_case")]
+enum ForwardCurveQuoteSpec {
+    Deposit {
+        tenor: String,
+        rate: f64,
+    },
+    Fra {
+        start: String,
+        end: String,
+        rate: f64,
+    },
+    Swap {
+        tenor: String,
+        rate: f64,
+        #[serde(default)]
+        spread_decimal: Option<f64>,
+    },
+    Basis {
+        tenor: String,
+        spread_decimal: f64,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -460,9 +496,80 @@ fn build_forward_curve(spec: &ForwardCurveSpec) -> Result<ForwardCurve, String> 
     if let Some(day_count) = spec.day_count.as_deref() {
         builder = builder.day_count(parse_day_count(day_count)?);
     }
-    builder
+    let curve = builder
         .build()
-        .map_err(|err| format!("build forward curve '{}': {err}", spec.id))
+        .map_err(|err| format!("build forward curve '{}': {err}", spec.id))?;
+
+    if let Some(bootstrap) = spec.bootstrap.as_ref() {
+        attach_forward_curve_rate_calibration(curve, bootstrap)
+    } else {
+        Ok(curve)
+    }
+}
+
+fn attach_forward_curve_rate_calibration(
+    curve: ForwardCurve,
+    bootstrap: &ForwardCurveBootstrapSpec,
+) -> Result<ForwardCurve, String> {
+    let currency = parse_currency(&bootstrap.currency)?;
+    let curve_id = curve.id().to_string();
+    ForwardCurve::builder(curve.id().clone(), curve.tenor())
+        .base_date(curve.base_date())
+        .reset_lag(curve.reset_lag())
+        .day_count(curve.day_count())
+        .knots(
+            curve
+                .knots()
+                .iter()
+                .copied()
+                .zip(curve.forwards().iter().copied()),
+        )
+        .interp(curve.interp_style())
+        .extrapolation(curve.extrapolation())
+        .rate_calibration(ForwardCurveRateCalibration {
+            index_id: bootstrap.index.clone(),
+            currency,
+            discount_curve_id: CurveId::new(bootstrap.discount_curve_id.as_str()),
+            quotes: bootstrap
+                .quotes
+                .iter()
+                .map(forward_curve_rate_quote)
+                .collect::<Result<Vec<_>, _>>()?,
+        })
+        .build()
+        .map_err(|err| format!("attach forward bootstrap metadata '{}': {err}", curve_id))
+}
+
+fn forward_curve_rate_quote(
+    quote: &ForwardCurveQuoteSpec,
+) -> Result<ForwardCurveRateQuote, String> {
+    Ok(match quote {
+        ForwardCurveQuoteSpec::Deposit { tenor, rate } => ForwardCurveRateQuote::Deposit {
+            tenor: tenor.clone(),
+            rate: rate / 100.0,
+        },
+        ForwardCurveQuoteSpec::Fra { start, end, rate } => ForwardCurveRateQuote::Fra {
+            start: parse_as_of_date(start).map_err(|err| err.to_string())?,
+            end: parse_as_of_date(end).map_err(|err| err.to_string())?,
+            rate: rate / 100.0,
+        },
+        ForwardCurveQuoteSpec::Swap {
+            tenor,
+            rate,
+            spread_decimal,
+        } => ForwardCurveRateQuote::Swap {
+            tenor: tenor.clone(),
+            rate: rate / 100.0,
+            spread_decimal: *spread_decimal,
+        },
+        ForwardCurveQuoteSpec::Basis {
+            tenor,
+            spread_decimal,
+        } => ForwardCurveRateQuote::Basis {
+            tenor: tenor.clone(),
+            spread_decimal: spread_decimal / 100.0,
+        },
+    })
 }
 
 fn build_hazard_curve(spec: &HazardCurveSpec) -> Result<HazardCurve, String> {

@@ -46,6 +46,8 @@
     "model": "discounting",
     "metrics": [
       "par_rate",
+      "pv01",
+      "forward_pv01",
       "dv01"
     ],
     "instrument_json": {
@@ -169,7 +171,73 @@
               2.0,
               0.928307
             ]
-          ]
+          ],
+          "bootstrap": {
+            "index": "USD-SOFR-OIS",
+            "currency": "USD",
+            "quotes": [
+              {
+                "quote_type": "deposit",
+                "tenor": "1W",
+                "rate": 3.634
+              },
+              {
+                "quote_type": "deposit",
+                "tenor": "2W",
+                "rate": 3.6351
+              },
+              {
+                "quote_type": "deposit",
+                "tenor": "3W",
+                "rate": 3.6335
+              },
+              {
+                "quote_type": "deposit",
+                "tenor": "1M",
+                "rate": 3.6432
+              },
+              {
+                "quote_type": "deposit",
+                "tenor": "2M",
+                "rate": 3.65047
+              },
+              {
+                "quote_type": "deposit",
+                "tenor": "3M",
+                "rate": 3.6544
+              },
+              {
+                "quote_type": "deposit",
+                "tenor": "4M",
+                "rate": 3.6589
+              },
+              {
+                "quote_type": "deposit",
+                "tenor": "5M",
+                "rate": 3.6629
+              },
+              {
+                "quote_type": "deposit",
+                "tenor": "6M",
+                "rate": 3.66705
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "12M",
+                "rate": 3.72495
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "18M",
+                "rate": 3.72925
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "2Y",
+                "rate": 3.71735
+              }
+            ]
+          }
         }
       ],
       "forward": [
@@ -200,7 +268,44 @@
               1.0,
               0.036437
             ]
-          ]
+          ],
+          "bootstrap": {
+            "index": "USD-SOFR-3M",
+            "currency": "USD",
+            "discount_curve_id": "USD-SOFR",
+            "quotes": [
+              {
+                "quote_type": "deposit",
+                "tenor": "3M",
+                "rate": 3.66395
+              },
+              {
+                "quote_type": "basis",
+                "tenor": "6M",
+                "spread_decimal": 0.0
+              },
+              {
+                "quote_type": "basis",
+                "tenor": "9M",
+                "spread_decimal": 0.0
+              },
+              {
+                "quote_type": "basis",
+                "tenor": "12M",
+                "spread_decimal": 0.0
+              },
+              {
+                "quote_type": "basis",
+                "tenor": "18M",
+                "spread_decimal": 0.0
+              },
+              {
+                "quote_type": "basis",
+                "tenor": "2Y",
+                "spread_decimal": 0.0
+              }
+            ]
+          }
         }
       ]
     },
@@ -231,8 +336,8 @@
         "npv": -0.01,
         "market_rate": 0.036437,
         "bp_value": -1e-05,
-        "br01_559_usd_3": 251.51,
-        "dv01": 337.37,
+        "br01_559_usd_3": -251.51,
+        "dv01": -337.37,
         "gamma_1bp": 0.04
       },
       "cashflows": [
@@ -368,12 +473,22 @@
           "discount": 0.928329
         }
       ]
+    },
+    "source_reference": {
+      "strict_metric_keys": {
+        "pv01": "br01_559_usd_3",
+        "forward_pv01": "br01_559_usd_3",
+        "dv01": "dv01"
+      },
+      "risk_convention_note": "Bloomberg displays BR01 and DV01 as positive screen risks. Finstack stores signed risk: Sell/Lend maps to receive-fixed, so forward-curve PV01/BR01 and aggregate rate-curve DV01 are negative. DV01 is computed by shocking calibration quotes and rebuilding the discount/projection curves."
     }
   },
   "expected_outputs": {
     "npv": -0.01,
     "par_rate": 0.036437,
-    "dv01": 337.37
+    "pv01": -251.51,
+    "forward_pv01": -251.51,
+    "dv01": -337.37
   },
   "tolerances": {
     "npv": {
@@ -384,10 +499,20 @@
     "par_rate": {
       "abs": 5e-08
     },
+    "pv01": {
+      "abs": 0.05,
+      "rel": 0.0002,
+      "tolerance_reason": "Bloomberg BR01 559:USD 3 is displayed to cents; Finstack stores signed receive-fixed forward-curve PV01."
+    },
+    "forward_pv01": {
+      "abs": 0.05,
+      "rel": 0.0002,
+      "tolerance_reason": "Same source as pv01, exposed under the explicit multi-curve metric name."
+    },
     "dv01": {
-      "abs": 590.0,
-      "rel": 1.75,
-      "tolerance_reason": "Bloomberg displays DV01 as 337.37 and 559:USD3 BR01 as 251.51. Finstack's FRA dv01 follows the signed forward-curve risk convention, with the reconciled magnitude tied to the BR01 screen risk. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
+      "abs": 0.05,
+      "rel": 0.0002,
+      "tolerance_reason": "Bloomberg aggregate DV01 is displayed to cents. Finstack stores the signed receive-fixed sensitivity computed by quote-shock/rebootstrap."
     }
   }
 }

@@ -72,6 +72,7 @@ use super::common::{
 };
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
+    currency::Currency,
     dates::{Date, DayCount, DayCountContext},
     error::InputError,
     market_data::traits::{Forward, TermStructure},
@@ -79,6 +80,62 @@ use crate::{
     math::interp::types::Interp,
     types::CurveId,
 };
+
+/// Market quote metadata used to build a forward curve.
+///
+/// This optional sidecar lets risk calculations shock the original projection
+/// quotes and re-bootstrap the curve instead of directly bumping fitted forward
+/// knots.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ForwardCurveRateCalibration {
+    /// Rate index used by the projection instruments.
+    pub index_id: String,
+    /// Currency of the calibrated curve.
+    pub currency: Currency,
+    /// Discount curve used while calibrating projection instruments.
+    pub discount_curve_id: CurveId,
+    /// Benchmark rate quotes used for calibration.
+    pub quotes: Vec<ForwardCurveRateQuote>,
+}
+
+/// A single benchmark rate quote used to calibrate a forward curve.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ForwardCurveRateQuote {
+    /// Money-market deposit quote.
+    Deposit {
+        /// Tenor string, such as `3M`.
+        tenor: String,
+        /// Quoted rate in decimal form.
+        rate: f64,
+    },
+    /// Forward-rate agreement quote.
+    Fra {
+        /// FRA start date.
+        start: Date,
+        /// FRA end date.
+        end: Date,
+        /// Quoted rate in decimal form.
+        rate: f64,
+    },
+    /// Interest-rate swap quote.
+    Swap {
+        /// Swap tenor string, such as `5Y`.
+        tenor: String,
+        /// Fixed rate in decimal form.
+        rate: f64,
+        /// Optional floating-leg spread in decimal form.
+        spread_decimal: Option<f64>,
+    },
+    /// Tenor-basis quote versus the discount/reference curve.
+    Basis {
+        /// Basis maturity tenor string, such as `6M` or `2Y`.
+        tenor: String,
+        /// Quoted basis spread in decimal form.
+        spread_decimal: f64,
+    },
+}
 
 /// Forward rate curve for a simple floating-rate index with fixed tenor.
 ///
@@ -111,6 +168,8 @@ pub struct ForwardCurve {
     /// Simple forward rates (e.g. 0.025 = 2.5 %).
     forwards: Box<[f64]>,
     interp: Interp,
+    /// Optional market quotes used to bootstrap this curve.
+    rate_calibration: Option<ForwardCurveRateCalibration>,
 }
 
 /// Raw serializable state of ForwardCurve
@@ -131,6 +190,9 @@ struct RawForwardCurve {
     points: super::common::StateKnotPoints,
     #[serde(flatten)]
     interp: super::common::StateInterp,
+    /// Optional market quotes used to bootstrap this curve.
+    #[serde(default)]
+    pub rate_calibration: Option<ForwardCurveRateCalibration>,
 }
 
 impl From<ForwardCurve> for RawForwardCurve {
@@ -155,6 +217,7 @@ impl From<ForwardCurve> for RawForwardCurve {
                 interp_style: curve.interp.style(),
                 extrapolation: curve.interp.extrapolation(),
             },
+            rate_calibration: curve.rate_calibration,
         }
     }
 }
@@ -170,6 +233,7 @@ impl TryFrom<RawForwardCurve> for ForwardCurve {
             .knots(state.points.knot_points)
             .interp(state.interp.interp_style)
             .extrapolation(state.interp.extrapolation)
+            .rate_calibration_opt(state.rate_calibration)
             .build()
     }
 }
@@ -197,6 +261,7 @@ impl ForwardCurve {
             style: InterpStyle::Linear,
             min_forward_rate: None,
             extrapolation: ExtrapolationPolicy::FlatForward,
+            rate_calibration: None,
         }
     }
 
@@ -258,6 +323,12 @@ impl ForwardCurve {
     #[inline]
     pub fn extrapolation(&self) -> ExtrapolationPolicy {
         self.interp.extrapolation()
+    }
+
+    /// Market quote metadata used to build this curve, when available.
+    #[inline]
+    pub fn rate_calibration(&self) -> Option<&ForwardCurveRateCalibration> {
+        self.rate_calibration.as_ref()
     }
 
     /// Number of knot points in the curve.
@@ -602,6 +673,7 @@ impl ForwardCurve {
             .knots(bumped_points)
             .interp(self.interp.style())
             .extrapolation(self.interp.extrapolation())
+            .rate_calibration_opt(self.rate_calibration.clone())
             .build()
     }
 
@@ -664,6 +736,7 @@ impl ForwardCurve {
             .knots(rolled_points)
             .interp(self.interp.style())
             .extrapolation(self.interp.extrapolation())
+            .rate_calibration_opt(self.rate_calibration.clone())
             .build()
     }
 }
@@ -696,6 +769,7 @@ pub struct ForwardCurveBuilder {
     style: InterpStyle,
     min_forward_rate: Option<f64>,
     extrapolation: ExtrapolationPolicy,
+    rate_calibration: Option<ForwardCurveRateCalibration>,
 }
 
 impl ForwardCurveBuilder {
@@ -739,6 +813,21 @@ impl ForwardCurveBuilder {
     /// Enforce a minimum forward rate across the provided knot points.
     pub fn min_forward_rate(mut self, min_rate: f64) -> Self {
         self.min_forward_rate = Some(min_rate);
+        self
+    }
+
+    /// Attach market quote metadata used to bootstrap this curve.
+    pub fn rate_calibration(mut self, calibration: ForwardCurveRateCalibration) -> Self {
+        self.rate_calibration = Some(calibration);
+        self
+    }
+
+    /// Optionally attach market quote metadata used to bootstrap this curve.
+    pub fn rate_calibration_opt(
+        mut self,
+        calibration: Option<ForwardCurveRateCalibration>,
+    ) -> Self {
+        self.rate_calibration = calibration;
         self
     }
 
@@ -790,6 +879,7 @@ impl ForwardCurveBuilder {
             knots,
             forwards,
             interp,
+            rate_calibration: self.rate_calibration,
         })
     }
 }

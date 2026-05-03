@@ -61,6 +61,15 @@ pub(crate) enum Dv01ComputationMode {
     KeyRateTriangular,
 }
 
+/// Rate-curve subset to include in a DV01-style bump.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RateCurveSelection {
+    /// Include all rate curves declared by the instrument.
+    All,
+    /// Include only forward/projection curves.
+    ForwardOnly,
+}
+
 /// Configuration for DV01 calculations.
 #[derive(Clone)]
 pub(crate) struct Dv01CalculatorConfig {
@@ -72,6 +81,8 @@ pub(crate) struct Dv01CalculatorConfig {
     /// Defaults to `BucketedDv01`. Set to e.g. `Pv01` when using
     /// `ParallelPerCurve` mode for PV01 so keys read `pv01::USD-OIS`.
     pub(crate) series_id: MetricId,
+    /// Subset of rate curves included in the bump.
+    pub(crate) curve_selection: RateCurveSelection,
 }
 
 impl std::fmt::Debug for Dv01CalculatorConfig {
@@ -80,6 +91,7 @@ impl std::fmt::Debug for Dv01CalculatorConfig {
             .field("mode", &self.mode)
             .field("buckets", &self.buckets)
             .field("series_id", &self.series_id)
+            .field("curve_selection", &self.curve_selection)
             .finish()
     }
 }
@@ -90,6 +102,7 @@ impl Default for Dv01CalculatorConfig {
             mode: Dv01ComputationMode::KeyRateTriangular,
             buckets: sens_config::STANDARD_BUCKETS_YEARS.to_vec(),
             series_id: MetricId::BucketedDv01,
+            curve_selection: RateCurveSelection::All,
         }
     }
 }
@@ -101,6 +114,17 @@ impl Dv01CalculatorConfig {
             mode: Dv01ComputationMode::ParallelCombined,
             buckets: vec![],
             series_id: MetricId::BucketedDv01,
+            curve_selection: RateCurveSelection::All,
+        }
+    }
+
+    /// Create config for parallel DV01 over forward/projection curves only.
+    pub(crate) fn parallel_forward_only() -> Self {
+        Self {
+            mode: Dv01ComputationMode::ParallelCombined,
+            buckets: vec![],
+            series_id: MetricId::BucketedDv01,
+            curve_selection: RateCurveSelection::ForwardOnly,
         }
     }
 
@@ -110,6 +134,7 @@ impl Dv01CalculatorConfig {
             mode: Dv01ComputationMode::ParallelPerCurve,
             buckets: vec![],
             series_id: MetricId::BucketedDv01,
+            curve_selection: RateCurveSelection::All,
         }
     }
 
@@ -128,6 +153,16 @@ impl Dv01CalculatorConfig {
     pub(crate) fn with_series_id(mut self, id: MetricId) -> Self {
         self.series_id = id;
         self
+    }
+
+    fn includes_curve_kind(&self, kind: RatesCurveKind) -> bool {
+        matches!(
+            (self.curve_selection, kind),
+            (
+                RateCurveSelection::All,
+                RatesCurveKind::Discount | RatesCurveKind::Forward
+            ) | (RateCurveSelection::ForwardOnly, RatesCurveKind::Forward)
+        )
     }
 }
 
@@ -228,18 +263,23 @@ where
         let mut missing_curves = Vec::new();
 
         for (curve_id, kind) in deps.all_with_kind() {
+            let selected = self.config.includes_curve_kind(kind);
             match kind {
                 RatesCurveKind::Discount => {
                     if market.get_discount(curve_id.as_str()).is_ok() {
-                        curves.push((curve_id, kind));
-                    } else {
+                        if selected {
+                            curves.push((curve_id, kind));
+                        }
+                    } else if selected {
                         missing_curves.push(curve_id.as_str().to_string());
                     }
                 }
                 RatesCurveKind::Forward => {
                     if market.get_forward(curve_id.as_str()).is_ok() {
-                        curves.push((curve_id, kind));
-                    } else {
+                        if selected {
+                            curves.push((curve_id, kind));
+                        }
+                    } else if selected {
                         missing_curves.push(curve_id.as_str().to_string());
                     }
                 }
@@ -251,7 +291,12 @@ where
 
         // If the instrument declares rate curve dependencies but none are found,
         // this is a market data error that should be surfaced explicitly.
-        let has_rate_deps = !deps.discount_curves.is_empty() || !deps.forward_curves.is_empty();
+        let has_rate_deps = match self.config.curve_selection {
+            RateCurveSelection::All => {
+                !deps.discount_curves.is_empty() || !deps.forward_curves.is_empty()
+            }
+            RateCurveSelection::ForwardOnly => !deps.forward_curves.is_empty(),
+        };
 
         if curves.is_empty() && has_rate_deps {
             return Err(finstack_core::Error::from(

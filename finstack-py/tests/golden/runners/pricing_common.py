@@ -62,16 +62,137 @@ def run_pricing_fixture(fixture: GoldenFixture) -> dict[str, float]:
 
 
 def _build_market(curves: dict[str, Any]) -> MarketContext:
-    market = MarketContext()
+    market = _build_curve_state_market(curves) if _has_curve_bootstrap_metadata(curves) else MarketContext()
     for spec in curves["discount"]:
-        market = market.insert(_build_discount_curve(spec))
+        if not _state_curve_handles_spec(spec):
+            market = market.insert(_build_discount_curve(spec))
     for spec in curves.get("forward", []):
-        market = market.insert(_build_forward_curve(spec))
+        if not _state_curve_handles_spec(spec):
+            market = market.insert(_build_forward_curve(spec))
     for spec in curves.get("hazard", []):
         market = market.insert(_build_hazard_curve(spec))
     for spec in curves.get("inflation", []):
         market = market.insert(_build_inflation_curve(spec))
     return market
+
+
+def _has_curve_bootstrap_metadata(curves: dict[str, Any]) -> bool:
+    return any(_state_curve_handles_spec(spec) for spec in curves.get("discount", [])) or any(
+        _state_curve_handles_spec(spec) for spec in curves.get("forward", [])
+    )
+
+
+def _state_curve_handles_spec(spec: dict[str, Any]) -> bool:
+    return bool(spec.get("bootstrap")) and bool(spec.get("knots"))
+
+
+def _build_curve_state_market(curves: dict[str, Any]) -> MarketContext:
+    state_curves: list[dict[str, Any]] = []
+    state_curves.extend(_discount_curve_state(spec) for spec in curves.get("discount", []) if _state_curve_handles_spec(spec))
+    state_curves.extend(_forward_curve_state(spec) for spec in curves.get("forward", []) if _state_curve_handles_spec(spec))
+    state = {
+        "version": 2,
+        "curves": state_curves,
+        "fx": None,
+        "surfaces": [],
+        "prices": {},
+        "series": [],
+        "inflation_indices": [],
+        "dividends": [],
+        "credit_indices": [],
+        "fx_delta_vol_surfaces": [],
+        "vol_cubes": [],
+        "collateral": {},
+    }
+    return MarketContext.from_json(json.dumps(state))
+
+
+def _discount_curve_state(spec: dict[str, Any]) -> dict[str, Any]:
+    bootstrap = spec["bootstrap"]
+    return {
+        "type": "discount",
+        "id": spec["id"],
+        "base": spec["base_date"],
+        "day_count": _day_count_state(spec.get("day_count", "act_360")),
+        "knot_points": [[float(t), float(df)] for t, df in spec["knots"]],
+        "interp_style": spec.get("interp", "linear"),
+        "extrapolation": spec.get("extrapolation", "flat_forward"),
+        "min_forward_rate": None,
+        "allow_non_monotonic": False,
+        "min_forward_tenor": 1e-6,
+        "rate_calibration": {
+            "index_id": bootstrap["index"],
+            "currency": bootstrap["currency"],
+            "quotes": [
+                {
+                    "quote_type": quote["quote_type"],
+                    "tenor": quote["tenor"],
+                    "rate": float(quote["rate"]) / 100.0,
+                }
+                for quote in bootstrap.get("quotes", [])
+            ],
+        },
+    }
+
+
+def _forward_curve_state(spec: dict[str, Any]) -> dict[str, Any]:
+    bootstrap = spec["bootstrap"]
+    return {
+        "type": "forward",
+        "id": spec["id"],
+        "base": spec["base_date"],
+        "reset_lag": int(spec.get("reset_lag", 0)),
+        "day_count": _day_count_state(spec.get("day_count", "act_360")),
+        "tenor": float(spec["tenor"]),
+        "knot_points": [[float(t), float(rate)] for t, rate in spec["knots"]],
+        "interp_style": spec.get("interp", "linear"),
+        "extrapolation": spec.get("extrapolation", "flat_forward"),
+        "rate_calibration": {
+            "index_id": bootstrap["index"],
+            "currency": bootstrap["currency"],
+            "discount_curve_id": bootstrap["discount_curve_id"],
+            "quotes": [_forward_rate_quote_state(quote) for quote in bootstrap.get("quotes", [])],
+        },
+    }
+
+
+def _forward_rate_quote_state(quote: dict[str, Any]) -> dict[str, Any]:
+    quote_type = quote["quote_type"]
+    if quote_type == "deposit":
+        return {"deposit": {"tenor": quote["tenor"], "rate": float(quote["rate"]) / 100.0}}
+    if quote_type == "fra":
+        return {
+            "fra": {
+                "start": quote["start"],
+                "end": quote["end"],
+                "rate": float(quote["rate"]) / 100.0,
+            }
+        }
+    if quote_type == "swap":
+        return {
+            "swap": {
+                "tenor": quote["tenor"],
+                "rate": float(quote["rate"]) / 100.0,
+                "spread_decimal": quote.get("spread_decimal"),
+            }
+        }
+    if quote_type == "basis":
+        return {
+            "basis": {
+                "tenor": quote["tenor"],
+                "spread_decimal": float(quote["spread_decimal"]) / 100.0,
+            }
+        }
+    raise ValueError(f"unsupported forward quote_type {quote_type!r}")
+
+
+def _day_count_state(day_count: str | None) -> str:
+    mapping = {
+        "act_360": "Act360",
+        "act_365f": "Act365F",
+        "30_360": "Thirty360",
+    }
+    return mapping.get(day_count or "act_360", day_count or "Act360")
 
 
 def _build_fx_matrix(quotes: list[dict[str, Any]]) -> FxMatrix:

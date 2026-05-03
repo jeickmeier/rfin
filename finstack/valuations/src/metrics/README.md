@@ -199,8 +199,8 @@ rho, and other rates-focused "01" metrics.
 | `dv01` | (PV(r+1bp) - PV(r-1bp)) / 2 | Currency/bp | All FI | Dollar value of 01 -- parallel rates bump |
 | `bucketed_dv01` | Per-tenor key-rate DV01 | Currency/bp | All FI | Rate sensitivity by tenor bucket |
 | `duration_dv01` | Notional x Duration x 0.0001 | Currency/bp | FI Index TRS | Duration-based DV01 for FI index TRS |
-| `pv01` | PV(r+1bp) - PV(r) | Currency/bp | IRS, Swap | Present value of a basis point |
-| `forward_pv01` | PV with projection curve +1bp | Currency/bp | IRS | Forward/projection curve sensitivity |
+| `pv01` | Instrument-specific 1bp quoted/primary driver bump | Currency/bp | IRS, FRA, Swap | Present value of a basis point; for FRAs this is signed projection-curve BR01 |
+| `forward_pv01` | PV with projection curve +1bp | Currency/bp | IRS, FRA | Explicit forward/projection curve sensitivity |
 | `npv01` | PV change per 1bp inflation curve bump | Currency/bp | Inflation Swap | Inflation swap NPV sensitivity |
 | `rho` | PV(r+1bp) - PV(r) (domestic rate) | Currency/bp | Options | Domestic rate sensitivity |
 | `foreign_rho` | PV(r_f+1bp) - PV(r_f) | Currency/bp | FX/Quanto Options | Foreign/dividend rate sensitivity |

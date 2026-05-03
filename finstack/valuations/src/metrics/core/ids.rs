@@ -386,17 +386,13 @@ impl MetricId {
 
     /// Present value of a basis point (PV01).
     ///
-    /// **Current behavior**: Sensitivity to a 1bp parallel shift in the discount
-    /// curve, computed as the change in PV for a +1bp shift.
-    /// Units: currency (positive means gains value when rates rise).
+    /// Instrument-specific PV change for a one-basis-point move in the quoted
+    /// or primary rate driver documented by that instrument. For FRAs, this is
+    /// the signed projection-curve BR01/PV01; `ForwardPv01` exposes the same
+    /// projection-curve sensitivity under an explicit multi-curve name.
     ///
-    /// # Sign Convention
-    /// - Payer swap (pay fixed): PV01 > 0 (benefits from rising rates)
-    /// - Receiver swap (receive fixed): PV01 < 0 (loses value when rates rise)
-    ///
-    /// # Future Direction
-    /// Consider introducing `Pv01CouponBump` for sensitivity to coupon rate changes,
-    /// distinct from curve-based rate sensitivity.
+    /// Units: currency per 1bp. Positive means the position gains value when
+    /// the bumped driver rises; negative means it loses value.
     pub const Pv01: Self = Self(Cow::Borrowed("pv01"));
 
     /// Present value of fixed leg.
@@ -627,8 +623,9 @@ impl MetricId {
 
     /// Forward-curve PV01 for a 1bp forward/projection bump.
     ///
-    /// Distinct from `Dv01` or `Pv01` when discount and forward curves are
-    /// separate and only the projection curve is bumped.
+    /// Distinct from `Dv01` when discount and forward curves are separate and
+    /// only the projection curve is bumped. Prefer this explicit metric when a
+    /// product exposes both discount-curve and projection-curve rate risk.
     ///
     /// Units: currency per 1bp.
     pub const ForwardPv01: Self = Self(Cow::Borrowed("forward_pv01"));
