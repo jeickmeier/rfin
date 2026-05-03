@@ -8,9 +8,7 @@ from tests.golden.schema import GoldenFixture
 
 def run(fixture: GoldenFixture) -> dict[str, float]:
     """Require executable attribution inputs before running."""
-    source_validation = validate_source_validation_fixture("attribution runner", fixture)
-    if not source_validation:
-        return reject_flattened_outputs("attribution runner", fixture)
+    validate_source_validation_fixture("attribution runner", fixture)
 
     actuals = {key: float(value) for key, value in fixture.inputs.get("components", {}).items()}
     pending = dict(fixture.inputs.get("sums", {}))
@@ -27,4 +25,4 @@ def run(fixture: GoldenFixture) -> dict[str, float]:
         for output, total in ready.items():
             actuals[output] = total
             del pending[output]
-    return source_validation
+    return reject_flattened_outputs("attribution runner", fixture)

@@ -62,8 +62,8 @@ fn run_nested_calibration(
     fixture: &GoldenFixture,
     inputs: serde_json::Value,
 ) -> Result<BTreeMap<String, f64>, String> {
-    let expected_outputs = source_validation_expected_outputs(&inputs)?;
-    let nested = nested_fixture(fixture, inputs, expected_outputs);
+    reject_nested_source_validation("curve calibration runner", &inputs)?;
+    let nested = nested_fixture(fixture, inputs, BTreeMap::new());
     crate::golden::runners::calibration_common::run_curve_fixture(&nested)
 }
 
@@ -71,8 +71,8 @@ fn run_nested_hazard(
     fixture: &GoldenFixture,
     inputs: serde_json::Value,
 ) -> Result<BTreeMap<String, f64>, String> {
-    let expected_outputs = source_validation_expected_outputs(&inputs)?;
-    let nested = nested_fixture(fixture, inputs, expected_outputs);
+    reject_nested_source_validation("hazard calibration runner", &inputs)?;
+    let nested = nested_fixture(fixture, inputs, BTreeMap::new());
     crate::golden::runners::calibration_common::run_hazard_fixture(&nested)
 }
 
@@ -80,36 +80,18 @@ fn run_nested_sabr(
     fixture: &GoldenFixture,
     inputs: serde_json::Value,
 ) -> Result<BTreeMap<String, f64>, String> {
-    let expected_outputs = source_validation_expected_outputs(&inputs)?;
-    let nested = nested_fixture(fixture, inputs, expected_outputs);
+    reject_nested_source_validation("SABR calibration runner", &inputs)?;
+    let nested = nested_fixture(fixture, inputs, BTreeMap::new());
     crate::golden::runners::calibration_common::run_sabr_cube_fixture(&nested)
 }
 
-fn source_validation_expected_outputs(
-    inputs: &serde_json::Value,
-) -> Result<BTreeMap<String, f64>, String> {
-    let Some(references) = inputs
-        .get("source_validation")
-        .and_then(|source_validation| source_validation.get("reference_outputs"))
-    else {
-        return Ok(BTreeMap::new());
-    };
-    let references = references
-        .as_object()
-        .ok_or("nested source_validation.reference_outputs must be an object")?;
-    references
-        .iter()
-        .map(|(metric, value)| {
-            value
-                .as_f64()
-                .map(|value| (metric.clone(), value))
-                .ok_or_else(|| {
-                    format!(
-                        "nested source_validation.reference_outputs['{metric}'] must be numeric"
-                    )
-                })
-        })
-        .collect()
+fn reject_nested_source_validation(runner: &str, inputs: &serde_json::Value) -> Result<(), String> {
+    if inputs.get("source_validation").is_some() {
+        return Err(format!(
+            "{runner} requires executable inputs; nested source_validation metadata cannot provide actuals"
+        ));
+    }
+    Ok(())
 }
 
 fn run_nested_pricing(
@@ -118,23 +100,29 @@ fn run_nested_pricing(
     inputs: serde_json::Value,
     metric_map: BTreeMap<String, String>,
 ) -> Result<BTreeMap<String, f64>, String> {
-    let inputs = if let Some(relative_path) = pricing_fixture {
+    if let Some(relative_path) = pricing_fixture {
         let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
         let path = manifest_dir.join("tests/golden/data").join(relative_path);
         let raw = std::fs::read_to_string(&path)
             .map_err(|err| format!("read nested pricing fixture {path:?}: {err}"))?;
         let nested: GoldenFixture = serde_json::from_str(&raw)
             .map_err(|err| format!("parse nested pricing fixture {path:?}: {err}"))?;
-        nested.inputs
-    } else {
-        inputs
-    };
+        let actuals = crate::golden::runners::pricing_common::run_pricing_fixture(&nested)?;
+        return remap_pricing_actuals(actuals, metric_map);
+    }
     let expected_outputs = metric_map
         .keys()
         .map(|metric| (metric.clone(), 0.0))
         .collect();
     let nested = nested_fixture(fixture, inputs, expected_outputs);
     let actuals = crate::golden::runners::pricing_common::run_pricing_fixture(&nested)?;
+    remap_pricing_actuals(actuals, metric_map)
+}
+
+fn remap_pricing_actuals(
+    actuals: BTreeMap<String, f64>,
+    metric_map: BTreeMap<String, String>,
+) -> Result<BTreeMap<String, f64>, String> {
     metric_map
         .into_iter()
         .map(|(metric, output)| {
@@ -161,5 +149,51 @@ fn nested_fixture(
         inputs,
         expected_outputs,
         tolerances: BTreeMap::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nested_source_validation_fixture_requires_executable_inputs() {
+        let fixture = GoldenFixture {
+            schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
+            name: "nested_source_validation".to_string(),
+            domain: "rates.integration".to_string(),
+            description: "Nested source validation test".to_string(),
+            provenance: crate::golden::schema::Provenance {
+                as_of: "2026-04-30".to_string(),
+                source: "formula".to_string(),
+                source_detail: "unit test".to_string(),
+                captured_by: "test".to_string(),
+                captured_on: "2026-04-30".to_string(),
+                last_reviewed_by: "test".to_string(),
+                last_reviewed_on: "2026-04-30".to_string(),
+                review_interval_months: 6,
+                regen_command: String::new(),
+                screenshots: Vec::new(),
+            },
+            inputs: serde_json::json!({
+                "calibration": {
+                    "source_validation": {
+                        "status": "non_executable",
+                        "reason": "unit test"
+                    }
+                },
+                "pricing_metrics": {}
+            }),
+            expected_outputs: BTreeMap::new(),
+            tolerances: BTreeMap::new(),
+        };
+
+        let err = run_rates_integration(&fixture)
+            .expect_err("nested source_validation must not provide actuals");
+
+        assert!(
+            err.contains("requires executable inputs"),
+            "unexpected error: {err}"
+        );
     }
 }

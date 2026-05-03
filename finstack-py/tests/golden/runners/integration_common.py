@@ -14,11 +14,11 @@ from tests.golden.schema import GoldenFixture
 def run_rates_integration(fixture: GoldenFixture) -> dict[str, float]:
     actuals: dict[str, float] = {}
     if calibration := fixture.inputs.get("calibration"):
-        actuals.update(
-            run_curve_fixture(_nested_fixture(fixture, calibration, _source_validation_outputs(calibration)))
-        )
+        _reject_nested_source_validation("curve calibration runner", calibration)
+        actuals.update(run_curve_fixture(_nested_fixture(fixture, calibration, {})))
     if sabr := fixture.inputs.get("sabr_calibration"):
-        actuals.update(run_sabr_cube_fixture(_nested_fixture(fixture, sabr, _source_validation_outputs(sabr))))
+        _reject_nested_source_validation("SABR calibration runner", sabr)
+        actuals.update(run_sabr_cube_fixture(_nested_fixture(fixture, sabr, {})))
     actuals.update(_run_pricing(fixture))
     return actuals
 
@@ -26,7 +26,8 @@ def run_rates_integration(fixture: GoldenFixture) -> dict[str, float]:
 def run_credit_integration(fixture: GoldenFixture) -> dict[str, float]:
     actuals: dict[str, float] = {}
     if hazard := fixture.inputs.get("hazard_calibration"):
-        actuals.update(run_hazard_fixture(_nested_fixture(fixture, hazard, _source_validation_outputs(hazard))))
+        _reject_nested_source_validation("hazard calibration runner", hazard)
+        actuals.update(run_hazard_fixture(_nested_fixture(fixture, hazard, {})))
     actuals.update(_run_pricing(fixture))
     return actuals
 
@@ -54,11 +55,7 @@ def _nested_fixture(fixture: GoldenFixture, inputs: dict, expected_outputs: dict
     )
 
 
-def _source_validation_outputs(inputs: dict) -> dict[str, float]:
-    source_validation = inputs.get("source_validation")
-    if not isinstance(source_validation, dict):
-        return {}
-    references = source_validation.get("reference_outputs")
-    if not isinstance(references, dict):
-        return {}
-    return {metric: float(value) for metric, value in references.items()}
+def _reject_nested_source_validation(runner: str, inputs: dict) -> None:
+    if "source_validation" in inputs:
+        msg = f"{runner} requires executable inputs; nested source_validation metadata cannot provide actuals"
+        raise ValueError(msg)

@@ -762,10 +762,12 @@ mod tests {
             0.0095,
             &df_fn,
             &df_fn,
-            5.0,
-            0.0365,
-            true,
-            SwapFrequency::Quarterly,
+            crate::calibration::hull_white::CapFloorPriceSpec::new(
+                5.0,
+                0.0365,
+                true,
+                SwapFrequency::Quarterly,
+            ),
         );
         let quotes = vec![MarketQuote::Vol(VolQuote::CapFloorVol {
             expiry: Date::from_calendar_date(2030, Month::January, 1).expect("expiry"),

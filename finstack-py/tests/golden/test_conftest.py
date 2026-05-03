@@ -12,7 +12,6 @@ from .conftest import (
     discover_fixtures,
     fixture_path,
     non_compared_metric_reason,
-    run_golden,
     validate_fixture,
 )
 from .runners import attribution_common
@@ -40,19 +39,19 @@ def test_discover_fixtures_empty_dir() -> None:
     assert discover_fixtures("pricing/nonexistent") == []
 
 
-def test_run_golden_writes_reference_rows_for_source_validation_fixture() -> None:
-    report = WORKSPACE_ROOT / "target/golden-reports/golden-comparisons.csv"
-
-    run_golden("attribution/brinson_hood_beebower.json")
-
-    csv = report.read_text(encoding="utf-8")
-    assert (
-        "runner,fixture,metric,actual,expected,abs_diff,rel_diff,abs_tolerance,rel_tolerance,passed,tolerance_reason"
-        in csv
+def test_run_golden_rejects_source_validation_without_executable_inputs() -> None:
+    fixture = _fixture(
+        inputs={
+            "source_validation": {
+                "status": "non_executable",
+                "reason": "unit test",
+            },
+        },
+        expected_outputs={"selection::tech": 0.01},
     )
-    assert "python,attribution/brinson_hood_beebower.json,total_active," in csv
-    assert "python,attribution/brinson_hood_beebower.json,allocation::energy," in csv
-    assert ",true," in csv
+
+    with pytest.raises(ValueError, match="requires executable inputs"):
+        attribution_common.run(fixture)
 
 
 def test_attribution_raw_looking_keys_do_not_bypass_execution_requirement() -> None:
@@ -69,20 +68,19 @@ def test_attribution_raw_looking_keys_do_not_bypass_execution_requirement() -> N
         attribution_common.run(fixture)
 
 
-def test_source_validation_reference_values_must_match_expected_outputs() -> None:
+def test_source_validation_rejects_reference_outputs() -> None:
     fixture = _fixture(
         inputs={
-            "components": {"selection::tech": 0.01},
             "source_validation": {
                 "status": "non_executable",
                 "reason": "unit test",
-                "reference_outputs": {"selection::tech": 0.02},
+                "reference_outputs": {"selection::tech": 0.01},
             },
         },
         expected_outputs={"selection::tech": 0.01},
     )
 
-    with pytest.raises(ValueError, match="does not exactly match expected_outputs"):
+    with pytest.raises(ValueError, match="reference_outputs is not allowed"):
         attribution_common.run(fixture)
 
 
@@ -92,7 +90,6 @@ def test_validate_fixture_source_validation_requires_reason() -> None:
             "components": {"selection::tech": 0.01},
             "source_validation": {
                 "status": "non_executable",
-                "reference_outputs": {"selection::tech": 0.01},
             },
         },
         expected_outputs={"selection::tech": 0.01},
@@ -110,7 +107,6 @@ def test_validate_fixture_source_validation_rejects_actual_outputs() -> None:
             "source_validation": {
                 "status": "non_executable",
                 "reason": "unit test",
-                "reference_outputs": {"selection::tech": 0.01},
             },
         },
         expected_outputs={"selection::tech": 0.01},
@@ -164,7 +160,6 @@ def test_source_validation_cannot_hide_required_pricing_risk_metric() -> None:
             "source_validation": {
                 "status": "non_executable",
                 "reason": "unit test",
-                "reference_outputs": {"cs01": 1.0, "dv01": 2.0},
             },
             "source_reference": {
                 "non_compared_metrics": ["cs01"],

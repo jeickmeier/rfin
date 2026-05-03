@@ -422,29 +422,28 @@ mod tests {
     }
 
     #[test]
-    fn source_validation_reference_values_must_match_expected_outputs() {
+    fn source_validation_rejects_reference_outputs() {
         let fixture = GoldenFixture {
             schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
             name: "bad_source_validation".to_string(),
-            domain: "attribution.equity".to_string(),
-            description: "Source validation mismatch fixture".to_string(),
+            domain: "rates.deposit".to_string(),
+            description: "Source validation duplicate references fixture".to_string(),
             provenance: test_provenance(),
             inputs: serde_json::json!({
-                "components": {"selection::tech": 0.01},
                 "source_validation": {
                     "status": "non_executable",
                     "reason": "unit test",
-                    "reference_outputs": {"selection::tech": 0.02}
+                    "reference_outputs": {"npv": 0.0}
                 }
             }),
-            expected_outputs: BTreeMap::from([("selection::tech".to_string(), 0.01)]),
-            tolerances: BTreeMap::from([("selection::tech".to_string(), abs_zero())]),
+            expected_outputs: BTreeMap::from([("npv".to_string(), 0.0)]),
+            tolerances: BTreeMap::from([("npv".to_string(), abs_zero())]),
         };
 
-        let err = run_fixture(&fixture).expect_err("source reference mismatch must fail");
+        let err = run_fixture(&fixture).expect_err("source reference outputs must fail");
 
         assert!(
-            err.contains("does not exactly match expected_outputs"),
+            err.contains("reference_outputs is not allowed"),
             "unexpected error: {err}"
         );
     }
@@ -460,8 +459,7 @@ mod tests {
             inputs: serde_json::json!({
                 "source_validation": {
                     "status": "non_executable",
-                    "reason": "unit test",
-                    "reference_outputs": {"npv": 0.0}
+                    "reason": "unit test"
                 }
             }),
             expected_outputs: BTreeMap::from([("npv".to_string(), 0.0)]),
@@ -487,8 +485,7 @@ mod tests {
             inputs: serde_json::json!({
                 "components": {"selection::tech": 0.01},
                 "source_validation": {
-                    "status": "non_executable",
-                    "reference_outputs": {"selection::tech": 0.01}
+                    "status": "non_executable"
                 }
             }),
             expected_outputs: BTreeMap::from([("selection::tech".to_string(), 0.01)]),
@@ -513,8 +510,7 @@ mod tests {
                 "components": {"selection::tech": 0.01},
                 "source_validation": {
                     "status": "non_executable",
-                    "reason": "unit test",
-                    "reference_outputs": {"selection::tech": 0.01}
+                    "reason": "unit test"
                 }
             }),
             expected_outputs: BTreeMap::from([("selection::tech".to_string(), 0.01)]),
@@ -530,20 +526,30 @@ mod tests {
     }
 
     #[test]
-    fn source_validation_fixture_is_non_gating_and_writes_reference_rows() {
-        let manifest_dir = env!("CARGO_MANIFEST_DIR");
-        let fixture_path = Path::new(manifest_dir)
-            .join("tests/golden/data/attribution/brinson_hood_beebower.json");
-        let report_path =
-            Path::new(manifest_dir).join("../../target/golden-reports/golden-comparisons.csv");
+    fn source_validation_fixture_without_executable_inputs_fails_golden_run() {
+        let fixture = GoldenFixture {
+            schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
+            name: "source_validation_non_executable".to_string(),
+            domain: "attribution.equity".to_string(),
+            description: "Source validation non-executable test".to_string(),
+            provenance: test_provenance(),
+            inputs: serde_json::json!({
+                "source_validation": {
+                    "status": "non_executable",
+                    "reason": "unit test"
+                }
+            }),
+            expected_outputs: BTreeMap::from([("selection::tech".to_string(), 0.01)]),
+            tolerances: BTreeMap::from([("selection::tech".to_string(), abs_zero())]),
+        };
 
-        let results = run_golden_at_path(&fixture_path).expect("source validation should validate");
+        let err = run_fixture(&fixture)
+            .expect_err("source-validation metadata must not provide executable actuals");
 
-        assert!(!results.is_empty());
-        let csv = std::fs::read_to_string(&report_path).expect("CSV report should exist");
-        assert!(csv.contains("rust,attribution/brinson_hood_beebower.json,total_active,"));
-        assert!(csv.contains("rust,attribution/brinson_hood_beebower.json,allocation::energy,"));
-        assert!(csv.contains(",true,"));
+        assert!(
+            err.contains("requires executable inputs"),
+            "unexpected error: {err}"
+        );
     }
 
     #[test]

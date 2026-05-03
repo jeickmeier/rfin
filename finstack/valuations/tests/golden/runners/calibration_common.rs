@@ -107,7 +107,7 @@ struct VolSmileSpec {
 }
 
 pub(crate) fn run_curve_fixture(fixture: &GoldenFixture) -> Result<BTreeMap<String, f64>, String> {
-    let source_validation = crate::golden::runners::validate_source_validation_fixture(
+    crate::golden::runners::validate_source_validation_fixture(
         "curve calibration runner",
         fixture,
     )?;
@@ -160,14 +160,11 @@ pub(crate) fn run_curve_fixture(fixture: &GoldenFixture) -> Result<BTreeMap<Stri
         };
         actuals.insert(probe.output.clone(), value);
     }
-    if let Some(references) = source_validation {
-        return Ok(references);
-    }
     reject_non_executable_calibration("curve calibration runner", fixture)
 }
 
 pub(crate) fn run_hazard_fixture(fixture: &GoldenFixture) -> Result<BTreeMap<String, f64>, String> {
-    let source_validation = crate::golden::runners::validate_source_validation_fixture(
+    crate::golden::runners::validate_source_validation_fixture(
         "hazard calibration runner",
         fixture,
     )?;
@@ -190,16 +187,13 @@ pub(crate) fn run_hazard_fixture(fixture: &GoldenFixture) -> Result<BTreeMap<Str
         };
         actuals.insert(probe.output.clone(), value);
     }
-    if let Some(references) = source_validation {
-        return Ok(references);
-    }
     reject_non_executable_calibration("hazard calibration runner", fixture)
 }
 
 pub(crate) fn run_vol_smile_fixture(
     fixture: &GoldenFixture,
 ) -> Result<BTreeMap<String, f64>, String> {
-    let source_validation = crate::golden::runners::validate_source_validation_fixture(
+    crate::golden::runners::validate_source_validation_fixture(
         "vol smile calibration runner",
         fixture,
     )?;
@@ -233,26 +227,17 @@ pub(crate) fn run_vol_smile_fixture(
             );
         }
     }
-    if let Some(references) = source_validation {
-        return Ok(references);
-    }
     reject_non_executable_calibration("vol smile calibration runner", fixture)
 }
 
 pub(crate) fn run_sabr_cube_fixture(
     fixture: &GoldenFixture,
 ) -> Result<BTreeMap<String, f64>, String> {
-    let source_validation = crate::golden::runners::validate_source_validation_fixture(
-        "SABR calibration runner",
-        fixture,
-    )?;
+    crate::golden::runners::validate_source_validation_fixture("SABR calibration runner", fixture)?;
     let inputs: SabrCubeInputs = serde_json::from_value(fixture.inputs.clone())
         .map_err(|err| format!("parse SABR cube inputs: {err}"))?;
     if inputs.parameters.is_empty() {
         return Err("SABR source validation requires committed parameters".to_string());
-    }
-    if let Some(references) = source_validation {
-        return Ok(references);
     }
     reject_non_executable_calibration("SABR calibration runner", fixture)
 }

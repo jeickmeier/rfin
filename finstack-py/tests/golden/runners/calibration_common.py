@@ -13,7 +13,7 @@ from tests.golden.schema import GoldenFixture
 
 
 def run_curve_fixture(fixture: GoldenFixture) -> dict[str, float]:
-    source_validation = validate_source_validation_fixture("curve calibration runner", fixture)
+    validate_source_validation_fixture("curve calibration runner", fixture)
     inputs = fixture.inputs
     discounts = {curve["id"]: curve for curve in inputs.get("discount", [])}
     forwards = {curve["id"]: curve for curve in inputs.get("forward", [])}
@@ -41,13 +41,11 @@ def run_curve_fixture(fixture: GoldenFixture) -> dict[str, float]:
         else:
             msg = f"unsupported curve probe kind {kind!r}"
             raise ValueError(msg)
-    if source_validation is not None:
-        return source_validation
     return _reject_non_executable_calibration("curve calibration runner", fixture)
 
 
 def run_hazard_fixture(fixture: GoldenFixture) -> dict[str, float]:
-    source_validation = validate_source_validation_fixture("hazard calibration runner", fixture)
+    validate_source_validation_fixture("hazard calibration runner", fixture)
     inputs = fixture.inputs
     hazards = {curve["id"]: curve for curve in inputs.get("hazard", [])}
     hazard_curves = {curve_id: _build_hazard_curve(curve) for curve_id, curve in hazards.items()}
@@ -62,13 +60,11 @@ def run_hazard_fixture(fixture: GoldenFixture) -> dict[str, float]:
         else:
             msg = f"unsupported hazard probe kind {probe['kind']!r}"
             raise ValueError(msg)
-    if source_validation is not None:
-        return source_validation
     return _reject_non_executable_calibration("hazard calibration runner", fixture)
 
 
 def run_vol_smile_fixture(fixture: GoldenFixture) -> dict[str, float]:
-    source_validation = validate_source_validation_fixture("vol smile calibration runner", fixture)
+    validate_source_validation_fixture("vol smile calibration runner", fixture)
     actuals: dict[str, float] = {}
     for smile in fixture.inputs["smiles"]:
         prefix = f"{smile['id']}::{smile['expiry']}"
@@ -85,19 +81,15 @@ def run_vol_smile_fixture(fixture: GoldenFixture) -> dict[str, float]:
             call10 = float(smile["wing_10d_call_vol"])
             actuals[f"risk_reversal_10d::{prefix}"] = call10 - put10
             actuals[f"butterfly_10d::{prefix}"] = 0.5 * (call10 + put10) - atm
-    if source_validation is not None:
-        return source_validation
     return _reject_non_executable_calibration("vol smile calibration runner", fixture)
 
 
 def run_sabr_cube_fixture(fixture: GoldenFixture) -> dict[str, float]:
-    source_validation = validate_source_validation_fixture("SABR calibration runner", fixture)
+    validate_source_validation_fixture("SABR calibration runner", fixture)
     parameters = {key: float(value) for key, value in fixture.inputs["parameters"].items()}
     if not parameters:
         msg = "SABR source validation requires committed parameters"
         raise ValueError(msg)
-    if source_validation is not None:
-        return source_validation
     return _reject_non_executable_calibration("SABR calibration runner", fixture)
 
 

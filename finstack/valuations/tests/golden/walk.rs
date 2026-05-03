@@ -615,8 +615,7 @@ mod tests {
         let mut fixture = load_fixture(DEPOSIT_FIXTURE);
         fixture.inputs["source_validation"] = serde_json::json!({
             "status": "non_executable",
-            "reason": "unit test",
-            "reference_outputs": fixture.expected_outputs
+            "reason": "unit test"
         });
         fixture.inputs["source_reference"]["non_compared_metrics"] = serde_json::json!(["dv01"]);
         fixture.inputs["source_reference"]["non_compared_metrics_reason"] =
@@ -654,8 +653,7 @@ mod tests {
               "inputs": {
                 "components": {"selection::tech": 0.01},
                 "source_validation": {
-                  "status": "non_executable",
-                  "reference_outputs": {"selection::tech": 0.01}
+                  "status": "non_executable"
                 }
               },
               "expected_outputs": {"selection::tech": 0.01},

@@ -52,9 +52,9 @@ pub(crate) fn reject_flattened_outputs(
 pub(crate) fn validate_source_validation_fixture(
     runner: &str,
     fixture: &GoldenFixture,
-) -> Result<Option<BTreeMap<String, f64>>, String> {
+) -> Result<bool, String> {
     let Some(source_validation) = fixture.inputs.get("source_validation") else {
-        return Ok(None);
+        return Ok(false);
     };
     let status = source_validation
         .get("status")
@@ -76,40 +76,13 @@ pub(crate) fn validate_source_validation_fixture(
     }
     if fixture.inputs.get("actual_outputs").is_some() {
         return Err(format!(
-            "{runner} source-validation fixture must not keep inputs.actual_outputs; move frozen references under source_validation.reference_outputs"
+            "{runner} source-validation fixture must not keep inputs.actual_outputs; expected values belong in top-level expected_outputs"
         ));
     }
-    let references = source_validation
-        .get("reference_outputs")
-        .and_then(serde_json::Value::as_object)
-        .ok_or_else(|| {
-            format!(
-                "{runner} source_validation must retain frozen references under reference_outputs"
-            )
-        })?;
-    let mut reference_outputs = BTreeMap::new();
-    for (metric, expected) in &fixture.expected_outputs {
-        let reference = references.get(metric).ok_or_else(|| {
-            format!(
-                "{runner} source_validation.reference_outputs missing expected metric '{metric}'"
-            )
-        })?;
-        let reference = reference.as_f64().ok_or_else(|| {
-            format!("{runner} source_validation.reference_outputs['{metric}'] must be numeric")
-        })?;
-        if reference != *expected {
-            return Err(format!(
-                "{runner} source_validation.reference_outputs['{metric}']={reference:.17} does not exactly match expected_outputs['{metric}']={expected:.17}"
-            ));
-        }
-        reference_outputs.insert(metric.clone(), reference);
+    if source_validation.get("reference_outputs").is_some() {
+        return Err(format!(
+            "{runner} source_validation.reference_outputs is not allowed; expected values belong in top-level expected_outputs"
+        ));
     }
-    for metric in references.keys() {
-        if !fixture.expected_outputs.contains_key(metric) {
-            return Err(format!(
-                "{runner} source_validation.reference_outputs contains extra metric '{metric}'"
-            ));
-        }
-    }
-    Ok(Some(reference_outputs))
+    Ok(true)
 }

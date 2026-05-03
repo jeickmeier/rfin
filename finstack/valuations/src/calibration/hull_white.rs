@@ -599,16 +599,8 @@ pub fn calibrate_hull_white_to_cap_floors(
 
     let mut residuals = BTreeMap::new();
     for (idx, quote) in quotes.iter().enumerate() {
-        let model_price = hw1f_cap_floor_price(
-            kappa,
-            sigma,
-            discount_df,
-            forward_df,
-            quote.maturity,
-            quote.strike,
-            quote.is_cap,
-            frequency,
-        );
+        let spec = CapFloorPriceSpec::from_quote(quote, frequency);
+        let model_price = hw1f_cap_floor_price(kappa, sigma, discount_df, forward_df, spec);
         residuals.insert(
             format!(
                 "{}Y_{}_{:.6}",
@@ -696,16 +688,8 @@ fn solve_cap_floor_sigma_for_fixed_kappa(
             .iter()
             .zip(market_prices.iter())
             .map(|(quote, market_price)| {
-                hw1f_cap_floor_price(
-                    kappa,
-                    sigma,
-                    discount_df,
-                    forward_df,
-                    quote.maturity,
-                    quote.strike,
-                    quote.is_cap,
-                    frequency,
-                ) - market_price
+                let spec = CapFloorPriceSpec::from_quote(quote, frequency);
+                hw1f_cap_floor_price(kappa, sigma, discount_df, forward_df, spec) - market_price
             })
             .sum()
     };
@@ -746,16 +730,8 @@ fn solve_cap_floor_kappa_sigma(
         let kappa = x[0].exp();
         let sigma = x[1].exp();
         for (idx, quote) in quotes.iter().enumerate() {
-            let model_price = hw1f_cap_floor_price(
-                kappa,
-                sigma,
-                discount_df,
-                forward_df,
-                quote.maturity,
-                quote.strike,
-                quote.is_cap,
-                frequency,
-            );
+            let spec = CapFloorPriceSpec::from_quote(quote, frequency);
+            let model_price = hw1f_cap_floor_price(kappa, sigma, discount_df, forward_df, spec);
             resid[idx] = if model_price.is_finite() {
                 (model_price - market_prices[idx]) / vegas[idx]
             } else {
@@ -818,23 +794,52 @@ fn cap_floor_bachelier_vega(
         .sum()
 }
 
+/// Cap/floor shape used by HW1F pricing helpers.
+#[derive(Clone, Copy)]
+pub(crate) struct CapFloorPriceSpec {
+    maturity: f64,
+    strike: f64,
+    is_cap: bool,
+    frequency: SwapFrequency,
+}
+
+impl CapFloorPriceSpec {
+    pub(crate) fn new(maturity: f64, strike: f64, is_cap: bool, frequency: SwapFrequency) -> Self {
+        Self {
+            maturity,
+            strike,
+            is_cap,
+            frequency,
+        }
+    }
+
+    fn from_quote(quote: &CapFloorQuote, frequency: SwapFrequency) -> Self {
+        Self::new(quote.maturity, quote.strike, quote.is_cap, frequency)
+    }
+}
+
 /// Price a full cap/floor with HW1F-implied normal caplet volatilities.
 pub(crate) fn hw1f_cap_floor_price(
     kappa: f64,
     sigma: f64,
     discount_df: &dyn Fn(f64) -> f64,
     forward_df: &dyn Fn(f64) -> f64,
-    maturity: f64,
-    strike: f64,
-    is_cap: bool,
-    frequency: SwapFrequency,
+    spec: CapFloorPriceSpec,
 ) -> f64 {
-    cap_floor_periods(maturity, frequency)
+    cap_floor_periods(spec.maturity, spec.frequency)
         .map(|(t_start, t_end, accrual)| {
             let forward = forward_rate_from_df(forward_df, t_start, t_end);
             let df = discount_df(t_end);
             let hw_vol = hw1f_caplet_forward_rate_normal_vol(kappa, sigma, t_end, accrual);
-            normal_caplet_price(forward, strike, hw_vol, t_end, accrual, df, is_cap)
+            normal_caplet_price(
+                forward,
+                spec.strike,
+                hw_vol,
+                t_end,
+                accrual,
+                df,
+                spec.is_cap,
+            )
         })
         .sum()
 }
@@ -846,30 +851,18 @@ pub(crate) fn hw1f_cap_floor_implied_normal_vol(
     sigma: f64,
     discount_df: &dyn Fn(f64) -> f64,
     forward_df: &dyn Fn(f64) -> f64,
-    maturity: f64,
-    strike: f64,
-    is_cap: bool,
-    frequency: SwapFrequency,
+    spec: CapFloorPriceSpec,
 ) -> f64 {
-    let target = hw1f_cap_floor_price(
-        kappa,
-        sigma,
-        discount_df,
-        forward_df,
-        maturity,
-        strike,
-        is_cap,
-        frequency,
-    );
+    let target = hw1f_cap_floor_price(kappa, sigma, discount_df, forward_df, spec);
     let residual = |vol: f64| -> f64 {
         bachelier_cap_floor_price(
             discount_df,
             forward_df,
-            maturity,
-            strike,
+            spec.maturity,
+            spec.strike,
             vol,
-            is_cap,
-            frequency,
+            spec.is_cap,
+            spec.frequency,
         ) - target
     };
     let mut hi = sigma.max(0.01);
@@ -1633,10 +1626,7 @@ mod tests {
                 true_sigma,
                 &df_fn,
                 &df_fn,
-                5.0,
-                0.0365,
-                true,
-                SwapFrequency::Quarterly,
+                CapFloorPriceSpec::new(5.0, 0.0365, true, SwapFrequency::Quarterly),
             ),
             is_cap: true,
             is_normal_vol: true,
@@ -1678,10 +1668,7 @@ mod tests {
                     true_sigma,
                     &df_fn,
                     &df_fn,
-                    *maturity,
-                    *strike,
-                    true,
-                    SwapFrequency::Quarterly,
+                    CapFloorPriceSpec::new(*maturity, *strike, true, SwapFrequency::Quarterly),
                 ),
                 is_cap: true,
                 is_normal_vol: true,

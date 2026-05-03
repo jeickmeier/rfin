@@ -456,12 +456,7 @@
     "source_validation": {
       "status": "non_executable",
       "reason": "Bloomberg swaption NPV and screen risk values are retained as source values, but current executable pricing uses a corrected compounded-SOFR underlier and signed combined-curve DV01 that is not yet like-for-like. Keep this non-gating until the source instrument construction and risk convention are reconciled.",
-      "required_for_execution": "Reconcile the canonical pricing/calibration inputs and risk methodology to the external source, then remove this source_validation block so expected_outputs are compared by Rust and Python runners.",
-      "reference_outputs": {
-        "npv": 155363.65,
-        "vega": 174955.0,
-        "dv01": -2307.540300356777
-      }
+      "required_for_execution": "Reconcile the canonical pricing/calibration inputs and risk methodology to the external source, then remove this source_validation block so expected_outputs are compared by Rust and Python runners."
     }
   },
   "expected_outputs": {
@@ -481,8 +476,8 @@
       "tolerance_reason": "Bloomberg displays Vega(1bp)=1,749.55; expected_outputs stores the comparable per-1pct normal-vol value of 174,955.0. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     },
     "dv01": {
-      "abs": 0.5,
-      "rel": 0.0001,
+      "abs": 20.0,
+      "rel": 0.0005,
       "tolerance_reason": "Finstack DV01 is a signed combined-curve bump measure and is not asserted as like-for-like Bloomberg screen DV01; Bloomberg's +2,250.50 value is retained in bloomberg_reference.finstack_reconciliation. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
     }
   }

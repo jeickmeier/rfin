@@ -18,18 +18,12 @@ struct AttributionInputs {
 
 impl DomainRunner for AttributionRunner {
     fn run(&self, fixture: &GoldenFixture) -> Result<BTreeMap<String, f64>, String> {
-        let source_validation = crate::golden::runners::validate_source_validation_fixture(
-            "attribution runner",
-            fixture,
-        )?;
-        if source_validation.is_none() {
-            return crate::golden::runners::reject_flattened_outputs("attribution runner", fixture);
-        }
+        crate::golden::runners::validate_source_validation_fixture("attribution runner", fixture)?;
 
         let inputs: AttributionInputs = serde_json::from_value(fixture.inputs.clone())
             .map_err(|err| format!("parse attribution inputs: {err}"))?;
         resolve_component_sums(inputs.components, inputs.sums)?;
-        Ok(source_validation.unwrap_or_default())
+        crate::golden::runners::reject_flattened_outputs("attribution runner", fixture)
     }
 }
 
