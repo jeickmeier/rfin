@@ -15,19 +15,23 @@ impl DomainRunner for IrsRunner {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::path::Path;
 
     #[test]
     fn runs_bloomberg_swpm_fixture() {
-        let fixture: GoldenFixture = serde_json::from_str(include_str!(
-            "../data/pricing/irs/usd_sofr_5y_receive_fixed_swpm.json"
-        ))
-        .expect("fixture parses");
-
-        let actuals = IrsRunner.run(&fixture).expect("runner prices fixture");
-
-        assert!(actuals.contains_key("npv"));
-        assert!(actuals.contains_key("par_rate"));
-        assert!(actuals.contains_key("dv01"));
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/golden/data/pricing/irs/usd_sofr_5y_receive_fixed_swpm.json");
+        let results = crate::golden::runner::run_golden_at_path(&path)
+            .expect("IRS golden fixture should run end-to-end");
+        let failures = results
+            .iter()
+            .filter(|result| !result.passed)
+            .map(|result| result.failure_message(&path.display().to_string()))
+            .collect::<Vec<_>>();
+        assert!(
+            failures.is_empty(),
+            "IRS golden fixture mismatch(es):\n{}",
+            failures.join("\n\n")
+        );
     }
 }

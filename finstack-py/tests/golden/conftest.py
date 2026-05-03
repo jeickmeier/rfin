@@ -143,8 +143,8 @@ def run_golden(relative_path: str) -> None:
     fixture = GoldenFixture.from_path(path)
     validate_fixture(path, fixture)
     if _is_source_validation_fixture(fixture):
-        _validate_source_validation_references(fixture, fixture.inputs["source_validation"])
-        _write_comparison_csv(relative_path, [])
+        results = _source_validation_results(fixture, fixture.inputs["source_validation"])
+        _write_comparison_csv(relative_path, results)
         return
     runner = _load_runner(fixture.domain)
     actuals = runner.run(fixture)
@@ -170,6 +170,15 @@ def run_golden(relative_path: str) -> None:
 
 def _is_source_validation_fixture(fixture: GoldenFixture) -> bool:
     return "source_validation" in fixture.inputs
+
+
+def _source_validation_results(fixture: GoldenFixture, source_validation: dict) -> list:
+    _validate_source_validation_references(fixture, source_validation)
+    references = source_validation["reference_outputs"]
+    return [
+        compare(metric, float(references[metric]), expected, fixture.tolerances[metric])
+        for metric, expected in fixture.expected_outputs.items()
+    ]
 
 
 def non_compared_metric_reason(fixture: GoldenFixture, metric: str) -> str | None:

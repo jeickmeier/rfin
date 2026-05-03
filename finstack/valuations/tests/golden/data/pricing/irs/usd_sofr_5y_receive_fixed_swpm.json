@@ -471,39 +471,23 @@
       ]
     },
     "source_reference": {
-      "non_compared_metrics": [
-        "npv",
-        "par_rate"
-      ],
-      "non_compared_metrics_reason": "Bloomberg IRS NPV/par coupon are retained as source screen values, but the executable fixture uses visible curve-grid discount factors plus corrected compounded-SOFR lockout projection, leaving a documented source/model residual.",
-      "design_metrics": [
-        "npv",
-        "par_rate"
-      ]
-    },
-    "source_validation": {
-      "status": "non_executable",
-      "reason": "Bloomberg IRS NPV/par coupon and screen-positive DV01 are retained as source values, but the executable fixture currently prices with a visible curve-grid proxy and signed receive-fixed DV01 convention. Keep this non-gating until the pricing inputs and risk sign convention are reconciled like-for-like.",
-      "required_for_execution": "Reconcile the canonical pricing/calibration inputs and risk methodology to the external source, then remove this source_validation block so expected_outputs are compared by Rust and Python runners.",
-      "reference_outputs": {
+      "screen_outputs": {
         "npv": -91334.81,
         "par_rate": 0.0370075,
-        "dv01": 4523.48,
-        "fixed_leg_payment_count": 5.0,
-        "floating_leg_payment_count": 5.0,
-        "fixed_first_payment_date": 20944.0,
-        "fixed_last_payment_date": 22406.0,
-        "floating_first_payment_date": 20944.0,
-        "floating_last_payment_date": 22406.0,
-        "fixed_first_accrual_factor": 1.013888888889,
-        "floating_first_accrual_factor": 1.013888888889
-      }
+        "dv01": 4523.48
+      },
+      "screen_reference_reason": "Bloomberg SWPM NPV/par coupon and screen-positive DV01 are retained as source values. Executable pricing uses visible rounded curve-grid discount factors, single-curve OIS discount projection for future compounded SOFR periods, and Finstack's signed receive-fixed DV01 convention.",
+      "design_metrics": [
+        "npv",
+        "par_rate",
+        "dv01"
+      ]
     }
   },
   "expected_outputs": {
     "npv": -91334.81,
     "par_rate": 0.0370075,
-    "dv01": 4523.48,
+    "dv01": -4523.48,
     "fixed_leg_payment_count": 5.0,
     "floating_leg_payment_count": 5.0,
     "fixed_first_payment_date": 20944.0,
@@ -516,16 +500,15 @@
   "tolerances": {
     "npv": {
       "abs": 10.0,
-      "rel": 0.0002,
-      "tolerance_reason": "Bloomberg SWPM screen-level curve construction is approximated from visible curve-grid discount factors using log-linear discount interpolation; residual NPV difference is about 9.35 USD on 10MM notional. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
+      "tolerance_reason": "Bloomberg source value remains the assertion target. Executable pricing is reconstructed from visible rounded SWPM curve-grid discount factors, so a small residual remains versus Bloomberg's internal full-precision clean NPV."
     },
     "par_rate": {
-      "abs": 5e-07
+      "abs": 5e-07,
+      "tolerance_reason": "Bloomberg par coupon is displayed to six decimal places in percent; visible curve-grid reconstruction should agree within 0.005 bp."
     },
     "dv01": {
-      "abs": 9050.0,
-      "rel": 2.1,
-      "tolerance_reason": "Bloomberg displays receive-fixed DV01 as a positive 4,523.48 screen risk. Finstack's IRS DV01 uses the signed receive-fixed convention, with near-identical magnitude after using IRS market-convention par-rate DV01. abs-or-rel: absolute/display tolerance is the intended comparison gate; relative tolerance is retained only as a legacy diagnostic."
+      "abs": 0.3,
+      "tolerance_reason": "Executable DV01 uses Finstack's signed receive-fixed convention and the visible rounded SWPM curve-grid reconstruction. Bloomberg's screen-positive 4,523.48 value is retained in inputs.source_reference.screen_outputs for provenance."
     },
     "fixed_leg_payment_count": {
       "abs": 1e-12

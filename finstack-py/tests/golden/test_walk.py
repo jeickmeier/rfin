@@ -44,6 +44,7 @@ RUST_GOLDEN_TEST_SOURCES = [
 ]
 RUN_GOLDEN_RE = re.compile(r'run_golden!\("([^"]+)"\)')
 RUST_DISCOVERED_FIXTURE_PREFIXES = ("integration/", "pricing/")
+PYTHON_DISCOVER_FIXTURES_RE = re.compile(r'discover_fixtures\("([^"]+)"\)')
 
 
 def _all_fixtures() -> list[Path]:
@@ -113,6 +114,13 @@ def _declared_rust_fixture_paths() -> set[str]:
         if not source.exists():
             continue
         declared.update(RUN_GOLDEN_RE.findall(source.read_text(encoding="utf-8")))
+    return declared
+
+
+def _declared_python_fixture_roots() -> set[str]:
+    declared: set[str] = set()
+    for source in (WORKSPACE_ROOT / "finstack-py/tests/golden").glob("test_*.py"):
+        declared.update(PYTHON_DISCOVER_FIXTURES_RE.findall(source.read_text(encoding="utf-8")))
     return declared
 
 
@@ -206,3 +214,28 @@ def test_valuation_fixtures_are_declared_in_rust_golden_tests() -> None:
         path for path in fixture_paths if path not in declared and not path.startswith(RUST_DISCOVERED_FIXTURE_PREFIXES)
     ]
     assert not missing, "fixtures missing Rust run_golden! declarations:\n" + "\n".join(missing)
+
+
+def test_python_discovery_covers_all_golden_json_fixtures() -> None:
+    declared_roots = _declared_python_fixture_roots()
+    discovered: set[str] = set()
+    for root in declared_roots:
+        root_path = VALUATION_DATA_ROOT / root
+        if root_path.exists():
+            discovered.update(
+                str(path.relative_to(VALUATION_DATA_ROOT))
+                for path in root_path.rglob("*.json")
+                if "screenshots" not in path.parts
+            )
+
+    all_fixtures = {
+        str(path.relative_to(VALUATION_DATA_ROOT))
+        for path in VALUATION_DATA_ROOT.rglob("*.json")
+        if "screenshots" not in path.parts
+    }
+    missing = sorted(all_fixtures - discovered)
+    assert not missing, (
+        "fixtures missing Python discover_fixtures() coverage:\n"
+        + "\n".join(missing)
+        + "\nAdd/expand discover_fixtures(...) usage so new JSON fixtures run automatically."
+    )

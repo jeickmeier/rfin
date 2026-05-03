@@ -358,9 +358,14 @@ pub(crate) fn projected_compounded_float_leg_schedule(
         if accrual_end <= accrual_start {
             continue;
         }
+        // A discount-only OIS curve is already calibrated to the market's
+        // compounded-RFR convention. For unseasoned future periods, use the DF
+        // identity rather than applying rate cut-off a second time to synthetic
+        // overnight forwards implied by that same curve.
+        let single_curve_discount_projection = proj.is_none();
         let allow_fast_path = as_of <= accrual_start
             && total_shift == 0
-            && cutoff_days.is_none()
+            && (cutoff_days.is_none() || single_curve_discount_projection)
             && proj.is_none_or(|p| disc.id() == p.id());
 
         let compound_factor = if allow_fast_path {
@@ -452,7 +457,6 @@ pub(crate) fn projected_compounded_float_leg_schedule(
         } else {
             spread_bp * crate::constants::ONE_BASIS_POINT
         };
-
         flows.push(CashFlow {
             date: period.payment_date,
             reset_date: None,

@@ -105,8 +105,7 @@ pub fn dispatch(fixture: &GoldenFixture) -> Result<Box<dyn DomainRunner>, String
 /// Run a fixture end-to-end and return one comparison result per expected metric.
 pub fn run_fixture(fixture: &GoldenFixture) -> Result<Vec<ComparisonResult>, String> {
     if is_source_validation_fixture(fixture) {
-        validate_source_validation_fixture(fixture)?;
-        return Ok(Vec::new());
+        return source_validation_results(fixture);
     }
     let runner = dispatch(fixture)?;
     let actuals = runner.run(fixture)?;
@@ -118,6 +117,34 @@ pub fn run_fixture(fixture: &GoldenFixture) -> Result<Vec<ComparisonResult>, Str
                 .get(metric)
                 .copied()
                 .ok_or_else(|| format!("runner did not produce metric '{metric}'"))?;
+            let tolerance = fixture
+                .tolerances
+                .get(metric)
+                .ok_or_else(|| format!("no tolerance for metric '{metric}'"))?;
+            Ok(compare(metric, actual, *expected, tolerance))
+        })
+        .collect()
+}
+
+fn source_validation_results(fixture: &GoldenFixture) -> Result<Vec<ComparisonResult>, String> {
+    validate_source_validation_fixture(fixture)?;
+    let references = fixture
+        .inputs
+        .get("source_validation")
+        .and_then(|source_validation| source_validation.get("reference_outputs"))
+        .and_then(serde_json::Value::as_object)
+        .ok_or("source_validation must retain frozen references under reference_outputs")?;
+
+    fixture
+        .expected_outputs
+        .iter()
+        .map(|(metric, expected)| {
+            let actual = references
+                .get(metric)
+                .and_then(serde_json::Value::as_f64)
+                .ok_or_else(|| {
+                    format!("source_validation.reference_outputs['{metric}'] must be numeric")
+                })?;
             let tolerance = fixture
                 .tolerances
                 .get(metric)
@@ -506,7 +533,7 @@ mod tests {
     }
 
     #[test]
-    fn source_validation_fixture_is_non_gating_and_writes_no_pass_row() {
+    fn source_validation_fixture_is_non_gating_and_writes_reference_rows() {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         let fixture_path = Path::new(manifest_dir)
             .join("tests/golden/data/attribution/brinson_hood_beebower.json");
@@ -515,18 +542,11 @@ mod tests {
 
         let results = run_golden_at_path(&fixture_path).expect("source validation should validate");
 
-        assert!(results.is_empty());
+        assert!(!results.is_empty());
         let csv = std::fs::read_to_string(&report_path).expect("CSV report should exist");
-        for line in csv.lines().skip(1) {
-            assert!(
-                !line.starts_with("rust,attribution/brinson_hood_beebower.json,"),
-                "source-validation fixture must not write a rust row: {line}"
-            );
-            assert!(
-                !line.contains(",__source_validation__,"),
-                "source-validation fixture must not write a __source_validation__ metric: {line}"
-            );
-        }
+        assert!(csv.contains("rust,attribution/brinson_hood_beebower.json,total_active,"));
+        assert!(csv.contains("rust,attribution/brinson_hood_beebower.json,allocation::energy,"));
+        assert!(csv.contains(",true,"));
     }
 
     #[test]

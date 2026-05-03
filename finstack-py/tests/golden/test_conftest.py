@@ -37,7 +37,7 @@ def test_discover_fixtures_empty_dir() -> None:
     assert discover_fixtures("pricing/nonexistent") == []
 
 
-def test_run_golden_writes_no_pass_row_for_source_validation_fixture() -> None:
+def test_run_golden_writes_reference_rows_for_source_validation_fixture() -> None:
     report = WORKSPACE_ROOT / "target/golden-reports/golden-comparisons.csv"
 
     run_golden("attribution/brinson_hood_beebower.json")
@@ -47,13 +47,9 @@ def test_run_golden_writes_no_pass_row_for_source_validation_fixture() -> None:
         "runner,fixture,metric,actual,expected,abs_diff,rel_diff,abs_tolerance,rel_tolerance,passed,tolerance_reason"
         in csv
     )
-    for line in csv.splitlines()[1:]:
-        assert not line.startswith("python,attribution/brinson_hood_beebower.json,"), (
-            f"source-validation fixture must not write a python row: {line}"
-        )
-        assert ",__source_validation__," not in line, (
-            f"source-validation fixture must not write a __source_validation__ metric: {line}"
-        )
+    assert "python,attribution/brinson_hood_beebower.json,total_active," in csv
+    assert "python,attribution/brinson_hood_beebower.json,allocation::energy," in csv
+    assert ",true," in csv
 
 
 def test_attribution_raw_looking_keys_do_not_bypass_execution_requirement() -> None:

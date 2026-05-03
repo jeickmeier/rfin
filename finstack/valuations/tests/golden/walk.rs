@@ -521,5 +521,6 @@ fn pricing_fixture_discovery_uses_existing_json_files() {
         .collect::<BTreeSet<_>>();
 
     assert!(relatives.contains("pricing/cds/cds_5y_par_spread.json"));
+    assert!(relatives.contains("pricing/irs/usd_sofr_5y_receive_fixed_swpm.json"));
     assert!(!relatives.contains("pricing/cds/cds_5y_running_upfront.json"));
 }

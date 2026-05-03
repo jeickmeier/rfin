@@ -45,6 +45,7 @@ depends = ["rust-test", "python-test", "wasm-test"]
 description = "Run golden tests (Rust + Python layers)"
 run = """
 cargo test -p finstack-valuations --test golden &&
+mise run python-build &&
 uv run pytest finstack-py/tests/golden -v
 """
 

@@ -88,8 +88,12 @@ def _state_curve_handles_spec(spec: dict[str, Any]) -> bool:
 
 def _build_curve_state_market(curves: dict[str, Any]) -> MarketContext:
     state_curves: list[dict[str, Any]] = []
-    state_curves.extend(_discount_curve_state(spec) for spec in curves.get("discount", []) if _state_curve_handles_spec(spec))
-    state_curves.extend(_forward_curve_state(spec) for spec in curves.get("forward", []) if _state_curve_handles_spec(spec))
+    state_curves.extend(
+        _discount_curve_state(spec) for spec in curves.get("discount", []) if _state_curve_handles_spec(spec)
+    )
+    state_curves.extend(
+        _forward_curve_state(spec) for spec in curves.get("forward", []) if _state_curve_handles_spec(spec)
+    )
     state = {
         "version": 2,
         "curves": state_curves,
