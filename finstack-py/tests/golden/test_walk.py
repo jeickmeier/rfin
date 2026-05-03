@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import re
 
+from finstack.core.market_data import MarketContext
 import pytest
 
 from .conftest import DATA_ROOTS, WORKSPACE_ROOT, is_git_tracked
@@ -35,6 +37,15 @@ ZERO_RISK_METRICS_REQUIRING_REASON = {
     "spread_dv01",
     "vega",
 }
+PRICING_INPUT_KEYS = {
+    "valuation_date",
+    "model",
+    "metrics",
+    "instrument_json",
+    "market",
+    "source_reference",
+}
+PRICING_OPTIONAL_INPUT_KEYS = {"source_validation"}
 VALUATION_DATA_ROOT = WORKSPACE_ROOT / "finstack/valuations/tests/golden/data"
 RUST_GOLDEN_TEST_SOURCES = [
     WORKSPACE_ROOT / "finstack/valuations/tests/golden/pricing.rs",
@@ -183,6 +194,8 @@ def test_fixture_well_formed(path: Path) -> None:
         )
         assert is_git_tracked(screenshot_path), f"screenshot {screenshot.path!r} exists but is not tracked by git"
 
+    _validate_pricing_input_schema(path, fixture)
+
     source_reference = fixture.inputs.get("source_reference")
     if source_reference is None:
         return
@@ -201,6 +214,31 @@ def test_fixture_well_formed(path: Path) -> None:
         assert metric in asserted or metric in omitted or aliases & asserted or aliases & omitted, (
             f"inputs.source_reference design metric {metric!r} is neither asserted nor listed as planned/non-compared"
         )
+
+
+def _validate_pricing_input_schema(path: Path, fixture: GoldenFixture) -> None:
+    try:
+        relative_path = path.relative_to(VALUATION_DATA_ROOT)
+    except ValueError:
+        return
+    if not str(relative_path).startswith("pricing/"):
+        return
+
+    inputs = fixture.inputs
+    assert isinstance(inputs, dict), "pricing fixture inputs must be an object"
+    _validate_object_keys("inputs", inputs, PRICING_INPUT_KEYS, PRICING_OPTIONAL_INPUT_KEYS)
+    try:
+        MarketContext.from_json(json.dumps(inputs["market"]))
+    except Exception as exc:
+        raise AssertionError(f"pricing fixture inputs.market is not a valid MarketContext: {exc}") from exc
+
+
+def _validate_object_keys(field: str, obj: dict, required: set[str], optional: set[str]) -> None:
+    allowed = required | optional
+    unexpected = sorted(set(obj) - allowed)
+    missing = sorted(required - set(obj))
+    assert not unexpected, f"{field} has unexpected keys: {unexpected}"
+    assert not missing, f"{field} is missing required keys: {missing}"
 
 
 def test_valuation_fixtures_are_declared_in_rust_golden_tests() -> None:

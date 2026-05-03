@@ -49,14 +49,15 @@
         }
       }
     },
-    "curves": {
-      "discount": [
+    "market": {
+      "version": 2,
+      "curves": [
         {
+          "type": "discount",
           "id": "USD-OIS",
-          "base_date": "2026-04-30",
-          "day_count": "act_365f",
-          "interp": "log_linear",
-          "knots": [
+          "base": "2026-04-30",
+          "day_count": "Act365F",
+          "knot_points": [
             [
               0.0,
               1.0
@@ -81,10 +82,32 @@
               5.0,
               0.8187
             ]
-          ]
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward",
+          "min_forward_rate": null,
+          "allow_non_monotonic": false,
+          "min_forward_tenor": 1e-06,
+          "rate_calibration": null
         }
       ],
-      "forward": []
+      "fx": {
+        "config": {
+          "pivot_currency": "USD",
+          "enable_triangulation": true,
+          "cache_capacity": 256
+        },
+        "quotes": []
+      },
+      "surfaces": [],
+      "prices": {},
+      "series": [],
+      "inflation_indices": [],
+      "dividends": [],
+      "credit_indices": [],
+      "fx_delta_vol_surfaces": [],
+      "vol_cubes": [],
+      "collateral": {}
     },
     "source_reference": {
       "note": "QuantLib oracle: par rate follows IborIndex::forecastFixing, (DF(start) / DF(end) - 1) / Act360 year fraction; NPV follows CashFlows.npv over the -notional start flow and notional * (1 + quote_rate * year_fraction) maturity flow. Because this fixture uses Finstack synthetic time knots, the QuantLib reproduction is fed the maturity discount factor implied by the fixture's Act/365F log-linear discount curve interpolation.",

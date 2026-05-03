@@ -42,7 +42,6 @@
   },
   "inputs": {
     "valuation_date": "2026-05-05",
-    "curve_date": "2026-05-02",
     "model": "discounting",
     "metrics": [
       "par_rate",
@@ -91,14 +90,90 @@
         }
       }
     },
-    "curves": {
-      "discount": [
+    "market": {
+      "version": 2,
+      "curves": [
         {
+          "type": "forward",
+          "id": "USD-3M-CME-TERM-SOFR",
+          "base": "2026-05-02",
+          "reset_lag": 0,
+          "day_count": "Act360",
+          "tenor": 0.25,
+          "knot_points": [
+            [
+              0.0,
+              0.036437
+            ],
+            [
+              0.18055555555555555,
+              0.036437
+            ],
+            [
+              0.4361111111111111,
+              0.036437
+            ],
+            [
+              0.5,
+              0.036437
+            ],
+            [
+              1.0,
+              0.036437
+            ]
+          ],
+          "interp_style": "linear",
+          "extrapolation": "flat_forward",
+          "rate_calibration": {
+            "index_id": "USD-SOFR-3M",
+            "currency": "USD",
+            "discount_curve_id": "USD-SOFR",
+            "quotes": [
+              {
+                "deposit": {
+                  "tenor": "3M",
+                  "rate": 0.0366395
+                }
+              },
+              {
+                "basis": {
+                  "tenor": "6M",
+                  "spread_decimal": 0.0
+                }
+              },
+              {
+                "basis": {
+                  "tenor": "9M",
+                  "spread_decimal": 0.0
+                }
+              },
+              {
+                "basis": {
+                  "tenor": "12M",
+                  "spread_decimal": 0.0
+                }
+              },
+              {
+                "basis": {
+                  "tenor": "18M",
+                  "spread_decimal": 0.0
+                }
+              },
+              {
+                "basis": {
+                  "tenor": "2Y",
+                  "spread_decimal": 0.0
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "discount",
           "id": "USD-SOFR",
-          "base_date": "2026-05-02",
-          "day_count": "act_365f",
-          "interp": "log_linear",
-          "knots": [
+          "base": "2026-05-02",
+          "day_count": "Act365F",
+          "knot_points": [
             [
               0.0,
               1.0
@@ -172,307 +247,96 @@
               0.928307
             ]
           ],
-          "bootstrap": {
-            "index": "USD-SOFR-OIS",
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward",
+          "min_forward_rate": null,
+          "allow_non_monotonic": false,
+          "min_forward_tenor": 1e-06,
+          "rate_calibration": {
+            "index_id": "USD-SOFR-OIS",
             "currency": "USD",
             "quotes": [
               {
                 "quote_type": "deposit",
                 "tenor": "1W",
-                "rate": 3.634
+                "rate": 0.03634
               },
               {
                 "quote_type": "deposit",
                 "tenor": "2W",
-                "rate": 3.6351
+                "rate": 0.036351
               },
               {
                 "quote_type": "deposit",
                 "tenor": "3W",
-                "rate": 3.6335
+                "rate": 0.036335
               },
               {
                 "quote_type": "deposit",
                 "tenor": "1M",
-                "rate": 3.6432
+                "rate": 0.036432
               },
               {
                 "quote_type": "deposit",
                 "tenor": "2M",
-                "rate": 3.65047
+                "rate": 0.0365047
               },
               {
                 "quote_type": "deposit",
                 "tenor": "3M",
-                "rate": 3.6544
+                "rate": 0.036544
               },
               {
                 "quote_type": "deposit",
                 "tenor": "4M",
-                "rate": 3.6589
+                "rate": 0.036589
               },
               {
                 "quote_type": "deposit",
                 "tenor": "5M",
-                "rate": 3.6629
+                "rate": 0.036629
               },
               {
                 "quote_type": "deposit",
                 "tenor": "6M",
-                "rate": 3.66705
+                "rate": 0.0366705
               },
               {
                 "quote_type": "swap",
                 "tenor": "12M",
-                "rate": 3.72495
+                "rate": 0.037249500000000005
               },
               {
                 "quote_type": "swap",
                 "tenor": "18M",
-                "rate": 3.72925
+                "rate": 0.0372925
               },
               {
                 "quote_type": "swap",
                 "tenor": "2Y",
-                "rate": 3.71735
+                "rate": 0.0371735
               }
             ]
           }
         }
       ],
-      "forward": [
-        {
-          "id": "USD-3M-CME-TERM-SOFR",
-          "tenor": 0.25,
-          "base_date": "2026-05-02",
-          "day_count": "act_360",
-          "interp": "linear",
-          "knots": [
-            [
-              0.0,
-              0.036437
-            ],
-            [
-              0.18055555555555555,
-              0.036437
-            ],
-            [
-              0.4361111111111111,
-              0.036437
-            ],
-            [
-              0.5,
-              0.036437
-            ],
-            [
-              1.0,
-              0.036437
-            ]
-          ],
-          "bootstrap": {
-            "index": "USD-SOFR-3M",
-            "currency": "USD",
-            "discount_curve_id": "USD-SOFR",
-            "quotes": [
-              {
-                "quote_type": "deposit",
-                "tenor": "3M",
-                "rate": 3.66395
-              },
-              {
-                "quote_type": "basis",
-                "tenor": "6M",
-                "spread_decimal": 0.0
-              },
-              {
-                "quote_type": "basis",
-                "tenor": "9M",
-                "spread_decimal": 0.0
-              },
-              {
-                "quote_type": "basis",
-                "tenor": "12M",
-                "spread_decimal": 0.0
-              },
-              {
-                "quote_type": "basis",
-                "tenor": "18M",
-                "spread_decimal": 0.0
-              },
-              {
-                "quote_type": "basis",
-                "tenor": "2Y",
-                "spread_decimal": 0.0
-              }
-            ]
-          }
-        }
-      ]
-    },
-    "bloomberg_reference": {
-      "trade": {
-        "trade_date": "2026-05-02",
-        "valuation_date": "2026-05-05",
-        "curve_date": "2026-05-02",
-        "currency": "USD",
-        "notional": 10000000.0,
-        "side": "Sell (Lend)",
-        "fra_type": "2M x 5M",
-        "effective_date": "2026-07-06",
-        "maturity_date": "2026-10-06",
-        "reset_date": "2026-07-01",
-        "calendar": "GT",
-        "business_day_adjustment": "ModifiedFollowing",
-        "day_count": "ACT/360",
-        "fixed_rate": 0.036437,
-        "index": "TSFR3M",
-        "discount_curve": "490 USD SOFR",
-        "forward_curve": "559 USD 3M CME Term SOFR"
+      "fx": {
+        "config": {
+          "pivot_currency": "USD",
+          "enable_triangulation": true,
+          "cache_capacity": 256
+        },
+        "quotes": []
       },
-      "screen_results": {
-        "projected_cashflow": -0.01,
-        "premium": 0.0,
-        "discount_settle": 0.99375,
-        "npv": -0.01,
-        "market_rate": 0.036437,
-        "bp_value": -1e-05,
-        "br01_559_usd_3": -251.51,
-        "dv01": -337.37,
-        "gamma_1bp": 0.04
-      },
-      "cashflows": [
-        {
-          "pay_date": "2026-07-06",
-          "accrual_start": "2026-07-06",
-          "accrual_end": "2026-10-06",
-          "days": 92,
-          "notional": 10000000.0,
-          "principal": 0.0,
-          "fra_strike": 0.036437,
-          "reset_date": "2026-07-01",
-          "reset_rate": 0.036437,
-          "payment": -0.01,
-          "discount": 0.993752
-        }
-      ],
-      "discount_curve_screen": [
-        {
-          "term": "1W",
-          "market_rate": 0.03634,
-          "zero_rate": 0.0368266,
-          "discount": 0.998992
-        },
-        {
-          "term": "2W",
-          "market_rate": 0.036351,
-          "zero_rate": 0.0368272,
-          "discount": 0.998286
-        },
-        {
-          "term": "3W",
-          "market_rate": 0.036335,
-          "zero_rate": 0.0368024,
-          "discount": 0.997583
-        },
-        {
-          "term": "1M",
-          "market_rate": 0.036432,
-          "zero_rate": 0.0368744,
-          "discount": 0.996571
-        },
-        {
-          "term": "2M",
-          "market_rate": 0.0365047,
-          "zero_rate": 0.0368921,
-          "discount": 0.993452
-        },
-        {
-          "term": "3M",
-          "market_rate": 0.036544,
-          "zero_rate": 0.0368776,
-          "discount": 0.990448
-        },
-        {
-          "term": "4M",
-          "market_rate": 0.036589,
-          "zero_rate": 0.0368606,
-          "discount": 0.987057
-        },
-        {
-          "term": "5M",
-          "market_rate": 0.036629,
-          "zero_rate": 0.0368509,
-          "discount": 0.984373
-        },
-        {
-          "term": "6M",
-          "market_rate": 0.0366705,
-          "zero_rate": 0.0368353,
-          "discount": 0.981305
-        },
-        {
-          "term": "12M",
-          "market_rate": 0.0372495,
-          "zero_rate": 0.0370691,
-          "discount": 0.963316
-        },
-        {
-          "term": "18M",
-          "market_rate": 0.0372925,
-          "zero_rate": 0.0372293,
-          "discount": 0.945253
-        },
-        {
-          "term": "2Y",
-          "market_rate": 0.0371735,
-          "zero_rate": 0.0369938,
-          "discount": 0.928307
-        }
-      ],
-      "forward_curve_screen": [
-        {
-          "term": "3M",
-          "type": "Cash",
-          "market_rate": 0.0366395,
-          "zero_rate": 0.0369735,
-          "discount": 0.990423
-        },
-        {
-          "term": "6M",
-          "type": "Basis",
-          "market_rate": 0.0,
-          "zero_rate": 0.0368255,
-          "discount": 0.98131
-        },
-        {
-          "term": "9M",
-          "type": "Basis",
-          "market_rate": 0.0,
-          "zero_rate": 0.0369114,
-          "discount": 0.97218
-        },
-        {
-          "term": "12M",
-          "type": "Basis",
-          "market_rate": 0.0,
-          "zero_rate": 0.0370584,
-          "discount": 0.963326
-        },
-        {
-          "term": "18M",
-          "type": "Basis",
-          "market_rate": 0.0,
-          "zero_rate": 0.0372171,
-          "discount": 0.94527
-        },
-        {
-          "term": "2Y",
-          "type": "Basis",
-          "market_rate": 0.0,
-          "zero_rate": 0.0369821,
-          "discount": 0.928329
-        }
-      ]
+      "surfaces": [],
+      "prices": {},
+      "series": [],
+      "inflation_indices": [],
+      "dividends": [],
+      "credit_indices": [],
+      "fx_delta_vol_surfaces": [],
+      "vol_cubes": [],
+      "collateral": {}
     },
     "source_reference": {
       "strict_metric_keys": {
@@ -480,7 +344,173 @@
         "forward_pv01": "br01_559_usd_3",
         "dv01": "dv01"
       },
-      "risk_convention_note": "Bloomberg displays BR01 and DV01 as positive screen risks. Finstack stores signed risk: Sell/Lend maps to receive-fixed, so forward-curve PV01/BR01 and aggregate rate-curve DV01 are negative. DV01 is computed by shocking calibration quotes and rebuilding the discount/projection curves."
+      "risk_convention_note": "Bloomberg displays BR01 and DV01 as positive screen risks. Finstack stores signed risk: Sell/Lend maps to receive-fixed, so forward-curve PV01/BR01 and aggregate rate-curve DV01 are negative. DV01 is computed by shocking calibration quotes and rebuilding the discount/projection curves.",
+      "curve_date": "2026-05-02",
+      "bloomberg_reference": {
+        "trade": {
+          "trade_date": "2026-05-02",
+          "valuation_date": "2026-05-05",
+          "curve_date": "2026-05-02",
+          "currency": "USD",
+          "notional": 10000000.0,
+          "side": "Sell (Lend)",
+          "fra_type": "2M x 5M",
+          "effective_date": "2026-07-06",
+          "maturity_date": "2026-10-06",
+          "reset_date": "2026-07-01",
+          "calendar": "GT",
+          "business_day_adjustment": "ModifiedFollowing",
+          "day_count": "ACT/360",
+          "fixed_rate": 0.036437,
+          "index": "TSFR3M",
+          "discount_curve": "490 USD SOFR",
+          "forward_curve": "559 USD 3M CME Term SOFR"
+        },
+        "screen_results": {
+          "projected_cashflow": -0.01,
+          "premium": 0.0,
+          "discount_settle": 0.99375,
+          "npv": -0.01,
+          "market_rate": 0.036437,
+          "bp_value": -1e-05,
+          "br01_559_usd_3": -251.51,
+          "dv01": -337.37,
+          "gamma_1bp": 0.04
+        },
+        "cashflows": [
+          {
+            "pay_date": "2026-07-06",
+            "accrual_start": "2026-07-06",
+            "accrual_end": "2026-10-06",
+            "days": 92,
+            "notional": 10000000.0,
+            "principal": 0.0,
+            "fra_strike": 0.036437,
+            "reset_date": "2026-07-01",
+            "reset_rate": 0.036437,
+            "payment": -0.01,
+            "discount": 0.993752
+          }
+        ],
+        "discount_curve_screen": [
+          {
+            "term": "1W",
+            "market_rate": 0.03634,
+            "zero_rate": 0.0368266,
+            "discount": 0.998992
+          },
+          {
+            "term": "2W",
+            "market_rate": 0.036351,
+            "zero_rate": 0.0368272,
+            "discount": 0.998286
+          },
+          {
+            "term": "3W",
+            "market_rate": 0.036335,
+            "zero_rate": 0.0368024,
+            "discount": 0.997583
+          },
+          {
+            "term": "1M",
+            "market_rate": 0.036432,
+            "zero_rate": 0.0368744,
+            "discount": 0.996571
+          },
+          {
+            "term": "2M",
+            "market_rate": 0.0365047,
+            "zero_rate": 0.0368921,
+            "discount": 0.993452
+          },
+          {
+            "term": "3M",
+            "market_rate": 0.036544,
+            "zero_rate": 0.0368776,
+            "discount": 0.990448
+          },
+          {
+            "term": "4M",
+            "market_rate": 0.036589,
+            "zero_rate": 0.0368606,
+            "discount": 0.987057
+          },
+          {
+            "term": "5M",
+            "market_rate": 0.036629,
+            "zero_rate": 0.0368509,
+            "discount": 0.984373
+          },
+          {
+            "term": "6M",
+            "market_rate": 0.0366705,
+            "zero_rate": 0.0368353,
+            "discount": 0.981305
+          },
+          {
+            "term": "12M",
+            "market_rate": 0.0372495,
+            "zero_rate": 0.0370691,
+            "discount": 0.963316
+          },
+          {
+            "term": "18M",
+            "market_rate": 0.0372925,
+            "zero_rate": 0.0372293,
+            "discount": 0.945253
+          },
+          {
+            "term": "2Y",
+            "market_rate": 0.0371735,
+            "zero_rate": 0.0369938,
+            "discount": 0.928307
+          }
+        ],
+        "forward_curve_screen": [
+          {
+            "term": "3M",
+            "type": "Cash",
+            "market_rate": 0.0366395,
+            "zero_rate": 0.0369735,
+            "discount": 0.990423
+          },
+          {
+            "term": "6M",
+            "type": "Basis",
+            "market_rate": 0.0,
+            "zero_rate": 0.0368255,
+            "discount": 0.98131
+          },
+          {
+            "term": "9M",
+            "type": "Basis",
+            "market_rate": 0.0,
+            "zero_rate": 0.0369114,
+            "discount": 0.97218
+          },
+          {
+            "term": "12M",
+            "type": "Basis",
+            "market_rate": 0.0,
+            "zero_rate": 0.0370584,
+            "discount": 0.963326
+          },
+          {
+            "term": "18M",
+            "type": "Basis",
+            "market_rate": 0.0,
+            "zero_rate": 0.0372171,
+            "discount": 0.94527
+          },
+          {
+            "term": "2Y",
+            "type": "Basis",
+            "market_rate": 0.0,
+            "zero_rate": 0.0369821,
+            "discount": 0.928329
+          }
+        ]
+      }
     }
   },
   "expected_outputs": {

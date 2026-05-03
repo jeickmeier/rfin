@@ -54,46 +54,15 @@
         }
       }
     },
-    "curves": {
-      "discount": [
+    "market": {
+      "version": 2,
+      "curves": [
         {
-          "id": "USD-OIS",
-          "base_date": "2026-04-30",
-          "day_count": "act_365f",
-          "interp": "log_linear",
-          "knots": [
-            [
-              0.0,
-              1.0
-            ],
-            [
-              0.25,
-              0.99
-            ],
-            [
-              0.5,
-              0.9802
-            ],
-            [
-              1.0,
-              0.9608
-            ],
-            [
-              2.0,
-              0.9231
-            ],
-            [
-              5.0,
-              0.8187
-            ]
-          ]
-        },
-        {
+          "type": "discount",
           "id": "EUR-OIS",
-          "base_date": "2026-04-30",
-          "day_count": "act_365f",
-          "interp": "log_linear",
-          "knots": [
+          "base": "2026-04-30",
+          "day_count": "Act365F",
+          "knot_points": [
             [
               0.0,
               1.0
@@ -118,14 +87,20 @@
               5.0,
               0.8607
             ]
-          ]
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward",
+          "min_forward_rate": null,
+          "allow_non_monotonic": false,
+          "min_forward_tenor": 1e-06,
+          "rate_calibration": null
         },
         {
+          "type": "discount",
           "id": "JPY-OIS",
-          "base_date": "2026-04-30",
-          "day_count": "act_365f",
-          "interp": "log_linear",
-          "knots": [
+          "base": "2026-04-30",
+          "day_count": "Act365F",
+          "knot_points": [
             [
               0.0,
               1.0
@@ -150,24 +125,73 @@
               5.0,
               0.9802
             ]
-          ]
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward",
+          "min_forward_rate": null,
+          "allow_non_monotonic": false,
+          "min_forward_tenor": 1e-06,
+          "rate_calibration": null
+        },
+        {
+          "type": "discount",
+          "id": "USD-OIS",
+          "base": "2026-04-30",
+          "day_count": "Act365F",
+          "knot_points": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.99
+            ],
+            [
+              0.5,
+              0.9802
+            ],
+            [
+              1.0,
+              0.9608
+            ],
+            [
+              2.0,
+              0.9231
+            ],
+            [
+              5.0,
+              0.8187
+            ]
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward",
+          "min_forward_rate": null,
+          "allow_non_monotonic": false,
+          "min_forward_tenor": 1e-06,
+          "rate_calibration": null
         }
-      ]
-    },
-    "fx": [
-      {
-        "base": "EUR",
-        "quote": "USD",
-        "rate": 1.1
+      ],
+      "fx": {
+        "config": {
+          "pivot_currency": "USD",
+          "enable_triangulation": true,
+          "cache_capacity": 256
+        },
+        "quotes": [
+          [
+            "USD",
+            "JPY",
+            145.0
+          ],
+          [
+            "EUR",
+            "USD",
+            1.1
+          ]
+        ]
       },
-      {
-        "base": "USD",
-        "quote": "JPY",
-        "rate": 145.0
-      }
-    ],
-    "surfaces": {
-      "vol": [
+      "surfaces": [
         {
           "id": "EURUSD-VOL",
           "expiries": [
@@ -183,6 +207,8 @@
             1.15,
             1.2
           ],
+          "secondary_axis": "strike",
+          "interpolation_mode": "vol",
           "vols_row_major": [
             0.105,
             0.1,
@@ -221,6 +247,8 @@
             150.0,
             155.0
           ],
+          "secondary_axis": "strike",
+          "interpolation_mode": "vol",
           "vols_row_major": [
             0.115,
             0.11,
@@ -244,7 +272,15 @@
             0.126
           ]
         }
-      ]
+      ],
+      "prices": {},
+      "series": [],
+      "inflation_indices": [],
+      "dividends": [],
+      "credit_indices": [],
+      "fx_delta_vol_surfaces": [],
+      "vol_cubes": [],
+      "collateral": {}
     },
     "source_reference": {
       "note": "Formula fixture; expected_outputs are populated from the live Rust/Python golden runners.",

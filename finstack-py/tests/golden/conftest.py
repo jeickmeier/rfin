@@ -6,12 +6,15 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 import csv
 import importlib
+import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import time
 from types import ModuleType
+
+from finstack.core.market_data import MarketContext
 
 from .schema import SCHEMA_VERSION, GoldenFixture
 from .tolerance import compare
@@ -65,6 +68,15 @@ ZERO_RISK_METRICS_REQUIRING_REASON = {
     "spread_dv01",
     "vega",
 }
+PRICING_INPUT_KEYS = {
+    "valuation_date",
+    "model",
+    "metrics",
+    "instrument_json",
+    "market",
+    "source_reference",
+}
+PRICING_OPTIONAL_INPUT_KEYS = {"source_validation"}
 
 _DOMAIN_RUNNERS = {
     "attribution.equity": "attribution_common",
@@ -222,6 +234,32 @@ def validate_fixture(path: Path, fixture: GoldenFixture) -> None:
     _validate_required_pricing_risk_metrics(fixture)
     _validate_screenshots(path, fixture)
     _validate_source_reference_coverage(fixture)
+    _validate_pricing_input_schema(path, fixture)
+
+
+def _validate_pricing_input_schema(path: Path, fixture: GoldenFixture) -> None:
+    try:
+        relative_path = path.relative_to(DATA_ROOTS["pricing"])
+    except ValueError:
+        return
+    if not str(relative_path).startswith("pricing/"):
+        return
+
+    inputs = fixture.inputs
+    assert isinstance(inputs, dict), "pricing fixture inputs must be an object"
+    _validate_object_keys("inputs", inputs, PRICING_INPUT_KEYS, PRICING_OPTIONAL_INPUT_KEYS)
+    try:
+        MarketContext.from_json(json.dumps(inputs["market"]))
+    except Exception as exc:
+        raise AssertionError(f"pricing fixture inputs.market is not a valid MarketContext: {exc}") from exc
+
+
+def _validate_object_keys(field: str, obj: dict, required: set[str], optional: set[str]) -> None:
+    allowed = required | optional
+    unexpected = sorted(set(obj) - allowed)
+    missing = sorted(required - set(obj))
+    assert not unexpected, f"{field} has unexpected keys: {unexpected}"
+    assert not missing, f"{field} is missing required keys: {missing}"
 
 
 def _validate_required_pricing_risk_metrics(fixture: GoldenFixture) -> None:

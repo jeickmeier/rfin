@@ -46,50 +46,47 @@
         }
       }
     },
-    "curves": {
-      "discount": [
+    "market": {
+      "version": 2,
+      "curves": [
         {
-          "id": "USD-TIPS",
-          "base_date": "2026-04-30",
-          "day_count": "act_365f",
-          "interp": "log_linear",
-          "knots": [
+          "type": "inflation",
+          "id": "US-CPI",
+          "base_cpi": 300.0,
+          "base_date": "2024-01-15",
+          "day_count": "Act365F",
+          "indexation_lag_months": 3,
+          "knot_points": [
             [
               0.0,
-              1.0
-            ],
-            [
-              0.25,
-              0.9975
-            ],
-            [
-              0.5,
-              0.995
+              300.0
             ],
             [
               1.0,
-              0.99
+              306.0
             ],
             [
               2.0,
-              0.975
+              312.2
             ],
             [
               5.0,
-              0.93
+              331.6
             ],
             [
               10.0,
-              0.86
+              366.2
             ]
-          ]
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_zero"
         },
         {
+          "type": "discount",
           "id": "USD-OIS",
-          "base_date": "2026-04-30",
-          "day_count": "act_365f",
-          "interp": "log_linear",
-          "knots": [
+          "base": "2026-04-30",
+          "day_count": "Act365F",
+          "knot_points": [
             [
               0.0,
               1.0
@@ -122,41 +119,74 @@
               30.0,
               0.301
             ]
-          ]
-        }
-      ],
-      "inflation": [
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward",
+          "min_forward_rate": null,
+          "allow_non_monotonic": false,
+          "min_forward_tenor": 1e-06,
+          "rate_calibration": null
+        },
         {
-          "id": "US-CPI",
-          "base_date": "2024-01-15",
-          "base_cpi": 300.0,
-          "day_count": "act_365f",
-          "indexation_lag_months": 3,
-          "interp": "log_linear",
-          "knots": [
+          "type": "discount",
+          "id": "USD-TIPS",
+          "base": "2026-04-30",
+          "day_count": "Act365F",
+          "knot_points": [
             [
               0.0,
-              300.0
+              1.0
+            ],
+            [
+              0.25,
+              0.9975
+            ],
+            [
+              0.5,
+              0.995
             ],
             [
               1.0,
-              306.0
+              0.99
             ],
             [
               2.0,
-              312.2
+              0.975
             ],
             [
               5.0,
-              331.6
+              0.93
             ],
             [
               10.0,
-              366.2
+              0.86
             ]
-          ]
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward",
+          "min_forward_rate": null,
+          "allow_non_monotonic": false,
+          "min_forward_tenor": 1e-06,
+          "rate_calibration": null
         }
-      ]
+      ],
+      "fx": {
+        "config": {
+          "pivot_currency": "USD",
+          "enable_triangulation": true,
+          "cache_capacity": 256
+        },
+        "quotes": []
+      },
+      "surfaces": [],
+      "prices": {},
+      "series": [],
+      "inflation_indices": [],
+      "dividends": [],
+      "credit_indices": [],
+      "fx_delta_vol_surfaces": [],
+      "vol_cubes": [],
+      "collateral": {}
     },
     "source_reference": {
       "design_metrics": [

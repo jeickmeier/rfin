@@ -66,7 +66,6 @@
   },
   "inputs": {
     "valuation_date": "2026-05-02",
-    "curve_date": "2026-05-02",
     "model": "discounting",
     "metrics": [
       "vega",
@@ -169,14 +168,15 @@
         }
       }
     },
-    "curves": {
-      "discount": [
+    "market": {
+      "version": 2,
+      "curves": [
         {
+          "type": "discount",
           "id": "USD-SOFR-DISC",
-          "base_date": "2026-05-02",
-          "day_count": "act_365f",
-          "interp": "log_linear",
-          "knots": [
+          "base": "2026-05-02",
+          "day_count": "Act365F",
+          "knot_points": [
             [
               0.0,
               1.0
@@ -285,13 +285,24 @@
               12.0,
               0.615431
             ]
-          ]
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward",
+          "min_forward_rate": null,
+          "allow_non_monotonic": false,
+          "min_forward_tenor": 1e-06,
+          "rate_calibration": null
         }
       ],
-      "forward": []
-    },
-    "surfaces": {
-      "vol": [
+      "fx": {
+        "config": {
+          "pivot_currency": "USD",
+          "enable_triangulation": true,
+          "cache_capacity": 256
+        },
+        "quotes": []
+      },
+      "surfaces": [
         {
           "id": "USD-RFR-BVOL-CUBE-1Y5Y",
           "expiries": [
@@ -301,125 +312,20 @@
             5.0
           ],
           "secondary_axis": "tenor",
+          "interpolation_mode": "vol",
           "vols_row_major": [
             0.00888
           ]
         }
-      ]
-    },
-    "bloomberg_reference": {
-      "trade": {
-        "trade_date": "2026-05-02",
-        "valuation_date": "2026-05-02",
-        "curve_date": "2026-05-02",
-        "currency": "USD",
-        "notional": 10000000.0,
-        "position": "long_receiver",
-        "option_tenor": "1Y",
-        "underlying_tenor": "5Y",
-        "expiry": "2027-05-03",
-        "settlement": "2027-05-05",
-        "swap_start": "2027-05-05",
-        "swap_end": "2032-05-05",
-        "strike": 0.03766225,
-        "atm_strike": 0.03766225,
-        "delivery": "Price (Cash)",
-        "premium_paid_at_expiry": true,
-        "fixed_leg": {
-          "direction": "receive",
-          "pay_frequency": "annual",
-          "day_count": "ACT/360"
-        },
-        "float_leg": {
-          "direction": "pay",
-          "index": "SOFRRATE",
-          "pay_frequency": "annual",
-          "reset_frequency": "daily",
-          "day_count": "ACT/360"
-        }
-      },
-      "screen_results": {
-        "npv": 155363.65,
-        "premium": 0.0155364,
-        "yield_value_bp": 35.475,
-        "implied_vol_bp": 88.8,
-        "dv01": 2250.5,
-        "gamma_1bp": 21.36,
-        "vega_1bp": 1749.55,
-        "theta_1day": -196.74,
-        "forward_premium": 0.016128
-      },
-      "cashflows": [
-        {
-          "pay_date": "2027-05-05",
-          "payments_receive": -10000000.0,
-          "payments_pay": 10000000.0,
-          "net_payments": 0.0,
-          "discount": 0.963316,
-          "pv": 0.0
-        },
-        {
-          "pay_date": "2028-05-09",
-          "payments_receive": 382899.54,
-          "payments_pay": -377130.84,
-          "net_payments": 5768.71,
-          "discount": 0.927941,
-          "pv": 5353.02
-        },
-        {
-          "pay_date": "2029-05-09",
-          "payments_receive": 383945.72,
-          "payments_pay": -369146.73,
-          "net_payments": 14798.98,
-          "discount": 0.89508,
-          "pv": 13246.28
-        },
-        {
-          "pay_date": "2030-05-07",
-          "payments_receive": 380807.19,
-          "payments_pay": -374477.16,
-          "net_payments": 6330.03,
-          "discount": 0.86276,
-          "pv": 5461.34
-        },
-        {
-          "pay_date": "2031-05-07",
-          "payments_receive": 380807.19,
-          "payments_pay": -387779.87,
-          "net_payments": -6972.67,
-          "discount": 0.830552,
-          "pv": -5791.17
-        },
-        {
-          "pay_date": "2032-05-07",
-          "payments_receive": 10382899.54,
-          "payments_pay": -10405789.17,
-          "net_payments": -22889.63,
-          "discount": 0.798157,
-          "pv": -18269.53
-        }
       ],
-      "finstack_model_notes": {
-        "underlier": "The swaption runner now prices the underlying as an explicit annual ACT/360 SOFR swap, with fixed and compounded-in-arrears floating leg specifications carrying the Bloomberg payment lag, calendar, and one-day rate-cutoff convention.",
-        "projection": "The overnight SOFR projection uses the committed Bloomberg discount curve directly through the compounded-RFR IRS path; the prior calibrated flat ForwardCurve scalar has been removed.",
-        "volatility": "The VCUB 1Y x 5Y normal-vol quote is represented as an expiry x underlying-tenor surface with secondary_axis=tenor."
-      },
-      "finstack_reconciliation": {
-        "pricing_path": "discounting registry path with swaption vol_model=normal (Bachelier), explicit compounded-SOFR IRS underlier, ISDA par-par cash annuity, and tenor-axis normal vol lookup",
-        "npv": 155152.7700373971,
-        "bloomberg_npv": 155363.65,
-        "npv_minus_bloomberg": -210.8799626028922,
-        "npv_relative_difference": 0.001357331413126,
-        "npv_tolerance_assessment": "Within 0.15% of the manually transcribed Bloomberg SWPM screen after using the compounded-SOFR underlier and tenor-axis normal vol input.",
-        "vega_per_1pct_normal_vol": 176062.96085872684,
-        "bloomberg_vega_per_1pct_normal_vol": 174955.0,
-        "vega_per_1pct_minus_bloomberg": 1107.960858726845,
-        "vega_relative_difference": 0.006332833349872,
-        "vega_tolerance_assessment": "Within 1% after converting Bloomberg vega from per-1bp normal vol to finstack per-1pct absolute normal vol.",
-        "dv01": -2288.520094403764,
-        "bloomberg_dv01": 2250.5,
-        "dv01_note": "Bloomberg reports +2250.50 on its screen convention. Finstack generic swaption DV01 is a signed parallel combined-curve bump measure, so expected_outputs freezes the deterministic finstack metric while retaining the Bloomberg screen value here for reconciliation."
-      }
+      "prices": {},
+      "series": [],
+      "inflation_indices": [],
+      "dividends": [],
+      "credit_indices": [],
+      "fx_delta_vol_surfaces": [],
+      "vol_cubes": [],
+      "collateral": {}
     },
     "source_reference": {
       "non_compared_metrics": [
@@ -430,7 +336,122 @@
         "npv",
         "dv01"
       ],
-      "dv01_methodology_note": "DV01 is compared as an executable finstack signed combined-curve metric after the corrected compounded-SOFR underlier changes; Bloomberg screen DV01 remains in bloomberg_reference for reconciliation."
+      "dv01_methodology_note": "DV01 is compared as an executable finstack signed combined-curve metric after the corrected compounded-SOFR underlier changes; Bloomberg screen DV01 remains in bloomberg_reference for reconciliation.",
+      "curve_date": "2026-05-02",
+      "bloomberg_reference": {
+        "trade": {
+          "trade_date": "2026-05-02",
+          "valuation_date": "2026-05-02",
+          "curve_date": "2026-05-02",
+          "currency": "USD",
+          "notional": 10000000.0,
+          "position": "long_receiver",
+          "option_tenor": "1Y",
+          "underlying_tenor": "5Y",
+          "expiry": "2027-05-03",
+          "settlement": "2027-05-05",
+          "swap_start": "2027-05-05",
+          "swap_end": "2032-05-05",
+          "strike": 0.03766225,
+          "atm_strike": 0.03766225,
+          "delivery": "Price (Cash)",
+          "premium_paid_at_expiry": true,
+          "fixed_leg": {
+            "direction": "receive",
+            "pay_frequency": "annual",
+            "day_count": "ACT/360"
+          },
+          "float_leg": {
+            "direction": "pay",
+            "index": "SOFRRATE",
+            "pay_frequency": "annual",
+            "reset_frequency": "daily",
+            "day_count": "ACT/360"
+          }
+        },
+        "screen_results": {
+          "npv": 155363.65,
+          "premium": 0.0155364,
+          "yield_value_bp": 35.475,
+          "implied_vol_bp": 88.8,
+          "dv01": 2250.5,
+          "gamma_1bp": 21.36,
+          "vega_1bp": 1749.55,
+          "theta_1day": -196.74,
+          "forward_premium": 0.016128
+        },
+        "cashflows": [
+          {
+            "pay_date": "2027-05-05",
+            "payments_receive": -10000000.0,
+            "payments_pay": 10000000.0,
+            "net_payments": 0.0,
+            "discount": 0.963316,
+            "pv": 0.0
+          },
+          {
+            "pay_date": "2028-05-09",
+            "payments_receive": 382899.54,
+            "payments_pay": -377130.84,
+            "net_payments": 5768.71,
+            "discount": 0.927941,
+            "pv": 5353.02
+          },
+          {
+            "pay_date": "2029-05-09",
+            "payments_receive": 383945.72,
+            "payments_pay": -369146.73,
+            "net_payments": 14798.98,
+            "discount": 0.89508,
+            "pv": 13246.28
+          },
+          {
+            "pay_date": "2030-05-07",
+            "payments_receive": 380807.19,
+            "payments_pay": -374477.16,
+            "net_payments": 6330.03,
+            "discount": 0.86276,
+            "pv": 5461.34
+          },
+          {
+            "pay_date": "2031-05-07",
+            "payments_receive": 380807.19,
+            "payments_pay": -387779.87,
+            "net_payments": -6972.67,
+            "discount": 0.830552,
+            "pv": -5791.17
+          },
+          {
+            "pay_date": "2032-05-07",
+            "payments_receive": 10382899.54,
+            "payments_pay": -10405789.17,
+            "net_payments": -22889.63,
+            "discount": 0.798157,
+            "pv": -18269.53
+          }
+        ],
+        "finstack_model_notes": {
+          "underlier": "The swaption runner now prices the underlying as an explicit annual ACT/360 SOFR swap, with fixed and compounded-in-arrears floating leg specifications carrying the Bloomberg payment lag, calendar, and one-day rate-cutoff convention.",
+          "projection": "The overnight SOFR projection uses the committed Bloomberg discount curve directly through the compounded-RFR IRS path; the prior calibrated flat ForwardCurve scalar has been removed.",
+          "volatility": "The VCUB 1Y x 5Y normal-vol quote is represented as an expiry x underlying-tenor surface with secondary_axis=tenor."
+        },
+        "finstack_reconciliation": {
+          "pricing_path": "discounting registry path with swaption vol_model=normal (Bachelier), explicit compounded-SOFR IRS underlier, ISDA par-par cash annuity, and tenor-axis normal vol lookup",
+          "npv": 155152.7700373971,
+          "bloomberg_npv": 155363.65,
+          "npv_minus_bloomberg": -210.8799626028922,
+          "npv_relative_difference": 0.001357331413126,
+          "npv_tolerance_assessment": "Within 0.15% of the manually transcribed Bloomberg SWPM screen after using the compounded-SOFR underlier and tenor-axis normal vol input.",
+          "vega_per_1pct_normal_vol": 176062.96085872684,
+          "bloomberg_vega_per_1pct_normal_vol": 174955.0,
+          "vega_per_1pct_minus_bloomberg": 1107.960858726845,
+          "vega_relative_difference": 0.006332833349872,
+          "vega_tolerance_assessment": "Within 1% after converting Bloomberg vega from per-1bp normal vol to finstack per-1pct absolute normal vol.",
+          "dv01": -2288.520094403764,
+          "bloomberg_dv01": 2250.5,
+          "dv01_note": "Bloomberg reports +2250.50 on its screen convention. Finstack generic swaption DV01 is a signed parallel combined-curve bump measure, so expected_outputs freezes the deterministic finstack metric while retaining the Bloomberg screen value here for reconciliation."
+        }
+      }
     },
     "source_validation": {
       "status": "non_executable",

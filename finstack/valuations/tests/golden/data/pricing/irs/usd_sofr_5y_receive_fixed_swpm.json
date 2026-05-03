@@ -48,7 +48,6 @@
   },
   "inputs": {
     "valuation_date": "2026-05-04",
-    "curve_date": "2026-04-30",
     "model": "discounting",
     "metrics": [
       "par_rate",
@@ -131,14 +130,15 @@
         }
       }
     },
-    "curves": {
-      "discount": [
+    "market": {
+      "version": 2,
+      "curves": [
         {
+          "type": "discount",
           "id": "USD-SOFR",
-          "base_date": "2026-04-30",
-          "day_count": "act_365f",
-          "interp": "log_linear",
-          "knots": [
+          "base": "2026-04-30",
+          "day_count": "Act365F",
+          "knot_points": [
             [
               0.0,
               1.0
@@ -243,232 +243,32 @@
               12.0,
               0.615874
             ]
-          ]
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward",
+          "min_forward_rate": null,
+          "allow_non_monotonic": false,
+          "min_forward_tenor": 1e-06,
+          "rate_calibration": null
         }
       ],
-      "forward": []
-    },
-    "bloomberg_reference": {
-      "trade": {
-        "trade_date": "2026-04-30",
-        "valuation_date": "2026-05-04",
-        "curve_date": "2026-04-30",
-        "currency": "USD",
-        "notional": 10000000.0,
-        "fixed_side": "receive",
-        "float_side": "pay",
-        "fixed_coupon": 0.035,
-        "index": "SOFRRATE",
-        "spread_bp": 0.0
+      "fx": {
+        "config": {
+          "pivot_currency": "USD",
+          "enable_triangulation": true,
+          "cache_capacity": 256
+        },
+        "quotes": []
       },
-      "screen_results": {
-        "par_coupon": 0.0370075,
-        "premium": -0.91335,
-        "principal": -91334.81,
-        "accrued": 0.0,
-        "npv": -91334.81,
-        "pv01": 4549.67,
-        "dv01": 4523.48,
-        "gamma_1bp": 2.6,
-        "leg_1_npv": 9906421.75,
-        "leg_1_dv01": 4529.49,
-        "leg_2_npv": -9997756.56,
-        "leg_2_dv01": -6.01
-      },
-      "cashflows": [
-        {
-          "pay_date": "2027-05-06",
-          "payments_receive": 354861.11,
-          "payments_pay": -377369.46,
-          "net_payments": -22508.35,
-          "discount": 0.963437,
-          "pv": -21685.38
-        },
-        {
-          "pay_date": "2028-05-08",
-          "payments_receive": 355833.33,
-          "payments_pay": -375403.54,
-          "net_payments": -19570.2,
-          "discount": 0.928405,
-          "pv": -18169.09
-        },
-        {
-          "pay_date": "2029-05-08",
-          "payments_receive": 354861.11,
-          "payments_pay": -365287.52,
-          "net_payments": -10426.4,
-          "discount": 0.895683,
-          "pv": -9338.75
-        },
-        {
-          "pay_date": "2030-05-08",
-          "payments_receive": 356805.56,
-          "payments_pay": -375646.18,
-          "net_payments": -18840.62,
-          "discount": 0.863421,
-          "pv": -16267.39
-        },
-        {
-          "pay_date": "2031-05-07",
-          "payments_receive": 10353888.89,
-          "payments_pay": -10385010.0,
-          "net_payments": -31121.11,
-          "discount": 0.831404,
-          "pv": -25874.21
-        }
-      ],
-      "curve_screen": [
-        {
-          "term": "1W",
-          "market_rate": 0.036425,
-          "zero_rate": 0.0368702,
-          "discount": 0.998183
-        },
-        {
-          "term": "3W",
-          "market_rate": 0.03638,
-          "zero_rate": 0.0368297,
-          "discount": 0.99738
-        },
-        {
-          "term": "1M",
-          "market_rate": 0.03644,
-          "zero_rate": 0.0368724,
-          "discount": 0.996471
-        },
-        {
-          "term": "2M",
-          "market_rate": 0.0365342,
-          "zero_rate": 0.0369133,
-          "discount": 0.993247
-        },
-        {
-          "term": "3M",
-          "market_rate": 0.0365665,
-          "zero_rate": 0.0368958,
-          "discount": 0.990343
-        },
-        {
-          "term": "4M",
-          "market_rate": 0.0365978,
-          "zero_rate": 0.036872,
-          "discount": 0.987252
-        },
-        {
-          "term": "5M",
-          "market_rate": 0.0366465,
-          "zero_rate": 0.0368643,
-          "discount": 0.984169
-        },
-        {
-          "term": "6M",
-          "market_rate": 0.036695,
-          "zero_rate": 0.0368577,
-          "discount": 0.981195
-        },
-        {
-          "term": "7M",
-          "market_rate": 0.036749,
-          "zero_rate": 0.0368563,
-          "discount": 0.978228
-        },
-        {
-          "term": "8M",
-          "market_rate": 0.03684,
-          "zero_rate": 0.0368888,
-          "discount": 0.975149
-        },
-        {
-          "term": "9M",
-          "market_rate": 0.036924,
-          "zero_rate": 0.0369143,
-          "discount": 0.972079
-        },
-        {
-          "term": "10M",
-          "market_rate": 0.037011,
-          "zero_rate": 0.036948,
-          "discount": 0.969303
-        },
-        {
-          "term": "11M",
-          "market_rate": 0.037124,
-          "zero_rate": 0.0369992,
-          "discount": 0.966122
-        },
-        {
-          "term": "12M",
-          "market_rate": 0.03722,
-          "zero_rate": 0.0370392,
-          "discount": 0.963247
-        },
-        {
-          "term": "18M",
-          "market_rate": 0.0372225,
-          "zero_rate": 0.0371592,
-          "discount": 0.945257
-        },
-        {
-          "term": "2Y",
-          "market_rate": 0.037075,
-          "zero_rate": 0.0368963,
-          "discount": 0.928395
-        },
-        {
-          "term": "3Y",
-          "market_rate": 0.036739,
-          "zero_rate": 0.0365582,
-          "discount": 0.895677
-        },
-        {
-          "term": "4Y",
-          "market_rate": 0.0367649,
-          "zero_rate": 0.0365875,
-          "discount": 0.863249
-        },
-        {
-          "term": "5Y",
-          "market_rate": 0.0370075,
-          "zero_rate": 0.0368448,
-          "discount": 0.831246
-        },
-        {
-          "term": "6Y",
-          "market_rate": 0.0374452,
-          "zero_rate": 0.0373128,
-          "discount": 0.798923
-        },
-        {
-          "term": "7Y",
-          "market_rate": 0.03789,
-          "zero_rate": 0.0377934,
-          "discount": 0.767072
-        },
-        {
-          "term": "8Y",
-          "market_rate": 0.0383675,
-          "zero_rate": 0.038317,
-          "discount": 0.735528
-        },
-        {
-          "term": "9Y",
-          "market_rate": 0.0388245,
-          "zero_rate": 0.0388248,
-          "discount": 0.704645
-        },
-        {
-          "term": "10Y",
-          "market_rate": 0.0392685,
-          "zero_rate": 0.0393249,
-          "discount": 0.674279
-        },
-        {
-          "term": "12Y",
-          "market_rate": 0.0401351,
-          "zero_rate": 0.0403283,
-          "discount": 0.615874
-        }
-      ]
+      "surfaces": [],
+      "prices": {},
+      "series": [],
+      "inflation_indices": [],
+      "dividends": [],
+      "credit_indices": [],
+      "fx_delta_vol_surfaces": [],
+      "vol_cubes": [],
+      "collateral": {}
     },
     "source_reference": {
       "screen_outputs": {
@@ -481,7 +281,230 @@
         "npv",
         "par_rate",
         "dv01"
-      ]
+      ],
+      "curve_date": "2026-04-30",
+      "bloomberg_reference": {
+        "trade": {
+          "trade_date": "2026-04-30",
+          "valuation_date": "2026-05-04",
+          "curve_date": "2026-04-30",
+          "currency": "USD",
+          "notional": 10000000.0,
+          "fixed_side": "receive",
+          "float_side": "pay",
+          "fixed_coupon": 0.035,
+          "index": "SOFRRATE",
+          "spread_bp": 0.0
+        },
+        "screen_results": {
+          "par_coupon": 0.0370075,
+          "premium": -0.91335,
+          "principal": -91334.81,
+          "accrued": 0.0,
+          "npv": -91334.81,
+          "pv01": 4549.67,
+          "dv01": 4523.48,
+          "gamma_1bp": 2.6,
+          "leg_1_npv": 9906421.75,
+          "leg_1_dv01": 4529.49,
+          "leg_2_npv": -9997756.56,
+          "leg_2_dv01": -6.01
+        },
+        "cashflows": [
+          {
+            "pay_date": "2027-05-06",
+            "payments_receive": 354861.11,
+            "payments_pay": -377369.46,
+            "net_payments": -22508.35,
+            "discount": 0.963437,
+            "pv": -21685.38
+          },
+          {
+            "pay_date": "2028-05-08",
+            "payments_receive": 355833.33,
+            "payments_pay": -375403.54,
+            "net_payments": -19570.2,
+            "discount": 0.928405,
+            "pv": -18169.09
+          },
+          {
+            "pay_date": "2029-05-08",
+            "payments_receive": 354861.11,
+            "payments_pay": -365287.52,
+            "net_payments": -10426.4,
+            "discount": 0.895683,
+            "pv": -9338.75
+          },
+          {
+            "pay_date": "2030-05-08",
+            "payments_receive": 356805.56,
+            "payments_pay": -375646.18,
+            "net_payments": -18840.62,
+            "discount": 0.863421,
+            "pv": -16267.39
+          },
+          {
+            "pay_date": "2031-05-07",
+            "payments_receive": 10353888.89,
+            "payments_pay": -10385010.0,
+            "net_payments": -31121.11,
+            "discount": 0.831404,
+            "pv": -25874.21
+          }
+        ],
+        "curve_screen": [
+          {
+            "term": "1W",
+            "market_rate": 0.036425,
+            "zero_rate": 0.0368702,
+            "discount": 0.998183
+          },
+          {
+            "term": "3W",
+            "market_rate": 0.03638,
+            "zero_rate": 0.0368297,
+            "discount": 0.99738
+          },
+          {
+            "term": "1M",
+            "market_rate": 0.03644,
+            "zero_rate": 0.0368724,
+            "discount": 0.996471
+          },
+          {
+            "term": "2M",
+            "market_rate": 0.0365342,
+            "zero_rate": 0.0369133,
+            "discount": 0.993247
+          },
+          {
+            "term": "3M",
+            "market_rate": 0.0365665,
+            "zero_rate": 0.0368958,
+            "discount": 0.990343
+          },
+          {
+            "term": "4M",
+            "market_rate": 0.0365978,
+            "zero_rate": 0.036872,
+            "discount": 0.987252
+          },
+          {
+            "term": "5M",
+            "market_rate": 0.0366465,
+            "zero_rate": 0.0368643,
+            "discount": 0.984169
+          },
+          {
+            "term": "6M",
+            "market_rate": 0.036695,
+            "zero_rate": 0.0368577,
+            "discount": 0.981195
+          },
+          {
+            "term": "7M",
+            "market_rate": 0.036749,
+            "zero_rate": 0.0368563,
+            "discount": 0.978228
+          },
+          {
+            "term": "8M",
+            "market_rate": 0.03684,
+            "zero_rate": 0.0368888,
+            "discount": 0.975149
+          },
+          {
+            "term": "9M",
+            "market_rate": 0.036924,
+            "zero_rate": 0.0369143,
+            "discount": 0.972079
+          },
+          {
+            "term": "10M",
+            "market_rate": 0.037011,
+            "zero_rate": 0.036948,
+            "discount": 0.969303
+          },
+          {
+            "term": "11M",
+            "market_rate": 0.037124,
+            "zero_rate": 0.0369992,
+            "discount": 0.966122
+          },
+          {
+            "term": "12M",
+            "market_rate": 0.03722,
+            "zero_rate": 0.0370392,
+            "discount": 0.963247
+          },
+          {
+            "term": "18M",
+            "market_rate": 0.0372225,
+            "zero_rate": 0.0371592,
+            "discount": 0.945257
+          },
+          {
+            "term": "2Y",
+            "market_rate": 0.037075,
+            "zero_rate": 0.0368963,
+            "discount": 0.928395
+          },
+          {
+            "term": "3Y",
+            "market_rate": 0.036739,
+            "zero_rate": 0.0365582,
+            "discount": 0.895677
+          },
+          {
+            "term": "4Y",
+            "market_rate": 0.0367649,
+            "zero_rate": 0.0365875,
+            "discount": 0.863249
+          },
+          {
+            "term": "5Y",
+            "market_rate": 0.0370075,
+            "zero_rate": 0.0368448,
+            "discount": 0.831246
+          },
+          {
+            "term": "6Y",
+            "market_rate": 0.0374452,
+            "zero_rate": 0.0373128,
+            "discount": 0.798923
+          },
+          {
+            "term": "7Y",
+            "market_rate": 0.03789,
+            "zero_rate": 0.0377934,
+            "discount": 0.767072
+          },
+          {
+            "term": "8Y",
+            "market_rate": 0.0383675,
+            "zero_rate": 0.038317,
+            "discount": 0.735528
+          },
+          {
+            "term": "9Y",
+            "market_rate": 0.0388245,
+            "zero_rate": 0.0388248,
+            "discount": 0.704645
+          },
+          {
+            "term": "10Y",
+            "market_rate": 0.0392685,
+            "zero_rate": 0.0393249,
+            "discount": 0.674279
+          },
+          {
+            "term": "12Y",
+            "market_rate": 0.0401351,
+            "zero_rate": 0.0403283,
+            "discount": 0.615874
+          }
+        ]
+      }
     }
   },
   "expected_outputs": {

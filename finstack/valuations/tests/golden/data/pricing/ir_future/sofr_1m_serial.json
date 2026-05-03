@@ -60,14 +60,15 @@
         }
       }
     },
-    "curves": {
-      "discount": [
+    "market": {
+      "version": 2,
+      "curves": [
         {
+          "type": "discount",
           "id": "USD-OIS",
-          "base_date": "2026-04-30",
-          "day_count": "act_365f",
-          "interp": "log_linear",
-          "knots": [
+          "base": "2026-04-30",
+          "day_count": "Act365F",
+          "knot_points": [
             [
               0.0,
               1.0
@@ -88,17 +89,22 @@
               2.0,
               0.9231
             ]
-          ]
-        }
-      ],
-      "forward": [
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward",
+          "min_forward_rate": null,
+          "allow_non_monotonic": false,
+          "min_forward_tenor": 1e-06,
+          "rate_calibration": null
+        },
         {
+          "type": "forward",
           "id": "USD-SOFR-3M",
+          "base": "2026-04-30",
+          "reset_lag": 2,
+          "day_count": "Act360",
           "tenor": 0.25,
-          "base_date": "2026-04-30",
-          "day_count": "act_360",
-          "interp": "linear",
-          "knots": [
+          "knot_points": [
             [
               0.0,
               0.04
@@ -119,8 +125,37 @@
               2.0,
               0.044
             ]
-          ]
+          ],
+          "interp_style": "linear",
+          "extrapolation": "flat_forward",
+          "rate_calibration": null
         }
+      ],
+      "fx": {
+        "config": {
+          "pivot_currency": "USD",
+          "enable_triangulation": true,
+          "cache_capacity": 256
+        },
+        "quotes": []
+      },
+      "surfaces": [],
+      "prices": {},
+      "series": [],
+      "inflation_indices": [],
+      "dividends": [],
+      "credit_indices": [],
+      "fx_delta_vol_surfaces": [],
+      "vol_cubes": [],
+      "collateral": {}
+    },
+    "source_reference": {
+      "design_metrics": [
+        "npv",
+        "dv01",
+        "futures_price",
+        "implied_forward",
+        "convexity_adjustment"
       ]
     }
   },

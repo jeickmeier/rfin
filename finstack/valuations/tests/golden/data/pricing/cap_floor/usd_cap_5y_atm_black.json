@@ -54,7 +54,6 @@
   },
   "inputs": {
     "valuation_date": "2026-05-02",
-    "curve_date": "2026-05-02",
     "model": "black76",
     "metrics": [
       "vega",
@@ -109,133 +108,17 @@
         }
       }
     },
-    "curves": {
-      "discount": [
+    "market": {
+      "version": 2,
+      "curves": [
         {
-          "id": "USD-SOFR-DISC",
-          "base_date": "2026-05-02",
-          "day_count": "act_365f",
-          "interp": "log_linear",
-          "knots": [
-            [
-              0.0,
-              1.0
-            ],
-            [
-              0.019178082191780823,
-              0.998992
-            ],
-            [
-              0.038356164383561646,
-              0.998286
-            ],
-            [
-              0.057534246575342465,
-              0.997583
-            ],
-            [
-              0.08333333333333333,
-              0.996571
-            ],
-            [
-              0.16666666666666666,
-              0.993452
-            ],
-            [
-              0.25,
-              0.990448
-            ],
-            [
-              0.3333333333333333,
-              0.987057
-            ],
-            [
-              0.4166666666666667,
-              0.984373
-            ],
-            [
-              0.5,
-              0.981305
-            ],
-            [
-              0.5833333333333334,
-              0.97814
-            ],
-            [
-              0.6666666666666666,
-              0.975249
-            ],
-            [
-              0.75,
-              0.972171
-            ],
-            [
-              0.8333333333333334,
-              0.969391
-            ],
-            [
-              0.9166666666666666,
-              0.966303
-            ],
-            [
-              1.0,
-              0.963316
-            ],
-            [
-              1.5,
-              0.945253
-            ],
-            [
-              2.0,
-              0.928307
-            ],
-            [
-              3.0,
-              0.895259
-            ],
-            [
-              4.0,
-              0.862943
-            ],
-            [
-              5.0,
-              0.830729
-            ],
-            [
-              6.0,
-              0.798334
-            ],
-            [
-              7.0,
-              0.766391
-            ],
-            [
-              8.0,
-              0.734974
-            ],
-            [
-              9.0,
-              0.703985
-            ],
-            [
-              10.0,
-              0.673855
-            ],
-            [
-              12.0,
-              0.615431
-            ]
-          ]
-        }
-      ],
-      "forward": [
-        {
+          "type": "forward",
           "id": "USD-SOFR",
+          "base": "2026-05-02",
+          "reset_lag": 0,
+          "day_count": "Act360",
           "tenor": 0.25,
-          "base_date": "2026-05-02",
-          "day_count": "act_360",
-          "interp": "linear",
-          "knots": [
+          "knot_points": [
             [
               0.0,
               0.03634
@@ -344,12 +227,143 @@
               12.0,
               0.0402133
             ]
-          ]
+          ],
+          "interp_style": "linear",
+          "extrapolation": "flat_forward",
+          "rate_calibration": null
+        },
+        {
+          "type": "discount",
+          "id": "USD-SOFR-DISC",
+          "base": "2026-05-02",
+          "day_count": "Act365F",
+          "knot_points": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.019178082191780823,
+              0.998992
+            ],
+            [
+              0.038356164383561646,
+              0.998286
+            ],
+            [
+              0.057534246575342465,
+              0.997583
+            ],
+            [
+              0.08333333333333333,
+              0.996571
+            ],
+            [
+              0.16666666666666666,
+              0.993452
+            ],
+            [
+              0.25,
+              0.990448
+            ],
+            [
+              0.3333333333333333,
+              0.987057
+            ],
+            [
+              0.4166666666666667,
+              0.984373
+            ],
+            [
+              0.5,
+              0.981305
+            ],
+            [
+              0.5833333333333334,
+              0.97814
+            ],
+            [
+              0.6666666666666666,
+              0.975249
+            ],
+            [
+              0.75,
+              0.972171
+            ],
+            [
+              0.8333333333333334,
+              0.969391
+            ],
+            [
+              0.9166666666666666,
+              0.966303
+            ],
+            [
+              1.0,
+              0.963316
+            ],
+            [
+              1.5,
+              0.945253
+            ],
+            [
+              2.0,
+              0.928307
+            ],
+            [
+              3.0,
+              0.895259
+            ],
+            [
+              4.0,
+              0.862943
+            ],
+            [
+              5.0,
+              0.830729
+            ],
+            [
+              6.0,
+              0.798334
+            ],
+            [
+              7.0,
+              0.766391
+            ],
+            [
+              8.0,
+              0.734974
+            ],
+            [
+              9.0,
+              0.703985
+            ],
+            [
+              10.0,
+              0.673855
+            ],
+            [
+              12.0,
+              0.615431
+            ]
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward",
+          "min_forward_rate": null,
+          "allow_non_monotonic": false,
+          "min_forward_tenor": 1e-06,
+          "rate_calibration": null
         }
-      ]
-    },
-    "surfaces": {
-      "vol": [
+      ],
+      "fx": {
+        "config": {
+          "pivot_currency": "USD",
+          "enable_triangulation": true,
+          "cache_capacity": 256
+        },
+        "quotes": []
+      },
+      "surfaces": [
         {
           "id": "USD-RFR-BVOL-CUBE-5Y",
           "expiries": [
@@ -377,6 +391,8 @@
           "strikes": [
             0.0366561
           ],
+          "secondary_axis": "strike",
+          "interpolation_mode": "vol",
           "vols_row_major": [
             0.00483385,
             0.0062337,
@@ -400,379 +416,388 @@
             0.0099745
           ]
         }
-      ]
-    },
-    "bloomberg_reference": {
-      "trade": {
-        "trade_date": "2026-05-02",
-        "valuation_date": "2026-05-02",
-        "curve_date": "2026-05-02",
-        "currency": "USD",
-        "notional": 10000000.0,
-        "option_type": "cap",
-        "position": "long",
-        "index": "SOFRRATE",
-        "spread_bp": 0.0,
-        "leverage": 1.0,
-        "day_count": "ACT/360",
-        "index_tenor": "1D",
-        "reset_frequency": "daily",
-        "payment_frequency": "quarterly",
-        "effective_date": "2026-05-05",
-        "first_payment_field": "2026-08-06",
-        "next_last_payment_field": "2031-02-06",
-        "maturity_date": "2031-05-06",
-        "cap_strike": 0.0366561
-      },
-      "contract_detail": {
-        "business_day_adjustment": "Modified Following",
-        "date_adjustment": "Acc & Pay Dates",
-        "roll_convention": "Backward",
-        "calculation_calendar": "FD",
-        "fixing_calendar": "GT",
-        "reset_type": "In Arrears",
-        "payment_lag_days": 2,
-        "payment_lag_units": "business_days",
-        "compounding": "ExcludeSprd",
-        "days_before_accrual": 0,
-        "days_before_type": "Lookback",
-        "rate_cutoff_days": 1,
-        "custom_date_generation": "None",
-        "amortization_rate_pct": 0.0,
-        "amortization_amount": 0.0,
-        "balance": 10000000.0,
-        "schedule_cap_strike_pct": 3.66561,
-        "visible_accrual_row_count": 20,
-        "first_visible_accrual_start": "2026-05-05",
-        "first_visible_accrual_end": "2026-08-06",
-        "first_visible_pay_date": "2026-08-10",
-        "last_visible_accrual_start": "2031-02-06",
-        "last_visible_accrual_end": "2031-05-06",
-        "last_visible_pay_date": "2031-05-08"
-      },
-      "screen_results": {
-        "atm_strike": 0.0366561,
-        "yield_value_bp": 56.012,
-        "premium": 0.0258328,
-        "bp_value": 258.32794,
-        "npv": 258327.94,
-        "dv01": -2158.57,
-        "gamma_1bp": 16.22,
-        "vega_1bp": 2659.46,
-        "theta_1day": -173.08
-      },
-      "finstack_reconciliation": {
-        "pricing_path": "black76 pricer with cap_floor vol_type=normal (Bachelier)",
-        "npv": 238915.04797859202,
-        "npv_minus_bloomberg": -19412.892021407984,
-        "vega_per_1pct_normal_vol": 260778.85201164076,
-        "vega_per_1pct_minus_100x_bloomberg_vega_1bp": -5167.147988359269,
-        "dv01": 2249.02678298387,
-        "dv01_note": "Bloomberg screen reports -2158.57; finstack's generic cap/floor DV01 is a signed parallel combined curve-bump measure and uses the transcribed curve/projection inputs."
-      },
-      "curve_points": [
-        {
-          "term": "1W",
-          "market_rate": 0.03634,
-          "zero_rate": 0.0368266,
-          "discount": 0.998992
-        },
-        {
-          "term": "2W",
-          "market_rate": 0.036351,
-          "zero_rate": 0.0368272,
-          "discount": 0.998286
-        },
-        {
-          "term": "3W",
-          "market_rate": 0.036335,
-          "zero_rate": 0.0368024,
-          "discount": 0.997583
-        },
-        {
-          "term": "1M",
-          "market_rate": 0.036432,
-          "zero_rate": 0.0368744,
-          "discount": 0.996571
-        },
-        {
-          "term": "2M",
-          "market_rate": 0.0365047,
-          "zero_rate": 0.0368921,
-          "discount": 0.993452
-        },
-        {
-          "term": "3M",
-          "market_rate": 0.036544,
-          "zero_rate": 0.0368766,
-          "discount": 0.990448
-        },
-        {
-          "term": "6M",
-          "market_rate": 0.0366705,
-          "zero_rate": 0.0368353,
-          "discount": 0.981305
-        },
-        {
-          "term": "1Y",
-          "market_rate": 0.0372495,
-          "zero_rate": 0.0370619,
-          "discount": 0.963316
-        },
-        {
-          "term": "2Y",
-          "market_rate": 0.0371735,
-          "zero_rate": 0.0369938,
-          "discount": 0.928307
-        },
-        {
-          "term": "5Y",
-          "market_rate": 0.0371715,
-          "zero_rate": 0.0370091,
-          "discount": 0.830729
-        },
-        {
-          "term": "10Y",
-          "market_rate": 0.03936,
-          "zero_rate": 0.0384243,
-          "discount": 0.673855
-        },
-        {
-          "term": "12Y",
-          "market_rate": 0.0402133,
-          "zero_rate": 0.0403973,
-          "discount": 0.615431
-        }
       ],
-      "cashflows": [
-        {
-          "pay_date": "2026-08-10",
-          "days": 93,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 2325.19,
-          "discount": 0.990248,
-          "intrinsic_pv": 0.0,
-          "time_pv": 2302.52,
-          "pv": 2302.52
-        },
-        {
-          "pay_date": "2026-11-10",
-          "days": 92,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 4539.94,
-          "discount": 0.981108,
-          "intrinsic_pv": 0.0,
-          "time_pv": 4454.17,
-          "pv": 4454.17
-        },
-        {
-          "pay_date": "2027-02-10",
-          "days": 94,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 6648.95,
-          "discount": 0.971969,
-          "intrinsic_pv": 305.86,
-          "time_pv": 6156.62,
-          "pv": 6462.48
-        },
-        {
-          "pay_date": "2027-05-10",
-          "days": 87,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 7768.99,
-          "discount": 0.96311,
-          "intrinsic_pv": 1244.31,
-          "time_pv": 6238.09,
-          "pv": 7482.39
-        },
-        {
-          "pay_date": "2027-08-10",
-          "days": 92,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 11943.68,
-          "discount": 0.953995,
-          "intrinsic_pv": 1789.79,
-          "time_pv": 9604.62,
-          "pv": 11394.21
-        },
-        {
-          "pay_date": "2027-11-10",
-          "days": 94,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 12978.04,
-          "discount": 0.94506,
-          "intrinsic_pv": 896.72,
-          "time_pv": 11368.31,
-          "pv": 12265.03
-        },
-        {
-          "pay_date": "2028-02-10",
-          "days": 91,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 12584.46,
-          "discount": 0.936499,
-          "intrinsic_pv": 0.0,
-          "time_pv": 11785.33,
-          "pv": 11785.33
-        },
-        {
-          "pay_date": "2028-05-10",
-          "days": 91,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 12954.48,
-          "discount": 0.928131,
-          "intrinsic_pv": 0.0,
-          "time_pv": 12023.45,
-          "pv": 12023.45
-        },
-        {
-          "pay_date": "2028-08-09",
-          "days": 91,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 13234.26,
-          "discount": 0.919856,
-          "intrinsic_pv": 0.0,
-          "time_pv": 12173.49,
-          "pv": 12173.49
-        },
-        {
-          "pay_date": "2028-11-08",
-          "days": 91,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 14132.86,
-          "discount": 0.911644,
-          "intrinsic_pv": 0.0,
-          "time_pv": 12884.13,
-          "pv": 12884.13
-        },
-        {
-          "pay_date": "2029-02-09",
-          "days": 92,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 15236.27,
-          "discount": 0.90339,
-          "intrinsic_pv": 0.0,
-          "time_pv": 13764.3,
-          "pv": 13764.3
-        },
-        {
-          "pay_date": "2029-05-08",
-          "days": 90,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 15843.27,
-          "discount": 0.895351,
-          "intrinsic_pv": 0.0,
-          "time_pv": 14185.29,
-          "pv": 14185.29
-        },
-        {
-          "pay_date": "2029-08-08",
-          "days": 91,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 16743.26,
-          "discount": 0.887247,
-          "intrinsic_pv": 0.0,
-          "time_pv": 14855.4,
-          "pv": 14855.4
-        },
-        {
-          "pay_date": "2029-11-08",
-          "days": 92,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 17937.39,
-          "discount": 0.879072,
-          "intrinsic_pv": 0.0,
-          "time_pv": 15768.26,
-          "pv": 15768.26
-        },
-        {
-          "pay_date": "2030-02-08",
-          "days": 92,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 18963.7,
-          "discount": 0.870912,
-          "intrinsic_pv": 4.78,
-          "time_pv": 16510.93,
-          "pv": 16515.7
-        },
-        {
-          "pay_date": "2030-05-08",
-          "days": 89,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 19315.44,
-          "discount": 0.863027,
-          "intrinsic_pv": 619.73,
-          "time_pv": 16050.02,
-          "pv": 16669.76
-        },
-        {
-          "pay_date": "2030-08-08",
-          "days": 92,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 20368.61,
-          "discount": 0.854883,
-          "intrinsic_pv": 1340.31,
-          "time_pv": 16072.47,
-          "pv": 17412.79
-        },
-        {
-          "pay_date": "2030-11-08",
-          "days": 92,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 21420.63,
-          "discount": 0.846742,
-          "intrinsic_pv": 2080.0,
-          "time_pv": 16057.74,
-          "pv": 18137.74
-        },
-        {
-          "pay_date": "2031-02-10",
-          "days": 92,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 22492.4,
-          "discount": 0.838421,
-          "intrinsic_pv": 2859.75,
-          "time_pv": 15998.35,
-          "pv": 18858.1
-        },
-        {
-          "pay_date": "2031-05-08",
-          "days": 89,
-          "notional": 10000000.0,
-          "cap_strike": 0.0366561,
-          "payment": 22791.7,
-          "discount": 0.830715,
-          "intrinsic_pv": 3534.43,
-          "time_pv": 15398.97,
-          "pv": 18933.4
-        }
-      ]
+      "prices": {},
+      "series": [],
+      "inflation_indices": [],
+      "dividends": [],
+      "credit_indices": [],
+      "fx_delta_vol_surfaces": [],
+      "vol_cubes": [],
+      "collateral": {}
     },
     "source_reference": {
       "design_metrics": [
         "vega",
         "dv01"
       ],
-      "source_validation_note": "The fixture is source-validation until quote-basis cap/floor risk can be executed without hiding Bloomberg-vs-model drift."
+      "source_validation_note": "The fixture is source-validation until quote-basis cap/floor risk can be executed without hiding Bloomberg-vs-model drift.",
+      "curve_date": "2026-05-02",
+      "bloomberg_reference": {
+        "trade": {
+          "trade_date": "2026-05-02",
+          "valuation_date": "2026-05-02",
+          "curve_date": "2026-05-02",
+          "currency": "USD",
+          "notional": 10000000.0,
+          "option_type": "cap",
+          "position": "long",
+          "index": "SOFRRATE",
+          "spread_bp": 0.0,
+          "leverage": 1.0,
+          "day_count": "ACT/360",
+          "index_tenor": "1D",
+          "reset_frequency": "daily",
+          "payment_frequency": "quarterly",
+          "effective_date": "2026-05-05",
+          "first_payment_field": "2026-08-06",
+          "next_last_payment_field": "2031-02-06",
+          "maturity_date": "2031-05-06",
+          "cap_strike": 0.0366561
+        },
+        "contract_detail": {
+          "business_day_adjustment": "Modified Following",
+          "date_adjustment": "Acc & Pay Dates",
+          "roll_convention": "Backward",
+          "calculation_calendar": "FD",
+          "fixing_calendar": "GT",
+          "reset_type": "In Arrears",
+          "payment_lag_days": 2,
+          "payment_lag_units": "business_days",
+          "compounding": "ExcludeSprd",
+          "days_before_accrual": 0,
+          "days_before_type": "Lookback",
+          "rate_cutoff_days": 1,
+          "custom_date_generation": "None",
+          "amortization_rate_pct": 0.0,
+          "amortization_amount": 0.0,
+          "balance": 10000000.0,
+          "schedule_cap_strike_pct": 3.66561,
+          "visible_accrual_row_count": 20,
+          "first_visible_accrual_start": "2026-05-05",
+          "first_visible_accrual_end": "2026-08-06",
+          "first_visible_pay_date": "2026-08-10",
+          "last_visible_accrual_start": "2031-02-06",
+          "last_visible_accrual_end": "2031-05-06",
+          "last_visible_pay_date": "2031-05-08"
+        },
+        "screen_results": {
+          "atm_strike": 0.0366561,
+          "yield_value_bp": 56.012,
+          "premium": 0.0258328,
+          "bp_value": 258.32794,
+          "npv": 258327.94,
+          "dv01": -2158.57,
+          "gamma_1bp": 16.22,
+          "vega_1bp": 2659.46,
+          "theta_1day": -173.08
+        },
+        "finstack_reconciliation": {
+          "pricing_path": "black76 pricer with cap_floor vol_type=normal (Bachelier)",
+          "npv": 238915.04797859202,
+          "npv_minus_bloomberg": -19412.892021407984,
+          "vega_per_1pct_normal_vol": 260778.85201164076,
+          "vega_per_1pct_minus_100x_bloomberg_vega_1bp": -5167.147988359269,
+          "dv01": 2249.02678298387,
+          "dv01_note": "Bloomberg screen reports -2158.57; finstack's generic cap/floor DV01 is a signed parallel combined curve-bump measure and uses the transcribed curve/projection inputs."
+        },
+        "curve_points": [
+          {
+            "term": "1W",
+            "market_rate": 0.03634,
+            "zero_rate": 0.0368266,
+            "discount": 0.998992
+          },
+          {
+            "term": "2W",
+            "market_rate": 0.036351,
+            "zero_rate": 0.0368272,
+            "discount": 0.998286
+          },
+          {
+            "term": "3W",
+            "market_rate": 0.036335,
+            "zero_rate": 0.0368024,
+            "discount": 0.997583
+          },
+          {
+            "term": "1M",
+            "market_rate": 0.036432,
+            "zero_rate": 0.0368744,
+            "discount": 0.996571
+          },
+          {
+            "term": "2M",
+            "market_rate": 0.0365047,
+            "zero_rate": 0.0368921,
+            "discount": 0.993452
+          },
+          {
+            "term": "3M",
+            "market_rate": 0.036544,
+            "zero_rate": 0.0368766,
+            "discount": 0.990448
+          },
+          {
+            "term": "6M",
+            "market_rate": 0.0366705,
+            "zero_rate": 0.0368353,
+            "discount": 0.981305
+          },
+          {
+            "term": "1Y",
+            "market_rate": 0.0372495,
+            "zero_rate": 0.0370619,
+            "discount": 0.963316
+          },
+          {
+            "term": "2Y",
+            "market_rate": 0.0371735,
+            "zero_rate": 0.0369938,
+            "discount": 0.928307
+          },
+          {
+            "term": "5Y",
+            "market_rate": 0.0371715,
+            "zero_rate": 0.0370091,
+            "discount": 0.830729
+          },
+          {
+            "term": "10Y",
+            "market_rate": 0.03936,
+            "zero_rate": 0.0384243,
+            "discount": 0.673855
+          },
+          {
+            "term": "12Y",
+            "market_rate": 0.0402133,
+            "zero_rate": 0.0403973,
+            "discount": 0.615431
+          }
+        ],
+        "cashflows": [
+          {
+            "pay_date": "2026-08-10",
+            "days": 93,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 2325.19,
+            "discount": 0.990248,
+            "intrinsic_pv": 0.0,
+            "time_pv": 2302.52,
+            "pv": 2302.52
+          },
+          {
+            "pay_date": "2026-11-10",
+            "days": 92,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 4539.94,
+            "discount": 0.981108,
+            "intrinsic_pv": 0.0,
+            "time_pv": 4454.17,
+            "pv": 4454.17
+          },
+          {
+            "pay_date": "2027-02-10",
+            "days": 94,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 6648.95,
+            "discount": 0.971969,
+            "intrinsic_pv": 305.86,
+            "time_pv": 6156.62,
+            "pv": 6462.48
+          },
+          {
+            "pay_date": "2027-05-10",
+            "days": 87,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 7768.99,
+            "discount": 0.96311,
+            "intrinsic_pv": 1244.31,
+            "time_pv": 6238.09,
+            "pv": 7482.39
+          },
+          {
+            "pay_date": "2027-08-10",
+            "days": 92,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 11943.68,
+            "discount": 0.953995,
+            "intrinsic_pv": 1789.79,
+            "time_pv": 9604.62,
+            "pv": 11394.21
+          },
+          {
+            "pay_date": "2027-11-10",
+            "days": 94,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 12978.04,
+            "discount": 0.94506,
+            "intrinsic_pv": 896.72,
+            "time_pv": 11368.31,
+            "pv": 12265.03
+          },
+          {
+            "pay_date": "2028-02-10",
+            "days": 91,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 12584.46,
+            "discount": 0.936499,
+            "intrinsic_pv": 0.0,
+            "time_pv": 11785.33,
+            "pv": 11785.33
+          },
+          {
+            "pay_date": "2028-05-10",
+            "days": 91,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 12954.48,
+            "discount": 0.928131,
+            "intrinsic_pv": 0.0,
+            "time_pv": 12023.45,
+            "pv": 12023.45
+          },
+          {
+            "pay_date": "2028-08-09",
+            "days": 91,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 13234.26,
+            "discount": 0.919856,
+            "intrinsic_pv": 0.0,
+            "time_pv": 12173.49,
+            "pv": 12173.49
+          },
+          {
+            "pay_date": "2028-11-08",
+            "days": 91,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 14132.86,
+            "discount": 0.911644,
+            "intrinsic_pv": 0.0,
+            "time_pv": 12884.13,
+            "pv": 12884.13
+          },
+          {
+            "pay_date": "2029-02-09",
+            "days": 92,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 15236.27,
+            "discount": 0.90339,
+            "intrinsic_pv": 0.0,
+            "time_pv": 13764.3,
+            "pv": 13764.3
+          },
+          {
+            "pay_date": "2029-05-08",
+            "days": 90,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 15843.27,
+            "discount": 0.895351,
+            "intrinsic_pv": 0.0,
+            "time_pv": 14185.29,
+            "pv": 14185.29
+          },
+          {
+            "pay_date": "2029-08-08",
+            "days": 91,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 16743.26,
+            "discount": 0.887247,
+            "intrinsic_pv": 0.0,
+            "time_pv": 14855.4,
+            "pv": 14855.4
+          },
+          {
+            "pay_date": "2029-11-08",
+            "days": 92,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 17937.39,
+            "discount": 0.879072,
+            "intrinsic_pv": 0.0,
+            "time_pv": 15768.26,
+            "pv": 15768.26
+          },
+          {
+            "pay_date": "2030-02-08",
+            "days": 92,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 18963.7,
+            "discount": 0.870912,
+            "intrinsic_pv": 4.78,
+            "time_pv": 16510.93,
+            "pv": 16515.7
+          },
+          {
+            "pay_date": "2030-05-08",
+            "days": 89,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 19315.44,
+            "discount": 0.863027,
+            "intrinsic_pv": 619.73,
+            "time_pv": 16050.02,
+            "pv": 16669.76
+          },
+          {
+            "pay_date": "2030-08-08",
+            "days": 92,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 20368.61,
+            "discount": 0.854883,
+            "intrinsic_pv": 1340.31,
+            "time_pv": 16072.47,
+            "pv": 17412.79
+          },
+          {
+            "pay_date": "2030-11-08",
+            "days": 92,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 21420.63,
+            "discount": 0.846742,
+            "intrinsic_pv": 2080.0,
+            "time_pv": 16057.74,
+            "pv": 18137.74
+          },
+          {
+            "pay_date": "2031-02-10",
+            "days": 92,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 22492.4,
+            "discount": 0.838421,
+            "intrinsic_pv": 2859.75,
+            "time_pv": 15998.35,
+            "pv": 18858.1
+          },
+          {
+            "pay_date": "2031-05-08",
+            "days": 89,
+            "notional": 10000000.0,
+            "cap_strike": 0.0366561,
+            "payment": 22791.7,
+            "discount": 0.830715,
+            "intrinsic_pv": 3534.43,
+            "time_pv": 15398.97,
+            "pv": 18933.4
+          }
+        ]
+      }
     },
     "source_validation": {
       "status": "non_executable",

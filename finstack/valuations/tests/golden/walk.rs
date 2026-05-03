@@ -1,6 +1,7 @@
 //! Walk-test for validating every committed golden fixture.
 
 use crate::golden::schema::{GoldenFixture, SCHEMA_VERSION};
+use finstack_core::market_data::context::MarketContext;
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -16,6 +17,15 @@ const VALID_SOURCES: &[&str] = &[
     "formula",
     "textbook",
 ];
+const PRICING_INPUT_KEYS: &[&str] = &[
+    "valuation_date",
+    "model",
+    "metrics",
+    "instrument_json",
+    "market",
+    "source_reference",
+];
+const PRICING_OPTIONAL_INPUT_KEYS: &[&str] = &["source_validation"];
 const ZERO_RISK_METRICS_REQUIRING_REASON: &[&str] = &[
     "bucketed_dv01",
     "convexity",
@@ -159,6 +169,7 @@ pub(crate) fn validate_fixture(path: &Path) -> Result<(), String> {
 
     validate_zero_risk_metric_reasons(&fixture)?;
     validate_source_reference_coverage(&fixture)?;
+    validate_pricing_input_schema(path, &fixture)?;
     validate_required_pricing_risk_metrics(&fixture)?;
     validate_required_metrics_not_non_compared(&fixture)?;
 
@@ -188,6 +199,59 @@ pub(crate) fn validate_fixture(path: &Path) -> Result<(), String> {
         }
     }
 
+    Ok(())
+}
+
+fn validate_pricing_input_schema(path: &Path, fixture: &GoldenFixture) -> Result<(), String> {
+    let Ok(relative) = path.strip_prefix(data_root()) else {
+        return Ok(());
+    };
+    if !relative.to_string_lossy().starts_with("pricing/") {
+        return Ok(());
+    }
+
+    let inputs = fixture
+        .inputs
+        .as_object()
+        .ok_or("pricing fixture inputs must be an object")?;
+    validate_object_keys(
+        "inputs",
+        inputs,
+        PRICING_INPUT_KEYS,
+        PRICING_OPTIONAL_INPUT_KEYS,
+    )?;
+
+    let market = inputs
+        .get("market")
+        .ok_or("pricing fixture inputs.market is required")?;
+    serde_json::from_value::<MarketContext>(market.clone()).map_err(|err| {
+        format!("pricing fixture inputs.market is not a valid MarketContext: {err}")
+    })?;
+
+    Ok(())
+}
+
+fn validate_object_keys(
+    field: &str,
+    object: &serde_json::Map<String, serde_json::Value>,
+    required: &[&str],
+    optional: &[&str],
+) -> Result<(), String> {
+    let allowed = required
+        .iter()
+        .chain(optional.iter())
+        .copied()
+        .collect::<BTreeSet<_>>();
+    for key in object.keys() {
+        if !allowed.contains(key.as_str()) {
+            return Err(format!("{field} has unexpected key '{key}'"));
+        }
+    }
+    for key in required {
+        if !object.contains_key(*key) {
+            return Err(format!("{field} is missing required key '{key}'"));
+        }
+    }
     Ok(())
 }
 
