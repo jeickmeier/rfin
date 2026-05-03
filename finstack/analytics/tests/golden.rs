@@ -180,6 +180,7 @@ fn run_analytics_fixture(path: &Path, fixture: &GoldenFixture) -> BTreeMap<Strin
 macro_rules! analytics_golden {
     ($name:ident, $path:literal) => {
         #[test]
+        #[ignore = "analytics golden fixture data is planned but not landed yet"]
         fn $name() {
             run_golden($path);
         }

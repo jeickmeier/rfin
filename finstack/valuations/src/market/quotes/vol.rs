@@ -120,34 +120,6 @@ pub enum VolQuote {
     },
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::market::conventions::ids::CapFloorConventionId;
-    use time::macros::date;
-
-    #[test]
-    fn cap_floor_vol_quote_bumps_absolute_vol() {
-        let quote = VolQuote::CapFloorVol {
-            expiry: date!(2031 - 05 - 06),
-            strike: 0.0366561,
-            vol: 0.0088,
-            quote_type: "normal".to_string(),
-            is_cap: true,
-            convention: CapFloorConventionId::new("USD-SOFR-CAP"),
-        };
-
-        let bumped = quote.bump_vol_absolute(0.0001);
-
-        match bumped {
-            VolQuote::CapFloorVol { vol, .. } => {
-                assert!((vol - 0.0089).abs() < 1e-12);
-            }
-            other => panic!("unexpected bumped quote: {other:?}"),
-        }
-    }
-}
-
 impl VolQuote {
     /// Create a new quote with the volatility bumped by an absolute amount.
     ///
@@ -227,6 +199,34 @@ impl VolQuote {
                 is_cap: *is_cap,
                 convention: convention.clone(),
             },
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::market::conventions::ids::CapFloorConventionId;
+    use time::macros::date;
+
+    #[test]
+    fn cap_floor_vol_quote_bumps_absolute_vol() {
+        let quote = VolQuote::CapFloorVol {
+            expiry: date!(2031 - 05 - 06),
+            strike: 0.0366561,
+            vol: 0.0088,
+            quote_type: "normal".to_string(),
+            is_cap: true,
+            convention: CapFloorConventionId::new("USD-SOFR-CAP"),
+        };
+
+        let bumped = quote.bump_vol_absolute(0.0001);
+
+        match bumped {
+            VolQuote::CapFloorVol { vol, .. } => {
+                assert!((vol - 0.0089).abs() < 1e-12);
+            }
+            other => panic!("unexpected bumped quote: {other:?}"),
         }
     }
 }

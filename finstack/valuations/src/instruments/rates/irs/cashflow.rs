@@ -785,11 +785,7 @@ pub(crate) fn full_signed_schedule_with_curves_as_of(
 mod tests {
     use super::*;
     use finstack_core::cashflow::CFKind;
-    use finstack_core::dates::DayCount;
     use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::DiscountCurve;
-    use finstack_core::math::interp::InterpStyle;
-    use std::str::FromStr;
 
     #[derive(serde::Deserialize)]
     struct GoldenFixtureEnvelope {
@@ -800,22 +796,13 @@ mod tests {
     struct GoldenFixtureInputs {
         valuation_date: String,
         instrument_json: serde_json::Value,
-        curves: GoldenCurves,
+        market: MarketContext,
+        source_reference: GoldenSourceReference,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct GoldenSourceReference {
         bloomberg_reference: BloombergReference,
-    }
-
-    #[derive(serde::Deserialize)]
-    struct GoldenCurves {
-        discount: Vec<GoldenDiscountCurve>,
-    }
-
-    #[derive(serde::Deserialize)]
-    struct GoldenDiscountCurve {
-        id: String,
-        base_date: String,
-        day_count: String,
-        interp: String,
-        knots: Vec<[f64; 2]>,
     }
 
     #[derive(serde::Deserialize)]
@@ -951,6 +938,7 @@ mod tests {
         );
         for (idx, bbg) in fixture
             .inputs
+            .source_reference
             .bloomberg_reference
             .cashflows
             .iter()
@@ -999,23 +987,7 @@ mod tests {
     }
 
     fn load_fixture_market(fixture: &GoldenFixtureEnvelope) -> MarketContext {
-        fixture
-            .inputs
-            .curves
-            .discount
-            .iter()
-            .map(build_discount_curve)
-            .fold(MarketContext::new(), MarketContext::insert)
-    }
-
-    fn build_discount_curve(spec: &GoldenDiscountCurve) -> DiscountCurve {
-        DiscountCurve::builder(spec.id.as_str())
-            .base_date(crate::pricer::parse_as_of_date(&spec.base_date).expect("curve date"))
-            .day_count(DayCount::from_str(&spec.day_count).expect("curve day count"))
-            .interp(InterpStyle::from_str(&spec.interp).expect("curve interpolation"))
-            .knots(spec.knots.iter().map(|knot| (knot[0], knot[1])))
-            .build()
-            .expect("discount curve builds")
+        fixture.inputs.market.clone()
     }
 
     fn coupon_only_fixed_amount(cashflow: &BloombergCashflow) -> f64 {

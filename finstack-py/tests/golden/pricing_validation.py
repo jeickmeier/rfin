@@ -6,8 +6,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from finstack.valuations import list_standard_metrics, validate_instrument_json
 from jsonschema import validators
+
+from finstack.valuations import list_standard_metrics, validate_instrument_json
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
 INSTRUMENT_ENVELOPE_SCHEMA_PATH = WORKSPACE_ROOT / "finstack/valuations/schemas/instruments/1/instrument.schema.json"
@@ -29,10 +30,7 @@ def validate_requested_metrics(metrics: list[str], expected_outputs: dict[str, f
     assert not unknown, f"pricing fixture inputs.metrics contains unknown metric(s): {unknown}"
 
     missing = [metric for metric in expected_outputs if metric != "npv" and metric not in metrics]
-    assert not missing, (
-        "pricing fixture expected_outputs has metric(s) not requested in inputs.metrics: "
-        f"{missing}"
-    )
+    assert not missing, f"pricing fixture expected_outputs has metric(s) not requested in inputs.metrics: {missing}"
 
 
 def _is_instrument_envelope(instrument_json: dict[str, Any]) -> bool:
