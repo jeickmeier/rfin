@@ -281,7 +281,7 @@ impl TreePricer {
                 let tree_config = ShortRateTreeConfig::bdt(tree_steps, sigma, mean_reversion)
                     .with_compounding(self.config.tree_compounding);
                 let mut tree = ShortRateTree::new(tree_config);
-                tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
+                tree.calibrate(tree_discount_curve_id, discount_curve.as_ref(), time_to_maturity)?;
                 validate_bdt_calibration_quality(tree.calibration_result())?;
                 let mut vars = StateVariables::default();
                 vars.insert(short_rate_keys::SHORT_RATE, tree.rate_at_node(0, 0)?);
@@ -292,11 +292,11 @@ impl TreePricer {
                 let tree_config = ShortRateTreeConfig {
                     steps: self.config.tree_steps,
                     volatility: self.config.volatility,
-                    mean_reversion: self.config.mean_reversion,
+                    mean_reversion: None,
                     ..Default::default()
                 };
                 let mut tree = ShortRateTree::new(tree_config);
-                tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
+                tree.calibrate(tree_discount_curve_id, discount_curve.as_ref(), time_to_maturity)?;
                 let mut vars = StateVariables::default();
                 vars.insert(short_rate_keys::SHORT_RATE, tree.rate_at_node(0, 0)?);
                 vars.insert(short_rate_keys::OAS, continuous_oas_bp);
@@ -480,11 +480,11 @@ impl TreePricer {
                     let tree_config = ShortRateTreeConfig {
                         steps: self.config.tree_steps,
                         volatility: self.config.volatility,
-                        mean_reversion: self.config.mean_reversion,
+                        mean_reversion: None,
                         ..Default::default()
                     };
                     let mut tree = ShortRateTree::new(tree_config);
-                    tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
+                    tree.calibrate(tree_discount_curve_id, discount_curve.as_ref(), time_to_maturity)?;
                     sr_tree = Some(tree);
                 }
                 TreeModelChoice::BlackDermanToy {
@@ -501,7 +501,7 @@ impl TreePricer {
                         ShortRateTreeConfig::bdt(valuation_steps, *sigma, *mean_reversion)
                             .with_compounding(self.config.tree_compounding);
                     let mut tree = ShortRateTree::new(tree_config);
-                    tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
+                    tree.calibrate(tree_discount_curve_id, discount_curve.as_ref(), time_to_maturity)?;
                     validate_bdt_calibration_quality(tree.calibration_result())?;
                     sr_tree = Some(tree);
                 }

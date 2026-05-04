@@ -186,12 +186,12 @@ pub struct TreePricerConfig {
     /// slow convergence for tight spreads. Default: 1000 bp.
     pub initial_bracket_size_bp: Option<f64>,
 
-    /// Mean reversion speed for Hull-White extension (annualized).
+    /// Mean reversion speed (annualized).
     ///
-    /// When set with Ho-Lee model, transforms the tree into Hull-White 1F:
-    /// `dr = [theta(t) - a*r] dt + sigma dW`
+    /// Used by `HullWhite` and `BlackDermanToy` tree models. Ignored by
+    /// `HoLee` — for mean-reverting normal models, use `HullWhite` instead.
     ///
-    /// - `None` (default): pure Ho-Lee (no mean reversion)
+    /// - `None` (default): no mean reversion
     /// - `Some(0.03)`: 3% annual mean reversion (moderate)
     /// - `Some(0.10)`: 10% annual mean reversion (strong)
     pub mean_reversion: Option<f64>,
@@ -222,7 +222,7 @@ impl Default for TreePricerConfig {
     /// For BDT model, use [`TreePricerConfig::default_bdt`] instead.
     fn default() -> Self {
         Self {
-            tree_steps: 100,
+            tree_steps: 200,
             volatility: 0.01, // 100 bps normal vol - appropriate for Ho-Lee
             tolerance: 1e-6,
             max_iterations: 50,

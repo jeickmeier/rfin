@@ -8,6 +8,7 @@ use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
+use finstack_core::types::CurveId;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::models::{
     NodeState, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel, TreeValuator,
@@ -65,7 +66,8 @@ fn test_tree_calibrates_to_curve() {
 
     let mut tree = ShortRateTree::new(tree_config);
     let time_to_maturity = 5.0;
-    tree.calibrate(&curve, time_to_maturity).unwrap();
+    tree.calibrate(&CurveId::new("USD-OIS"), &curve, time_to_maturity)
+        .unwrap();
 
     // Check that tree produces correct discount factors at key points
     let test_times = [0.5, 1.0, 2.0, 3.0, 5.0];
@@ -320,8 +322,12 @@ fn test_mean_reversion_none_matches_ho_lee() {
     let mut tree_hw = ShortRateTree::new(hw_zero_config);
     let ttm = 5.0;
 
-    tree_hl.calibrate(&curve, ttm).unwrap();
-    tree_hw.calibrate(&curve, ttm).unwrap();
+    tree_hl
+        .calibrate(&CurveId::new("USD-OIS"), &curve, ttm)
+        .unwrap();
+    tree_hw
+        .calibrate(&CurveId::new("USD-OIS"), &curve, ttm)
+        .unwrap();
 
     let valuator = ZeroCouponValuator { notional: 1.0 };
     let market = MarketContext::new();
@@ -351,31 +357,35 @@ fn test_mean_reversion_none_matches_ho_lee() {
 
 #[test]
 fn test_mean_reversion_reduces_rate_dispersion() {
+    use finstack_valuations::instruments::models::HullWhiteTreeConfig;
+    use finstack_valuations::instruments::models::HullWhiteTree;
+
     let as_of = date!(2020 - 01 - 01);
     let rate = 0.05;
     let curve = create_flat_curve(as_of, rate, "USD-OIS");
     let steps = 50;
     let ttm = 10.0;
 
+    // Ho-Lee (no mean reversion) via ShortRateTree
     let config_no_mr = ShortRateTreeConfig {
         steps,
         volatility: 0.01,
         mean_reversion: None,
         ..Default::default()
     };
+    let mut tree_no_mr = ShortRateTree::new(config_no_mr);
+    tree_no_mr
+        .calibrate(&CurveId::new("USD-OIS"), &curve, ttm)
+        .unwrap();
 
-    let config_mr = ShortRateTreeConfig {
+    // Hull-White with mean reversion
+    let hw_config = HullWhiteTreeConfig {
+        kappa: 0.05,
+        sigma: 0.01,
         steps,
-        volatility: 0.01,
-        mean_reversion: Some(0.05),
         ..Default::default()
     };
-
-    let mut tree_no_mr = ShortRateTree::new(config_no_mr);
-    let mut tree_mr = ShortRateTree::new(config_mr);
-
-    tree_no_mr.calibrate(&curve, ttm).unwrap();
-    tree_mr.calibrate(&curve, ttm).unwrap();
+    let tree_mr = HullWhiteTree::calibrate(hw_config, &curve, ttm).unwrap();
 
     // Compare rate spread at terminal step
     let last_step = steps;
@@ -383,8 +393,9 @@ fn test_mean_reversion_reduces_rate_dispersion() {
     let r_min_no_mr = tree_no_mr.rate_at_node(last_step, 0).unwrap();
     let spread_no_mr = r_max_no_mr - r_min_no_mr;
 
-    let r_max_mr = tree_mr.rate_at_node(last_step, last_step).unwrap();
-    let r_min_mr = tree_mr.rate_at_node(last_step, 0).unwrap();
+    let hw_nodes = tree_mr.num_nodes(last_step);
+    let r_max_mr = tree_mr.rate_at_node(last_step, hw_nodes - 1);
+    let r_min_mr = tree_mr.rate_at_node(last_step, 0);
     let spread_mr = r_max_mr - r_min_mr;
 
     assert!(

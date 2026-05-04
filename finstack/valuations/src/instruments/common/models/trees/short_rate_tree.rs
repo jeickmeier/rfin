@@ -101,14 +101,32 @@ pub enum TreeCompounding {
 
 impl TreeCompounding {
     /// Compute the per-step discount factor for a given rate and time step.
+    ///
+    /// Returns a positive discount factor. For pathological inputs (e.g.,
+    /// deeply negative rates with simple compounding where `1 + r*dt <= 0`),
+    /// the base is clamped to a small positive value to avoid negative or
+    /// NaN discount factors.
     #[inline]
     pub fn df(self, rate: f64, dt: f64) -> f64 {
+        const FLOOR: f64 = 1e-15;
         match self {
             Self::Continuous => (-rate * dt).exp(),
-            Self::Simple => 1.0 / (1.0 + rate * dt),
-            Self::SemiAnnual => (1.0 + rate / 2.0).powf(-2.0 * dt),
-            Self::Quarterly => (1.0 + rate / 4.0).powf(-4.0 * dt),
-            Self::Monthly => (1.0 + rate / 12.0).powf(-12.0 * dt),
+            Self::Simple => {
+                let denom = 1.0 + rate * dt;
+                1.0 / denom.max(FLOOR)
+            }
+            Self::SemiAnnual => {
+                let base = (1.0 + rate / 2.0).max(FLOOR);
+                base.powf(-2.0 * dt)
+            }
+            Self::Quarterly => {
+                let base = (1.0 + rate / 4.0).max(FLOOR);
+                base.powf(-4.0 * dt)
+            }
+            Self::Monthly => {
+                let base = (1.0 + rate / 12.0).max(FLOOR);
+                base.powf(-12.0 * dt)
+            }
         }
     }
 
@@ -121,7 +139,15 @@ impl TreeCompounding {
             return rate;
         }
         let d = self.df(rate, dt);
-        if d > 0.0 { -d.ln() / dt } else { rate }
+        if d > 0.0 {
+            -d.ln() / dt
+        } else {
+            tracing::warn!(
+                "TreeCompounding::to_continuous: non-positive DF {d:.6e} for rate={rate}, \
+                 dt={dt}, convention={self:?}; falling back to raw rate"
+            );
+            rate
+        }
     }
 }
 
@@ -556,13 +582,18 @@ impl ShortRateTree {
         Self::new(ShortRateTreeConfig::default_bdt(steps))
     }
 
-    /// Calibrate the tree to match a given discount curve
+    /// Calibrate the tree to match a given discount curve.
+    ///
+    /// The `curve_id` is stored so that [`calculate_greeks`](TreeModel::calculate_greeks)
+    /// can look up the curve from the `MarketContext` when recalibrating bumped
+    /// trees for vega and theta.
     pub fn calibrate(
         &mut self,
+        curve_id: &CurveId,
         discount_curve: &dyn Discounting,
         time_to_maturity: f64,
     ) -> Result<()> {
-        self.calibration_curve_id = CurveId::new("CALIBRATED");
+        self.calibration_curve_id = curve_id.clone();
 
         // Build time grid
         let dt = time_to_maturity / self.config.steps as f64;
@@ -582,13 +613,27 @@ impl ShortRateTree {
         Ok(())
     }
 
-    /// Calibrate Ho-Lee model parameters
+    /// Calibrate Ho-Lee model parameters.
+    ///
+    /// Ho-Lee does **not** support mean reversion because the rate-dependent
+    /// drift `κ·r` breaks lattice recombination. Use [`HullWhiteTree`] for
+    /// mean-reverting normal short-rate models.
     fn calibrate_ho_lee(
         &mut self,
         rates: &mut [Vec<f64>],
         discount_curve: &dyn Discounting,
         dt: f64,
     ) -> Result<()> {
+        if let Some(kappa) = self.config.mean_reversion {
+            if kappa.abs() > 1e-12 {
+                return Err(Error::Validation(
+                    "Ho-Lee model does not support mean reversion (breaks lattice recombination); \
+                     use HullWhiteTree for mean-reverting normal short-rate models"
+                        .into(),
+                ));
+            }
+        }
+
         let sigma = self.config.volatility;
 
         // Initialize first step with current short rate
@@ -628,26 +673,19 @@ impl ShortRateTree {
             let mut next_rates_base = vec![0.0; next_nodes];
             let mut next_state_prices = vec![0.0; next_nodes];
 
-            // 1. Calculate next state prices and base rates (without theta)
-            //
-            // Hull-White extension: when mean_reversion `a` is set, the drift
-            // includes a pull toward zero: dr = [theta(t) - a*r] dt + sigma dW
-            // This reduces rate dispersion at long maturities compared to Ho-Lee.
-            let mr_drift = self.config.mean_reversion.unwrap_or(0.0);
             for (i, &current_rate) in rates[step].iter().enumerate() {
                 let q = state_prices[i];
                 let df = (-current_rate * dt).exp();
-                let mean_rev_adj = mr_drift * current_rate * dt;
 
                 // Up move (to i+1)
-                let r_up_base = current_rate + sigma * dt.sqrt() - mean_rev_adj;
+                let r_up_base = current_rate + sigma * dt.sqrt();
                 if i + 1 < next_nodes {
                     next_rates_base[i + 1] = r_up_base;
                     next_state_prices[i + 1] += q * df * 0.5;
                 }
 
                 // Down move (to i)
-                let r_down_base = current_rate - sigma * dt.sqrt() - mean_rev_adj;
+                let r_down_base = current_rate - sigma * dt.sqrt();
                 if i < next_nodes {
                     next_rates_base[i] = r_down_base;
                     next_state_prices[i] += q * df * 0.5;
@@ -696,10 +734,13 @@ impl ShortRateTree {
         let mut max_error_bps = 0.0_f64;
         let mut max_error_step = 0_usize;
         {
-            let mut q = vec![1.0_f64]; // Arrow-Debreu prices
+            let max_nodes = self.config.steps + 2;
+            let mut q = vec![0.0_f64; max_nodes];
+            let mut next_q = vec![0.0_f64; max_nodes];
+            q[0] = 1.0; // Arrow-Debreu prices
             for (step, rates_step) in rates.iter().enumerate().take(self.config.steps) {
                 let next_nodes = step + 2;
-                let mut next_q = vec![0.0; next_nodes];
+                next_q[..next_nodes].fill(0.0);
                 for (i, &rate_i) in rates_step.iter().enumerate() {
                     let df_i = (-rate_i * dt).exp();
                     if i + 1 < next_nodes {
@@ -709,7 +750,7 @@ impl ShortRateTree {
                         next_q[i] += q[i] * df_i * 0.5;
                     }
                 }
-                let model_df: f64 = next_q.iter().sum();
+                let model_df: f64 = next_q[..next_nodes].iter().sum();
                 let t_next = self.time_steps[step + 1];
                 let target_df = discount_curve.df(t_next);
                 if target_df > 0.0 {
@@ -719,7 +760,7 @@ impl ShortRateTree {
                         max_error_step = step;
                     }
                 }
-                q = next_q;
+                std::mem::swap(&mut q, &mut next_q);
             }
         }
 
@@ -764,9 +805,12 @@ impl ShortRateTree {
         let u = step_vol.exp();
         let p = 0.5;
 
-        // Bounds for alpha solver (reasonable rate range: 0bp to 5000bp = 50%)
-        let alpha_lb = 1e-6;
-        let alpha_ub = 0.50;
+        // Bounds for alpha solver.
+        // Upper bound is generous to avoid distorting the tail of the lognormal
+        // distribution; individual node rates can legitimately exceed 100% in
+        // wide trees (high vol, many steps, long maturity).
+        let alpha_lb = 1e-8;
+        let alpha_ub = 5.0;
 
         // Initialize first step with initial short rate
         let r0 = if self.time_steps[1] > 0.0 {
@@ -937,7 +981,16 @@ impl ShortRateTree {
         Ok(())
     }
 
-    /// Get the short rate at a specific node
+    /// Get the short rate at a specific node.
+    ///
+    /// # Node Ordering
+    ///
+    /// The ordering convention differs by model:
+    ///
+    /// | Model | Node 0 | Node N |
+    /// |-------|--------|--------|
+    /// | Ho-Lee | **lowest** rate | **highest** rate |
+    /// | BDT | **highest** rate (`α·u^(n-1)`) | **lowest** rate (`α·u^(-(n-1))`) |
     pub fn rate_at_node(&self, step: usize, node: usize) -> Result<f64> {
         if step >= self.rates.len() || node >= self.rates[step].len() {
             return Err(Error::internal(format!(
@@ -1097,7 +1150,6 @@ impl TreeModel for ShortRateTree {
         valuator: &V,
         bump_size: Option<f64>,
     ) -> Result<TreeGreeks> {
-        // Base price
         let base_price = self.price(
             initial_vars.clone(),
             time_to_maturity,
@@ -1107,25 +1159,30 @@ impl TreeModel for ShortRateTree {
 
         let mut greeks = TreeGreeks {
             price: base_price,
-            delta: 0.0, // Not applicable for bond vs rates
-            gamma: 0.0, // Not applicable for bond vs rates
-            vega: 0.0,  // Volatility sensitivity
-            theta: 0.0, // Time decay
-            rho: 0.0,   // Interest rate sensitivity
+            delta: 0.0,
+            gamma: 0.0,
+            vega: 0.0,
+            theta: 0.0,
+            rho: 0.0,
         };
 
-        let vol_bump = bump_size.unwrap_or(0.01); // Default 1% vol bump (100bp for normal, 1% for lognormal)
+        // Default: 1% vol bump (100 bp for normal, 1 percentage-point for lognormal)
+        let vol_bump = bump_size.unwrap_or(0.01);
+        let curve_id = &self.calibration_curve_id;
 
-        // Calculate Vega (volatility sensitivity) using central difference
-        // This requires rebuilding trees with bumped volatility
-        // Try to get the discount curve from market context for recalibration
-        if let Ok(discount_curve) = market_context.get_discount(&self.calibration_curve_id) {
-            // Build tree with vol + bump
+        // Vega and theta require recalibrating fresh trees against the discount
+        // curve.  The curve is looked up from MarketContext using the CurveId
+        // stored during calibrate().
+        if let Ok(discount_curve) = market_context.get_discount(curve_id) {
+            // --- Vega (central difference with correct denominator) -----------
+            let vol_up = self.config.volatility + vol_bump;
+            let vol_down = (self.config.volatility - vol_bump).max(1e-6);
+
             let mut config_up = self.config.clone();
-            config_up.volatility += vol_bump;
+            config_up.volatility = vol_up;
             let mut tree_up = ShortRateTree::new(config_up);
             if tree_up
-                .calibrate(discount_curve.as_ref(), time_to_maturity)
+                .calibrate(curve_id, discount_curve.as_ref(), time_to_maturity)
                 .is_ok()
             {
                 let price_up = tree_up.price(
@@ -1135,12 +1192,11 @@ impl TreeModel for ShortRateTree {
                     valuator,
                 )?;
 
-                // Build tree with vol - bump
                 let mut config_down = self.config.clone();
-                config_down.volatility = (config_down.volatility - vol_bump).max(1e-6);
+                config_down.volatility = vol_down;
                 let mut tree_down = ShortRateTree::new(config_down);
                 if tree_down
-                    .calibrate(discount_curve.as_ref(), time_to_maturity)
+                    .calibrate(curve_id, discount_curve.as_ref(), time_to_maturity)
                     .is_ok()
                 {
                     let price_down = tree_down.price(
@@ -1150,41 +1206,50 @@ impl TreeModel for ShortRateTree {
                         valuator,
                     )?;
 
-                    // Central difference vega per 1% vol
-                    greeks.vega = (price_up - price_down) / 2.0;
+                    let actual_span = vol_up - vol_down;
+                    greeks.vega = (price_up - price_down) / actual_span * vol_bump;
                 } else {
-                    // Fallback to one-sided difference
                     greeks.vega = price_up - base_price;
                 }
             }
+
+            // --- Theta (recalibrate a fresh tree for bumped maturity) ---------
+            let dt_theta = 1.0 / 365.25;
+            let ttm_tomorrow = time_to_maturity - dt_theta;
+            if ttm_tomorrow > 0.0 {
+                let mut tree_tomorrow = ShortRateTree::new(self.config.clone());
+                if tree_tomorrow
+                    .calibrate(curve_id, discount_curve.as_ref(), ttm_tomorrow)
+                    .is_ok()
+                {
+                    let price_tomorrow = tree_tomorrow.price(
+                        initial_vars.clone(),
+                        ttm_tomorrow,
+                        market_context,
+                        valuator,
+                    )?;
+                    greeks.theta = -(base_price - price_tomorrow) / dt_theta;
+                }
+            }
         } else {
-            // No discount curve available - vega cannot be computed accurately
             tracing::debug!(
-                "ShortRateTree::calculate_greeks: discount curve '{}' not found, vega set to 0",
-                self.calibration_curve_id.as_str()
+                "ShortRateTree::calculate_greeks: discount curve '{}' not found; \
+                 vega and theta set to 0",
+                curve_id.as_str()
             );
         }
 
-        // Calculate Rho (interest rate sensitivity)
-        // Approximate using finite differences on OAS (per 1bp)
-        let mut bumped_vars = initial_vars.clone();
-        let base_oas = initial_vars.get("oas").copied().unwrap_or(0.0);
-        bumped_vars.insert("oas", base_oas + 1.0); // 1bp bump
+        // Rho: OAS sensitivity (price change per 1 bp parallel spread bump).
+        // Note: this measures sensitivity to the option-adjusted spread, not to
+        // a parallel shift of the underlying yield curve. For bonds with embedded
+        // options the two are not equivalent because an OAS bump does not change
+        // the exercise boundary while a curve bump does.
+        let mut bumped_vars = initial_vars;
+        let base_oas = bumped_vars.get("oas").copied().unwrap_or(0.0);
+        bumped_vars.insert("oas", base_oas + 1.0);
 
         let bumped_price = self.price(bumped_vars, time_to_maturity, market_context, valuator)?;
         greeks.rho = bumped_price - base_price;
-
-        // Calculate Theta (time decay) - 1 day bump
-        let dt = 1.0 / 365.25;
-        if time_to_maturity > dt {
-            let price_tomorrow = self.price(
-                initial_vars,
-                time_to_maturity - dt,
-                market_context,
-                valuator,
-            )?;
-            greeks.theta = -(base_price - price_tomorrow) / dt;
-        }
 
         Ok(greeks)
     }
@@ -1213,8 +1278,14 @@ mod tests {
     use finstack_core::math::volatility::{convert_atm_volatility, VolatilityConvention};
     use time::Month;
 
+    const TEST_CURVE_ID: &str = "USD-OIS";
+
+    fn test_curve_id() -> CurveId {
+        CurveId::new(TEST_CURVE_ID)
+    }
+
     fn create_test_curve() -> DiscountCurve {
-        DiscountCurve::builder("USD-OIS")
+        DiscountCurve::builder(TEST_CURVE_ID)
             .base_date(
                 finstack_core::dates::Date::from_calendar_date(2025, Month::January, 1)
                     .expect("should succeed"),
@@ -1255,7 +1326,7 @@ mod tests {
         let mut tree = ShortRateTree::ho_lee(10, 0.015);
         let curve = create_test_curve();
 
-        let result = tree.calibrate(&curve, 2.0);
+        let result = tree.calibrate(&test_curve_id(), &curve, 2.0);
         assert!(result.is_ok());
 
         // Tree should have rates at each step
@@ -1268,7 +1339,7 @@ mod tests {
     fn test_rate_access() {
         let mut tree = ShortRateTree::ho_lee(5, 0.01);
         let curve = create_test_curve();
-        tree.calibrate(&curve, 1.0).expect("should succeed");
+        tree.calibrate(&test_curve_id(), &curve, 1.0).expect("should succeed");
 
         // Should be able to access rates at valid nodes
         let r0 = tree.rate_at_node(0, 0).expect("should succeed");
@@ -1296,7 +1367,7 @@ mod tests {
         let mut tree = ShortRateTree::black_derman_toy(6, 0.20, 0.0);
         let curve = create_test_curve();
 
-        tree.calibrate(&curve, 2.0).expect("should succeed");
+        tree.calibrate(&test_curve_id(), &curve, 2.0).expect("should succeed");
 
         assert_eq!(tree.rates.len(), 7);
         assert_eq!(tree.probs.len(), 6);
@@ -1312,7 +1383,7 @@ mod tests {
         let maturity = 2.0;
         let mut tree = ShortRateTree::black_derman_toy(steps, 0.20, 0.0);
         let curve = create_test_curve();
-        tree.calibrate(&curve, maturity).expect("BDT calibration");
+        tree.calibrate(&test_curve_id(), &curve, maturity).expect("BDT calibration");
 
         let mut vars = StateVariables::default();
         vars.insert(
@@ -1338,7 +1409,7 @@ mod tests {
 
         let mut tree = ShortRateTree::new(config);
         let curve = create_test_curve();
-        tree.calibrate(&curve, 2.0).expect("BDT calibration");
+        tree.calibrate(&test_curve_id(), &curve, 2.0).expect("BDT calibration");
 
         for step in 0..=6 {
             assert_eq!(
@@ -1353,7 +1424,7 @@ mod tests {
     fn test_short_rate_tree_rejects_branching_geometry_mismatch() {
         let mut tree = ShortRateTree::new(ShortRateTreeConfig::bdt(6, 0.20, 0.0).with_trinomial());
         let curve = create_test_curve();
-        tree.calibrate(&curve, 2.0).expect("BDT calibration");
+        tree.calibrate(&test_curve_id(), &curve, 2.0).expect("BDT calibration");
 
         let mut vars = StateVariables::default();
         vars.insert(
@@ -1379,8 +1450,9 @@ mod tests {
         let mut tree_mr = ShortRateTree::new(ShortRateTreeConfig::bdt(steps, 0.20, 0.05));
         let curve = create_test_curve();
 
-        tree_no_mr.calibrate(&curve, 2.0).expect("BDT(κ=0)");
-        tree_mr.calibrate(&curve, 2.0).expect("BDT(κ=0.05)");
+        let cid = test_curve_id();
+        tree_no_mr.calibrate(&cid, &curve, 2.0).expect("BDT(κ=0)");
+        tree_mr.calibrate(&cid, &curve, 2.0).expect("BDT(κ=0.05)");
 
         let quality = tree_mr.calibration_result().expect("quality");
         assert!(quality.is_acceptable(), "BDT(κ=0.05) calibration: max_error={:.2}bp", quality.max_error_bps);
@@ -1673,7 +1745,7 @@ mod tests {
     fn test_probability_and_time_accessors_validate_bounds() {
         let mut tree = ShortRateTree::ho_lee(5, 0.01);
         let curve = create_test_curve();
-        tree.calibrate(&curve, 1.0).expect("should succeed");
+        tree.calibrate(&test_curve_id(), &curve, 1.0).expect("should succeed");
 
         assert_eq!(tree.probabilities(0).expect("probabilities"), (0.5, 0.5));
         assert_eq!(tree.time_at_step(0).expect("time"), 0.0);
@@ -1694,5 +1766,42 @@ mod tests {
             )
             .expect_err("uncalibrated tree should error");
         assert!(err.to_string().contains("must be calibrated"));
+    }
+
+    #[test]
+    fn test_ho_lee_rejects_nonzero_mean_reversion() {
+        let config = ShortRateTreeConfig {
+            steps: 10,
+            model: ShortRateModel::HoLee,
+            volatility: 0.01,
+            mean_reversion: Some(0.05),
+            branching: TreeBranching::Binomial,
+            compounding: TreeCompounding::default(),
+        };
+        let mut tree = ShortRateTree::new(config);
+        let curve = create_test_curve();
+        let err = tree
+            .calibrate(&test_curve_id(), &curve, 2.0)
+            .expect_err("Ho-Lee with mean reversion must be rejected");
+        assert!(
+            err.to_string().contains("mean reversion"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_ho_lee_allows_zero_mean_reversion() {
+        let config = ShortRateTreeConfig {
+            steps: 10,
+            model: ShortRateModel::HoLee,
+            volatility: 0.01,
+            mean_reversion: Some(0.0),
+            branching: TreeBranching::Binomial,
+            compounding: TreeCompounding::default(),
+        };
+        let mut tree = ShortRateTree::new(config);
+        let curve = create_test_curve();
+        tree.calibrate(&test_curve_id(), &curve, 2.0)
+            .expect("Ho-Lee with κ=0 should succeed");
     }
 }

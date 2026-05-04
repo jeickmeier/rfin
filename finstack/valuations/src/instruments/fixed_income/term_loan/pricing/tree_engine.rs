@@ -505,7 +505,7 @@ impl TermLoanTreePricer {
                 volatility: vol,
                 ..Default::default()
             });
-            tree.calibrate(disc.as_ref(), time_to_maturity)?;
+            tree.calibrate(&loan.discount_curve_id, disc.as_ref(), time_to_maturity)?;
 
             let initial_rate = tree.rate_at_node(0, 0).unwrap_or_else(|_| disc.zero(0.0));
             let mut vars = StateVariables::default();
@@ -624,7 +624,7 @@ impl TermLoanTreePricer {
                 volatility: vol,
                 ..Default::default()
             });
-            tree.calibrate(disc.as_ref(), time_to_maturity)
+            tree.calibrate(&loan.discount_curve_id, disc.as_ref(), time_to_maturity)
                 .map_err(|e| {
                     finstack_core::Error::Validation(format!(
                         "TermLoan OAS short-rate tree calibration failed: {e}"

@@ -4,6 +4,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
+use finstack_core::types::CurveId;
 use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::BondValuator;
 use finstack_valuations::instruments::fixed_income::bond::{Bond, CallPut, CallPutSchedule};
 use finstack_valuations::instruments::models::{
@@ -63,7 +64,7 @@ fn call_friction_raises_callable_price_toward_straight() {
         volatility: vol,
         ..Default::default()
     });
-    tree.calibrate(discount_curve.as_ref(), time_to_maturity)
+    tree.calibrate(&CurveId::new("USD-OIS"), discount_curve.as_ref(), time_to_maturity)
         .unwrap();
 
     let mut vars = StateVariables::default();
