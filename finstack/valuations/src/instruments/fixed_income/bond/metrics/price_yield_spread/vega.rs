@@ -1,6 +1,7 @@
 use crate::instruments::fixed_income::bond::pricing::engine::tree::{bond_tree_config, TreePricer};
 use crate::instruments::fixed_income::bond::pricing::quote_conversions::price_from_oas;
 use crate::instruments::fixed_income::bond::pricing::settlement::settlement_date;
+use crate::instruments::fixed_income::bond::CallPutSchedule;
 use crate::instruments::Bond;
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -45,7 +46,7 @@ fn holder_option_value_at_vol(
     let quote_date = settlement_date(&bumped, context.as_of)?;
     let price_with_options =
         price_from_oas(&bumped, context.curves.as_ref(), quote_date, oas_decimal)?;
-    bumped.call_put = None;
+    bumped.call_put = Some(CallPutSchedule::default());
     let price_straight = price_from_oas(&bumped, context.curves.as_ref(), quote_date, oas_decimal)?;
     Ok(price_with_options - price_straight)
 }

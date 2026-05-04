@@ -1,4 +1,5 @@
 use super::super::super::super::types::Bond;
+use crate::instruments::common_impl::models::trees::TreeCompounding;
 use crate::instruments::pricing_overrides::{OasPriceBasis, OasQuoteCompounding};
 use finstack_core::types::CurveId;
 use finstack_core::types::Percentage;
@@ -209,6 +210,8 @@ pub struct TreePricerConfig {
     pub oas_quote_compounding: OasQuoteCompounding,
     /// Price/accrual target convention for OAS inversion.
     pub oas_price_basis: OasPriceBasis,
+    /// Per-node compounding convention for the short-rate tree.
+    pub tree_compounding: TreeCompounding,
 }
 
 impl Default for TreePricerConfig {
@@ -229,6 +232,7 @@ impl Default for TreePricerConfig {
             tree_discount_curve_id: None,
             oas_quote_compounding: OasQuoteCompounding::Continuous,
             oas_price_basis: OasPriceBasis::SettlementDirty,
+            tree_compounding: TreeCompounding::default(),
         }
     }
 }
@@ -319,6 +323,7 @@ pub fn bond_tree_config(bond: &Bond) -> TreePricerConfig {
             .clone(),
         oas_quote_compounding: bond.pricing_overrides.model_config.oas_quote_compounding,
         oas_price_basis: bond.pricing_overrides.model_config.oas_price_basis,
+        tree_compounding: TreeCompounding::default(),
     }
 }
 
@@ -363,6 +368,7 @@ impl TreePricerConfig {
             tree_discount_curve_id: None,
             oas_quote_compounding: OasQuoteCompounding::Continuous,
             oas_price_basis: OasPriceBasis::SettlementDirty,
+            tree_compounding: TreeCompounding::default(),
         }
     }
 
@@ -379,6 +385,7 @@ impl TreePricerConfig {
             tree_discount_curve_id: None,
             oas_quote_compounding: OasQuoteCompounding::Continuous,
             oas_price_basis: OasPriceBasis::SettlementDirty,
+            tree_compounding: TreeCompounding::default(),
         }
     }
 
@@ -422,6 +429,7 @@ impl TreePricerConfig {
             tree_discount_curve_id: None,
             oas_quote_compounding: OasQuoteCompounding::Continuous,
             oas_price_basis: OasPriceBasis::SettlementDirty,
+            tree_compounding: TreeCompounding::default(),
         }
     }
 
@@ -441,6 +449,7 @@ impl TreePricerConfig {
             tree_discount_curve_id: None,
             oas_quote_compounding: OasQuoteCompounding::Continuous,
             oas_price_basis: OasPriceBasis::SettlementDirty,
+            tree_compounding: TreeCompounding::default(),
         }
     }
 
@@ -480,6 +489,7 @@ impl TreePricerConfig {
             tree_discount_curve_id: None,
             oas_quote_compounding: OasQuoteCompounding::Continuous,
             oas_price_basis: OasPriceBasis::SettlementDirty,
+            tree_compounding: TreeCompounding::default(),
         }
     }
 
@@ -496,6 +506,7 @@ impl TreePricerConfig {
             tree_discount_curve_id: None,
             oas_quote_compounding: OasQuoteCompounding::Continuous,
             oas_price_basis: OasPriceBasis::SettlementDirty,
+            tree_compounding: TreeCompounding::default(),
         }
     }
 
@@ -529,6 +540,7 @@ impl TreePricerConfig {
             tree_discount_curve_id: None,
             oas_quote_compounding: OasQuoteCompounding::Continuous,
             oas_price_basis: OasPriceBasis::SettlementDirty,
+            tree_compounding: TreeCompounding::default(),
         }
     }
 
@@ -545,6 +557,7 @@ impl TreePricerConfig {
             tree_discount_curve_id: None,
             oas_quote_compounding: OasQuoteCompounding::Continuous,
             oas_price_basis: OasPriceBasis::SettlementDirty,
+            tree_compounding: TreeCompounding::default(),
         }
     }
 
@@ -569,6 +582,7 @@ impl TreePricerConfig {
             tree_discount_curve_id: None,
             oas_quote_compounding: OasQuoteCompounding::Continuous,
             oas_price_basis: OasPriceBasis::SettlementDirty,
+            tree_compounding: TreeCompounding::default(),
         }
     }
 
@@ -594,6 +608,7 @@ impl TreePricerConfig {
             tree_discount_curve_id: None,
             oas_quote_compounding: OasQuoteCompounding::Continuous,
             oas_price_basis: OasPriceBasis::SettlementDirty,
+            tree_compounding: TreeCompounding::default(),
         }
     }
 }

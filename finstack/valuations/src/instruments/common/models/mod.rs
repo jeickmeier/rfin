@@ -51,7 +51,8 @@ pub use pde::{
 pub use trees::{
     short_rate_keys, single_factor_equity_state, state_keys, two_factor_equity_rates_state,
     BarrierSpec, BarrierStyle, BinomialTree, EvolutionParams, NodeState, ShortRateModel,
-    ShortRateTree, ShortRateTreeConfig, StateVariables, TreeBranching, TreeGreeks, TreeModel,
+    ShortRateTree, ShortRateTreeConfig, StateVariables, TreeBranching, TreeCompounding, TreeGreeks,
+    TreeModel,
     TreeParameters, TreeType, TreeValuator, TrinomialTree, TrinomialTreeType,
 };
 #[allow(unused_imports)]

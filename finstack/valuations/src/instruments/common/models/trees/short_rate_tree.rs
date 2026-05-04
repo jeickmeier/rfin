@@ -75,6 +75,56 @@ pub const DEFAULT_LOGNORMAL_VOL: f64 = 0.20; // 20%
 // Short-Rate Model Types
 // ============================================================================
 
+/// Compounding convention for per-node discount factors in the short-rate tree.
+///
+/// | Convention | Formula | Use Case |
+/// |------------|---------|----------|
+/// | `Continuous` | `exp(-r * dt)` | Default; matches continuous short-rate dynamics |
+/// | `Simple` | `1 / (1 + r * dt)` | Money-market / Bloomberg BDT convention |
+/// | `SemiAnnual` | `(1 + r/2)^(-2 * dt)` | US bond market convention |
+/// | `Quarterly` | `(1 + r/4)^(-4 * dt)` | Quarterly compounding |
+/// | `Monthly` | `(1 + r/12)^(-12 * dt)` | Monthly compounding |
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TreeCompounding {
+    /// Continuous compounding: `df = exp(-r * dt)`.
+    #[default]
+    Continuous,
+    /// Simple (money-market) compounding: `df = 1 / (1 + r * dt)`.
+    Simple,
+    /// Semi-annual compounding: `df = (1 + r/2)^(-2 * dt)`.
+    SemiAnnual,
+    /// Quarterly compounding: `df = (1 + r/4)^(-4 * dt)`.
+    Quarterly,
+    /// Monthly compounding: `df = (1 + r/12)^(-12 * dt)`.
+    Monthly,
+}
+
+impl TreeCompounding {
+    /// Compute the per-step discount factor for a given rate and time step.
+    #[inline]
+    pub fn df(self, rate: f64, dt: f64) -> f64 {
+        match self {
+            Self::Continuous => (-rate * dt).exp(),
+            Self::Simple => 1.0 / (1.0 + rate * dt),
+            Self::SemiAnnual => (1.0 + rate / 2.0).powf(-2.0 * dt),
+            Self::Quarterly => (1.0 + rate / 4.0).powf(-4.0 * dt),
+            Self::Monthly => (1.0 + rate / 12.0).powf(-12.0 * dt),
+        }
+    }
+
+    /// Convert a rate under this convention to the equivalent continuous rate.
+    ///
+    /// Returns `r_cont` such that `exp(-r_cont * dt) = self.df(rate, dt)`.
+    #[inline]
+    pub fn to_continuous(self, rate: f64, dt: f64) -> f64 {
+        if dt.abs() < f64::EPSILON {
+            return rate;
+        }
+        let d = self.df(rate, dt);
+        if d > 0.0 { -d.ln() / dt } else { rate }
+    }
+}
+
 /// Short-rate tree model types.
 ///
 /// Each model has distinct volatility conventions and mathematical properties:
@@ -107,20 +157,22 @@ pub enum ShortRateModel {
     /// - Crisis: 150-300 bps (0.015-0.030)
     HoLee,
 
-    /// Black-Derman-Toy model: Lognormal short rates.
+    /// Black-Derman-Toy / Black-Karasinski model: Lognormal short rates.
     ///
     /// ## Rate Dynamics
     /// ```text
-    /// d(ln r) = θ(t)dt + σdW
+    /// d(ln r) = [θ(t) - κ ln r] dt + σ dW
     /// ```
     /// where:
     /// - `θ(t)` is calibrated to match the discount curve
     /// - `σ` is the **lognormal volatility** (relative, like 0.20 = 20%)
+    /// - `κ` is the mean reversion speed (0 recovers standard BDT)
     ///
     /// ## Properties
     /// - ❌ Cannot handle negative rates (rates stay positive)
-    /// - Current implementation is a binomial curve-fit BDT lattice; mean
-    ///   reversion is not applied by `calibrate_bdt`.
+    /// - When `κ = 0`: standard BDT with constant lognormal volatility
+    /// - When `κ > 0`: Black-Karasinski extension; rate dispersion is
+    ///   tightened via the integrated variance `σ²(1-e^{-2κΔt})/(2κ)`
     /// - Lognormal distribution matches cap/floor market conventions
     ///
     /// ## Typical Volatility Range
@@ -195,8 +247,9 @@ pub struct ShortRateTreeConfig {
     /// Controls how quickly rates revert to the long-term mean.
     /// - Typical values: 0.01-0.10 (1-10% per year)
     /// - Higher values = faster reversion, less rate dispersion
-    /// - Used by the Ho-Lee/Hull-White-style path; current BDT calibration
-    ///   rejects nonzero mean reversion rather than silently ignoring it.
+    /// - Ho-Lee/Hull-White: explicit mean reversion in the drift
+    /// - BDT/Black-Karasinski: tightens the per-step lognormal spread
+    ///   via integrated variance; 0 recovers standard BDT
     pub mean_reversion: Option<f64>,
 
     /// Tree branching type (binomial or trinomial).
@@ -207,6 +260,13 @@ pub struct ShortRateTreeConfig {
     ///
     /// Default: Binomial. Use trinomial only with a matching calibrated lattice.
     pub branching: TreeBranching,
+
+    /// Per-node discount factor convention.
+    ///
+    /// Controls whether calibration and pricing use continuous `exp(-r*dt)` or
+    /// simple `1/(1+r*dt)` compounding. Bloomberg's lognormal OAS model uses
+    /// simple compounding; the default is continuous for backward compatibility.
+    pub compounding: TreeCompounding,
 }
 
 impl Default for ShortRateTreeConfig {
@@ -244,19 +304,19 @@ impl ShortRateTreeConfig {
             volatility: normal_vol,
             mean_reversion: None,
             branching: TreeBranching::Binomial,
+            compounding: TreeCompounding::default(),
         }
     }
 
-    /// Create a Black-Derman-Toy configuration with specified lognormal volatility.
+    /// Create a Black-Derman-Toy / Black-Karasinski configuration.
     ///
-    /// Uses binomial branching because the BDT calibration builds a binomial
-    /// `step + 1` lattice. A trinomial BDT calibration is not implemented.
+    /// Uses binomial branching with state-price recursion calibration.
     ///
     /// # Arguments
     ///
     /// * `steps` - Number of tree steps (50-200 typical)
     /// * `lognormal_vol` - Lognormal volatility (e.g., 0.20 = 20%/yr)
-    /// * `mean_reversion` - Must be zero for the current non-mean-reverting BDT calibration
+    /// * `mean_reversion` - Mean reversion speed (0.0 = standard BDT, 0.03 = Bloomberg default)
     ///
     /// # Examples
     ///
@@ -273,7 +333,15 @@ impl ShortRateTreeConfig {
             volatility: lognormal_vol,
             mean_reversion: Some(mean_reversion),
             branching: TreeBranching::Binomial,
+            compounding: TreeCompounding::default(),
         }
+    }
+
+    /// Set the per-node compounding convention.
+    #[must_use]
+    pub fn with_compounding(mut self, compounding: TreeCompounding) -> Self {
+        self.compounding = compounding;
+        self
     }
 
     /// Create Ho-Lee configuration with default normal volatility (100 bps).
@@ -665,15 +733,14 @@ impl ShortRateTree {
         Ok(())
     }
 
-    /// Calibrate Black-Derman-Toy model using state-price recursion.
+    /// Calibrate Black-Derman-Toy / Black-Karasinski model using state-price recursion.
     ///
-    /// Implements proper BDT calibration that matches the discount curve at each step
-    /// by solving for the drift parameter using state-price recursion and root finding.
+    /// When `mean_reversion` is zero, this is standard BDT with constant lognormal
+    /// volatility. When positive, it extends to Black-Karasinski: the per-step
+    /// lognormal spread uses the integrated variance `σ² (1 - e^{-2κΔt}) / (2κ)`
+    /// instead of `σ²Δt`, tightening the rate distribution at longer horizons.
     ///
-    /// # Convergence Monitoring
-    ///
-    /// This method tracks calibration error at each step. If the error exceeds 1bp,
-    /// a warning is logged. The calibration will continue but results may be less accurate.
+    /// Bloomberg's OAS1 "L=Lognormal" model defaults to κ = 0.03.
     fn calibrate_bdt(
         &mut self,
         rates: &mut [Vec<f64>],
@@ -682,19 +749,20 @@ impl ShortRateTree {
     ) -> Result<()> {
         use finstack_core::math::{BrentSolver, Solver};
 
-        if self.config.mean_reversion.unwrap_or(0.0).abs() > 1e-12 {
-            return Err(Error::Validation(
-                "BDT mean reversion is not supported by the current binomial calibration; use 0.0 or the Hull-White tree model"
-                    .into(),
-            ));
-        }
-
         let sigma = self.config.volatility;
+        let kappa = self.config.mean_reversion.unwrap_or(0.0);
         let solver = BrentSolver::new();
 
-        // BDT parameters: lognormal rates with constant volatility
-        let u = (sigma * dt.sqrt()).exp(); // Up multiplier
-        let p = 0.5; // Risk-neutral probability
+        // Black-Karasinski / BDT: lognormal rates with optional mean reversion.
+        // The up multiplier uses the integrated lognormal standard deviation
+        // per step. For κ = 0 this reduces to σ√dt (standard BDT).
+        let step_vol = if kappa.abs() < 1e-12 {
+            sigma * dt.sqrt()
+        } else {
+            sigma * ((1.0 - (-2.0 * kappa * dt).exp()) / (2.0 * kappa)).sqrt()
+        };
+        let u = step_vol.exp();
+        let p = 0.5;
 
         // Bounds for alpha solver (reasonable rate range: 0bp to 5000bp = 50%)
         let alpha_lb = 1e-6;
@@ -738,15 +806,14 @@ impl ShortRateTree {
             let current_rates = &rates[step];
 
             // Solve for drift parameter alpha such that model ZCB price matches market
+            let comp = self.config.compounding;
             let objective = |alpha: f64| -> f64 {
-                // Calculate model ZCB price with this alpha
                 let mut model_price = 0.0;
 
                 for (j, &state_price) in current_state_prices.iter().enumerate().take(num_nodes) {
                     let rate = alpha * u.powf(num_nodes as f64 - 1.0 - 2.0 * j as f64);
                     let rate_clamped = rate.clamp(alpha_lb, alpha_ub);
-                    let discount_factor = (-rate_clamped * dt).exp();
-                    model_price += state_price * discount_factor;
+                    model_price += state_price * comp.df(rate_clamped, dt);
                 }
 
                 model_price - target_df
@@ -785,12 +852,10 @@ impl ShortRateTree {
                 .collect();
             rates[step] = current_step_rates.clone();
 
-            // Calculate and track calibration error
             let model_df = {
                 let mut model_price = 0.0;
                 for (j, &state_price) in current_state_prices.iter().enumerate().take(num_nodes) {
-                    let discount_factor = (-current_step_rates[j] * dt).exp();
-                    model_price += state_price * discount_factor;
+                    model_price += state_price * comp.df(current_step_rates[j], dt);
                 }
                 model_price
             };
@@ -823,7 +888,7 @@ impl ShortRateTree {
             let mut next_state_prices = vec![0.0; next_nodes];
 
             for (j, &state_price) in current_state_prices.iter().enumerate().take(num_nodes) {
-                let discount_factor = (-current_step_rates[j] * dt).exp();
+                let discount_factor = comp.df(current_step_rates[j], dt);
                 let state_price_contribution = state_price * discount_factor;
 
                 // Up move: j -> j+1
@@ -974,14 +1039,16 @@ impl TreeModel for ShortRateTree {
             }
         });
 
-        // Create custom rate generator that includes OAS
         let rates_clone2 = self.rates.clone();
+        let compounding = self.config.compounding;
+        let dt_pricing = time_to_maturity / self.config.steps as f64;
         let rate_gen: StateGenerator = Box::new(move |step: usize, node: usize| -> f64 {
-            if step < rates_clone2.len() && node < rates_clone2[step].len() {
-                rates_clone2[step][node] + oas / 10000.0 // OAS in bps
+            let r = if step < rates_clone2.len() && node < rates_clone2[step].len() {
+                rates_clone2[step][node] + oas / 10000.0
             } else {
-                0.0
-            }
+                return 0.0;
+            };
+            compounding.to_continuous(r, dt_pricing)
         });
 
         // Set up branching probabilities based on tree type
@@ -1306,18 +1373,33 @@ mod tests {
     }
 
     #[test]
-    fn test_bdt_rejects_nonzero_mean_reversion_until_model_supported() {
-        let mut tree = ShortRateTree::new(ShortRateTreeConfig::bdt(6, 0.20, 0.03));
+    fn test_bdt_mean_reversion_calibrates_and_tightens_rate_dispersion() {
+        let steps = 10;
+        let mut tree_no_mr = ShortRateTree::new(ShortRateTreeConfig::bdt(steps, 0.20, 0.0));
+        let mut tree_mr = ShortRateTree::new(ShortRateTreeConfig::bdt(steps, 0.20, 0.05));
         let curve = create_test_curve();
 
-        let err = tree
-            .calibrate(&curve, 2.0)
-            .expect_err("BDT should not silently ignore nonzero mean reversion");
+        tree_no_mr.calibrate(&curve, 2.0).expect("BDT(κ=0)");
+        tree_mr.calibrate(&curve, 2.0).expect("BDT(κ=0.05)");
 
+        let quality = tree_mr.calibration_result().expect("quality");
+        assert!(quality.is_acceptable(), "BDT(κ=0.05) calibration: max_error={:.2}bp", quality.max_error_bps);
+
+        let max_rate_no_mr = tree_no_mr.rate_at_node(steps, 0).expect("top node no MR");
+        let max_rate_mr = tree_mr.rate_at_node(steps, 0).expect("top node MR");
         assert!(
-            err.to_string()
-                .contains("BDT mean reversion is not supported"),
-            "unexpected error: {err}"
+            max_rate_mr < max_rate_no_mr,
+            "mean reversion should tighten rate dispersion: no_mr_max={max_rate_no_mr:.6}, mr_max={max_rate_mr:.6}"
+        );
+
+        let market = MarketContext::new();
+        let mut vars = StateVariables::default();
+        vars.insert(short_rate_keys::SHORT_RATE, tree_mr.rate_at_node(0, 0).expect("root"));
+        let zcb = tree_mr.price(vars, 2.0, &market, &ConstantValuator).expect("ZCB price");
+        let target = curve.df(2.0);
+        assert!(
+            (zcb - target).abs() < 1e-6,
+            "BDT(κ=0.05) should still price ZCBs to curve: got={zcb:.8}, target={target:.8}"
         );
     }
 

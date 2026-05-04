@@ -252,6 +252,7 @@ impl TreePricer {
                     sigma,
                     steps: self.config.tree_steps,
                     max_nodes: None,
+                    compounding: self.config.tree_compounding,
                 };
                 let hw_tree =
                     HullWhiteTree::calibrate(hw_config, discount_curve.as_ref(), time_to_maturity)?;
@@ -277,7 +278,8 @@ impl TreePricer {
                     time_to_maturity,
                     tree_steps,
                 )?;
-                let tree_config = ShortRateTreeConfig::bdt(tree_steps, sigma, mean_reversion);
+                let tree_config = ShortRateTreeConfig::bdt(tree_steps, sigma, mean_reversion)
+                    .with_compounding(self.config.tree_compounding);
                 let mut tree = ShortRateTree::new(tree_config);
                 tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
                 validate_bdt_calibration_quality(tree.calibration_result())?;
@@ -466,6 +468,7 @@ impl TreePricer {
                         sigma: *sigma,
                         steps: self.config.tree_steps,
                         max_nodes: None,
+                        compounding: self.config.tree_compounding,
                     };
                     hw_tree = Some(HullWhiteTree::calibrate(
                         hw_config,
@@ -495,7 +498,8 @@ impl TreePricer {
                         &effective_model,
                     );
                     let tree_config =
-                        ShortRateTreeConfig::bdt(valuation_steps, *sigma, *mean_reversion);
+                        ShortRateTreeConfig::bdt(valuation_steps, *sigma, *mean_reversion)
+                            .with_compounding(self.config.tree_compounding);
                     let mut tree = ShortRateTree::new(tree_config);
                     tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
                     validate_bdt_calibration_quality(tree.calibration_result())?;

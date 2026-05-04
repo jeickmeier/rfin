@@ -37,6 +37,7 @@
 //! - Hull, J. (2018). *Options, Futures, and Other Derivatives*, 10th ed.
 //!   Chapter 31: Interest Rate Derivatives: Models of the Short Rate
 
+use super::short_rate_tree::TreeCompounding;
 use crate::instruments::common_impl::validation;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::{Error, Result};
@@ -79,15 +80,22 @@ pub struct HullWhiteTreeConfig {
     /// For mean-reverting processes, the tree doesn't grow indefinitely.
     /// Default: 2 * steps + 1 (sufficient for most cases)
     pub max_nodes: Option<usize>,
+
+    /// Per-node discount factor convention.
+    ///
+    /// Controls whether calibration and backward induction use continuous
+    /// `exp(-r*dt)` or periodic compounding. Default: `Continuous`.
+    pub compounding: TreeCompounding,
 }
 
 impl Default for HullWhiteTreeConfig {
     fn default() -> Self {
         Self {
-            kappa: 0.03, // 3% mean reversion
-            sigma: 0.01, // 100 bps volatility
+            kappa: 0.03,
+            sigma: 0.01,
             steps: 100,
             max_nodes: None,
+            compounding: TreeCompounding::default(),
         }
     }
 }
@@ -100,6 +108,7 @@ impl HullWhiteTreeConfig {
             sigma,
             steps,
             max_nodes: None,
+            compounding: TreeCompounding::default(),
         }
     }
 
@@ -266,6 +275,7 @@ impl HullWhiteTree {
                 curr_j_max,
                 next_j_max,
                 target_df,
+                config.compounding,
             )?;
 
             // Compute state prices for next step
@@ -278,6 +288,7 @@ impl HullWhiteTree {
                 dt,
                 curr_j_max,
                 next_j_max,
+                config.compounding,
             );
             state_prices.push(next_state_prices);
         }
@@ -402,6 +413,15 @@ impl HullWhiteTree {
     }
 
     /// Calibrate α at next step to match target discount factor.
+    ///
+    /// For continuous compounding, the closed-form solution is used:
+    ///   `exp(-α*dt) * Σ Q(t,j) * exp(-x(t,j)*dt) = target_df`
+    ///   → `α = -ln(target_df / weighted_sum) / dt`
+    ///
+    /// For periodic compounding, a numerical root-find is used since α
+    /// enters nonlinearly into the per-node discount factor
+    /// `comp.df(x_j + α, dt)`.
+    #[allow(clippy::too_many_arguments)]
     fn calibrate_alpha(
         curr_state_prices: &[f64],
         curr_probs: &[(f64, f64, f64)],
@@ -410,36 +430,53 @@ impl HullWhiteTree {
         curr_j_max: usize,
         _next_j_max: usize,
         target_df: f64,
+        compounding: TreeCompounding,
     ) -> Result<f64> {
-        // The sum Σ Q(t,j) * exp(-r(t,j)*dt) must equal P(0,t+dt)
-        // where r(t,j) = x(t,j) + α(t)
-        //
-        // This gives: exp(-α*dt) * Σ Q(t,j) * exp(-x(t,j)*dt) * transition = P(0,t+dt)
-
-        // Compute the weighted sum of discounted state prices
-        let mut weighted_sum = 0.0;
-
-        for j in 0..curr_state_prices.len() {
-            let j_signed = j as i32 - curr_j_max as i32;
-            let x_j = j_signed as f64 * dx;
-            let (p_up, p_mid, p_down) = curr_probs[j];
-
-            // Contribution from this node (before α adjustment)
-            let base_discount = (-x_j * dt).exp();
-            let contribution = curr_state_prices[j] * base_discount * (p_up + p_mid + p_down);
-            weighted_sum += contribution;
+        match compounding {
+            TreeCompounding::Continuous => {
+                let mut weighted_sum = 0.0;
+                for j in 0..curr_state_prices.len() {
+                    let j_signed = j as i32 - curr_j_max as i32;
+                    let x_j = j_signed as f64 * dx;
+                    let (p_up, p_mid, p_down) = curr_probs[j];
+                    let base_discount = (-x_j * dt).exp();
+                    weighted_sum +=
+                        curr_state_prices[j] * base_discount * (p_up + p_mid + p_down);
+                }
+                if weighted_sum <= 0.0 {
+                    return Err(Error::Validation(
+                        "Invalid state prices in tree calibration".into(),
+                    ));
+                }
+                Ok(-(target_df / weighted_sum).ln() / dt)
+            }
+            _ => {
+                use finstack_core::math::solver::{BrentSolver, Solver};
+                let objective = |alpha: f64| -> f64 {
+                    let mut model_df = 0.0;
+                    for j in 0..curr_state_prices.len() {
+                        let j_signed = j as i32 - curr_j_max as i32;
+                        let x_j = j_signed as f64 * dx;
+                        let r_j = x_j + alpha;
+                        let (p_up, p_mid, p_down) = curr_probs[j];
+                        model_df += curr_state_prices[j]
+                            * compounding.df(r_j, dt)
+                            * (p_up + p_mid + p_down);
+                    }
+                    model_df - target_df
+                };
+                let initial_guess = if dt > 0.0 {
+                    -(target_df).ln() / dt
+                } else {
+                    0.03
+                };
+                BrentSolver::new()
+                    .solve(objective, initial_guess)
+                    .map_err(|e| {
+                        Error::Validation(format!("HW alpha calibration failed: {e}"))
+                    })
+            }
         }
-
-        if weighted_sum <= 0.0 {
-            return Err(Error::Validation(
-                "Invalid state prices in tree calibration".into(),
-            ));
-        }
-
-        // Solve for α: exp(-α*dt) * weighted_sum = target_df
-        let alpha = -(target_df / weighted_sum).ln() / dt;
-
-        Ok(alpha)
     }
 
     /// Compute state prices for next time step.
@@ -453,6 +490,7 @@ impl HullWhiteTree {
         dt: f64,
         curr_j_max: usize,
         next_j_max: usize,
+        compounding: TreeCompounding,
     ) -> Vec<f64> {
         let num_next_nodes = 2 * next_j_max + 1;
         let mut next_prices = vec![0.0; num_next_nodes];
@@ -463,7 +501,7 @@ impl HullWhiteTree {
             let r_j = x_j + alpha[step];
 
             let (p_up, p_mid, p_down) = curr_probs[j];
-            let discount = (-r_j * dt).exp();
+            let discount = compounding.df(r_j, dt);
             let q_contribution = curr_state_prices[j] * discount;
 
             // Map to next step indices
@@ -738,7 +776,7 @@ impl HullWhiteTree {
         // Reuse scratch buffer across steps to avoid per-step allocation
         let max_nodes = self.num_nodes(n);
         let mut scratch = vec![0.0; max_nodes];
-        let neg_dt = -self.dt;
+        let comp = self.config.compounding;
 
         // Backward induction
         for step in (0..n).rev() {
@@ -747,16 +785,13 @@ impl HullWhiteTree {
             let j_max_curr = step.min(self.j_max);
             let j_max_next = (step + 1).min(self.j_max);
 
-            // Pre-fetch alpha for this step (avoids repeated bounds check in rate_at_node)
             let alpha_step = self.alpha.get(step).copied().unwrap_or(0.0);
 
             for (j, scratch_j) in scratch.iter_mut().enumerate().take(num_nodes) {
-                // Inline rate_at_node to avoid method call overhead + repeated j_max calc
                 let j_signed = j as i32 - j_max_curr as i32;
                 let r_j = j_signed as f64 * self.dx + alpha_step;
                 let (p_up, p_mid, p_down) = self.probabilities(step, j);
 
-                // Discounted expected value from child nodes
                 let next_mid = (j_signed + j_max_next as i32) as usize;
 
                 let v_up = if next_mid + 1 < num_next_nodes {
@@ -778,7 +813,7 @@ impl HullWhiteTree {
                 };
 
                 let expected_value = p_up * v_up + p_mid * v_mid + p_down * v_down;
-                let discounted = expected_value * (r_j * neg_dt).exp();
+                let discounted = expected_value * comp.df(r_j, self.dt);
 
                 *scratch_j = intermediate_value_fn(step, j, discounted);
             }

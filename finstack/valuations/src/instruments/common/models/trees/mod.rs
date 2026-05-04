@@ -21,8 +21,8 @@ pub mod two_factor_rates_credit;
 pub use binomial_tree::{BinomialTree, TreeType};
 pub use hull_white_tree::{HullWhiteTree, HullWhiteTreeConfig};
 pub use short_rate_tree::{
-    short_rate_keys, ShortRateModel, ShortRateTree, ShortRateTreeConfig, DEFAULT_LOGNORMAL_VOL,
-    DEFAULT_NORMAL_VOL,
+    short_rate_keys, ShortRateModel, ShortRateTree, ShortRateTreeConfig, TreeCompounding,
+    DEFAULT_LOGNORMAL_VOL, DEFAULT_NORMAL_VOL,
 };
 pub use tree_framework::{
     single_factor_equity_state, state_keys, two_factor_equity_rates_state, BarrierSpec,

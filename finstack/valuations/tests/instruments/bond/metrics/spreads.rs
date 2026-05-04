@@ -461,7 +461,7 @@ fn test_embedded_option_value_uses_solved_oas_and_holder_sign() {
     let actual = result.measures["embedded_option_value"];
 
     let mut straight_bond = bond.clone();
-    straight_bond.call_put = None;
+    straight_bond.call_put = Some(CallPutSchedule::default());
     let expected = price_from_oas(&bond, &market, as_of, oas).expect("callable OAS price")
         - price_from_oas(&straight_bond, &market, as_of, oas).expect("straight OAS price");
 
@@ -532,7 +532,7 @@ fn test_embedded_option_value_uses_settlement_date_oas_pricing_basis() {
     let actual = result.measures["embedded_option_value"];
 
     let mut straight_bond = bond.clone();
-    straight_bond.call_put = None;
+    straight_bond.call_put = Some(CallPutSchedule::default());
     let expected = price_from_oas(&bond, &market, quote_date, quoted_oas)
         .expect("callable quote-date OAS price")
         - price_from_oas(&straight_bond, &market, quote_date, quoted_oas)

@@ -446,9 +446,10 @@ impl BondValuator {
     pub(crate) fn price_with_hw_tree(&self, hw_tree: &HullWhiteTree, oas_bp: f64) -> f64 {
         let dt = hw_tree.dt();
         let final_step = hw_tree.num_steps();
+        let comp = hw_tree.config().compounding;
 
-        // Pre-compute OAS discount factor (constant across entire tree)
-        let oas_discount = (-(oas_bp / 10_000.0) * dt).exp();
+        // Pre-compute OAS discount factor using the tree's compounding convention
+        let oas_discount = comp.df(oas_bp / 10_000.0, dt);
 
         let terminal_cf = self.cashflow_at(final_step);
         let terminal_values = vec![terminal_cf; hw_tree.num_nodes(final_step)];

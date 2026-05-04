@@ -54,6 +54,7 @@
 use crate::instruments::fixed_income::bond::pricing::engine::tree::{bond_tree_config, TreePricer};
 use crate::instruments::fixed_income::bond::pricing::quote_conversions::price_from_oas;
 use crate::instruments::fixed_income::bond::pricing::settlement::settlement_date;
+use crate::instruments::fixed_income::bond::CallPutSchedule;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
@@ -149,7 +150,7 @@ impl MetricCalculator for EmbeddedOptionValueCalculator {
 
         let price_with_options = price_from_oas(bond, market, quote_date, oas_decimal)?;
         let mut straight_bond = bond.clone();
-        straight_bond.call_put = None;
+        straight_bond.call_put = Some(CallPutSchedule::default());
         let price_straight = price_from_oas(&straight_bond, market, quote_date, oas_decimal)?;
 
         Ok(price_with_options - price_straight)
