@@ -12,8 +12,7 @@
 //! ## Callable Bonds (Issuer Owns the Call)
 //!
 //! ```text
-//! P_callable = P_straight - V_call
-//! V_call = P_straight - P_callable  (positive)
+//! V_call_holder = P_callable - P_straight  (negative)
 //! ```
 //!
 //! The call option has positive value to the issuer, reducing the price
@@ -48,19 +47,15 @@
 //!
 //! # let bond = Bond::example().unwrap();
 //! // Register metrics and compute
-//! // V_call will be positive for callable bonds
+//! // V_call_holder will be negative for callable bonds
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-use crate::instruments::common_impl::models::{
-    short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
-};
-use crate::instruments::fixed_income::bond::pricing::engine::tree::{
-    bond_tree_config, BondValuator,
-};
+use crate::instruments::fixed_income::bond::pricing::engine::tree::{bond_tree_config, TreePricer};
+use crate::instruments::fixed_income::bond::pricing::quote_conversions::price_from_oas;
+use crate::instruments::fixed_income::bond::pricing::settlement::settlement_date;
 use crate::instruments::Bond;
-use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::DayCountContext;
+use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
 /// Calculates the embedded option value for callable/putable bonds.
 ///
@@ -70,8 +65,8 @@ use finstack_core::dates::DayCountContext;
 ///
 /// # Returns
 ///
-/// - For **callable bonds**: Positive value (call reduces holder value)
-/// - For **putable bonds**: Positive value (put increases holder value)
+/// - For **callable bonds**: Negative holder value (call reduces holder value)
+/// - For **putable bonds**: Positive holder value (put increases holder value)
 /// - For **bonds with both**: Net option value from investor perspective
 /// - For **straight bonds**: Zero (no embedded options)
 ///
@@ -91,12 +86,7 @@ use finstack_core::dates::DayCountContext;
 /// // Use via MetricRegistry for proper context management
 /// ```
 #[derive(Debug, Clone, Default)]
-pub(crate) struct EmbeddedOptionValueCalculator {
-    /// Number of tree steps (default: 100)
-    tree_steps: usize,
-    /// Short rate volatility (default: 1% = 100 bps normal vol for Ho-Lee)
-    volatility: f64,
-}
+pub(crate) struct EmbeddedOptionValueCalculator;
 
 #[allow(dead_code)] // public API for external bindings
 impl EmbeddedOptionValueCalculator {
@@ -104,10 +94,7 @@ impl EmbeddedOptionValueCalculator {
     ///
     /// Uses 100 tree steps and 1% (100 bps) normal volatility.
     pub(crate) fn new() -> Self {
-        Self {
-            tree_steps: 100,
-            volatility: 0.01,
-        }
+        Self
     }
 
     /// Create a calculator with custom tree configuration.
@@ -125,11 +112,8 @@ impl EmbeddedOptionValueCalculator {
     /// // High precision with calibrated volatility
     /// let calc = EmbeddedOptionValueCalculator::with_config(200, 0.012);
     /// ```
-    pub(crate) fn with_config(tree_steps: usize, volatility: f64) -> Self {
-        Self {
-            tree_steps,
-            volatility,
-        }
+    pub(crate) fn with_config(_tree_steps: usize, _volatility: f64) -> Self {
+        Self
     }
 }
 
@@ -150,118 +134,25 @@ impl MetricCalculator for EmbeddedOptionValueCalculator {
 
         let market = context.curves.as_ref();
         let as_of = context.as_of;
+        let quote_date = settlement_date(bond, as_of)?;
 
-        // Get discount curve and compute time to maturity
-        let discount_curve = market.get_discount(&bond.discount_curve_id)?;
-        let dc = discount_curve.day_count();
-        let time_to_maturity =
-            dc.year_fraction(as_of, bond.maturity, DayCountContext::default())?;
-
-        if time_to_maturity <= 0.0 {
-            return Ok(0.0);
-        }
-
-        // Use centralized tree config from bond.pricing_overrides,
-        // falling back to calculator's defaults if bond has no overrides
-        let bond_config = bond_tree_config(bond);
-        let tree_config = ShortRateTreeConfig {
-            steps: if bond.pricing_overrides.model_config.tree_steps.is_some() {
-                bond_config.tree_steps
-            } else {
-                self.tree_steps
-            },
-            volatility: if bond
-                .pricing_overrides
-                .model_config
-                .tree_volatility
-                .is_some()
-            {
-                bond_config.volatility
-            } else {
-                self.volatility
-            },
-            mean_reversion: bond_config.mean_reversion,
-            ..Default::default()
+        let oas_decimal = if let Some(oas) = context.computed.get(&MetricId::Oas) {
+            *oas
+        } else if let Some(oas) = bond.pricing_overrides.market_quotes.quoted_oas {
+            oas
+        } else if let Some(clean_price) = bond.pricing_overrides.market_quotes.quoted_clean_price {
+            let pricer = TreePricer::with_config(bond_tree_config(bond));
+            pricer.calculate_oas(bond, market, as_of, clean_price)? / 10_000.0
+        } else {
+            0.0
         };
-        let mut tree = ShortRateTree::new(tree_config);
-        tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
 
-        // Price 1: Bond WITH embedded options (call/put constraints applied)
-        let valuator_with_options = BondValuator::new(
-            bond.clone(),
-            market,
-            as_of,
-            time_to_maturity,
-            self.tree_steps,
-        )?;
-
-        let mut vars = StateVariables::default();
-        vars.insert(short_rate_keys::OAS, 0.0);
-
-        let price_with_options = tree.price(
-            vars.clone(),
-            time_to_maturity,
-            market,
-            &valuator_with_options,
-        )?;
-
-        // Price 2: Bond WITHOUT embedded options (straight bond)
-        // Create a copy of the bond with call_put stripped out
+        let price_with_options = price_from_oas(bond, market, quote_date, oas_decimal)?;
         let mut straight_bond = bond.clone();
         straight_bond.call_put = None;
+        let price_straight = price_from_oas(&straight_bond, market, quote_date, oas_decimal)?;
 
-        let valuator_straight = BondValuator::new(
-            straight_bond,
-            market,
-            as_of,
-            time_to_maturity,
-            self.tree_steps,
-        )?;
-
-        let price_straight = tree.price(vars, time_to_maturity, market, &valuator_straight)?;
-
-        // Compute embedded option value:
-        // For callable: V_call = P_straight - P_with_options (positive)
-        // For putable:  V_put = P_with_options - P_straight (positive)
-        //
-        // We return the ABSOLUTE option value (always positive) with sign convention:
-        // - Positive = option value exists (call or put)
-        //
-        // The decomposition is:
-        // - Callable: P_callable = P_straight - V_call → V_call = P_straight - P_callable
-        // - Putable:  P_putable = P_straight + V_put → V_put = P_putable - P_straight
-        //
-        // We determine direction based on which options exist
-        // Safety: has_options check at top ensures call_put is Some
-        let call_put = bond.call_put.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::InputError::NotFound {
-                id: "call_put schedule".to_string(),
-            })
-        })?;
-        let has_calls = !call_put.calls.is_empty();
-        let has_puts = !call_put.puts.is_empty();
-
-        let option_value = match (has_calls, has_puts) {
-            (true, false) => {
-                // Callable only: V_call = P_straight - P_callable (positive)
-                price_straight - price_with_options
-            }
-            (false, true) => {
-                // Putable only: V_put = P_putable - P_straight (positive)
-                price_with_options - price_straight
-            }
-            (true, true) => {
-                // Both: return net from holder perspective
-                // Positive = puts dominate, Negative = calls dominate
-                price_with_options - price_straight
-            }
-            (false, false) => {
-                // No options (shouldn't reach here due to early return)
-                0.0
-            }
-        };
-
-        Ok(option_value)
+        Ok(price_with_options - price_straight)
     }
 }
 

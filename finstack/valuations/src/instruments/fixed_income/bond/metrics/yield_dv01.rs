@@ -17,6 +17,28 @@ use finstack_core::money::Money;
 /// this metric remains aligned with the instrument's yield-style duration measure.
 pub(crate) struct YieldDv01Calculator;
 
+pub(crate) fn yield_basis_dv01(
+    bond: &Bond,
+    context: &MetricContext,
+    duration_mod: f64,
+    ytm: f64,
+) -> finstack_core::Result<f64> {
+    let flows: &Vec<(Date, Money)> = context
+        .cashflows
+        .as_ref()
+        .ok_or_else(|| crate::metrics::context_not_found("cashflows"))?;
+
+    let quote_ctx = QuoteDateContext::new(bond, &context.curves, context.as_of)?;
+    let price = crate::instruments::fixed_income::bond::pricing::quote_conversions::price_from_ytm(
+        bond,
+        flows,
+        quote_ctx.quote_date,
+        ytm,
+    )?;
+
+    Ok(-(price * duration_mod * 0.0001))
+}
+
 impl MetricCalculator for YieldDv01Calculator {
     fn dependencies(&self) -> &[MetricId] {
         // Ytm is required alongside DurationMod for the price-from-yield repricing.
@@ -38,20 +60,6 @@ impl MetricCalculator for YieldDv01Calculator {
             .copied()
             .ok_or_else(|| crate::metrics::metric_not_found(MetricId::Ytm))?;
 
-        let flows: &Vec<(Date, Money)> = context
-            .cashflows
-            .as_ref()
-            .ok_or_else(|| crate::metrics::context_not_found("cashflows"))?;
-
-        let quote_ctx = QuoteDateContext::new(bond, &context.curves, context.as_of)?;
-        let price =
-            crate::instruments::fixed_income::bond::pricing::quote_conversions::price_from_ytm(
-                bond,
-                flows,
-                quote_ctx.quote_date,
-                ytm,
-            )?;
-
-        Ok(-(price * duration_mod * 0.0001))
+        yield_basis_dv01(bond, context, duration_mod, ytm)
     }
 }

@@ -1,6 +1,7 @@
 use crate::constants::numerical::ZERO_TOLERANCE;
 use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::Bond;
+use crate::instruments::BondRiskBasis;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
@@ -49,16 +50,16 @@ impl MetricCalculator for ConvexityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 
-        // For bonds with embedded options, use effective convexity (curve-bump approach)
+        // Callable/OAS model risk is opt-in. The default matches Bloomberg YAS
+        // Workout risk: quoted-yield convexity on maturity/workout cashflows.
         let has_options = bond.call_put.as_ref().is_some_and(|cp| cp.has_options());
-
-        if has_options {
-            return super::effective::effective_convexity(
+        if has_options && super::bond_risk_basis(context) == BondRiskBasis::CallableOas {
+            return Ok(super::effective::effective_convexity(
                 bond,
                 context.curves.as_ref(),
                 context.as_of,
                 None,
-            );
+            )? / 100.0);
         }
 
         let ytm = context
@@ -114,7 +115,7 @@ impl MetricCalculator for ConvexityCalculator {
             d2_price += amount.amount() * df_second;
         }
 
-        Ok(d2_price / price)
+        Ok(d2_price / price / 100.0)
     }
 }
 

@@ -538,6 +538,18 @@ mod tests {
             .expect("HazardCurve should build with valid test data")
     }
 
+    fn fixed_test_bond() -> crate::instruments::fixed_income::bond::Bond {
+        crate::instruments::fixed_income::bond::Bond::fixed(
+            "US912828XG33",
+            finstack_core::money::Money::new(1_000.0, finstack_core::currency::Currency::USD),
+            0.04,
+            time::macros::date!(2020 - 01 - 15),
+            time::macros::date!(2030 - 01 - 15),
+            "USD-TREASURY",
+        )
+        .expect("fixed test bond should build")
+    }
+
     fn flat_vol_surface(id: &str, vol: f64) -> finstack_core::market_data::surfaces::VolSurface {
         let expiries = [0.25, 0.5, 1.0, 2.0];
         let strikes = [2.5, 3.0, 3.5, 4.0, 4.5];
@@ -615,8 +627,7 @@ mod tests {
         use time::macros::date;
 
         let as_of: Date = date!(2025 - 01 - 15);
-        let bond = crate::instruments::fixed_income::bond::Bond::example()
-            .expect("Bond::example should succeed");
+        let bond = fixed_test_bond();
         let disc = flat_discount_curve("USD-TREASURY", as_of);
         let market = MarketContext::new().insert(disc);
         let registry = super::super::standard_registry();
@@ -659,8 +670,7 @@ mod tests {
         use time::macros::date;
 
         let as_of: Date = date!(2025 - 01 - 15);
-        let bond = crate::instruments::fixed_income::bond::Bond::example()
-            .expect("Bond::example should succeed");
+        let bond = fixed_test_bond();
         let disc = flat_discount_curve("USD-TREASURY", as_of);
         let hazard = flat_hazard_curve("USD-CREDIT", as_of);
         let mut bond_with_credit = bond.clone();
@@ -709,8 +719,7 @@ mod tests {
         use time::macros::date;
 
         let as_of: Date = date!(2025 - 01 - 15);
-        let bond = crate::instruments::fixed_income::bond::Bond::example()
-            .expect("Bond::example should succeed");
+        let bond = fixed_test_bond();
         let disc = flat_discount_curve("USD-TREASURY", as_of);
         let hazard = flat_hazard_curve("USD-CREDIT", as_of);
         let mut bond_with_credit = bond.clone();
@@ -793,8 +802,7 @@ mod tests {
         use time::macros::date;
 
         let as_of = date!(2025 - 01 - 15);
-        let bond = crate::instruments::fixed_income::bond::Bond::example()
-            .expect("Bond::example should succeed");
+        let bond = fixed_test_bond();
         let market = finstack_core::market_data::context::MarketContext::new()
             .insert(flat_discount_curve("USD-TREASURY", as_of));
 
@@ -811,7 +819,7 @@ mod tests {
         registry.register(
             InstrumentType::Bond,
             ModelKey::Discounting,
-            FixedBondPricer { amount: 123_456.0 },
+            FixedBondPricer { amount: 990.0 },
         );
 
         let result = bond
@@ -823,7 +831,7 @@ mod tests {
             )
             .expect("custom registry override should succeed");
 
-        assert_eq!(result.value.amount(), 123_456.0);
+        assert_eq!(result.value.amount(), 990.0);
         assert!(
             default_result
                 .measures
@@ -848,8 +856,7 @@ mod tests {
         use time::macros::date;
 
         let as_of = date!(2025 - 01 - 15);
-        let bond = crate::instruments::fixed_income::bond::Bond::example()
-            .expect("Bond::example should succeed");
+        let bond = fixed_test_bond();
         let market = finstack_core::market_data::context::MarketContext::new()
             .insert(flat_discount_curve("USD-TREASURY", as_of));
 
@@ -866,7 +873,7 @@ mod tests {
         registry.register(
             InstrumentType::Bond,
             ModelKey::HazardRate,
-            FixedBondPricer { amount: 654_321.0 },
+            FixedBondPricer { amount: 995.0 },
         );
 
         let result = bond
@@ -880,7 +887,7 @@ mod tests {
             )
             .expect("model override path should succeed");
 
-        assert_eq!(result.value.amount(), 654_321.0);
+        assert_eq!(result.value.amount(), 995.0);
         assert!(
             default_result
                 .measures
@@ -905,8 +912,7 @@ mod tests {
         use time::macros::date;
 
         let as_of = date!(2025 - 01 - 15);
-        let bond = crate::instruments::fixed_income::bond::Bond::example()
-            .expect("Bond::example should succeed");
+        let bond = fixed_test_bond();
         let mut bond_with_credit = bond.clone();
         bond_with_credit.credit_curve_id =
             Some(finstack_core::types::CurveId::new("USD-CREDIT".to_string()));
@@ -1026,8 +1032,7 @@ mod tests {
         use time::macros::date;
 
         let as_of: Date = date!(2025 - 01 - 15);
-        let bond = crate::instruments::fixed_income::bond::Bond::example()
-            .expect("Bond::example should succeed");
+        let bond = fixed_test_bond();
         let disc = flat_discount_curve("USD-TREASURY", as_of);
         let market = MarketContext::new().insert(disc);
         let registry = super::super::standard_registry();

@@ -1,4 +1,5 @@
 use super::super::super::super::types::Bond;
+use finstack_core::types::CurveId;
 use finstack_core::types::Percentage;
 
 /// Choice of short-rate model for the bond pricing tree.
@@ -19,6 +20,17 @@ pub enum TreeModelChoice {
         /// Mean reversion speed (e.g., 0.03 for 3%)
         kappa: f64,
         /// Short rate volatility (e.g., 0.01 for 100bp)
+        sigma: f64,
+    },
+    /// Black-Derman-Toy lognormal short-rate model.
+    BlackDermanToy {
+        /// Mean reversion speed.
+        ///
+        /// The current BDT calibration is binomial and non-mean-reverting; use
+        /// `0.0` here. Nonzero mean reversion is rejected to avoid silently
+        /// ignoring a model input.
+        mean_reversion: f64,
+        /// Lognormal short-rate volatility (e.g., 0.20 for 20%)
         sigma: f64,
     },
     /// Hull-White 1-factor calibrated to co-terminal swaptions.
@@ -189,6 +201,9 @@ pub struct TreePricerConfig {
     /// - `HullWhiteCalibratedToSwaptions { .. }`: Auto-calibrates HW params
     ///   from swaption vol data (preferred for production callable bond OAS).
     pub tree_model: TreeModelChoice,
+
+    /// Optional discount curve used only for tree/OAS calibration.
+    pub tree_discount_curve_id: Option<CurveId>,
 }
 
 impl Default for TreePricerConfig {
@@ -206,6 +221,7 @@ impl Default for TreePricerConfig {
             initial_bracket_size_bp: Some(1000.0),
             mean_reversion: None,
             tree_model: TreeModelChoice::default(),
+            tree_discount_curve_id: None,
         }
     }
 }
@@ -240,17 +256,34 @@ pub fn bond_tree_config(bond: &Bond) -> TreePricerConfig {
     // HullWhiteCalibratedToSwaptions should be preferred when swaption vol data
     // is available in the market context.
     let tree_model = if bond.call_put.is_some() {
-        TreeModelChoice::HullWhite {
-            kappa: bond
+        let volatility = bond
+            .pricing_overrides
+            .model_config
+            .tree_volatility
+            .unwrap_or(0.01);
+        if matches!(
+            bond.pricing_overrides.model_config.vol_model,
+            Some(crate::instruments::common_impl::parameters::VolatilityModel::Black)
+        ) {
+            let mean_reversion = bond
                 .pricing_overrides
                 .model_config
                 .mean_reversion
-                .unwrap_or(0.03),
-            sigma: bond
+                .unwrap_or(0.0);
+            TreeModelChoice::BlackDermanToy {
+                mean_reversion,
+                sigma: volatility,
+            }
+        } else {
+            let mean_reversion = bond
                 .pricing_overrides
                 .model_config
-                .tree_volatility
-                .unwrap_or(0.01),
+                .mean_reversion
+                .unwrap_or(0.03);
+            TreeModelChoice::HullWhite {
+                kappa: mean_reversion,
+                sigma: volatility,
+            }
         }
     } else {
         TreeModelChoice::HoLee
@@ -272,6 +305,11 @@ pub fn bond_tree_config(bond: &Bond) -> TreePricerConfig {
         initial_bracket_size_bp: Some(1000.0),
         mean_reversion: bond.pricing_overrides.model_config.mean_reversion,
         tree_model,
+        tree_discount_curve_id: bond
+            .pricing_overrides
+            .model_config
+            .tree_discount_curve_id
+            .clone(),
     }
 }
 
@@ -313,6 +351,7 @@ impl TreePricerConfig {
             initial_bracket_size_bp: Some(1000.0),
             mean_reversion: None,
             tree_model: TreeModelChoice::HoLee,
+            tree_discount_curve_id: None,
         }
     }
 
@@ -326,6 +365,7 @@ impl TreePricerConfig {
             initial_bracket_size_bp: Some(1000.0),
             mean_reversion: None,
             tree_model: TreeModelChoice::HoLee,
+            tree_discount_curve_id: None,
         }
     }
 
@@ -361,8 +401,12 @@ impl TreePricerConfig {
             tolerance: 1e-6,
             max_iterations: 50,
             initial_bracket_size_bp: Some(1000.0),
-            mean_reversion: None,
-            tree_model: TreeModelChoice::HoLee,
+            mean_reversion: Some(0.0),
+            tree_model: TreeModelChoice::BlackDermanToy {
+                mean_reversion: 0.0,
+                sigma: lognormal_vol,
+            },
+            tree_discount_curve_id: None,
         }
     }
 
@@ -374,8 +418,12 @@ impl TreePricerConfig {
             tolerance: 1e-6,
             max_iterations: 50,
             initial_bracket_size_bp: Some(1000.0),
-            mean_reversion: None,
-            tree_model: TreeModelChoice::HoLee,
+            mean_reversion: Some(0.0),
+            tree_model: TreeModelChoice::BlackDermanToy {
+                mean_reversion: 0.0,
+                sigma: lognormal_vol.as_decimal(),
+            },
+            tree_discount_curve_id: None,
         }
     }
 
@@ -412,6 +460,7 @@ impl TreePricerConfig {
             initial_bracket_size_bp: Some(1500.0),
             mean_reversion: None,
             tree_model: TreeModelChoice::HoLee,
+            tree_discount_curve_id: None,
         }
     }
 
@@ -425,6 +474,7 @@ impl TreePricerConfig {
             initial_bracket_size_bp: Some(1500.0),
             mean_reversion: None,
             tree_model: TreeModelChoice::HoLee,
+            tree_discount_curve_id: None,
         }
     }
 
@@ -455,6 +505,7 @@ impl TreePricerConfig {
             initial_bracket_size_bp: Some(1000.0),
             mean_reversion: None,
             tree_model: TreeModelChoice::HoLee,
+            tree_discount_curve_id: None,
         }
     }
 
@@ -468,6 +519,7 @@ impl TreePricerConfig {
             initial_bracket_size_bp: Some(1000.0),
             mean_reversion: None,
             tree_model: TreeModelChoice::HoLee,
+            tree_discount_curve_id: None,
         }
     }
 
@@ -489,6 +541,7 @@ impl TreePricerConfig {
             initial_bracket_size_bp: Some(1000.0),
             mean_reversion: Some(kappa),
             tree_model: TreeModelChoice::HullWhite { kappa, sigma },
+            tree_discount_curve_id: None,
         }
     }
 
@@ -511,6 +564,7 @@ impl TreePricerConfig {
             tree_model: TreeModelChoice::HullWhiteCalibratedToSwaptions {
                 swaption_vol_surface_id,
             },
+            tree_discount_curve_id: None,
         }
     }
 }

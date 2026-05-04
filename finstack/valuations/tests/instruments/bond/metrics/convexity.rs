@@ -11,7 +11,8 @@ use time::macros::date;
 ///
 /// All vanilla (non-callable) bonds have positive convexity.
 ///
-/// For a 5-year par bond at ~5% YTM, convexity is typically in the range 15-40.
+/// For a 5-year par bond at ~5% YTM, raw convexity is typically in the range
+/// 15-40, and the public metric reports Bloomberg-style display units (`raw / 100`).
 /// The analytical formula: C = Σ[t(t+1) × CF_t × DF_t] / (P × (1+y/m)²)
 #[test]
 fn test_convexity_positive() {
@@ -48,10 +49,10 @@ fn test_convexity_positive() {
     // All vanilla bonds have positive convexity
     assert!(cvx > 0.0, "Vanilla bonds should have positive convexity");
 
-    // For 5-year par bond at ~5% YTM, convexity typically 15-40
+    // Bloomberg YAS display units scale raw mathematical convexity by 1/100.
     assert!(
-        cvx > 15.0 && cvx < 40.0,
-        "5Y par bond convexity {:.2} outside expected range [15, 40]",
+        cvx > 0.15 && cvx < 0.40,
+        "5Y par bond convexity {:.2} outside expected range [0.15, 0.40]",
         cvx
     );
 }

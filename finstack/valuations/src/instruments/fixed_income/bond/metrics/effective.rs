@@ -20,6 +20,7 @@ use crate::instruments::Bond;
 use finstack_core::dates::Date;
 use finstack_core::market_data::bumps::MarketBump;
 use finstack_core::market_data::context::{BumpSpec, MarketContext};
+use finstack_core::types::CurveId;
 use finstack_core::Result;
 
 const DEFAULT_SHOCK_BPS: f64 = 25.0;
@@ -70,7 +71,7 @@ pub(crate) fn effective_duration_convexity(
     let shock_bps = shock_bps.unwrap_or(DEFAULT_SHOCK_BPS);
     let shock = shock_bps / 10_000.0;
 
-    let base_price = bond.value(market, as_of)?.amount();
+    let (risk_bond, base_price) = option_risk_bond_and_base_price(bond, market, as_of)?;
 
     if base_price.abs() < 1e-10 {
         return Ok(EffectiveDurationResult {
@@ -83,17 +84,18 @@ pub(crate) fn effective_duration_convexity(
         });
     }
 
+    let curve_id = option_risk_curve_id(&risk_bond);
     let market_up = market.bump([MarketBump::Curve {
-        id: bond.discount_curve_id.clone(),
+        id: curve_id.clone(),
         spec: BumpSpec::parallel_bp(shock_bps),
     }])?;
     let market_down = market.bump([MarketBump::Curve {
-        id: bond.discount_curve_id.clone(),
+        id: curve_id,
         spec: BumpSpec::parallel_bp(-shock_bps),
     }])?;
 
-    let price_up = bond.value(&market_up, as_of)?.amount();
-    let price_down = bond.value(&market_down, as_of)?.amount();
+    let price_up = risk_bond.value(&market_up, as_of)?.amount();
+    let price_down = risk_bond.value(&market_down, as_of)?.amount();
 
     let duration = (price_down - price_up) / (2.0 * base_price * shock);
     let convexity = (price_up + price_down - 2.0 * base_price) / (base_price * shock * shock);
@@ -106,6 +108,53 @@ pub(crate) fn effective_duration_convexity(
         price_down,
         shock_bps,
     })
+}
+
+pub(crate) fn option_risk_bond_and_base_price(
+    bond: &Bond,
+    market: &MarketContext,
+    as_of: Date,
+) -> Result<(Bond, f64)> {
+    use crate::instruments::fixed_income::bond::pricing::engine::tree::{
+        bond_tree_config, TreePricer,
+    };
+    use crate::instruments::fixed_income::bond::pricing::quote_conversions::{
+        clear_price_driving_overrides, price_from_quote_overrides,
+    };
+    use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
+
+    let mut risk_bond = bond.clone();
+    let Some(base_price) = price_from_quote_overrides(bond, market, as_of)? else {
+        return Ok((risk_bond.clone(), risk_bond.value(market, as_of)?.amount()));
+    };
+
+    if let Some(oas) = bond.pricing_overrides.market_quotes.quoted_oas {
+        clear_price_driving_overrides(&mut risk_bond);
+        risk_bond.pricing_overrides.market_quotes.quoted_oas = Some(oas);
+        return Ok((risk_bond, base_price));
+    }
+
+    let quote_ctx = QuoteDateContext::new(bond, market, as_of)?;
+    let clean_price_pct =
+        (base_price - quote_ctx.accrued_at_quote_date) / bond.notional.amount() * 100.0;
+    let oas_bp = TreePricer::with_config(bond_tree_config(bond)).calculate_oas(
+        bond,
+        market,
+        as_of,
+        clean_price_pct,
+    )?;
+
+    clear_price_driving_overrides(&mut risk_bond);
+    risk_bond.pricing_overrides.market_quotes.quoted_oas = Some(oas_bp / 10_000.0);
+    Ok((risk_bond, base_price))
+}
+
+pub(crate) fn option_risk_curve_id(bond: &Bond) -> CurveId {
+    bond.pricing_overrides
+        .model_config
+        .tree_discount_curve_id
+        .clone()
+        .unwrap_or_else(|| bond.discount_curve_id.clone())
 }
 
 #[cfg(test)]

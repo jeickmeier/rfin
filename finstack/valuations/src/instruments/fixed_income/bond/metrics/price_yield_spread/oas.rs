@@ -48,9 +48,14 @@ impl MetricCalculator for OasCalculator {
         // Use MarketContext directly (no conversion needed)
         let market_context = context.curves.as_ref().clone();
 
-        // Use Tree pricer to solve for OAS
+        // Use the bond-owned tree model inputs (steps, volatility, mean
+        // reversion, model choice) instead of the generic default pricer.
         let oas_calculator =
-            crate::instruments::fixed_income::bond::pricing::engine::tree::TreePricer::new();
+            crate::instruments::fixed_income::bond::pricing::engine::tree::TreePricer::with_config(
+                crate::instruments::fixed_income::bond::pricing::engine::tree::bond_tree_config(
+                    bond,
+                ),
+            );
         // Tree pricer returns OAS in **basis points**; convert to decimal
         // so all bond spread-style metrics use a consistent convention
         // (0.01 = 100bp) at the public API surface.

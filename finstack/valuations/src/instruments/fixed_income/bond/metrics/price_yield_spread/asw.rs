@@ -1,7 +1,8 @@
 use crate::cashflow::{builder::CashFlowSchedule, primitives::CFKind};
 use crate::instruments::fixed_income::bond::pricing::quote_conversions::{
-    fixed_leg_annuity, par_rate_and_annuity_from_discount,
+    asset_swap_forward_components, fixed_leg_annuity, par_rate_and_annuity_from_discount,
 };
+use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::fixed_income::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -73,10 +74,9 @@ pub struct AssetSwapParCalculator {
 
 /// Asset swap market spread calculator using market price.
 ///
-/// Market ASW is the spread that equates the PV of the bond's fixed leg to the
-/// dirty market price. Uses the approximation:
+/// Market ASW is the spread that equates the asset-swap package to par. Uses the approximation:
 /// ```text
-/// asw_mkt ≈ (dirty/Notional - price_pv/Notional)/annuity + coupon - par_rate
+/// asw_mkt ≈ coupon - par_rate + (1 - dirty/Notional)/annuity
 /// ```
 ///
 /// # Dependencies
@@ -231,27 +231,19 @@ pub fn asw_par_with_forward_config(
             "ASW forward par calculation is undefined for near-zero fixed-leg annuity".to_string(),
         ));
     }
-    let f_base = fwd.base_date();
-    let f_dc = fwd.day_count();
-    let spread = float_spread_bp * 1e-4;
-    // Use NeumaierAccumulator for numerical stability with many cashflows (e.g., quarterly FRN over 30Y)
-    let mut pv_float = finstack_core::math::summation::NeumaierAccumulator::new();
-    let mut prev = sched[0];
-    for &d in &sched[1..] {
-        let t1 = f_dc.year_fraction(
-            f_base,
-            prev,
-            finstack_core::dates::DayCountContext::default(),
-        )?;
-        let t2 = f_dc.year_fraction(f_base, d, finstack_core::dates::DayCountContext::default())?;
-        let yf = f_dc.year_fraction(prev, d, finstack_core::dates::DayCountContext::default())?;
-        let rate = fwd.rate_period(t1, t2) + spread;
-        let coupon_flt = bond.notional.amount() * rate * yf;
-        let df = disc.df_on_date_curve(d)?;
-        pv_float.add(coupon_flt * df);
-        prev = d;
+    let (float_pv, fixed_ann, float_ann) = asset_swap_forward_components(
+        disc.as_ref(),
+        fwd.as_ref(),
+        fixed_dc,
+        &sched,
+        float_spread_bp,
+    )?;
+    if float_ann.abs() < 1e-12 {
+        return Err(finstack_core::Error::Validation(
+            "ASW forward par calculation is undefined for near-zero floating-leg annuity"
+                .to_string(),
+        ));
     }
-    let par_rate = pv_float.total() / (bond.notional.amount() * ann);
 
     // Equivalent fixed rate from coupon-only PV
     let eq_coupon = if let Some(custom) = &bond.custom_cashflows {
@@ -264,7 +256,7 @@ pub fn asw_par_with_forward_config(
             _ => return Err(finstack_core::InputError::Invalid.into()),
         }
     };
-    Ok(eq_coupon - par_rate)
+    Ok((eq_coupon * fixed_ann - float_pv) / float_ann)
 }
 
 /// Compute Market ASW using forward-based methodology with explicit parameters.
@@ -336,14 +328,20 @@ pub fn asw_market_with_forward_config(
         return Ok(0.0);
     }
 
-    let par_asw = asw_par_with_forward_config(
-        bond,
-        curves,
-        as_of,
-        fwd_curve_id,
+    let fwd = curves.get_forward(fwd_curve_id)?;
+    let (float_pv, fixed_ann, float_ann) = asset_swap_forward_components(
+        disc.as_ref(),
+        fwd.as_ref(),
+        fixed_dc,
+        &sched,
         float_spread_bp,
-        fixed_leg_day_count,
     )?;
+    if float_ann.abs() < 1e-12 {
+        return Err(finstack_core::Error::Validation(
+            "ASW forward market calculation is undefined for near-zero floating-leg annuity"
+                .to_string(),
+        ));
+    }
     let notional = bond.notional.amount();
     let dirty = match dirty_price_ccy {
         Some(v) => v,
@@ -355,8 +353,17 @@ pub fn asw_market_with_forward_config(
         }
     };
     let price_pct = dirty / notional;
-    // Market ASW = Par ASW + (Market Price % - 100%) / Annuity
-    Ok(par_asw + (price_pct - 1.0) / ann)
+    let eq_coupon = if let Some(custom) = &bond.custom_cashflows {
+        let pv_coupon = pv_coupon_from_custom_schedule(disc.as_ref(), custom, as_of)?;
+        pv_coupon / (notional * ann)
+    } else {
+        match &bond.cashflow_spec {
+            CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
+            _ => return Err(finstack_core::InputError::Invalid.into()),
+        }
+    };
+    let par_asw = (eq_coupon * fixed_ann - float_pv) / float_ann;
+    Ok(par_asw + (1.0 - price_pct) / float_ann)
 }
 
 impl MetricCalculator for AssetSwapParCalculator {
@@ -388,6 +395,11 @@ impl MetricCalculator for AssetSwapParCalculator {
         let discount_curve_id = bond.discount_curve_id.to_owned();
         let maturity = bond.maturity;
         let bond_dc = bond.cashflow_spec.day_count();
+        let asw_forward_curve_id = bond
+            .pricing_overrides
+            .model_config
+            .asw_forward_curve_id
+            .clone();
         let disc = context.curves.get_discount(&discount_curve_id)?;
 
         // Extract schedule params from cashflow_spec, allowing ASW config to
@@ -451,9 +463,11 @@ impl MetricCalculator for AssetSwapParCalculator {
                 "ASW par calculation requires at least two fixed-leg schedule dates".to_string(),
             ));
         }
-        let mut builder = finstack_core::dates::ScheduleBuilder::new(context.as_of, maturity)?
-            .frequency(freq)
-            .stub_rule(stub);
+        let quote_ctx = QuoteDateContext::new(bond, &context.curves, context.as_of)?;
+        let mut builder =
+            finstack_core::dates::ScheduleBuilder::new(quote_ctx.quote_date, maturity)?
+                .frequency(freq)
+                .stub_rule(stub);
 
         if let Some(id) = calendar_id {
             if let Some(cal) = finstack_core::dates::calendar::calendar_by_id(id) {
@@ -468,10 +482,26 @@ impl MetricCalculator for AssetSwapParCalculator {
             ));
         }
         let dc_fixed = self.config.fixed_leg_day_count.unwrap_or(bond_dc);
-        let (par_rate, ann) = par_rate_and_annuity_from_discount(disc.as_ref(), dc_fixed, &sched)?;
+        let forward_components = if let Some(fwd_id) = asw_forward_curve_id {
+            let fwd = context.curves.get_forward(&fwd_id)?;
+            Some(asset_swap_forward_components(
+                disc.as_ref(),
+                fwd.as_ref(),
+                dc_fixed,
+                &sched,
+                0.0,
+            )?)
+        } else {
+            None
+        };
+        let ann = if let Some((_, _, float_ann)) = forward_components {
+            float_ann
+        } else {
+            par_rate_and_annuity_from_discount(disc.as_ref(), dc_fixed, &sched)?.1
+        };
         if ann.abs() < 1e-12 {
             return Err(finstack_core::Error::Validation(
-                "ASW par calculation is undefined for near-zero fixed-leg annuity".to_string(),
+                "ASW par calculation is undefined for near-zero spread annuity".to_string(),
             ));
         }
         // Use stated coupon for non-custom bonds; for custom bonds, this branch is not reached
@@ -479,7 +509,13 @@ impl MetricCalculator for AssetSwapParCalculator {
             CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
             _ => return Err(finstack_core::InputError::Invalid.into()),
         };
-        Ok(coupon - par_rate)
+        if let Some((float_pv, fixed_ann, float_ann)) = forward_components {
+            Ok((coupon * fixed_ann - float_pv) / float_ann)
+        } else {
+            let (par_rate, _) =
+                par_rate_and_annuity_from_discount(disc.as_ref(), dc_fixed, &sched)?;
+            Ok(coupon - par_rate)
+        }
     }
 }
 
@@ -489,7 +525,16 @@ impl MetricCalculator for AssetSwapMarketCalculator {
     }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        let (discount_curve_id, maturity, dc, notional_amt, quoted_clean, is_custom, coupon) = {
+        let (
+            discount_curve_id,
+            maturity,
+            dc,
+            notional_amt,
+            quoted_clean,
+            is_custom,
+            coupon,
+            asw_forward_curve_id,
+        ) = {
             let b: &Bond = context.instrument_as()?;
             let coupon_rate = match &b.cashflow_spec {
                 CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
@@ -503,6 +548,10 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 b.pricing_overrides.market_quotes.quoted_clean_price,
                 b.custom_cashflows.is_some(),
                 coupon_rate,
+                b.pricing_overrides
+                    .model_config
+                    .asw_forward_curve_id
+                    .clone(),
             )
         };
         let disc = context.curves.get_discount(&discount_curve_id)?;
@@ -625,14 +674,16 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             .as_deref()
             .or(bond_calendar_id);
 
-        if context.as_of >= maturity {
+        let quote_ctx = QuoteDateContext::new(bond, &context.curves, context.as_of)?;
+        if quote_ctx.quote_date >= maturity {
             return Err(finstack_core::Error::Validation(
                 "ASW market calculation requires at least two fixed-leg schedule dates".to_string(),
             ));
         }
-        let mut builder = finstack_core::dates::ScheduleBuilder::new(context.as_of, maturity)?
-            .frequency(freq)
-            .stub_rule(stub);
+        let mut builder =
+            finstack_core::dates::ScheduleBuilder::new(quote_ctx.quote_date, maturity)?
+                .frequency(freq)
+                .stub_rule(stub);
 
         if let Some(id) = calendar_id {
             if let Some(cal) = finstack_core::dates::calendar::calendar_by_id(id) {
@@ -647,7 +698,27 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             ));
         }
         let dc_fixed = self.config.fixed_leg_day_count.unwrap_or(dc);
-        let (par_rate, ann) = par_rate_and_annuity_from_discount(disc.as_ref(), dc_fixed, &sched)?;
+        let forward_components = if let Some(fwd_id) = asw_forward_curve_id {
+            let fwd = context.curves.get_forward(&fwd_id)?;
+            Some(asset_swap_forward_components(
+                disc.as_ref(),
+                fwd.as_ref(),
+                dc_fixed,
+                &sched,
+                0.0,
+            )?)
+        } else {
+            None
+        };
+        let (par_rate, ann) = if let Some((float_pv, fixed_ann, float_ann)) = forward_components {
+            if fixed_ann.abs() < 1e-12 {
+                (0.0, 0.0)
+            } else {
+                (float_pv / fixed_ann, float_ann)
+            }
+        } else {
+            par_rate_and_annuity_from_discount(disc.as_ref(), dc_fixed, &sched)?
+        };
         if ann.abs() < 1e-12 {
             return Err(finstack_core::Error::Validation(
                 "ASW market calculation is undefined for near-zero fixed-leg annuity".to_string(),
@@ -663,9 +734,13 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         } else {
             coupon
         };
-        // Market ASW = Par ASW + (Market Price % - 100%) / Annuity
         let price_pct = dirty_ccy / notional_amt;
-        let asw_mkt = (eq_coupon - par_rate) + (price_pct - 1.0) / ann;
+        let asw_mkt = if let Some((float_pv, fixed_ann, float_ann)) = forward_components {
+            (eq_coupon * fixed_ann + 1.0 - price_pct - float_pv) / float_ann
+        } else {
+            // Market ASW = Par ASW + upfront discount amortized over the fixed-leg annuity.
+            (eq_coupon - par_rate) + (1.0 - price_pct) / ann
+        };
         Ok(asw_mkt)
     }
 }

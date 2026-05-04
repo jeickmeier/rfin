@@ -1055,6 +1055,71 @@
           "type": "object"
         },
         {
+          "description": "Hull-White 1-factor calibration to cap/floor volatility quotes.",
+          "properties": {
+            "base_date": {
+              "description": "Base date for the calibration.",
+              "type": "string"
+            },
+            "currency": {
+              "$ref": "#/$defs/Currency",
+              "description": "Currency for conventions."
+            },
+            "discount_curve_id": {
+              "$ref": "#/$defs/Id",
+              "description": "Discount curve ID (must already exist in market context)."
+            },
+            "fixed_kappa": {
+              "default": null,
+              "description": "Optional source mean reversion κ. Required for one-quote calibration.",
+              "format": "double",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "forward_curve_id": {
+              "$ref": "#/$defs/Id",
+              "description": "Forward/projection curve ID. If equal to `discount_curve_id`, the\ndiscount curve is used as the single-curve projection proxy."
+            },
+            "initial_kappa": {
+              "default": null,
+              "description": "Optional initial guess for mean reversion κ when solving both κ and σ.",
+              "format": "double",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "initial_sigma": {
+              "default": null,
+              "description": "Optional initial guess for short-rate volatility σ when solving both κ and σ.",
+              "format": "double",
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "kind": {
+              "const": "cap_floor_hull_white",
+              "type": "string"
+            },
+            "payment_frequency": {
+              "$ref": "#/$defs/SwapFrequency",
+              "default": "SemiAnnual",
+              "description": "Payment frequency used to decompose quoted caps/floors into caplets."
+            }
+          },
+          "required": [
+            "kind",
+            "discount_curve_id",
+            "forward_curve_id",
+            "currency",
+            "base_date"
+          ],
+          "type": "object"
+        },
+        {
           "description": "SVI volatility surface calibration.",
           "properties": {
             "base_date": {
@@ -2373,6 +2438,26 @@
         {
           "const": "clamp",
           "description": "Clamp targets to the nearest boundary (flat extrapolation).",
+          "type": "string"
+        }
+      ]
+    },
+    "SwapFrequency": {
+      "description": "Number of coupon payments per year for the underlying swap in HW1F calibration.\n\nUSD swaps are semi-annual (2), EUR swaps are annual (1).",
+      "oneOf": [
+        {
+          "const": "Annual",
+          "description": "1 payment per year (EUR, GBP standard).",
+          "type": "string"
+        },
+        {
+          "const": "SemiAnnual",
+          "description": "2 payments per year (USD standard).",
+          "type": "string"
+        },
+        {
+          "const": "Quarterly",
+          "description": "4 payments per year.",
           "type": "string"
         }
       ]

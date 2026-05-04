@@ -1,6 +1,8 @@
+use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::{Date, DayCount, StubKind, Tenor};
+use finstack_core::market_data::term_structures::{DiscountCurve, DiscountCurveRateQuoteType};
 
 /// Configuration for I-Spread fixed-leg conventions.
 ///
@@ -95,9 +97,23 @@ impl MetricCalculator for ISpreadCalculator {
         // Use the bond's discount curve as proxy for swap discounting (OIS collateral)
         let disc = context.curves.get_discount(&bond.discount_curve_id)?;
 
+        let quote_ctx = QuoteDateContext::new(bond, &context.curves, context.as_of)?;
+
+        // Bloomberg-style I-spread is measured against the interpolated market
+        // swap quote. When the curve carries its original calibration quotes,
+        // use those instead of re-deriving a par coupon from fitted DFs.
+        let use_default_proxy = matches!(self.config.fixed_leg_day_count, DayCount::ActAct)
+            && self.config.fixed_leg_frequency == Tenor::annual();
+        if use_default_proxy {
+            if let Some(par_swap_rate) =
+                interpolated_swap_quote_rate(disc.as_ref(), quote_ctx.quote_date, bond.maturity)?
+            {
+                return Ok(ytm - par_swap_rate);
+            }
+        }
+
         // Build proxy fixed-leg schedule using configured frequency and standard
-        // business-day / stub rules. This approximates a plain-vanilla par swap
-        // fixed leg at the bond maturity.
+        // business-day / stub rules when market quote metadata is unavailable.
         let mut fixed_leg_day_count = self.config.fixed_leg_day_count;
         let mut fixed_leg_frequency = self.config.fixed_leg_frequency;
         if matches!(self.config.fixed_leg_day_count, DayCount::ActAct)
@@ -111,7 +127,7 @@ impl MetricCalculator for ISpreadCalculator {
             }
         }
         let dates: Vec<Date> =
-            finstack_core::dates::ScheduleBuilder::new(context.as_of, bond.maturity)?
+            finstack_core::dates::ScheduleBuilder::new(quote_ctx.quote_date, bond.maturity)?
                 .frequency(fixed_leg_frequency)
                 .stub_rule(StubKind::ShortFront)
                 .build()?
@@ -138,4 +154,46 @@ impl MetricCalculator for ISpreadCalculator {
 
         Ok(ytm - par_swap_rate)
     }
+}
+
+pub(crate) fn interpolated_swap_quote_rate(
+    disc: &DiscountCurve,
+    quote_date: Date,
+    maturity: Date,
+) -> finstack_core::Result<Option<f64>> {
+    let Some(calibration) = disc.rate_calibration() else {
+        return Ok(None);
+    };
+    let mut swap_quotes = calibration
+        .quotes
+        .iter()
+        .filter(|quote| matches!(quote.quote_type, DiscountCurveRateQuoteType::Swap))
+        .filter_map(|quote| {
+            Tenor::parse(&quote.tenor)
+                .ok()
+                .map(|tenor| (tenor.to_years_simple(), quote.rate))
+        })
+        .collect::<Vec<_>>();
+    if swap_quotes.len() < 2 {
+        return Ok(None);
+    }
+    swap_quotes.sort_by(|left, right| left.0.total_cmp(&right.0));
+
+    let target = disc.day_count().year_fraction(
+        quote_date,
+        maturity,
+        finstack_core::dates::DayCountContext::default(),
+    )?;
+    if target <= swap_quotes[0].0 {
+        return Ok(Some(swap_quotes[0].1));
+    }
+    for pair in swap_quotes.windows(2) {
+        let (t0, r0) = pair[0];
+        let (t1, r1) = pair[1];
+        if target <= t1 {
+            let weight = (target - t0) / (t1 - t0);
+            return Ok(Some(r0 + weight * (r1 - r0)));
+        }
+    }
+    Ok(swap_quotes.last().map(|(_, rate)| *rate))
 }

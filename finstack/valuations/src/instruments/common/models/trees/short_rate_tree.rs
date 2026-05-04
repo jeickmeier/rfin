@@ -82,7 +82,7 @@ pub const DEFAULT_LOGNORMAL_VOL: f64 = 0.20; // 20%
 /// | Model | Vol Type | Negative Rates | Mean Reversion | Use Case |
 /// |-------|----------|----------------|----------------|----------|
 /// | Ho-Lee | Normal | ✅ Yes | ❌ No | Low/negative rate environments |
-/// | BDT | Lognormal | ❌ No | ✅ Yes | Traditional positive rate environments |
+/// | BDT | Lognormal | ❌ No | Not currently applied | Traditional positive rate environments |
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShortRateModel {
     /// Ho-Lee model: Gaussian/normal short rates.
@@ -107,20 +107,20 @@ pub enum ShortRateModel {
     /// - Crisis: 150-300 bps (0.015-0.030)
     HoLee,
 
-    /// Black-Derman-Toy model: Lognormal short rates with mean reversion.
+    /// Black-Derman-Toy model: Lognormal short rates.
     ///
     /// ## Rate Dynamics
     /// ```text
-    /// d(ln r) = [θ(t) - a·ln(r)]dt + σdW
+    /// d(ln r) = θ(t)dt + σdW
     /// ```
     /// where:
     /// - `θ(t)` is calibrated to match the discount curve
-    /// - `a` is the mean reversion speed
     /// - `σ` is the **lognormal volatility** (relative, like 0.20 = 20%)
     ///
     /// ## Properties
     /// - ❌ Cannot handle negative rates (rates stay positive)
-    /// - ✅ Mean reversion prevents extreme rate scenarios
+    /// - Current implementation is a binomial curve-fit BDT lattice; mean
+    ///   reversion is not applied by `calibrate_bdt`.
     /// - Lognormal distribution matches cap/floor market conventions
     ///
     /// ## Typical Volatility Range
@@ -190,21 +190,22 @@ pub struct ShortRateTreeConfig {
     /// See [`ShortRateModel`] for typical ranges per model type.
     pub volatility: f64,
 
-    /// Mean reversion parameter (for mean-reverting models like BDT).
+    /// Mean reversion parameter.
     ///
     /// Controls how quickly rates revert to the long-term mean.
     /// - Typical values: 0.01-0.10 (1-10% per year)
     /// - Higher values = faster reversion, less rate dispersion
-    /// - Only used by BDT; ignored by Ho-Lee
+    /// - Used by the Ho-Lee/Hull-White-style path; current BDT calibration
+    ///   rejects nonzero mean reversion rather than silently ignoring it.
     pub mean_reversion: Option<f64>,
 
     /// Tree branching type (binomial or trinomial).
     ///
     /// - **Binomial**: Standard two-branch tree (up/down)
-    /// - **Trinomial**: Three-branch tree (up/mid/down) for better numerical stability
-    ///   with mean-reverting models like Hull-White and BDT
+    /// - **Trinomial**: Three-branch tree (up/mid/down) for models with
+    ///   trinomial calibration support
     ///
-    /// Default: Binomial. Trinomial is recommended for mean-reverting models.
+    /// Default: Binomial. Use trinomial only with a matching calibrated lattice.
     pub branching: TreeBranching,
 }
 
@@ -248,22 +249,22 @@ impl ShortRateTreeConfig {
 
     /// Create a Black-Derman-Toy configuration with specified lognormal volatility.
     ///
-    /// Uses trinomial branching by default for better numerical stability
-    /// with mean-reverting dynamics. For binomial, use [`with_binomial`](Self::with_binomial).
+    /// Uses binomial branching because the BDT calibration builds a binomial
+    /// `step + 1` lattice. A trinomial BDT calibration is not implemented.
     ///
     /// # Arguments
     ///
     /// * `steps` - Number of tree steps (50-200 typical)
     /// * `lognormal_vol` - Lognormal volatility (e.g., 0.20 = 20%/yr)
-    /// * `mean_reversion` - Mean reversion speed (e.g., 0.03 = 3%/yr)
+    /// * `mean_reversion` - Must be zero for the current non-mean-reverting BDT calibration
     ///
     /// # Examples
     ///
     /// ```rust,ignore
     /// use finstack_valuations::instruments::models::trees::short_rate_tree::ShortRateTreeConfig;
     ///
-    /// // 100 steps, 20% lognormal vol, 3% mean reversion
-    /// let config = ShortRateTreeConfig::bdt(100, 0.20, 0.03);
+    /// // 100 steps, 20% lognormal vol
+    /// let config = ShortRateTreeConfig::bdt(100, 0.20, 0.0);
     /// ```
     pub fn bdt(steps: usize, lognormal_vol: f64, mean_reversion: f64) -> Self {
         Self {
@@ -271,8 +272,7 @@ impl ShortRateTreeConfig {
             model: ShortRateModel::BlackDermanToy,
             volatility: lognormal_vol,
             mean_reversion: Some(mean_reversion),
-            // Trinomial is preferred for mean-reverting models
-            branching: TreeBranching::Trinomial,
+            branching: TreeBranching::Binomial,
         }
     }
 
@@ -286,15 +286,14 @@ impl ShortRateTreeConfig {
     /// Create BDT configuration with default lognormal volatility (20%).
     ///
     /// Suitable for developed market government bonds with positive rates.
-    /// Uses 3% mean reversion and trinomial branching as defaults.
+    /// Uses the current non-mean-reverting binomial BDT calibration.
     pub fn default_bdt(steps: usize) -> Self {
-        Self::bdt(steps, DEFAULT_LOGNORMAL_VOL, 0.03)
+        Self::bdt(steps, DEFAULT_LOGNORMAL_VOL, 0.0)
     }
 
-    /// Set trinomial branching (recommended for mean-reverting models).
+    /// Set trinomial branching.
     ///
-    /// Trinomial trees provide better numerical stability for mean-reverting
-    /// short-rate models like Hull-White and BDT.
+    /// The selected model must calibrate a matching `2 * step + 1` lattice.
     #[must_use]
     pub fn with_trinomial(mut self) -> Self {
         self.branching = TreeBranching::Trinomial;
@@ -353,7 +352,7 @@ impl ShortRateTreeConfig {
                 rate_level,
                 1.0,
             )?;
-            Ok(Self::bdt(steps, lognormal_vol, 0.03))
+            Ok(Self::bdt(steps, lognormal_vol, 0.0))
         }
     }
 }
@@ -455,15 +454,15 @@ impl ShortRateTree {
     ///
     /// * `steps` - Number of tree steps (50-200 typical)
     /// * `lognormal_vol` - Lognormal volatility (e.g., 0.20 = 20%/yr)
-    /// * `mean_reversion` - Mean reversion speed (e.g., 0.03 = 3%/yr)
+    /// * `mean_reversion` - Must be zero for the current non-mean-reverting BDT calibration
     ///
     /// # Examples
     ///
     /// ```rust,ignore
     /// use finstack_valuations::instruments::models::trees::short_rate_tree::ShortRateTree;
     ///
-    /// // BDT with 20% lognormal volatility, 3% mean reversion
-    /// let tree = ShortRateTree::black_derman_toy(100, 0.20, 0.03);
+    /// // BDT with 20% lognormal volatility
+    /// let tree = ShortRateTree::black_derman_toy(100, 0.20, 0.0);
     /// ```
     ///
     /// # Warning
@@ -683,6 +682,13 @@ impl ShortRateTree {
     ) -> Result<()> {
         use finstack_core::math::{BrentSolver, Solver};
 
+        if self.config.mean_reversion.unwrap_or(0.0).abs() > 1e-12 {
+            return Err(Error::Validation(
+                "BDT mean reversion is not supported by the current binomial calibration; use 0.0 or the Hull-White tree model"
+                    .into(),
+            ));
+        }
+
         let sigma = self.config.volatility;
         let solver = BrentSolver::new();
 
@@ -771,13 +777,19 @@ impl ShortRateTree {
                 }
             };
 
+            let current_step_rates: Vec<f64> = (0..num_nodes)
+                .map(|j| {
+                    let rate = alpha * u.powf(num_nodes as f64 - 1.0 - 2.0 * j as f64);
+                    rate.clamp(alpha_lb, alpha_ub)
+                })
+                .collect();
+            rates[step] = current_step_rates.clone();
+
             // Calculate and track calibration error
             let model_df = {
                 let mut model_price = 0.0;
                 for (j, &state_price) in current_state_prices.iter().enumerate().take(num_nodes) {
-                    let rate = alpha * u.powf(num_nodes as f64 - 1.0 - 2.0 * j as f64);
-                    let rate_clamped = rate.clamp(alpha_lb, alpha_ub);
-                    let discount_factor = (-rate_clamped * dt).exp();
+                    let discount_factor = (-current_step_rates[j] * dt).exp();
                     model_price += state_price * discount_factor;
                 }
                 model_price
@@ -811,9 +823,7 @@ impl ShortRateTree {
             let mut next_state_prices = vec![0.0; next_nodes];
 
             for (j, &state_price) in current_state_prices.iter().enumerate().take(num_nodes) {
-                let current_rate = alpha * u.powf(num_nodes as f64 - 1.0 - 2.0 * j as f64);
-                let rate_clamped = current_rate.clamp(alpha_lb, alpha_ub);
-                let discount_factor = (-rate_clamped * dt).exp();
+                let discount_factor = (-current_step_rates[j] * dt).exp();
                 let state_price_contribution = state_price * discount_factor;
 
                 // Up move: j -> j+1
@@ -891,6 +901,38 @@ impl ShortRateTree {
         }
         Ok(self.time_steps[step])
     }
+
+    fn expected_nodes_at_step(branching: TreeBranching, step: usize) -> usize {
+        match branching {
+            TreeBranching::Binomial => step + 1,
+            TreeBranching::Trinomial => 2 * step + 1,
+        }
+    }
+
+    fn validate_lattice_geometry(&self) -> Result<()> {
+        if self.rates.len() != self.config.steps + 1 {
+            return Err(Error::internal(format!(
+                "short-rate tree lattice geometry mismatch: expected {} rate rows, got {}",
+                self.config.steps + 1,
+                self.rates.len()
+            )));
+        }
+
+        for (step, rates_at_step) in self.rates.iter().enumerate() {
+            let expected = Self::expected_nodes_at_step(self.config.branching, step);
+            if rates_at_step.len() != expected {
+                return Err(Error::internal(format!(
+                    "short-rate tree lattice geometry mismatch for {:?}: step {} expected {} nodes, got {}",
+                    self.config.branching,
+                    step,
+                    expected,
+                    rates_at_step.len()
+                )));
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl TreeModel for ShortRateTree {
@@ -907,6 +949,7 @@ impl TreeModel for ShortRateTree {
                 "short-rate tree must be calibrated before pricing",
             ));
         }
+        self.validate_lattice_geometry()?;
 
         // Ensure initial rate is present
         if !initial_vars.contains_key(state_keys::INTEREST_RATE) {
@@ -1183,7 +1226,7 @@ mod tests {
 
     #[test]
     fn test_bdt_calibration_populates_quality_metrics() {
-        let mut tree = ShortRateTree::black_derman_toy(6, 0.20, 0.03);
+        let mut tree = ShortRateTree::black_derman_toy(6, 0.20, 0.0);
         let curve = create_test_curve();
 
         tree.calibrate(&curve, 2.0).expect("should succeed");
@@ -1194,6 +1237,88 @@ mod tests {
         let quality = tree.calibration_result().expect("calibration result");
         assert!(quality.converged);
         assert!(quality.max_error_bps.is_finite());
+    }
+
+    #[test]
+    fn test_bdt_stored_lattice_prices_zero_coupon_to_calibration_curve() {
+        let steps = 8;
+        let maturity = 2.0;
+        let mut tree = ShortRateTree::black_derman_toy(steps, 0.20, 0.0);
+        let curve = create_test_curve();
+        tree.calibrate(&curve, maturity).expect("BDT calibration");
+
+        let mut vars = StateVariables::default();
+        vars.insert(
+            short_rate_keys::SHORT_RATE,
+            tree.rate_at_node(0, 0).expect("root rate"),
+        );
+        let market = MarketContext::new();
+        let actual = tree
+            .price(vars, maturity, &market, &ConstantValuator)
+            .expect("BDT zero coupon price");
+        let expected = curve.df(maturity);
+
+        assert!(
+            (actual - expected).abs() < 1e-8,
+            "BDT stored lattice should price a zero coupon to the calibration curve: actual={actual}, expected={expected}"
+        );
+    }
+
+    #[test]
+    fn test_bdt_config_uses_binomial_branching_matching_calibration_geometry() {
+        let config = ShortRateTreeConfig::bdt(6, 0.20, 0.0);
+        assert_eq!(config.branching, TreeBranching::Binomial);
+
+        let mut tree = ShortRateTree::new(config);
+        let curve = create_test_curve();
+        tree.calibrate(&curve, 2.0).expect("BDT calibration");
+
+        for step in 0..=6 {
+            assert_eq!(
+                tree.rates[step].len(),
+                step + 1,
+                "BDT calibration is binomial-width at step {step}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_short_rate_tree_rejects_branching_geometry_mismatch() {
+        let mut tree = ShortRateTree::new(ShortRateTreeConfig::bdt(6, 0.20, 0.0).with_trinomial());
+        let curve = create_test_curve();
+        tree.calibrate(&curve, 2.0).expect("BDT calibration");
+
+        let mut vars = StateVariables::default();
+        vars.insert(
+            short_rate_keys::SHORT_RATE,
+            tree.rate_at_node(0, 0).expect("root rate"),
+        );
+        vars.insert(short_rate_keys::OAS, 0.0);
+        let market = MarketContext::new();
+        let err = tree
+            .price(vars, 2.0, &market, &ConstantValuator)
+            .expect_err("pricing must reject missing trinomial nodes instead of using zero rates");
+
+        assert!(
+            err.to_string().contains("lattice geometry"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_bdt_rejects_nonzero_mean_reversion_until_model_supported() {
+        let mut tree = ShortRateTree::new(ShortRateTreeConfig::bdt(6, 0.20, 0.03));
+        let curve = create_test_curve();
+
+        let err = tree
+            .calibrate(&curve, 2.0)
+            .expect_err("BDT should not silently ignore nonzero mean reversion");
+
+        assert!(
+            err.to_string()
+                .contains("BDT mean reversion is not supported"),
+            "unexpected error: {err}"
+        );
     }
 
     // ========================================================================

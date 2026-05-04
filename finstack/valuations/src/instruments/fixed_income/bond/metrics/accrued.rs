@@ -1,11 +1,13 @@
+use crate::instruments::fixed_income::bond::pricing::settlement::settlement_date;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Calculates accrued interest for bonds.
 ///
-/// Computes the accrued interest since the last coupon payment up to the
-/// valuation date. This is essential for determining the dirty price and
-/// other bond metrics that depend on accrued interest.
+/// Computes the accrued interest since the last coupon payment. For market
+/// quoted bonds, accrued is anchored at the quote/settlement date; otherwise it
+/// is anchored at the valuation date. This keeps `accrued`, `clean_price`, and
+/// `dirty_price` on the same market convention basis.
 ///
 /// The calculation uses the bond's accrual method (linear, compounded, or indexed)
 /// and respects ex-coupon conventions where accrual drops to zero in the ex-coupon window.
@@ -40,10 +42,16 @@ impl MetricCalculator for AccruedInterestCalculator {
             // Build full schedule with market context (supports FRNs, amortization, custom schedules)
             let schedule = bond.full_cashflow_schedule(&context.curves)?;
 
-            // Use generic cashflow accrual engine with bond's config
+            let accrual_date = if bond.pricing_overrides.market_quotes.has_price_driver() {
+                settlement_date(bond, context.as_of)?
+            } else {
+                context.as_of
+            };
+
+            // Use generic cashflow accrual engine with bond's config.
             let accrued_amt = crate::cashflow::accrual::accrued_interest_amount(
                 &schedule,
-                context.as_of,
+                accrual_date,
                 &bond.accrual_config(),
             )?;
 

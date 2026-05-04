@@ -100,57 +100,15 @@ impl Bond {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::common_impl::models::{
-            short_rate_keys, state_keys, ShortRateTree, ShortRateTreeConfig, StateVariables,
-            TreeModel,
-        };
         use crate::instruments::fixed_income::bond::pricing::engine::tree::{
-            bond_tree_config, BondValuator,
+            bond_tree_config, TreePricer,
         };
 
-        // Calculate time to maturity from the valuation date (as_of) using the
-        // discount curve's day-count convention to ensure consistency with tree calibration.
-        let discount_curve = market.get_discount(&self.discount_curve_id)?;
-        let time_to_maturity = discount_curve.day_count().year_fraction(
-            as_of,
-            self.maturity,
-            finstack_core::dates::DayCountContext::default(),
-        )?;
-
-        if time_to_maturity <= 0.0 {
-            return Ok(Money::new(0.0, self.notional.currency()));
-        }
-
-        // Use centralized tree config from pricing_overrides (or defaults)
+        // Use the same dispatch as OAS/quote conversions so direct callable PV
+        // honors BDT, Hull-White, hazard-tree, and tree-curve overrides.
         let config = bond_tree_config(self);
-        let tree_steps = config.tree_steps;
-        let volatility = config.volatility;
-
-        let tree_config = ShortRateTreeConfig {
-            steps: tree_steps,
-            volatility,
-            mean_reversion: config.mean_reversion,
-            ..Default::default()
-        };
-
-        // Initialize and calibrate short-rate tree to match discount curve
-        let mut tree = ShortRateTree::new(tree_config);
-        tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
-
-        // Create bond valuator with call/put schedule mapped to tree steps
-        let valuator =
-            BondValuator::new(self.clone(), market, as_of, time_to_maturity, tree_steps)?;
-
-        // Set up initial state variables (no OAS for vanilla pricing)
-        let initial_rate = tree
-            .rate_at_node(0, 0)
-            .unwrap_or_else(|_| discount_curve.zero(0.0));
-        let mut vars = StateVariables::default();
-        vars.insert(state_keys::INTEREST_RATE, initial_rate);
-        vars.insert(short_rate_keys::OAS, 0.0);
-
-        // Price via tree with backward induction applying call/put constraints
-        let price_amount = tree.price(vars, time_to_maturity, market, &valuator)?;
+        let price_amount =
+            TreePricer::with_config(config).price_at_oas(self, market, as_of, 0.0)?;
 
         Ok(Money::new(price_amount, self.notional.currency()))
     }

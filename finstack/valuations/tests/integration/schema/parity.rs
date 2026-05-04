@@ -111,6 +111,7 @@ fn test_attribution_factors_schema_parity() {
 /// Must match `StepParams` enum variants in `src/calibration/api/schema.rs`.
 const CANONICAL_CALIBRATION_STEP_KINDS: &[&str] = &[
     "base_correlation",
+    "cap_floor_hull_white",
     "discount",
     "forward",
     "hazard",

@@ -164,6 +164,38 @@ fn test_bond_valuator_make_whole_call_exceeds_floor_when_reference_curve_is_low(
 }
 
 #[test]
+fn test_bond_valuator_street_call_redemption_includes_accrued_interest() {
+    let mut bond = create_test_bond();
+    let call_date = Date::from_calendar_date(2027, Month::April, 1).expect("Valid test date");
+    let mut call_put = CallPutSchedule::default();
+    call_put.calls.push(CallPut {
+        date: call_date,
+        price_pct_of_par: 100.0,
+        end_date: None,
+        make_whole: None,
+    });
+    bond.call_put = Some(call_put);
+
+    let market_context = create_test_market_context();
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+    let valuator = BondValuator::new(bond, &market_context, as_of, 5.0, 50)
+        .expect("BondValuator creation should succeed in test");
+
+    let (call_step, call_price) = valuator
+        .call_vec
+        .iter()
+        .enumerate()
+        .find_map(|(idx, price)| price.map(|value| (idx, value)))
+        .expect("call price should be present");
+    let floor_price = valuator.outstanding_principal_vec[call_step];
+
+    assert!(
+        call_price > floor_price,
+        "off-cycle clean street call should settle with accrued interest: call_price={call_price}, floor={floor_price}"
+    );
+}
+
+#[test]
 #[ignore = "slow"]
 fn test_rates_credit_default_lowers_price() {
     use crate::instruments::common_impl::models::trees::two_factor_rates_credit::{

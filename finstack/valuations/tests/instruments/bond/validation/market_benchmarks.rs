@@ -507,10 +507,10 @@ fn test_bond_convexity_positive() {
         convexity
     );
 
-    // For 5-year bond, typically in range 15-25
+    // Bloomberg-style price convexity is scaled relative to raw years-squared convexity.
     assert!(
-        convexity > 10.0 && convexity < 30.0,
-        "Convexity={:.2} outside typical range 10-30 for 5Y bond",
+        convexity > 0.10 && convexity < 0.30,
+        "Convexity={:.2} outside typical Bloomberg-style range 0.10-0.30 for 5Y bond",
         convexity
     );
 }

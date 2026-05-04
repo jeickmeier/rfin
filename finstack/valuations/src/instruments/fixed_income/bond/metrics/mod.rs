@@ -53,6 +53,8 @@ pub(crate) mod cs01;
 pub(crate) mod duration_macaulay;
 /// Modified duration calculator
 pub(crate) mod duration_modified;
+/// Option-aware bond DV01 calculator
+pub(crate) mod dv01;
 /// Effective duration and convexity for bonds with embedded options
 pub(crate) mod effective;
 /// Price, yield, and spread metrics
@@ -67,15 +69,26 @@ pub(crate) use convexity::ConvexityCalculator;
 pub(crate) use cs01::{BondBucketedCs01Calculator, BondCs01Calculator};
 pub(crate) use duration_macaulay::MacaulayDurationCalculator;
 pub(crate) use duration_modified::ModifiedDurationCalculator;
+pub(crate) use dv01::BondDv01Calculator;
 pub use price_yield_spread::{
     AssetSwapMarketCalculator, AssetSwapParCalculator, DiscountMarginCalculator, ZSpreadCalculator,
 };
 pub(crate) use price_yield_spread::{
-    CleanPriceCalculator, DirtyPriceCalculator, EmbeddedOptionValueCalculator, ISpreadCalculator,
-    OasCalculator, YtmCalculator, YtwCalculator,
+    BondVegaCalculator, CleanPriceCalculator, DirtyPriceCalculator, EmbeddedOptionValueCalculator,
+    ISpreadCalculator, OasCalculator, YtmCalculator, YtwCalculator,
 };
 pub(crate) use wal::BondWalCalculator;
 pub(crate) use yield_dv01::YieldDv01Calculator;
+
+pub(crate) fn bond_risk_basis(
+    context: &crate::metrics::MetricContext,
+) -> crate::instruments::BondRiskBasis {
+    context
+        .get_metric_overrides()
+        .map_or_else(crate::instruments::BondRiskBasis::default, |overrides| {
+            overrides.bond_risk_basis_or_default()
+        })
+}
 
 /// Registers all bond metrics to a registry.
 ///
@@ -129,7 +142,8 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (Convexity, ConvexityCalculator),
 
             (Oas, OasCalculator),
-            (EmbeddedOptionValue, EmbeddedOptionValueCalculator::default()),
+            (EmbeddedOptionValue, EmbeddedOptionValueCalculator),
+            (Vega, BondVegaCalculator),
             (ZSpread, ZSpreadCalculator::default()),
             (ISpread, ISpreadCalculator::default()),
             (DiscountMargin, DiscountMarginCalculator::default()),
@@ -140,9 +154,7 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
 
             // Theta is now registered universally in metrics::standard_registry()
 
-            (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::Bond,
-            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            (Dv01, BondDv01Calculator),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Bond,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),

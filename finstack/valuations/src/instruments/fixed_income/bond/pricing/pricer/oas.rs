@@ -1,7 +1,7 @@
 //! Option-adjusted spread (OAS) pricer for the pricing registry.
 
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::fixed_income::bond::pricing::engine::tree::TreePricer;
+use crate::instruments::fixed_income::bond::pricing::engine::tree::{bond_tree_config, TreePricer};
 use crate::instruments::fixed_income::bond::types::Bond;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
@@ -65,7 +65,7 @@ impl Pricer for SimpleBondOasPricer {
                 )
             })?;
 
-        let oas_bp = TreePricer::new()
+        let oas_bp = TreePricer::with_config(bond_tree_config(bond))
             .calculate_oas(bond, market, as_of, clean_pct)
             .map_err(|e| PricingError::model_failure_with_context(e.to_string(), ctx))?;
 

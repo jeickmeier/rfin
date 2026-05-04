@@ -183,6 +183,36 @@ impl ZSpreadCalculator {
     }
 }
 
+pub(crate) fn bond_z_spread_compounding_frequency(bond: &Bond) -> f64 {
+    let years = bond.cashflow_spec.frequency().to_years_simple();
+    if years > 0.0 && years.is_finite() {
+        (1.0 / years).round().max(1.0)
+    } else {
+        1.0
+    }
+}
+
+pub(crate) fn z_spread_discount_factor(
+    df_base: f64,
+    t: f64,
+    z: f64,
+    compounds_per_year: f64,
+) -> f64 {
+    if t <= 0.0 {
+        return df_base;
+    }
+    if !df_base.is_finite() || df_base <= 0.0 {
+        return f64::NAN;
+    }
+    let m = compounds_per_year.max(1.0);
+    let base_rate = m * (df_base.powf(-1.0 / (m * t)) - 1.0);
+    let denom = 1.0 + (base_rate + z) / m;
+    if denom <= 0.0 || !denom.is_finite() {
+        return f64::INFINITY;
+    }
+    denom.powf(-m * t)
+}
+
 impl MetricCalculator for ZSpreadCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         // Get bond and compute quote-date context
@@ -212,6 +242,7 @@ impl MetricCalculator for ZSpreadCalculator {
         let flows = bond.pricing_dated_cashflows(&context.curves, context.as_of)?;
         let disc = context.curves.get_discount(&bond.discount_curve_id)?;
         let quote_date = quote_ctx.quote_date;
+        let compounds_per_year = bond_z_spread_compounding_frequency(bond);
         // Keep z-spread time axis on the discount-curve basis for consistency with
         // existing solver calibration and parity tests.
         let dc = disc.day_count();
@@ -234,9 +265,8 @@ impl MetricCalculator for ZSpreadCalculator {
             // Optimized PV calculation using pre-computed flows
             let mut pv = finstack_core::math::summation::NeumaierAccumulator::new();
             for (t, df_base, amt) in &cached_flows {
-                // Apply Z-spread shift: exp(-z * t)
-                let spread_df = (-z * t).exp();
-                pv.add(amt * df_base * spread_df);
+                let df_z = z_spread_discount_factor(*df_base, *t, z, compounds_per_year);
+                pv.add(amt * df_z);
             }
             pv.total() - target_value_ccy
         };

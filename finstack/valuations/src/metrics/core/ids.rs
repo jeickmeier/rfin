@@ -351,8 +351,8 @@ impl MetricId {
 
     /// Embedded option value for callable/putable bonds (in currency units)
     ///
-    /// For callable bonds: V_call = P_straight - P_callable (positive, issuer owns call)
-    /// For putable bonds: V_put = P_putable - P_straight (positive, investor owns put)
+    /// For callable bonds: P_callable - P_straight (negative holder value)
+    /// For putable bonds: P_putable - P_straight (positive holder value)
     /// Returns 0 for bonds without embedded options.
     pub const EmbeddedOptionValue: Self = Self(Cow::Borrowed("embedded_option_value"));
 

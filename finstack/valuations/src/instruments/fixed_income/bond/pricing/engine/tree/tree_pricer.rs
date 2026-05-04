@@ -4,6 +4,7 @@ use super::config::{TreeModelChoice, TreePricerConfig};
 use crate::instruments::common_impl::models::trees::hull_white_tree::{
     HullWhiteTree, HullWhiteTreeConfig,
 };
+use crate::instruments::common_impl::models::trees::short_rate_tree::CalibrationResult;
 use crate::instruments::common_impl::models::trees::two_factor_rates_credit::{
     RatesCreditConfig, RatesCreditTree,
 };
@@ -13,7 +14,7 @@ use crate::instruments::common_impl::models::{
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::solver::{BrentSolver, Solver};
-use finstack_core::Result;
+use finstack_core::{Error, Result};
 
 /// Tree-based pricer for bonds with embedded options and OAS calculations.
 ///
@@ -43,6 +44,76 @@ pub struct TreePricer {
 }
 
 impl TreePricer {
+    fn effective_steps_for_model(
+        &self,
+        bond: &Bond,
+        as_of: Date,
+        day_count: finstack_core::dates::DayCount,
+        model: &TreeModelChoice,
+    ) -> usize {
+        if !matches!(model, TreeModelChoice::BlackDermanToy { .. }) {
+            return self.config.tree_steps;
+        }
+
+        let Some(call_put) = bond.call_put.as_ref() else {
+            return self.config.tree_steps;
+        };
+        if !call_put.has_options() {
+            return self.config.tree_steps;
+        }
+
+        let exercise_times: Vec<f64> = call_put
+            .calls
+            .iter()
+            .map(|call| call.date)
+            .chain(call_put.puts.iter().map(|put| put.date))
+            .filter(|date| *date > as_of && *date < bond.maturity)
+            .filter_map(|date| {
+                day_count
+                    .year_fraction(
+                        as_of,
+                        date,
+                        finstack_core::dates::DayCountContext::default(),
+                    )
+                    .ok()
+            })
+            .collect();
+        if exercise_times.is_empty() {
+            return self.config.tree_steps;
+        }
+
+        let Ok(time_to_maturity) = day_count.year_fraction(
+            as_of,
+            bond.maturity,
+            finstack_core::dates::DayCountContext::default(),
+        ) else {
+            return self.config.tree_steps;
+        };
+        if time_to_maturity <= 0.0 {
+            return self.config.tree_steps;
+        }
+
+        let max_steps =
+            (self.config.tree_steps.saturating_mul(4)).clamp(self.config.tree_steps, 1000);
+        (self.config.tree_steps..=max_steps)
+            .min_by(|a, b| {
+                let score = |steps: usize| {
+                    exercise_times
+                        .iter()
+                        .map(|time| {
+                            let raw = time / time_to_maturity * steps as f64;
+                            (raw - raw.round()).abs()
+                        })
+                        .fold(0.0_f64, f64::max)
+                };
+                score(*a)
+                    .partial_cmp(&score(*b))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| a.cmp(b))
+            })
+            .unwrap_or(self.config.tree_steps)
+    }
+
     /// Create a new tree pricer with default configuration.
     ///
     /// # Returns
@@ -82,6 +153,148 @@ impl TreePricer {
     /// ```
     pub fn with_config(config: TreePricerConfig) -> Self {
         Self { config }
+    }
+
+    /// Price a bond with the configured tree at a fixed OAS in basis points.
+    pub(crate) fn price_at_oas(
+        &self,
+        bond: &Bond,
+        market_context: &MarketContext,
+        as_of: Date,
+        oas_bp: f64,
+    ) -> Result<f64> {
+        let tree_discount_curve_id = self
+            .config
+            .tree_discount_curve_id
+            .as_ref()
+            .unwrap_or(&bond.discount_curve_id);
+        let discount_curve = market_context.get_discount(tree_discount_curve_id.as_str())?;
+        let tree_bond_storage;
+        let tree_bond = if tree_discount_curve_id != &bond.discount_curve_id {
+            tree_bond_storage = {
+                let mut cloned = bond.clone();
+                cloned.discount_curve_id = tree_discount_curve_id.clone();
+                cloned
+            };
+            &tree_bond_storage
+        } else {
+            bond
+        };
+
+        if as_of >= bond.maturity {
+            return Ok(0.0);
+        }
+        let time_to_maturity = discount_curve.day_count().year_fraction(
+            as_of,
+            bond.maturity,
+            finstack_core::dates::DayCountContext::default(),
+        )?;
+        if time_to_maturity <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let hazard_curve = if let Some(hid) = bond.credit_curve_id.as_ref() {
+            market_context.get_hazard(hid.as_str()).ok()
+        } else {
+            market_context
+                .get_hazard(bond.discount_curve_id.as_str())
+                .ok()
+                .or_else(|| {
+                    market_context
+                        .get_hazard(format!("{}-CREDIT", bond.discount_curve_id.as_str()))
+                        .ok()
+                })
+        };
+
+        let valuator = BondValuator::new(
+            tree_bond.clone(),
+            market_context,
+            as_of,
+            time_to_maturity,
+            self.config.tree_steps,
+        )?;
+
+        if let Some(hc) = hazard_curve.as_ref() {
+            let cfg = RatesCreditConfig {
+                steps: self.config.tree_steps,
+                rate_vol: self.config.volatility,
+                ..Default::default()
+            };
+            let mut tree = RatesCreditTree::new(cfg);
+            tree.calibrate(discount_curve.as_ref(), hc.as_ref(), time_to_maturity)?;
+            let mut vars = StateVariables::default();
+            vars.insert("oas", oas_bp);
+            return tree.price(vars, time_to_maturity, market_context, &valuator);
+        }
+
+        let effective_model = match &self.config.tree_model {
+            TreeModelChoice::HullWhiteCalibratedToSwaptions {
+                swaption_vol_surface_id,
+            } => Self::resolve_hw_calibrated(
+                market_context,
+                &discount_curve,
+                swaption_vol_surface_id,
+                time_to_maturity,
+            ),
+            other => other.clone(),
+        };
+
+        match effective_model {
+            TreeModelChoice::HullWhite { kappa, sigma } => {
+                let hw_config = HullWhiteTreeConfig {
+                    kappa,
+                    sigma,
+                    steps: self.config.tree_steps,
+                    max_nodes: None,
+                };
+                let hw_tree =
+                    HullWhiteTree::calibrate(hw_config, discount_curve.as_ref(), time_to_maturity)?;
+                Ok(valuator.price_with_hw_tree(&hw_tree, oas_bp))
+            }
+            TreeModelChoice::BlackDermanToy {
+                mean_reversion,
+                sigma,
+            } => {
+                let tree_steps = self.effective_steps_for_model(
+                    tree_bond,
+                    as_of,
+                    discount_curve.day_count(),
+                    &TreeModelChoice::BlackDermanToy {
+                        mean_reversion,
+                        sigma,
+                    },
+                );
+                let valuator = BondValuator::new(
+                    tree_bond.clone(),
+                    market_context,
+                    as_of,
+                    time_to_maturity,
+                    tree_steps,
+                )?;
+                let tree_config = ShortRateTreeConfig::bdt(tree_steps, sigma, mean_reversion);
+                let mut tree = ShortRateTree::new(tree_config);
+                tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
+                validate_bdt_calibration_quality(tree.calibration_result())?;
+                let mut vars = StateVariables::default();
+                vars.insert(short_rate_keys::SHORT_RATE, tree.rate_at_node(0, 0)?);
+                vars.insert(short_rate_keys::OAS, oas_bp);
+                tree.price(vars, time_to_maturity, market_context, &valuator)
+            }
+            TreeModelChoice::HoLee | TreeModelChoice::HullWhiteCalibratedToSwaptions { .. } => {
+                let tree_config = ShortRateTreeConfig {
+                    steps: self.config.tree_steps,
+                    volatility: self.config.volatility,
+                    mean_reversion: self.config.mean_reversion,
+                    ..Default::default()
+                };
+                let mut tree = ShortRateTree::new(tree_config);
+                tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
+                let mut vars = StateVariables::default();
+                vars.insert(short_rate_keys::SHORT_RATE, tree.rate_at_node(0, 0)?);
+                vars.insert(short_rate_keys::OAS, oas_bp);
+                tree.price(vars, time_to_maturity, market_context, &valuator)
+            }
+        }
     }
 
     /// Calculate option-adjusted spread (OAS) for a bond.
@@ -145,6 +358,7 @@ impl TreePricer {
         // Dirty target must use accrued at the quote/settlement date to match
         // the market convention used by YTM, Z-spread, and the quote engine.
         let quote_ctx = QuoteDateContext::new(bond, market_context, as_of)?;
+        let quote_date = quote_ctx.quote_date;
         let dirty_target =
             quote_ctx.dirty_from_clean_pct(clean_price_pct_of_par, bond.notional.amount());
         // Choose model: if a hazard curve is present in MarketContext whose ID matches the bond's
@@ -152,14 +366,30 @@ impl TreePricer {
         // two-factor tree; otherwise, fall back to short-rate.
         let mut use_rates_credit = false;
         let mut rc_tree: Option<RatesCreditTree> = None;
-        let discount_curve = market_context.get_discount(&bond.discount_curve_id)?;
+        let tree_discount_curve_id = self
+            .config
+            .tree_discount_curve_id
+            .as_ref()
+            .unwrap_or(&bond.discount_curve_id);
+        let discount_curve = market_context.get_discount(tree_discount_curve_id.as_str())?;
+        let tree_bond_storage;
+        let tree_bond = if tree_discount_curve_id != &bond.discount_curve_id {
+            tree_bond_storage = {
+                let mut cloned = bond.clone();
+                cloned.discount_curve_id = tree_discount_curve_id.clone();
+                cloned
+            };
+            &tree_bond_storage
+        } else {
+            bond
+        };
         // Align tree time basis with the discount curve's own day-count.
-        if as_of >= bond.maturity {
+        if quote_date >= bond.maturity {
             return Ok(0.0);
         }
         let dc_curve = discount_curve.day_count();
         let time_to_maturity = dc_curve.year_fraction(
-            as_of,
+            quote_date,
             bond.maturity,
             finstack_core::dates::DayCountContext::default(),
         )?;
@@ -207,6 +437,7 @@ impl TreePricer {
 
         let mut sr_tree: Option<ShortRateTree> = None;
         let mut hw_tree: Option<HullWhiteTree> = None;
+        let mut valuation_steps = self.config.tree_steps;
 
         if !use_rates_credit {
             match &effective_model {
@@ -234,15 +465,32 @@ impl TreePricer {
                     tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
                     sr_tree = Some(tree);
                 }
+                TreeModelChoice::BlackDermanToy {
+                    mean_reversion,
+                    sigma,
+                } => {
+                    valuation_steps = self.effective_steps_for_model(
+                        tree_bond,
+                        quote_date,
+                        discount_curve.day_count(),
+                        &effective_model,
+                    );
+                    let tree_config =
+                        ShortRateTreeConfig::bdt(valuation_steps, *sigma, *mean_reversion);
+                    let mut tree = ShortRateTree::new(tree_config);
+                    tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
+                    validate_bdt_calibration_quality(tree.calibration_result())?;
+                    sr_tree = Some(tree);
+                }
             }
         }
 
         let valuator = BondValuator::new(
-            bond.clone(),
+            tree_bond.clone(),
             market_context,
-            as_of,
+            quote_date,
             time_to_maturity,
-            self.config.tree_steps,
+            valuation_steps,
         )?;
 
         // Get initial short rate for state variables (needed by short-rate tree)
@@ -405,6 +653,21 @@ impl Default for TreePricer {
     }
 }
 
+fn validate_bdt_calibration_quality(quality: Option<&CalibrationResult>) -> Result<()> {
+    let quality = quality.ok_or_else(|| {
+        Error::internal("BDT calibration quality is unavailable after calibration")
+    })?;
+
+    if quality.is_acceptable() {
+        return Ok(());
+    }
+
+    Err(Error::Validation(format!(
+        "BDT calibration quality is unacceptable: max_error_bps={:.6}, max_error_step={}, fallback_count={}, converged={}",
+        quality.max_error_bps, quality.max_error_step, quality.fallback_count, quality.converged
+    )))
+}
+
 /// Calculate option-adjusted spread for a bond given market price.
 ///
 /// Convenience function using default tree configuration. This is a wrapper
@@ -441,6 +704,31 @@ pub fn calculate_oas(
     as_of: Date,
     clean_price: f64,
 ) -> Result<f64> {
-    let calculator = TreePricer::new();
+    let calculator = TreePricer::with_config(super::config::bond_tree_config(bond));
     calculator.calculate_oas(bond, market_context, as_of, clean_price)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::instruments::common_impl::models::trees::short_rate_tree::CalibrationResult;
+
+    #[test]
+    fn bdt_calibration_quality_rejects_fallbacks_and_large_error() {
+        let poor = CalibrationResult {
+            max_error_bps: 1.25,
+            max_error_step: 4,
+            fallback_count: 1,
+            converged: true,
+        };
+
+        let err = validate_bdt_calibration_quality(Some(&poor))
+            .expect_err("poor BDT calibration should be rejected");
+        let msg = err.to_string();
+
+        assert!(
+            msg.contains("BDT calibration quality is unacceptable"),
+            "unexpected error: {msg}"
+        );
+    }
 }

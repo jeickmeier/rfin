@@ -1,6 +1,7 @@
 use super::super::super::super::types::Bond;
 use super::TreePricer;
 use crate::instruments::common_impl::models::trees::hull_white_tree::HullWhiteTree;
+use crate::instruments::common_impl::models::trees::tree_framework::map_date_to_step;
 use crate::instruments::common_impl::models::{NodeState, TreeValuator};
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -249,16 +250,11 @@ impl BondValuator {
                 let raw_clamped = raw.clamp(0.0, tree_steps as f64);
 
                 // When a cashflow date matches an exercise date, snap to the
-                // exercise step (ceil) to prevent timing mismatches between
-                // coupon receipt and exercise decision.
+                // exercise step to prevent timing mismatches between coupon
+                // receipt and exercise decision.
                 if exercise_dates.contains(date) {
-                    let mut step = raw_clamped.ceil() as usize;
-                    if step == 0 {
-                        step = 1;
-                    }
-                    if step >= num_steps {
-                        step = num_steps - 1;
-                    }
+                    let step = map_date_to_step(as_of, *date, bond.maturity, tree_steps, dc_curve)
+                        .clamp(1, num_steps - 1);
                     cashflow_vec[step] += amount.amount();
                 } else {
                     // Distributed mapping: spread cashflow between two nearest time steps
@@ -290,22 +286,17 @@ impl BondValuator {
         if let Some(ref call_put) = bond.call_put {
             for call in &call_put.calls {
                 if call.date > as_of && call.date <= bond.maturity {
-                    let time_frac = dc_curve.year_fraction(
+                    let exercise_time = dc_curve.year_fraction(
                         as_of,
                         call.date,
                         finstack_core::dates::DayCountContext::default(),
                     )?;
-                    let raw = (time_frac / time_to_maturity) * tree_steps as f64;
-                    let mut step = raw.ceil() as usize;
-                    if step == 0 {
-                        step = 1;
-                    }
-                    if step >= num_steps {
-                        step = num_steps - 1;
-                    }
+                    let step =
+                        map_date_to_step(as_of, call.date, bond.maturity, tree_steps, dc_curve)
+                            .clamp(1, num_steps - 1);
                     let outstanding = outstanding_principal_vec[step];
                     let floor_price = outstanding * (call.price_pct_of_par / 100.0);
-                    let call_price = if let Some(spec) = &call.make_whole {
+                    let clean_call_price = if let Some(spec) = &call.make_whole {
                         let reference_curve =
                             market_context.get_discount(&spec.reference_curve_id)?;
                         Self::make_whole_call_price(
@@ -319,27 +310,44 @@ impl BondValuator {
                     } else {
                         floor_price
                     };
+                    let accrued_on_call = crate::cashflow::accrual::accrued_interest_amount(
+                        &full_schedule,
+                        call.date,
+                        &bond.accrual_config(),
+                    )?;
+                    let call_price = Self::value_at_step_time(
+                        clean_call_price + accrued_on_call,
+                        exercise_time,
+                        time_steps[step],
+                        discount_curve.as_ref(),
+                    );
                     call_vec[step] = Some(call_price);
                 }
             }
             for put in &call_put.puts {
                 if put.date > as_of && put.date <= bond.maturity {
-                    let time_frac = dc_curve.year_fraction(
+                    let exercise_time = dc_curve.year_fraction(
                         as_of,
                         put.date,
                         finstack_core::dates::DayCountContext::default(),
                     )?;
-                    let raw = (time_frac / time_to_maturity) * tree_steps as f64;
-                    let mut step = raw.ceil() as usize;
-                    if step == 0 {
-                        step = 1;
-                    }
-                    if step >= num_steps {
-                        step = num_steps - 1;
-                    }
+                    let step =
+                        map_date_to_step(as_of, put.date, bond.maturity, tree_steps, dc_curve)
+                            .clamp(1, num_steps - 1);
                     // Use outstanding principal at exercise step, not original notional
                     let outstanding = outstanding_principal_vec[step];
-                    let put_price = outstanding * (put.price_pct_of_par / 100.0);
+                    let clean_put_price = outstanding * (put.price_pct_of_par / 100.0);
+                    let accrued_on_put = crate::cashflow::accrual::accrued_interest_amount(
+                        &full_schedule,
+                        put.date,
+                        &bond.accrual_config(),
+                    )?;
+                    let put_price = Self::value_at_step_time(
+                        clean_put_price + accrued_on_put,
+                        exercise_time,
+                        time_steps[step],
+                        discount_curve.as_ref(),
+                    );
                     put_vec[step] = Some(put_price);
                 }
             }
@@ -383,6 +391,19 @@ impl BondValuator {
     #[inline]
     fn call_at(&self, step: usize) -> Option<f64> {
         self.call_vec.get(step).copied().flatten()
+    }
+
+    fn value_at_step_time(
+        cash_value_at_event_time: f64,
+        event_time: f64,
+        step_time: f64,
+        discount_curve: &dyn finstack_core::market_data::traits::Discounting,
+    ) -> f64 {
+        let step_df = discount_curve.df(step_time);
+        if step_df <= f64::EPSILON {
+            return cash_value_at_event_time;
+        }
+        cash_value_at_event_time * discount_curve.df(event_time) / step_df
     }
 
     /// Check if there's a put option at this time step.

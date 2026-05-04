@@ -447,8 +447,8 @@ fn test_asw_market_with_forward_moves_with_dirty_price() {
         "Market ASW at par price should match par ASW"
     );
     assert!(
-        rich_asw > ann_asw_par_px,
-        "Higher dirty price should widen ASW per forward formula"
+        rich_asw < ann_asw_par_px,
+        "Higher dirty price should tighten ASW per forward formula"
     );
 }
 

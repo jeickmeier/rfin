@@ -1,4 +1,5 @@
 use crate::instruments::Bond;
+use crate::instruments::BondRiskBasis;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
 /// Calculates modified duration for bonds.
@@ -28,10 +29,10 @@ impl MetricCalculator for ModifiedDurationCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 
-        // For bonds with embedded options, use effective duration (curve-bump approach)
+        // Callable/OAS model risk is opt-in. The default matches Bloomberg YAS
+        // Workout risk: quoted-yield duration on maturity/workout cashflows.
         let has_options = bond.call_put.as_ref().is_some_and(|cp| cp.has_options());
-
-        if has_options {
+        if has_options && super::bond_risk_basis(context) == BondRiskBasis::CallableOas {
             return super::effective::effective_duration(
                 bond,
                 context.curves.as_ref(),

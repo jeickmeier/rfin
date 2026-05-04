@@ -1,0 +1,895 @@
+{
+  "schema_version": "finstack.golden/1",
+  "name": "ibm_eur_2034_callable_bloomberg",
+  "domain": "fixed_income.bond",
+  "description": "Bloomberg YAS/OAS/ASW IBM EUR 3.45% 2034 callable corporate bond captured from screens on 2026-05-03.",
+  "provenance": {
+    "as_of": "2026-04-30",
+    "source": "bloomberg-screen",
+    "source_detail": "Bloomberg DES/YAS/OAS/ASW for IBM 3.45 02/03/34 Corp, EUR senior unsecured callable corporate bond, settlement 2026-05-06, price 97.484, curve 514 / 45 EUR vs 6M EURIBOR swap curve, DBR 2.2 02/15/34 benchmark.",
+    "captured_by": "jeickmeier",
+    "captured_on": "2026-05-03",
+    "last_reviewed_by": "jeickmeier",
+    "last_reviewed_on": "2026-05-03",
+    "review_interval_months": 6,
+    "regen_command": "manual Bloomberg DES/YAS/OAS/ASW screen transcription; see provenance.screenshots",
+    "screenshots": [
+      {
+        "path": "screenshots/ibm_eur_2034_callable__description.png",
+        "screen": "DES",
+        "captured_on": "2026-05-03",
+        "description": "Bond description with identifiers, coupon, maturity, rating, call type, first settlement date, and minimum piece"
+      },
+      {
+        "path": "screenshots/ibm_eur_2034_callable__cashflows.png",
+        "screen": "DES",
+        "captured_on": "2026-05-03",
+        "description": "Bond coupon cashflow schedule with annual coupons and principal redemption"
+      },
+      {
+        "path": "screenshots/ibm_eur_2034_callable__call_schedule.png",
+        "screen": "DES",
+        "captured_on": "2026-05-03",
+        "description": "Call schedule showing first callable date and call price"
+      },
+      {
+        "path": "screenshots/ibm_eur_2034_callable__coupon_info.png",
+        "screen": "DES",
+        "captured_on": "2026-05-03",
+        "description": "Coupon information showing normal first and last coupon"
+      },
+      {
+        "path": "screenshots/ibm_eur_2034_callable__yield_spread.png",
+        "screen": "YAS",
+        "captured_on": "2026-05-03",
+        "description": "Yield and spread analysis with price, yield, settlement, spreads, duration, convexity, DV01, accrued, and invoice"
+      },
+      {
+        "path": "screenshots/ibm_eur_2034_callable__oas.png",
+        "screen": "OAS1",
+        "captured_on": "2026-05-03",
+        "description": "Option-adjusted spread analysis with OAS, volatility, option value, vega, call schedule, and OAS risk table"
+      },
+      {
+        "path": "screenshots/ibm_eur_2034_callable__asw_pricing.png",
+        "screen": "ASW",
+        "captured_on": "2026-05-03",
+        "description": "Asset swap pricing tab with bond terms, swap terms, z-spread, yield, ASW spread, MMS spread, and swapped spread detail"
+      },
+      {
+        "path": "screenshots/ibm_eur_2034_callable__present_values.png",
+        "screen": "ASW",
+        "captured_on": "2026-05-03",
+        "description": "Asset swap deal summary with constituent bond, swap payer, swap receiver, and asset swap fields"
+      },
+      {
+        "path": "screenshots/ibm_eur_2034_callable__asw_cashflows.png",
+        "screen": "ASW",
+        "captured_on": "2026-05-03",
+        "description": "Asset swap cashflow table with leg cashflows, discount factors, PVs, accrued interest, and settlement cash"
+      },
+      {
+        "path": "screenshots/ibm_eur_2034_callable__cashflow_analysis.png",
+        "screen": "YAS",
+        "captured_on": "2026-05-03",
+        "description": "Cash flow analysis tab with coupon and principal schedule at Bloomberg price 97.620"
+      },
+      {
+        "path": "screenshots/ibm_eur_2034_callable__present_values.png",
+        "screen": "YAS",
+        "captured_on": "2026-05-03",
+        "description": "Present values tab with spot rates, per-cashflow PVs, and curve YCGT0013"
+      },
+      {
+        "path": "screenshots/ibm_eur_2034_callable__swap_curve_builder.png",
+        "screen": "SWYC",
+        "captured_on": "2026-05-03",
+        "description": "EUR vs 6M EURIBOR swap curve builder with cash, serial FRA, and swap market rates"
+      },
+      {
+        "path": "screenshots/ibm_eur_2034_callable__swap_curve_stripped.png",
+        "screen": "SWYC",
+        "captured_on": "2026-05-03",
+        "description": "EUR vs 6M EURIBOR stripped curve analysis with dates, market rates, zero rates, and discount factors"
+      }
+    ]
+  },
+  "inputs": {
+    "valuation_date": "2026-04-30",
+    "model": "tree",
+    "metrics": [
+      "clean_price",
+      "dirty_price",
+      "accrued",
+      "ytm",
+      "ytw",
+      "z_spread",
+      "i_spread",
+      "oas",
+      "asw_market",
+      "duration_mod",
+      "convexity",
+      "dv01",
+      "yield_dv01",
+      "embedded_option_value",
+      "vega"
+    ],
+    "instrument_json": {
+      "schema": "finstack.instrument/1",
+      "instrument": {
+        "type": "bond",
+        "spec": {
+          "id": "IBM-EUR-3.45-20340203-BLOOMBERG-20260503",
+          "notional": {
+            "amount": "1000000",
+            "currency": "EUR"
+          },
+          "issue_date": "2026-02-03",
+          "maturity": "2034-02-03",
+          "cashflow_spec": {
+            "Fixed": {
+              "coupon_type": "Cash",
+              "rate": "0.0345",
+              "freq": {
+                "count": 12,
+                "unit": "months"
+              },
+              "dc": "ActAct",
+              "bdc": "modified_following",
+              "stub": "ShortFront",
+              "end_of_month": false,
+              "payment_lag_days": 0,
+              "calendar_id": "target2"
+            }
+          },
+          "discount_curve_id": "EUR-SWAP-514",
+          "pricing_overrides": {
+            "quoted_clean_price": 97.484,
+            "tree_steps": 200,
+            "tree_volatility": 0.2321,
+            "implied_volatility": 0.2321,
+            "vol_model": "black",
+            "mean_reversion": 0.0,
+            "tree_discount_curve_id": "EUR-OAS-960",
+            "asw_forward_curve_id": "EUR-EURIBOR-6M",
+            "adaptive_bumps": false,
+            "use_gobet_miri": false,
+            "vol_surface_extrapolation": "error"
+          },
+          "call_put": {
+            "calls": [
+              {
+                "date": "2033-11-03",
+                "price_pct_of_par": 100.0
+              }
+            ],
+            "puts": []
+          },
+          "accrual_method": "Linear",
+          "attributes": {
+            "tags": [
+              "golden",
+              "bloomberg",
+              "yas",
+              "oas",
+              "asw"
+            ],
+            "meta": {
+              "bloomberg_screen": "DES/YAS/OAS/ASW",
+              "ticker": "IBM 3.45 02/03/34 Corp",
+              "issuer": "IBM CORP",
+              "figi": "BBG01ZXY9Y79",
+              "cusip": "459200LY5",
+              "isin": "XS3289742408",
+              "rank": "Sr Unsecured",
+              "rating_moodys": "A3",
+              "rating_sp": "A-",
+              "rating_fitch": "A-",
+              "benchmark": "DBR 2.2 02/15/34",
+              "benchmark_price": "95.0015",
+              "benchmark_yield": "0.02926637",
+              "curve_number": "514",
+              "oas_curve": "960 Semi",
+              "swap_curve": "45 EUR vs 6M EURIBOR",
+              "oas_model": "Lognormal",
+              "oas_volatility": "0.2321",
+              "tree_volatility_note": "Finstack BDT tree consumes lognormal short-rate volatility; tree_volatility and implied_volatility both preserve Bloomberg's 23.21% lognormal source quote."
+            }
+          },
+          "settlement_days": 3,
+          "ex_coupon_days": 0
+        }
+      }
+    },
+    "market": {
+      "version": 2,
+      "curves": [
+        {
+          "type": "discount",
+          "id": "EUR-SWAP-514",
+          "base": "2026-05-06",
+          "day_count": "Act365F",
+          "knot_points": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.501369863013699,
+              0.987144
+            ],
+            [
+              0.589041095890411,
+              0.984762
+            ],
+            [
+              0.668493150684932,
+              0.982483
+            ],
+            [
+              0.753424657534247,
+              0.980141
+            ],
+            [
+              0.83013698630137,
+              0.97779
+            ],
+            [
+              0.915068493150685,
+              0.975352
+            ],
+            [
+              0.997260273972603,
+              0.972833
+            ],
+            [
+              1.24931506849315,
+              0.965801
+            ],
+            [
+              1.5013698630137,
+              0.958605
+            ],
+            [
+              2.0,
+              0.945249
+            ],
+            [
+              3.0,
+              0.918986
+            ],
+            [
+              4.0,
+              0.892992
+            ],
+            [
+              5.0,
+              0.867268
+            ],
+            [
+              6.0027397260274,
+              0.841161
+            ],
+            [
+              7.0027397260274,
+              0.815038
+            ],
+            [
+              8.0027397260274,
+              0.788899
+            ],
+            [
+              9.0027397260274,
+              0.762831
+            ],
+            [
+              10.0054794520548,
+              0.737331
+            ],
+            [
+              11.0054794520548,
+              0.712142
+            ],
+            [
+              12.0054794520548,
+              0.687362
+            ],
+            [
+              15.0931506849315,
+              0.618044
+            ],
+            [
+              20.1780821917808,
+              0.523544
+            ],
+            [
+              25.013698630137,
+              0.451943
+            ],
+            [
+              30.0191780821918,
+              0.395433
+            ],
+            [
+              40.0246575342466,
+              0.315324
+            ],
+            [
+              50.0328767123288,
+              0.266024
+            ]
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward",
+          "min_forward_rate": null,
+          "allow_non_monotonic": false,
+          "min_forward_tenor": 1e-06,
+          "rate_calibration": {
+            "index_id": "EUR-EURIBOR-6M",
+            "currency": "EUR",
+            "quotes": [
+              {
+                "quote_type": "deposit",
+                "tenor": "6M",
+                "rate": 0.02524
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "1Y",
+                "rate": 0.0271606
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "2Y",
+                "rate": 0.0284336
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "3Y",
+                "rate": 0.0284015
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "4Y",
+                "rate": 0.0285885
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "5Y",
+                "rate": 0.0287988
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "7Y",
+                "rate": 0.0295063
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "10Y",
+                "rate": 0.0306958
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "20Y",
+                "rate": 0.0324418
+              },
+              {
+                "quote_type": "swap",
+                "tenor": "30Y",
+                "rate": 0.0315196
+              }
+            ]
+          }
+        },
+        {
+          "type": "forward",
+          "id": "EUR-EURIBOR-6M",
+          "base": "2026-04-30",
+          "reset_lag": 2,
+          "day_count": "Act360",
+          "tenor": 0.5,
+          "knot_points": [
+            [
+              0.0,
+              0.02524
+            ],
+            [
+              0.5,
+              0.02611
+            ],
+            [
+              1.0,
+              0.02705
+            ],
+            [
+              2.0,
+              0.02845
+            ],
+            [
+              3.0,
+              0.02873
+            ],
+            [
+              5.0,
+              0.0284655
+            ],
+            [
+              7.0,
+              0.0288452
+            ],
+            [
+              10.0,
+              0.029117
+            ],
+            [
+              20.0,
+              0.031434
+            ],
+            [
+              30.0,
+              0.03249
+            ],
+            [
+              50.0,
+              0.028814
+            ]
+          ],
+          "interp_style": "linear",
+          "extrapolation": "flat_forward",
+          "rate_calibration": {
+            "index_id": "EUR-EURIBOR-6M",
+            "currency": "EUR",
+            "discount_curve_id": "EUR-SWAP-514",
+            "quotes": [
+              {
+                "deposit": {
+                  "tenor": "6M",
+                  "rate": 0.02524
+                }
+              },
+              {
+                "basis": {
+                  "tenor": "1Y",
+                  "spread_decimal": 0.0
+                }
+              },
+              {
+                "basis": {
+                  "tenor": "2Y",
+                  "spread_decimal": 0.0
+                }
+              }
+            ]
+          }
+        },
+        {
+          "type": "discount",
+          "id": "EUR-OAS-960",
+          "base": "2026-05-06",
+          "day_count": "Act365F",
+          "knot_points": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.994335987561
+            ],
+            [
+              0.5,
+              0.988410882404
+            ],
+            [
+              1.0,
+              0.975615222969
+            ],
+            [
+              2.0,
+              0.948972367731
+            ],
+            [
+              3.0,
+              0.921820039566
+            ],
+            [
+              4.0,
+              0.89413918797
+            ],
+            [
+              5.0,
+              0.86588074472
+            ],
+            [
+              7.0,
+              0.808051532377
+            ],
+            [
+              10.0,
+              0.720224396894
+            ],
+            [
+              20.0,
+              0.473701496512
+            ],
+            [
+              30.0,
+              0.299011800513
+            ]
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward"
+        }
+      ],
+      "fx": {
+        "config": {
+          "pivot_currency": "USD",
+          "enable_triangulation": true,
+          "cache_capacity": 256
+        },
+        "quotes": []
+      },
+      "surfaces": [],
+      "prices": {},
+      "series": [],
+      "inflation_indices": [],
+      "dividends": [],
+      "credit_indices": [],
+      "fx_delta_vol_surfaces": [],
+      "vol_cubes": [],
+      "collateral": {}
+    },
+    "source_reference": {
+      "strict_metric_keys": {
+        "clean_price": "clean_price",
+        "dirty_price": "invoice_total",
+        "accrued": "accrued_interest",
+        "ytm": "yield_to_worst",
+        "ytw": "yield_to_worst",
+        "z_spread": "z_spread",
+        "i_spread": "i_spread",
+        "oas": "oas",
+        "asw_market": "asw_spread",
+        "duration_mod": "modified_duration",
+        "convexity": "convexity",
+        "dv01": "dv01",
+        "yield_dv01": "dv01",
+        "embedded_option_value": "option_px_value",
+        "vega": "vega"
+      },
+      "risk_convention_note": "Bloomberg screen values are retained directly as expected_outputs. Finstack may use signed risk conventions for some metrics; any mismatch is intentional evidence for Bloomberg parity work.",
+      "curve_date": "2026-05-03",
+      "bloomberg_reference": {
+        "security": {
+          "ticker": "IBM 3.45 02/03/34 Corp",
+          "issuer": "IBM CORP",
+          "currency": "EUR",
+          "notional": 1000000.0,
+          "coupon": 0.0345,
+          "coupon_frequency": "Annual",
+          "day_count": "ACT/ACT",
+          "issue_date": "2026-02-03",
+          "interest_accrual_date": "2026-02-03",
+          "first_coupon_date": "2027-02-03",
+          "maturity_date": "2034-02-03",
+          "rank": "Sr Unsecured",
+          "coupon_type": "Fixed",
+          "call_type": "Street Convention",
+          "call_schedule": [
+            {
+              "date": "2033-11-03",
+              "price": 100.0
+            }
+          ],
+          "figi": "BBG01ZXY9Y79",
+          "cusip": "459200LY5",
+          "isin": "XS3289742408",
+          "moodys": "A3",
+          "sp": "A-",
+          "fitch": "A-",
+          "composite": "A-"
+        },
+        "screen_outputs": {
+          "clean_price_pct": 97.484,
+          "clean_price": 974840.0,
+          "accrued_interest": 8695.89,
+          "invoice_total": 983535.89,
+          "yield_to_worst": 0.03829574,
+          "current_yield": 0.03539,
+          "i_spread": 0.00844,
+          "basis": -0.0013,
+          "z_spread": 0.00846,
+          "asw_spread": 0.00816,
+          "oas": 0.006577,
+          "o_spread": 0.01084,
+          "mms_spread": 0.00855,
+          "modified_duration": 6.607,
+          "risk": 6.498,
+          "convexity": 0.535,
+          "dv01": 650.0,
+          "benchmark_risk": 6.667,
+          "risk_hedge": 975000000.0,
+          "proceeds_hedge": 1030000.0,
+          "oas_volatility": 0.2321,
+          "option_px_value": -700.0,
+          "vega": -0.01,
+          "oas_to_maturity_yield": 0.03830,
+          "oas_to_maturity_spread": 0.00701,
+          "oas_to_maturity_duration": 6.73,
+          "oas_to_maturity_risk": 6.62,
+          "oas_to_maturity_convexity": 0.52,
+          "oas_to_call_yield": 0.03842,
+          "oas_to_call_spread": 0.00734,
+          "oas_to_call_duration": 6.54,
+          "oas_to_call_risk": 6.43,
+          "oas_to_call_convexity": 0.49,
+          "asw_net_cash_at_settlement": -24063.77
+        },
+        "bond_cashflows": [
+          {
+            "payment_date": "2027-02-03",
+            "interest": 34500.0,
+            "principal": 0.0,
+            "total": 34500.0
+          },
+          {
+            "payment_date": "2028-02-03",
+            "interest": 34500.0,
+            "principal": 0.0,
+            "total": 34500.0
+          },
+          {
+            "payment_date": "2029-02-03",
+            "interest": 34500.0,
+            "principal": 0.0,
+            "total": 34500.0
+          },
+          {
+            "payment_date": "2030-02-03",
+            "interest": 34500.0,
+            "principal": 0.0,
+            "total": 34500.0
+          },
+          {
+            "payment_date": "2031-02-03",
+            "interest": 34500.0,
+            "principal": 0.0,
+            "total": 34500.0
+          },
+          {
+            "payment_date": "2032-02-03",
+            "interest": 34500.0,
+            "principal": 0.0,
+            "total": 34500.0
+          },
+          {
+            "payment_date": "2033-02-03",
+            "interest": 34500.0,
+            "principal": 0.0,
+            "total": 34500.0
+          },
+          {
+            "payment_date": "2034-02-03",
+            "interest": 34500.0,
+            "principal": 1000000.0,
+            "total": 1034500.0
+          }
+        ],
+        "present_value_screen": {
+          "curve": "YCGT0013 Euro Benchmarks",
+          "price": 97.62,
+          "yield": 0.03808664,
+          "present_value": 1045022.34,
+          "rows": [
+            {
+              "payment_date": "2027-02-03",
+              "cashflow": 34500.0,
+              "spot_rate": 0.02566707,
+              "present_value": 33841.31,
+              "discount": 0.980907536232
+            },
+            {
+              "payment_date": "2028-02-03",
+              "cashflow": 34500.0,
+              "spot_rate": 0.02636286,
+              "present_value": 32960.08,
+              "discount": 0.955364637681
+            },
+            {
+              "payment_date": "2029-02-03",
+              "cashflow": 34500.0,
+              "spot_rate": 0.02670757,
+              "present_value": 32108.42,
+              "discount": 0.93067884058
+            },
+            {
+              "payment_date": "2030-02-03",
+              "cashflow": 34500.0,
+              "spot_rate": 0.02757497,
+              "present_value": 31225.63,
+              "discount": 0.905090724638
+            },
+            {
+              "payment_date": "2031-02-03",
+              "cashflow": 34500.0,
+              "spot_rate": 0.02845974,
+              "present_value": 30340.84,
+              "discount": 0.879444637681
+            },
+            {
+              "payment_date": "2032-02-03",
+              "cashflow": 34500.0,
+              "spot_rate": 0.02920566,
+              "present_value": 29479.99,
+              "discount": 0.854492463768
+            },
+            {
+              "payment_date": "2033-02-03",
+              "cashflow": 34500.0,
+              "spot_rate": 0.03064733,
+              "present_value": 28515.95,
+              "discount": 0.826549275362
+            },
+            {
+              "payment_date": "2034-02-03",
+              "cashflow": 1034500.0,
+              "spot_rate": 0.0320041,
+              "present_value": 826550.11,
+              "discount": 0.798985123248
+            }
+          ]
+        },
+        "swap_curve_514": [
+          {
+            "date": "2026-08-03",
+            "discount": 0.994903
+          },
+          {
+            "date": "2027-02-03",
+            "discount": 0.982155
+          },
+          {
+            "date": "2027-08-03",
+            "discount": 0.968948
+          },
+          {
+            "date": "2028-02-03",
+            "discount": 0.956221
+          },
+          {
+            "date": "2028-08-03",
+            "discount": 0.944129
+          },
+          {
+            "date": "2029-02-03",
+            "discount": 0.93199
+          },
+          {
+            "date": "2029-08-05",
+            "discount": 0.931858
+          },
+          {
+            "date": "2030-02-04",
+            "discount": 0.920006
+          },
+          {
+            "date": "2030-08-05",
+            "discount": 0.907734
+          },
+          {
+            "date": "2031-02-03",
+            "discount": 0.907667
+          },
+          {
+            "date": "2031-08-04",
+            "discount": 0.895469
+          },
+          {
+            "date": "2032-02-03",
+            "discount": 0.883204
+          },
+          {
+            "date": "2032-08-03",
+            "discount": 0.870835
+          },
+          {
+            "date": "2033-02-03",
+            "discount": 0.858292
+          },
+          {
+            "date": "2033-08-03",
+            "discount": 0.84575
+          },
+          {
+            "date": "2034-02-03",
+            "discount": 0.833012
+          }
+        ]
+      }
+    }
+  },
+  "expected_outputs": {
+    "npv": 983535.89,
+    "clean_price": 974840.0,
+    "dirty_price": 983535.89,
+    "accrued": 8695.89,
+    "ytm": 0.03829574,
+    "ytw": 0.03829574,
+    "z_spread": 0.00846,
+    "i_spread": 0.00844,
+    "oas": 0.006577,
+    "asw_market": 0.00816,
+    "duration_mod": 6.607,
+    "convexity": 0.535,
+    "dv01": -650.0,
+    "yield_dv01": -650.0,
+    "embedded_option_value": -700.0,
+    "vega": -0.01
+  },
+  "tolerances": {
+    "npv": {
+      "abs": 0.01,
+      "tolerance_reason": "Bloomberg invoice total is displayed to cents and is retained as the assertion target."
+    },
+    "clean_price": {
+      "abs": 0.01,
+      "tolerance_reason": "Bloomberg clean price is 97.484 on 1MM face, displayed to 0.001 price points."
+    },
+    "dirty_price": {
+      "abs": 0.01,
+      "tolerance_reason": "Bloomberg invoice total is displayed to cents and equals clean price plus accrued interest."
+    },
+    "accrued": {
+      "abs": 0.01,
+      "tolerance_reason": "Bloomberg accrued interest is displayed to cents at settlement 2026-05-06."
+    },
+    "ytm": {
+      "abs": 0.00001,
+      "tolerance_reason": "Bloomberg yield is displayed to six decimals in percent."
+    },
+    "ytw": {
+      "abs": 0.00001,
+      "tolerance_reason": "Bloomberg workout is maturity at 100.00 and displays the same yield-to-worst."
+    },
+    "z_spread": {
+      "abs": 0.0001,
+      "tolerance_reason": "Bloomberg Z-spread is source-backed; Finstack parity target is within 1 bp."
+    },
+    "i_spread": {
+      "abs": 0.0001,
+      "tolerance_reason": "Bloomberg I-spread is source-backed; Finstack parity target is within 1 bp."
+    },
+    "oas": {
+      "abs": 0.0002,
+      "tolerance_reason": "Bloomberg OAS is source-backed; Finstack parity target is within 1 bp."
+    },
+    "asw_market": {
+      "abs": 0.0001,
+      "tolerance_reason": "Bloomberg ASW spread is source-backed; Finstack parity target is within 1 bp."
+    },
+    "duration_mod": {
+      "abs": 0.001,
+      "tolerance_reason": "Bloomberg modified duration is displayed to three decimals."
+    },
+    "convexity": {
+      "abs": 0.001,
+      "tolerance_reason": "Bloomberg convexity is displayed to three decimals."
+    },
+    "dv01": {
+      "abs": 0.5,
+      "tolerance_reason": "Bloomberg DV01 is displayed as 650 on 1MM face."
+    },
+    "yield_dv01": {
+      "abs": 0.5,
+      "tolerance_reason": "Same Bloomberg DV01 source value asserted under the explicit yield-basis metric."
+    },
+    "embedded_option_value": {
+      "abs": 50.0,
+      "tolerance_reason": "Bloomberg option price value is displayed to 0.01 price points; on 1MM face, half the display increment is 50 currency units."
+    },
+    "vega": {
+      "abs": 0.01,
+      "tolerance_reason": "Bloomberg OAS screen displays vega to 0.01."
+    }
+  }
+}

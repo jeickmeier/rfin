@@ -574,6 +574,6 @@ mod tests {
             &["dirty_price", "vega"],
         )
         .expect("metrics");
-        assert_eq!(metrics, vec![("dirty_price", dirty_price)]);
+        assert_eq!(metrics, vec![("dirty_price", dirty_price), ("vega", 0.0)]);
     }
 }

@@ -3,6 +3,7 @@
 use crate::instruments::common_impl::parameters::{SABRParameters, VolatilityModel};
 use crate::instruments::fixed_income::term_loan::TermLoanOverrides;
 use finstack_core::money::Money;
+use finstack_core::types::CurveId;
 
 /// Policy for evaluating volatility surfaces outside their calibrated grid.
 ///
@@ -174,6 +175,16 @@ impl MarketQuoteOverrides {
         .iter()
         .filter(|b| **b)
         .count()
+    }
+
+    /// Whether any market quote field should drive bond quote-date economics.
+    ///
+    /// Bond market quotes are interpreted at the quote date (settlement date
+    /// when a settlement convention is present), so accrued interest and
+    /// clean/dirty price relationships must use the same date anchor whenever
+    /// one of these fields is set.
+    pub(crate) fn has_price_driver(&self) -> bool {
+        self.price_driver_count() > 0
     }
 
     /// Validate market quote values for finiteness, non-negativity, and
@@ -387,6 +398,19 @@ pub struct ModelConfig {
     /// tighter rate dispersion at long maturities.
     /// When `None` or zero, the tree uses pure Ho-Lee dynamics (no mean reversion).
     pub mean_reversion: Option<f64>,
+    /// Optional discount curve identifier for tree-based option/OAS models.
+    ///
+    /// Some vendor OAS screens use a model curve distinct from the bond's pricing
+    /// or spread curve. When set, tree pricers calibrate to this curve while
+    /// non-tree spread metrics continue to use the instrument's discount curve.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tree_discount_curve_id: Option<CurveId>,
+    /// Optional forward curve identifier for asset-swap spread metrics.
+    ///
+    /// When set, ASW par/market metrics project the floating receiver leg from
+    /// this forward curve instead of using a discount-curve par-rate proxy.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asw_forward_curve_id: Option<CurveId>,
     /// Optional Monte Carlo path count for path-dependent GBM pricers (Asians, lookbacks, autocallables, etc.).
     ///
     /// When set, overrides the default simulation size (typically 100,000 paths). Intended for tests,
@@ -488,6 +512,30 @@ pub use crate::metrics::sensitivities::breakeven::{
     BreakevenConfig, BreakevenMode, BreakevenTarget,
 };
 
+/// Basis used for bond duration, convexity, and DV01-style risk metrics.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum BondRiskBasis {
+    /// Use maturity/workout cashflows under the quoted-yield convention.
+    ///
+    /// This matches Bloomberg YAS "Workout" risk fields and is the default for
+    /// public bond risk metrics.
+    #[default]
+    BulletDiscountable,
+    /// Use callable/putable option model repricing under the bond's OAS/tree configuration.
+    CallableOas,
+}
+
 /// Metric-time overrides derived from an instrument's pricing metadata.
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default)]
@@ -506,6 +554,9 @@ pub struct MetricPricingOverrides {
     /// Breakeven configuration: which parameter to solve for and solve mode.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub breakeven_config: Option<BreakevenConfig>,
+    /// Basis used for bond duration, convexity, and DV01-style risk metrics.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bond_risk_basis: Option<BondRiskBasis>,
 }
 
 impl MetricPricingOverrides {
@@ -516,6 +567,7 @@ impl MetricPricingOverrides {
             mc_seed_scenario: pricing_overrides.metrics.mc_seed_scenario.clone(),
             theta_period: pricing_overrides.metrics.theta_period.clone(),
             breakeven_config: pricing_overrides.metrics.breakeven_config,
+            bond_risk_basis: pricing_overrides.metrics.bond_risk_basis,
         }
     }
 
@@ -532,6 +584,11 @@ impl MetricPricingOverrides {
             }
         }
         Ok(())
+    }
+
+    /// Bond risk basis, defaulting to Bloomberg-style workout/bullet risk.
+    pub fn bond_risk_basis_or_default(&self) -> BondRiskBasis {
+        self.bond_risk_basis.unwrap_or_default()
     }
 
     /// Set custom spot bump size (as percentage, e.g., 0.01 for 1%).
@@ -573,6 +630,12 @@ impl MetricPricingOverrides {
     /// Set MC seed scenario for deterministic greek calculations.
     pub fn with_mc_seed_scenario(mut self, scenario: impl Into<String>) -> Self {
         self.mc_seed_scenario = Some(scenario.into());
+        self
+    }
+
+    /// Set bond risk basis for duration, convexity, and DV01-style metrics.
+    pub fn with_bond_risk_basis(mut self, basis: BondRiskBasis) -> Self {
+        self.bond_risk_basis = Some(basis);
         self
     }
 }
@@ -784,6 +847,18 @@ impl PricingOverrides {
         self
     }
 
+    /// Set the discount curve used for tree-based option/OAS pricing.
+    pub fn with_tree_discount_curve_id(mut self, curve_id: impl Into<CurveId>) -> Self {
+        self.model_config.tree_discount_curve_id = Some(curve_id.into());
+        self
+    }
+
+    /// Set the forward curve used for asset-swap spread metrics.
+    pub fn with_asw_forward_curve_id(mut self, curve_id: impl Into<CurveId>) -> Self {
+        self.model_config.asw_forward_curve_id = Some(curve_id.into());
+        self
+    }
+
     /// Set issuer/borrower call exercise friction, in **cents per 100** of par.
     pub fn with_call_friction_cents(mut self, cents: f64) -> Self {
         self.model_config.call_friction_cents = Some(cents);
@@ -872,6 +947,12 @@ impl PricingOverrides {
     /// a deterministic seed from the instrument ID, ensuring reproducibility.
     pub fn with_mc_seed_scenario(mut self, scenario: impl Into<String>) -> Self {
         self.metrics.mc_seed_scenario = Some(scenario.into());
+        self
+    }
+
+    /// Set bond risk basis for duration, convexity, and DV01-style metrics.
+    pub fn with_bond_risk_basis(mut self, basis: BondRiskBasis) -> Self {
+        self.metrics.bond_risk_basis = Some(basis);
         self
     }
 

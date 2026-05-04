@@ -112,6 +112,92 @@ fn test_ytw_tracks_quoted_price_not_model_pv() {
     );
 }
 
+#[test]
+fn test_ytw_off_cycle_call_uses_dirty_street_redemption() {
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_valuations::cashflow::accrual::accrued_interest_amount;
+    use finstack_valuations::cashflow::traits::CashflowProvider;
+    use finstack_valuations::instruments::fixed_income::bond::pricing::quote_conversions::YieldCompounding;
+    use finstack_valuations::instruments::fixed_income::bond::pricing::ytm_solver::{
+        solve_ytm, YtmPricingSpec,
+    };
+
+    let as_of = date!(2025 - 01 - 01);
+    let quote_date = as_of;
+    let call_date = date!(2027 - 04 - 01);
+    let mut bond = Bond::fixed(
+        "YTW-OFF-CYCLE-CALL",
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        date!(2030 - 01 - 01),
+        "USD-OIS",
+    )
+    .unwrap();
+    bond.settlement_convention = None;
+    bond.call_put = Some(CallPutSchedule {
+        calls: vec![CallPut {
+            date: call_date,
+            price_pct_of_par: 100.0,
+            end_date: None,
+            make_whole: None,
+        }],
+        puts: vec![],
+    });
+    bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(105.0);
+
+    let curve = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .knots([(0.0, 1.0), (5.0, 0.80)])
+        .build()
+        .unwrap();
+    let market = MarketContext::new().insert(curve);
+
+    let result = bond
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytw],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
+    let ytw = result.measures["ytw"];
+
+    let all_flows = bond.dated_cashflows(&market, as_of).unwrap();
+    let schedule = bond.cashflow_schedule(&market, as_of).unwrap();
+    let accrued_on_call =
+        accrued_interest_amount(&schedule, call_date, &bond.accrual_config()).unwrap();
+    let mut call_flows = all_flows
+        .iter()
+        .copied()
+        .filter(|(date, _)| *date > quote_date && *date <= call_date)
+        .collect::<Vec<_>>();
+    call_flows.push((
+        call_date,
+        Money::new(1_000_000.0 + accrued_on_call, Currency::USD),
+    ));
+
+    let expected_call_yield = solve_ytm(
+        &call_flows,
+        quote_date,
+        Money::new(1_050_000.0, Currency::USD),
+        YtmPricingSpec {
+            day_count: bond.cashflow_spec.day_count(),
+            notional: bond.notional,
+            coupon_rate: 0.05,
+            compounding: YieldCompounding::Street,
+            frequency: bond.cashflow_spec.frequency(),
+        },
+    )
+    .unwrap();
+
+    assert!(
+        (ytw - expected_call_yield).abs() < 1e-10,
+        "YTW should include accrued interest in off-cycle street call redemption: ytw={ytw}, expected={expected_call_yield}"
+    );
+}
+
 /// YTW for a simple FRN without optionality.
 ///
 /// Note: Unlike fixed-rate bonds, FRN YTW and YTM may differ due to how

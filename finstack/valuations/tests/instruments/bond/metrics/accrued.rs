@@ -11,7 +11,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::{Instrument, PricingOverrides};
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
@@ -73,6 +73,46 @@ fn test_accrued_mid_period() {
         .unwrap();
     let accrued = *result.measures.get("accrued").unwrap();
     assert!(accrued > 0.0 && accrued < 3.0); // Semi-annual 6% = 3% per period
+}
+
+#[test]
+fn test_quoted_price_accrued_uses_settlement_date() {
+    let issue = date!(2025 - 01 - 01);
+    let as_of = date!(2025 - 04 - 01);
+    let mut bond = Bond::fixed(
+        "ACCR-QUOTE",
+        Money::new(1_000.0, Currency::USD),
+        0.06,
+        issue,
+        date!(2030 - 01 - 01),
+        "USD-OIS",
+    )
+    .unwrap();
+    bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(98.5);
+
+    let market = create_curve(as_of);
+    let result = bond
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[
+                MetricId::Accrued,
+                MetricId::CleanPrice,
+                MetricId::DirtyPrice,
+            ],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
+
+    let accrued = *result.measures.get("accrued").unwrap();
+    let clean = *result.measures.get("clean_price").unwrap();
+    let dirty = *result.measures.get("dirty_price").unwrap();
+
+    assert!(
+        (accrued - (dirty - clean)).abs() < 1e-9,
+        "quoted bond accrued should be settlement-date accrued: accrued={accrued}, dirty-clean={}",
+        dirty - clean
+    );
 }
 
 #[test]

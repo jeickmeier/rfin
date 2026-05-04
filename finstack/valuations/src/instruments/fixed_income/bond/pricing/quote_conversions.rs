@@ -9,6 +9,9 @@
 //! `0.01` corresponds to **100 basis points**.
 use crate::constants::numerical::ZERO_TOLERANCE;
 use crate::instruments::common_impl::traits::Instrument;
+use crate::instruments::fixed_income::bond::metrics::price_yield_spread::z_spread::{
+    bond_z_spread_compounding_frequency, z_spread_discount_factor,
+};
 use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::fixed_income::bond::Bond;
 use crate::metrics::{standard_registry, MetricRegistry};
@@ -223,6 +226,69 @@ pub fn par_rate_and_annuity_from_discount(
     let pn = disc.df_on_date_curve(pn_date)?;
     let num = p0 - pn;
     Ok((num / ann, ann))
+}
+
+/// Forward-projected par rate and fixed-leg annuity for an asset-swap schedule.
+pub fn par_rate_and_annuity_from_forward(
+    disc: &finstack_core::market_data::term_structures::DiscountCurve,
+    fwd: &finstack_core::market_data::term_structures::ForwardCurve,
+    fixed_dc: finstack_core::dates::DayCount,
+    schedule: &[Date],
+    float_spread_bp: f64,
+) -> finstack_core::Result<(f64, f64)> {
+    let ann = fixed_leg_annuity(disc, fixed_dc, schedule)?;
+    if ann.abs() < 1e-12 {
+        return Ok((0.0, 0.0));
+    }
+
+    let f_base = fwd.base_date();
+    let f_dc = fwd.day_count();
+    let spread = float_spread_bp * 1e-4;
+    let mut pv_float = finstack_core::math::summation::NeumaierAccumulator::new();
+    let mut prev = schedule[0];
+    for &d in &schedule[1..] {
+        let t1 = f_dc.year_fraction(f_base, prev, DayCountContext::default())?;
+        let t2 = f_dc.year_fraction(f_base, d, DayCountContext::default())?;
+        let yf = f_dc.year_fraction(prev, d, DayCountContext::default())?;
+        let rate = fwd.rate_period(t1, t2) + spread;
+        let df = disc.df_on_date_curve(d)?;
+        pv_float.add(rate * yf * df);
+        prev = d;
+    }
+
+    Ok((pv_float.total() / ann, ann))
+}
+
+/// Asset-swap forward leg PV and fixed/floating annuities per unit notional.
+pub fn asset_swap_forward_components(
+    disc: &finstack_core::market_data::term_structures::DiscountCurve,
+    fwd: &finstack_core::market_data::term_structures::ForwardCurve,
+    fixed_dc: finstack_core::dates::DayCount,
+    schedule: &[Date],
+    float_spread_bp: f64,
+) -> finstack_core::Result<(f64, f64, f64)> {
+    let fixed_ann = fixed_leg_annuity(disc, fixed_dc, schedule)?;
+    if schedule.len() < 2 {
+        return Ok((0.0, fixed_ann, 0.0));
+    }
+
+    let f_base = fwd.base_date();
+    let f_dc = fwd.day_count();
+    let spread = float_spread_bp * 1e-4;
+    let mut float_pv = finstack_core::math::summation::NeumaierAccumulator::new();
+    let mut float_ann = finstack_core::math::summation::NeumaierAccumulator::new();
+    let mut prev = schedule[0];
+    for &d in &schedule[1..] {
+        let t1 = f_dc.year_fraction(f_base, prev, DayCountContext::default())?;
+        let t2 = f_dc.year_fraction(f_base, d, DayCountContext::default())?;
+        let yf = f_dc.year_fraction(prev, d, DayCountContext::default())?;
+        let df = disc.df_on_date_curve(d)?;
+        float_pv.add((fwd.rate_period(t1, t2) + spread) * yf * df);
+        float_ann.add(yf * df);
+        prev = d;
+    }
+
+    Ok((float_pv.total(), fixed_ann, float_ann.total()))
 }
 
 /// Quote input for the bond quote engine.
@@ -609,7 +675,8 @@ fn outstanding_principal_at_date(
 ///
 /// # Call/Put Redemption Convention
 ///
-/// Call/put redemption prices are computed as `outstanding_principal × (price_pct_of_par / 100)`,
+/// Call/put redemption prices are dirty street redemption amounts:
+/// `outstanding_principal × (price_pct_of_par / 100) + accrued_interest(exercise_date)`,
 /// where `outstanding_principal` is the remaining principal at the exercise date after
 /// any amortization. This correctly handles amortizing callable bonds and is consistent
 /// with the tree-based OAS pricing.
@@ -668,7 +735,7 @@ pub(crate) fn solve_ytw_from_flows(
 
         // Compute redemption amount:
         // - For maturity: pct is 0, so redemption is 0 (already in flows)
-        // - For call/put: use outstanding principal at exercise date × (pct/100)
+        // - For call/put: use dirty street redemption at exercise date
         let redemption = if pct_or_zero.amount() > 0.0 {
             // This is a call/put candidate, pct_or_zero holds the price_pct_of_par
             let pct = pct_or_zero.amount();
@@ -679,7 +746,19 @@ pub(crate) fn solve_ytw_from_flows(
             } else {
                 bond.notional.amount()
             };
-            Money::new(outstanding * (pct / 100.0), bond.notional.currency())
+            let accrued = if let Some(sched) = schedule {
+                crate::cashflow::accrual::accrued_interest_amount(
+                    sched,
+                    exercise_date,
+                    &bond.accrual_config(),
+                )?
+            } else {
+                0.0
+            };
+            Money::new(
+                outstanding * (pct / 100.0) + accrued,
+                bond.notional.currency(),
+            )
         } else {
             Money::new(0.0, bond.notional.currency())
         };
@@ -739,7 +818,7 @@ pub fn price_from_ytw(
     Ok(best_price)
 }
 
-/// Price from Z-spread applied exponentially to base discount curve
+/// Price from Z-spread added to zero rates in the bond's compounding convention.
 pub fn price_from_z_spread(
     bond: &Bond,
     curves: &MarketContext,
@@ -750,6 +829,7 @@ pub fn price_from_z_spread(
 
     let flows = bond.pricing_dated_cashflows(curves, as_of)?;
     let disc = curves.get_discount(&bond.discount_curve_id)?;
+    let compounds_per_year = bond_z_spread_compounding_frequency(bond);
 
     let mut pv = NeumaierAccumulator::new();
     for (d, a) in &flows {
@@ -764,7 +844,7 @@ pub fn price_from_z_spread(
             .year_fraction(as_of, *d, DayCountContext::default())?;
 
         let df = disc.df_between_dates(as_of, *d)?;
-        let df_z = df * (-z * t_from_as_of).exp();
+        let df_z = z_spread_discount_factor(df, t_from_as_of, z, compounds_per_year);
         pv.add(a.amount() * df_z);
     }
     Ok(pv.total())
@@ -790,45 +870,11 @@ pub fn price_from_oas(
 ) -> finstack_core::Result<f64> {
     // Convert decimal spread (0.01 = 100bp) to basis points for the tree.
     let oas_bp = oas_decimal * 10_000.0;
-
-    // Use the short-rate tree directly to price at a given OAS
-    use crate::instruments::common_impl::models::{
-        short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
-    };
-    use crate::instruments::fixed_income::bond::pricing::engine::tree::{
-        bond_tree_config, BondValuator,
-    };
-    // Time to maturity is measured from the valuation date (as_of) using the
-    // discount curve's day-count to ensure consistency with tree calibration.
-    let discount_curve = curves.get_discount(&bond.discount_curve_id)?;
-    let disc_dc = discount_curve.day_count();
-    let time_to_maturity =
-        disc_dc.year_fraction(as_of, bond.maturity, DayCountContext::default())?;
-    if time_to_maturity <= 0.0 {
-        return Ok(0.0);
-    }
-    // Use bond_tree_config to source tree parameters from pricing_overrides,
-    // ensuring round-trip consistency with calculate_oas() and value_with_tree().
-    let config = bond_tree_config(bond);
-    let tree_steps = config.tree_steps;
-    let mut short_rate_tree = ShortRateTree::new(ShortRateTreeConfig {
-        steps: config.tree_steps,
-        volatility: config.volatility,
-        mean_reversion: config.mean_reversion,
-        ..Default::default()
-    });
-    short_rate_tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
-    let valuator = BondValuator::new(bond.clone(), curves, as_of, time_to_maturity, tree_steps)?;
-
-    // Get initial short rate from the calibrated tree for the state variables.
-    // The tree framework expects an initial rate to be present.
-    let initial_rate = short_rate_tree.rate_at_node(0, 0)?;
-    let mut vars = StateVariables::default();
-    vars.insert(short_rate_keys::SHORT_RATE, initial_rate);
-    vars.insert(short_rate_keys::OAS, oas_bp);
-
-    let price = short_rate_tree.price(vars, time_to_maturity, curves, &valuator)?;
-    Ok(price)
+    let pricer =
+        crate::instruments::fixed_income::bond::pricing::engine::tree::TreePricer::with_config(
+            crate::instruments::fixed_income::bond::pricing::engine::tree::bond_tree_config(bond),
+        );
+    pricer.price_at_oas(bond, curves, as_of, oas_bp)
 }
 
 /// Price from Discount Margin for FRNs by adding DM (decimal) to float margin and delegating to pricer.
@@ -1152,7 +1198,7 @@ pub(crate) fn price_from_quote_overrides(
         return Ok(Some(price_from_dm(bond, curves, quote_ctx.quote_date, dm)?));
     }
     if let Some(i_spread) = quotes.quoted_i_spread {
-        let par_swap_rate = par_swap_rate_from_discount(bond, curves, as_of)?;
+        let par_swap_rate = par_swap_rate_from_discount(bond, curves, quote_ctx.quote_date)?;
         let ytm = i_spread + par_swap_rate;
         let flows = bond.pricing_dated_cashflows(curves, as_of)?;
         return Ok(Some(price_from_ytm(
@@ -1179,10 +1225,23 @@ pub(crate) fn price_from_quote_overrides(
 /// Compute the par swap fixed rate used in the I-Spread definition
 /// (`ISpread = YTM - par_swap_rate`) using the same convention as the
 /// `ISpreadCalculator` (annual Act/Act proxy fixed leg by default).
-fn par_swap_rate_from_discount(bond: &Bond, curves: &MarketContext, as_of: Date) -> Result<f64> {
+fn par_swap_rate_from_discount(
+    bond: &Bond,
+    curves: &MarketContext,
+    quote_date: Date,
+) -> Result<f64> {
     use finstack_core::dates::{ScheduleBuilder, StubKind};
 
     let disc = curves.get_discount(&bond.discount_curve_id)?;
+    if let Some(par_swap_rate) =
+        crate::instruments::fixed_income::bond::metrics::price_yield_spread::i_spread::interpolated_swap_quote_rate(
+            disc.as_ref(),
+            quote_date,
+            bond.maturity,
+        )?
+    {
+        return Ok(par_swap_rate);
+    }
     let ispread_cfg =
         crate::instruments::fixed_income::bond::metrics::price_yield_spread::i_spread::ISpreadConfig::default();
 
@@ -1205,7 +1264,7 @@ fn par_swap_rate_from_discount(bond: &Bond, curves: &MarketContext, as_of: Date)
     }
 
     // Mirror the schedule and fixed-leg conventions used in ISpreadCalculator defaults.
-    let dates: Vec<Date> = ScheduleBuilder::new(as_of, bond.maturity)?
+    let dates: Vec<Date> = ScheduleBuilder::new(quote_date, bond.maturity)?
         .frequency(fixed_leg_frequency)
         .stub_rule(StubKind::ShortFront)
         .build()?
@@ -1232,11 +1291,11 @@ fn par_swap_rate_from_discount(bond: &Bond, curves: &MarketContext, as_of: Date)
 /// approximation as `AssetSwapMarketCalculator` for non-custom,
 /// fixed-rate bonds:
 ///
-/// `ASW_mkt = (coupon - par_rate) + (price_pct - 1.0) / annuity`
+/// `ASW_mkt = (coupon - par_rate) + (1.0 - price_pct) / annuity`
 ///
 /// where `price_pct = dirty / notional`. Inverting:
 ///
-/// `price_pct = 1.0 + (ASW_mkt - (coupon - par_rate)) * annuity`.
+/// `price_pct = 1.0 - (ASW_mkt - (coupon - par_rate)) * annuity`.
 fn price_from_asw_market(
     bond: &Bond,
     curves: &MarketContext,
@@ -1289,7 +1348,28 @@ fn price_from_asw_market(
     }
 
     let dc = bond.cashflow_spec.day_count();
-    let (par_rate, ann) = par_rate_and_annuity_from_discount(disc.as_ref(), dc, &sched)?;
+    let forward_components =
+        if let Some(fwd_id) = &bond.pricing_overrides.model_config.asw_forward_curve_id {
+            let fwd = curves.get_forward(fwd_id)?;
+            Some(asset_swap_forward_components(
+                disc.as_ref(),
+                fwd.as_ref(),
+                dc,
+                &sched,
+                0.0,
+            )?)
+        } else {
+            None
+        };
+    let (par_rate, ann) = if let Some((float_pv, fixed_ann, float_ann)) = forward_components {
+        if fixed_ann.abs() < 1e-12 {
+            (0.0, 0.0)
+        } else {
+            (float_pv / fixed_ann, float_ann)
+        }
+    } else {
+        par_rate_and_annuity_from_discount(disc.as_ref(), dc, &sched)?
+    };
     if bond.notional.amount().abs() < 1e-12 {
         return Err(finstack_core::Error::Validation(
             "ASW market price inversion is undefined for near-zero notional".to_string(),
@@ -1302,8 +1382,12 @@ fn price_from_asw_market(
         ));
     }
 
-    let par_asw = coupon - par_rate;
-    let price_pct = 1.0 + (asw_market - par_asw) * ann;
+    let price_pct = if let Some((float_pv, fixed_ann, float_ann)) = forward_components {
+        1.0 + coupon * fixed_ann - float_pv - asw_market * float_ann
+    } else {
+        let par_asw = coupon - par_rate;
+        1.0 - (asw_market - par_asw) * ann
+    };
     Ok(price_pct * bond.notional.amount())
 }
 

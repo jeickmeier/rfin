@@ -101,6 +101,21 @@
               },
               "type": "object"
             },
+            "BondRiskBasis": {
+              "description": "Basis used for bond duration, convexity, and DV01-style risk metrics.",
+              "oneOf": [
+                {
+                  "const": "bullet_discountable",
+                  "description": "Use maturity/workout cashflows under the quoted-yield convention.\n\nThis matches Bloomberg YAS \"Workout\" risk fields and is the default for\npublic bond risk metrics.",
+                  "type": "string"
+                },
+                {
+                  "const": "callable_oas",
+                  "description": "Use callable/putable option model repricing under the bond's OAS/tree configuration.",
+                  "type": "string"
+                }
+              ]
+            },
             "BreakevenConfig": {
               "description": "Configuration for the breakeven calculator.",
               "properties": {
@@ -1485,6 +1500,28 @@
                   "description": "Enable adaptive bump sizes based on volatility and moneyness\n\nWhen true, bump sizes are scaled based on:\n- Volatility level (higher vol → larger bumps)\n- Time to expiry (longer dated → larger bumps)\n- Moneyness (deep ITM/OTM → smaller bumps)\n\nDefault: false (use fixed bump sizes)",
                   "type": "boolean"
                 },
+                "asw_forward_curve_id": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/Id"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Optional forward curve identifier for asset-swap spread metrics.\n\nWhen set, ASW par/market metrics project the floating receiver leg from\nthis forward curve instead of using a discount-curve par-rate proxy."
+                },
+                "bond_risk_basis": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/BondRiskBasis"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Basis used for bond duration, convexity, and DV01-style risk metrics."
+                },
                 "breakeven_config": {
                   "anyOf": [
                     {
@@ -1702,6 +1739,17 @@
                     "string",
                     "null"
                   ]
+                },
+                "tree_discount_curve_id": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/Id"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Optional discount curve identifier for tree-based option/OAS models.\n\nSome vendor OAS screens use a model curve distinct from the bond's pricing\nor spread curve. When set, tree pricers calibrate to this curve while\nnon-tree spread metrics continue to use the instrument's discount curve."
                 },
                 "tree_steps": {
                   "default": null,

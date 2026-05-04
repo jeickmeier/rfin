@@ -3,7 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::CashflowProvider;
-use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond::{Bond, CallPut, CallPutSchedule};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
@@ -143,8 +143,141 @@ fn test_convexity_matches_numerical_second_derivative() {
         ytm - dy,
     )
     .unwrap();
-    let conv_numeric = (p_up + p_dn - 2.0 * p0) / (p0 * dy * dy);
+    let conv_numeric = (p_up + p_dn - 2.0 * p0) / (p0 * dy * dy) / 100.0;
 
     let rel = (conv_closed - conv_numeric).abs() / conv_numeric.abs().max(1e-9);
     assert!(rel < 1e-3, "convexity rel diff {}", rel);
+}
+
+fn callable_risk_bond(as_of: finstack_core::dates::Date) -> Bond {
+    use finstack_valuations::instruments::PricingOverrides;
+    let mut bond = Bond::fixed(
+        "CALLABLE-RISK",
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        date!(2032 - 01 - 01),
+        "USD-OIS",
+    )
+    .unwrap();
+    bond.call_put = Some(CallPutSchedule {
+        calls: vec![CallPut {
+            date: date!(2028 - 01 - 01),
+            price_pct_of_par: 100.0,
+            end_date: None,
+            make_whole: None,
+        }],
+        puts: vec![],
+    });
+    bond.pricing_overrides = PricingOverrides::default()
+        .with_quoted_clean_price(99.0)
+        .with_tree_volatility(0.01);
+    bond
+}
+
+fn callable_risk_market(
+    as_of: finstack_core::dates::Date,
+) -> finstack_core::market_data::context::MarketContext {
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    let curve = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .knots([(0.0, 1.0), (7.0, 0.78)])
+        .build()
+        .unwrap();
+    finstack_core::market_data::context::MarketContext::new().insert(curve)
+}
+
+#[test]
+fn test_callable_quoted_bond_defaults_to_bullet_discountable_risk_basis() {
+    let as_of = date!(2025 - 01 - 01);
+    let callable = callable_risk_bond(as_of);
+    let mut bullet = callable.clone();
+    bullet.call_put = None;
+    let market = callable_risk_market(as_of);
+
+    let callable_result = callable
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[
+                MetricId::DurationMod,
+                MetricId::Convexity,
+                MetricId::Dv01,
+                MetricId::YieldDv01,
+            ],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .expect("callable quoted bond risk metrics should compute");
+    let bullet_result = bullet
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[
+                MetricId::DurationMod,
+                MetricId::Convexity,
+                MetricId::Dv01,
+                MetricId::YieldDv01,
+            ],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .expect("bullet equivalent risk metrics should compute");
+
+    for key in ["duration_mod", "convexity", "dv01", "yield_dv01"] {
+        let callable_value = callable_result.measures[key];
+        let bullet_value = bullet_result.measures[key];
+        assert!(
+            (callable_value - bullet_value).abs() < 1e-8,
+            "{key} should default to bullet/workout basis: callable={callable_value}, bullet={bullet_value}"
+        );
+    }
+}
+
+#[test]
+fn test_callable_quoted_bond_can_request_callable_oas_risk_basis() {
+    use finstack_valuations::instruments::BondRiskBasis;
+
+    let as_of = date!(2025 - 01 - 01);
+    let bullet_basis = callable_risk_bond(as_of);
+    let mut callable_basis = callable_risk_bond(as_of);
+    callable_basis.pricing_overrides = callable_basis
+        .pricing_overrides
+        .with_bond_risk_basis(BondRiskBasis::CallableOas);
+    let market = callable_risk_market(as_of);
+
+    let bullet_result = bullet_basis
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[
+                MetricId::DurationMod,
+                MetricId::Convexity,
+                MetricId::Dv01,
+                MetricId::YieldDv01,
+            ],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .expect("default risk metrics should compute");
+    let callable_result = callable_basis
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[
+                MetricId::DurationMod,
+                MetricId::Convexity,
+                MetricId::Dv01,
+                MetricId::YieldDv01,
+            ],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .expect("callable-oas risk metrics should compute");
+
+    assert!(
+        (callable_result.measures["duration_mod"] - bullet_result.measures["duration_mod"]).abs()
+            > 1e-4,
+        "callable_oas basis should use option-aware duration"
+    );
+    assert!(
+        (callable_result.measures["dv01"] - bullet_result.measures["dv01"]).abs() > 1e-2,
+        "callable_oas basis should use option-aware DV01"
+    );
 }

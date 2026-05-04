@@ -12,6 +12,8 @@ pub(crate) mod i_spread;
 pub(crate) mod oas;
 /// Price calculators (clean and dirty)
 pub(crate) mod prices;
+/// Callable/putable bond OAS model vega
+pub(crate) mod vega;
 /// Yield-to-maturity (YTM) calculator
 pub(crate) mod ytm;
 /// Yield-to-worst (YTW) calculator
@@ -25,6 +27,7 @@ pub(crate) use embedded_option_value::EmbeddedOptionValueCalculator;
 pub(crate) use i_spread::ISpreadCalculator;
 pub(crate) use oas::OasCalculator;
 pub(crate) use prices::{CleanPriceCalculator, DirtyPriceCalculator};
+pub(crate) use vega::BondVegaCalculator;
 pub(crate) use ytm::YtmCalculator;
 pub(crate) use ytw::YtwCalculator;
 pub use z_spread::ZSpreadCalculator;

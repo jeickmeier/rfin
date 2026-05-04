@@ -162,12 +162,12 @@ Static pricing outputs: prices, yields, spreads, durations, implied levels.
 | `asw_par` | Par asset swap spread | Decimal | Bond | Par asset swap spread (market-standard ASW quote) |
 | `asw_market` | Price-based ASW spread | Decimal | Bond | Market (price-based) asset swap spread |
 | `discount_margin` | Spread s.t. PV(floating+DM) = price | Decimal | FRN | Discount margin for floating-rate bonds |
-| `embedded_option_value` | P_straight - P_callable (or P_putable - P_straight) | Currency | Callable/Putable Bond | Embedded option value |
+| `embedded_option_value` | P_with_options - P_straight | Currency | Callable/Putable Bond | Holder-view embedded option value (callable negative, putable positive) |
 | `duration_mac` | Weighted-average time of cashflows | Years | Bond | Macaulay duration |
-| `duration_mod` | -dP/P / dy | Years | Bond | Modified duration under quoted yield |
+| `duration_mod` | -dP/P / dy | Years | Bond | Modified duration under quoted yield by default; callable/OAS model risk when `bond_risk_basis=callable_oas` |
 | `real_duration` | Duration adjusted for inflation | Years | Inflation-Linked Bond | Real (inflation-adjusted) duration |
-| `yield_dv01` | -(dP/dy) x 0.0001 | Currency/bp | Bond | Dollar price change per 1bp yield change |
-| `convexity` | d^2P / (P x dy^2) | Years^2 | Bond | Bond convexity under yield convention |
+| `yield_dv01` | -(dP/dy) x 0.0001 | Currency/bp | Bond | Dollar price change per 1bp yield change using the selected bond risk basis |
+| `convexity` | d^2P / (P x dy^2) / 100 | Bloomberg display units | Bond | Bond convexity under yield convention by default; callable/OAS model risk when `bond_risk_basis=callable_oas` |
 | `implied_vol` | Vol s.t. model price = market price | Decimal | Options | Implied volatility inferred from observed price |
 | `time_to_maturity` | (maturity - as_of) in years | Years | All | Time to maturity |
 
@@ -196,7 +196,7 @@ rho, and other rates-focused "01" metrics.
 
 | Metric | Formula | Units | Instrument | Description |
 |--------|---------|-------|------------|-------------|
-| `dv01` | (PV(r+1bp) - PV(r-1bp)) / 2 | Currency/bp | All FI | Dollar value of 01 -- parallel rates bump |
+| `dv01` | Bond: `-(price x duration_mod x 1bp)` by default; other FI: `(PV(r+1bp) - PV(r-1bp)) / 2` | Currency/bp | All FI | Dollar value of 01; bonds default to Bloomberg YAS workout risk unless `bond_risk_basis=callable_oas` |
 | `bucketed_dv01` | Per-tenor key-rate DV01 | Currency/bp | All FI | Rate sensitivity by tenor bucket |
 | `duration_dv01` | Notional x Duration x 0.0001 | Currency/bp | FI Index TRS | Duration-based DV01 for FI index TRS |
 | `pv01` | Instrument-specific 1bp quoted/primary driver bump | Currency/bp | IRS, FRA, Swap | Present value of a basis point; for FRAs this is signed projection-curve BR01 |
