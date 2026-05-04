@@ -43,6 +43,9 @@
 //! - [`register_bond_metrics`] for registering all bond metrics
 //! - [`crate::metrics`] for the metrics framework
 
+use finstack_core::dates::Date;
+use finstack_core::money::Money;
+
 /// Accrued interest calculator
 pub(crate) mod accrued;
 /// Convexity calculator
@@ -80,6 +83,9 @@ pub(crate) use price_yield_spread::{
 pub(crate) use wal::BondWalCalculator;
 pub(crate) use yield_dv01::YieldDv01Calculator;
 
+type BondCashflowPath = Vec<(Date, Money)>;
+type QuotedWorkoutPath = (f64, BondCashflowPath, Date);
+
 pub(crate) fn bond_risk_basis(
     context: &crate::metrics::MetricContext,
 ) -> crate::instruments::BondRiskBasis {
@@ -88,6 +94,41 @@ pub(crate) fn bond_risk_basis(
         .map_or_else(crate::instruments::BondRiskBasis::default, |overrides| {
             overrides.bond_risk_basis_or_default()
         })
+}
+
+pub(crate) fn quoted_workout_path(
+    bond: &crate::instruments::Bond,
+    curves: &finstack_core::market_data::context::MarketContext,
+    as_of: Date,
+    flows: &[(Date, Money)],
+) -> finstack_core::Result<Option<QuotedWorkoutPath>> {
+    if !bond.call_put.as_ref().is_some_and(|cp| cp.has_options()) {
+        return Ok(None);
+    }
+
+    let Some(clean_px) = bond.pricing_overrides.market_quotes.quoted_clean_price else {
+        return Ok(None);
+    };
+
+    let quote_ctx =
+        crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext::new(
+            bond, curves, as_of,
+        )?;
+    let dirty_now = Money::new(
+        quote_ctx.dirty_from_clean_pct(clean_px, bond.notional.amount()),
+        bond.notional.currency(),
+    );
+    let schedule = bond.full_cashflow_schedule(curves)?;
+    let (workout_yield, workout_flows) =
+        crate::instruments::fixed_income::bond::pricing::quote_conversions::solve_ytw_from_flows(
+            bond,
+            flows,
+            quote_ctx.quote_date,
+            dirty_now,
+            Some(&schedule),
+        )?;
+
+    Ok(Some((workout_yield, workout_flows, quote_ctx.quote_date)))
 }
 
 /// Registers all bond metrics to a registry.

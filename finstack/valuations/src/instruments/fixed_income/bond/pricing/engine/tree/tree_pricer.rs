@@ -11,6 +11,7 @@ use crate::instruments::common_impl::models::trees::two_factor_rates_credit::{
 use crate::instruments::common_impl::models::{
     short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
 };
+use crate::instruments::pricing_overrides::OasPriceBasis;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::solver::{BrentSolver, Solver};
@@ -163,6 +164,11 @@ impl TreePricer {
         as_of: Date,
         oas_bp: f64,
     ) -> Result<f64> {
+        let continuous_oas_bp = self
+            .config
+            .oas_quote_compounding
+            .continuous_from_quote_decimal(oas_bp / 10_000.0)
+            * 10_000.0;
         let tree_discount_curve_id = self
             .config
             .tree_discount_curve_id
@@ -223,7 +229,7 @@ impl TreePricer {
             let mut tree = RatesCreditTree::new(cfg);
             tree.calibrate(discount_curve.as_ref(), hc.as_ref(), time_to_maturity)?;
             let mut vars = StateVariables::default();
-            vars.insert("oas", oas_bp);
+            vars.insert("oas", continuous_oas_bp);
             return tree.price(vars, time_to_maturity, market_context, &valuator);
         }
 
@@ -249,7 +255,7 @@ impl TreePricer {
                 };
                 let hw_tree =
                     HullWhiteTree::calibrate(hw_config, discount_curve.as_ref(), time_to_maturity)?;
-                Ok(valuator.price_with_hw_tree(&hw_tree, oas_bp))
+                Ok(valuator.price_with_hw_tree(&hw_tree, continuous_oas_bp))
             }
             TreeModelChoice::BlackDermanToy {
                 mean_reversion,
@@ -277,7 +283,7 @@ impl TreePricer {
                 validate_bdt_calibration_quality(tree.calibration_result())?;
                 let mut vars = StateVariables::default();
                 vars.insert(short_rate_keys::SHORT_RATE, tree.rate_at_node(0, 0)?);
-                vars.insert(short_rate_keys::OAS, oas_bp);
+                vars.insert(short_rate_keys::OAS, continuous_oas_bp);
                 tree.price(vars, time_to_maturity, market_context, &valuator)
             }
             TreeModelChoice::HoLee | TreeModelChoice::HullWhiteCalibratedToSwaptions { .. } => {
@@ -291,7 +297,7 @@ impl TreePricer {
                 tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
                 let mut vars = StateVariables::default();
                 vars.insert(short_rate_keys::SHORT_RATE, tree.rate_at_node(0, 0)?);
-                vars.insert(short_rate_keys::OAS, oas_bp);
+                vars.insert(short_rate_keys::OAS, continuous_oas_bp);
                 tree.price(vars, time_to_maturity, market_context, &valuator)
             }
         }
@@ -359,8 +365,21 @@ impl TreePricer {
         // the market convention used by YTM, Z-spread, and the quote engine.
         let quote_ctx = QuoteDateContext::new(bond, market_context, as_of)?;
         let quote_date = quote_ctx.quote_date;
-        let dirty_target =
-            quote_ctx.dirty_from_clean_pct(clean_price_pct_of_par, bond.notional.amount());
+        let clean_target = clean_price_pct_of_par * bond.notional.amount() / 100.0;
+        let dirty_target = match self.config.oas_price_basis {
+            OasPriceBasis::SettlementDirty => {
+                quote_ctx.dirty_from_clean_pct(clean_price_pct_of_par, bond.notional.amount())
+            }
+            OasPriceBasis::ForwardAccruedClean => {
+                let schedule = bond.full_cashflow_schedule(market_context)?;
+                let accrued_at_as_of = crate::cashflow::accrual::accrued_interest_amount(
+                    &schedule,
+                    as_of,
+                    &bond.accrual_config(),
+                )?;
+                clean_target + quote_ctx.accrued_at_quote_date - accrued_at_as_of
+            }
+        };
         // Choose model: if a hazard curve is present in MarketContext whose ID matches the bond's
         // discount ID (preferred) or the fallback pattern "{discount_curve_id}-CREDIT", use the rates+credit
         // two-factor tree; otherwise, fall back to short-rate.
@@ -543,8 +562,12 @@ impl TreePricer {
         // Respect the configured maximum iteration cap for OAS root-finding.
         solver.max_iterations = self.config.max_iterations;
         let initial_guess = 0.0;
-        let oas_bp = solver.solve(objective_fn, initial_guess)?;
-        Ok(oas_bp)
+        let continuous_oas_bp = solver.solve(objective_fn, initial_guess)?;
+        Ok(self
+            .config
+            .oas_quote_compounding
+            .quote_from_continuous_decimal(continuous_oas_bp / 10_000.0)
+            * 10_000.0)
     }
 
     /// Attempt swaption-calibrated Hull-White. On failure, fall back to HoLee.

@@ -61,12 +61,12 @@ impl MetricCalculator for BondVegaCalculator {
             sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?;
         let bump = defaults.vol_bump_pct;
         let base_vol = bond_tree_config(bond).volatility;
-        let model_bump = bond
+        let source_vol = bond
             .pricing_overrides
             .market_quotes
             .implied_volatility
-            .filter(|source_vol| source_vol.is_finite() && *source_vol > 0.0)
-            .map_or(bump, |source_vol| bump * base_vol / source_vol);
+            .filter(|source_vol| source_vol.is_finite() && *source_vol > 0.0);
+        let model_bump = source_vol.map_or(bump, |source_vol| bump * base_vol / source_vol);
         let down_vol = (base_vol - model_bump).max(1e-8);
         let up_vol = base_vol + model_bump;
         let oas_decimal = resolve_oas_decimal(bond, context)?;
@@ -82,6 +82,15 @@ impl MetricCalculator for BondVegaCalculator {
         // move in the source volatility quote. When a source implied vol is
         // provided alongside a converted tree vol, `model_bump` maps that quote
         // bump into the tree's volatility units.
-        Ok((up - down) / 2.0 / bond.notional.amount() * 100.0)
+        let source_width = source_vol
+            .filter(|_| base_vol.is_finite() && base_vol.abs() > f64::EPSILON)
+            .map_or(effective_model_bump, |source_vol| {
+                effective_model_bump * source_vol / base_vol
+            });
+        if source_width.abs() < f64::EPSILON {
+            return Ok(0.0);
+        }
+
+        Ok((up - down) / bond.notional.amount() * 100.0 / source_width * 0.01)
     }
 }

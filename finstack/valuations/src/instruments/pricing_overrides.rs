@@ -60,6 +60,66 @@ pub enum VolSurfaceExtrapolation {
     LinearInVariance,
 }
 
+/// Quote convention used when reporting or consuming OAS values.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum OasQuoteCompounding {
+    /// Continuous additive spread, matching the tree's internal short-rate shift.
+    #[default]
+    Continuous,
+    /// Semiannual bond-equivalent OAS quote.
+    SemiAnnual,
+}
+
+impl OasQuoteCompounding {
+    /// Convert an internal continuous spread in decimal form to the quote convention.
+    pub(crate) fn quote_from_continuous_decimal(self, spread: f64) -> f64 {
+        match self {
+            Self::Continuous => spread,
+            Self::SemiAnnual => 2.0 * ((spread / 2.0).exp() - 1.0),
+        }
+    }
+
+    /// Convert a quoted spread in decimal form to the internal continuous convention.
+    pub(crate) fn continuous_from_quote_decimal(self, spread: f64) -> f64 {
+        match self {
+            Self::Continuous => spread,
+            Self::SemiAnnual => 2.0 * (1.0 + spread / 2.0).ln(),
+        }
+    }
+}
+
+/// Price/accrual convention used for OAS inversion targets.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum OasPriceBasis {
+    /// Target the full settlement dirty price.
+    #[default]
+    SettlementDirty,
+    /// Target clean price plus only the forward accrued amount from valuation to settlement.
+    ForwardAccruedClean,
+}
+
 // ---------------------------------------------------------------------------
 // Sub-struct: Market quote overrides
 // ---------------------------------------------------------------------------
@@ -411,6 +471,12 @@ pub struct ModelConfig {
     /// this forward curve instead of using a discount-curve par-rate proxy.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asw_forward_curve_id: Option<CurveId>,
+    /// Quote compounding convention for OAS inputs and outputs.
+    #[serde(default)]
+    pub oas_quote_compounding: OasQuoteCompounding,
+    /// Price/accrual target convention for OAS inversion.
+    #[serde(default)]
+    pub oas_price_basis: OasPriceBasis,
     /// Optional Monte Carlo path count for path-dependent GBM pricers (Asians, lookbacks, autocallables, etc.).
     ///
     /// When set, overrides the default simulation size (typically 100,000 paths). Intended for tests,

@@ -1,7 +1,7 @@
 use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::{Date, DayCount, StubKind, Tenor};
+use finstack_core::dates::{Date, DayCount, DayCountContext, StubKind, Tenor};
 use finstack_core::market_data::term_structures::{DiscountCurve, DiscountCurveRateQuoteType};
 
 /// Configuration for I-Spread fixed-leg conventions.
@@ -98,6 +98,38 @@ impl MetricCalculator for ISpreadCalculator {
         let disc = context.curves.get_discount(&bond.discount_curve_id)?;
 
         let quote_ctx = QuoteDateContext::new(bond, &context.curves, context.as_of)?;
+        let flows = bond.pricing_dated_cashflows(&context.curves, context.as_of)?;
+        let (yield_rate, spread_maturity, uses_workout_path) =
+            if let Some((workout_yield, workout_flows, _)) =
+                crate::instruments::fixed_income::bond::metrics::quoted_workout_path(
+                    bond,
+                    context.curves.as_ref(),
+                    context.as_of,
+                    &flows,
+                )?
+            {
+                let maturity = workout_flows
+                    .last()
+                    .map(|(date, _)| *date)
+                    .unwrap_or(bond.maturity);
+                (workout_yield, maturity, maturity < bond.maturity)
+            } else {
+                (ytm, bond.maturity, false)
+            };
+
+        if uses_workout_path {
+            let t = disc.day_count().year_fraction(
+                quote_ctx.quote_date,
+                spread_maturity,
+                DayCountContext::default(),
+            )?;
+            if t > 0.0 {
+                let df = disc.df_between_dates(quote_ctx.quote_date, spread_maturity)?;
+                if df > 0.0 && df.is_finite() {
+                    return Ok(yield_rate - (-df.ln() / t));
+                }
+            }
+        }
 
         // Bloomberg-style I-spread is measured against the interpolated market
         // swap quote. When the curve carries its original calibration quotes,
@@ -106,9 +138,9 @@ impl MetricCalculator for ISpreadCalculator {
             && self.config.fixed_leg_frequency == Tenor::annual();
         if use_default_proxy {
             if let Some(par_swap_rate) =
-                interpolated_swap_quote_rate(disc.as_ref(), quote_ctx.quote_date, bond.maturity)?
+                interpolated_swap_quote_rate(disc.as_ref(), quote_ctx.quote_date, spread_maturity)?
             {
-                return Ok(ytm - par_swap_rate);
+                return Ok(yield_rate - par_swap_rate);
             }
         }
 
@@ -127,7 +159,7 @@ impl MetricCalculator for ISpreadCalculator {
             }
         }
         let dates: Vec<Date> =
-            finstack_core::dates::ScheduleBuilder::new(quote_ctx.quote_date, bond.maturity)?
+            finstack_core::dates::ScheduleBuilder::new(quote_ctx.quote_date, spread_maturity)?
                 .frequency(fixed_leg_frequency)
                 .stub_rule(StubKind::ShortFront)
                 .build()?
@@ -152,7 +184,7 @@ impl MetricCalculator for ISpreadCalculator {
             ));
         }
 
-        Ok(ytm - par_swap_rate)
+        Ok(yield_rate - par_swap_rate)
     }
 }
 

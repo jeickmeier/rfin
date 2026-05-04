@@ -255,7 +255,12 @@ impl BondValuator {
                 if exercise_dates.contains(date) {
                     let step = map_date_to_step(as_of, *date, bond.maturity, tree_steps, dc_curve)
                         .clamp(1, num_steps - 1);
-                    cashflow_vec[step] += amount.amount();
+                    cashflow_vec[step] += Self::value_at_step_time(
+                        amount.amount(),
+                        time_frac,
+                        time_steps[step],
+                        discount_curve.as_ref(),
+                    );
                 } else {
                     // Distributed mapping: spread cashflow between two nearest time steps
                     // to reduce discretization error and improve convergence.
@@ -589,3 +594,91 @@ const _: () = {
         _assert_sync::<TreePricer>();
     }
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::instruments::fixed_income::bond::{Bond, CallPut, CallPutSchedule, CashflowSpec};
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{DayCount, DayCountContext, Tenor};
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::money::Money;
+    use time::macros::date;
+
+    #[test]
+    fn exercise_date_cashflows_are_adjusted_to_snapped_step_time() {
+        let as_of = date!(2025 - 01 - 01);
+        let call_date = date!(2027 - 01 - 01);
+        let maturity = date!(2030 - 01 - 01);
+        let tree_steps = 7;
+        let mut bond = Bond::fixed(
+            "OFF-GRID-CALL-CF",
+            Money::new(1_000.0, Currency::USD),
+            0.06,
+            as_of,
+            maturity,
+            "USD-OIS",
+        )
+        .expect("bond");
+        bond.cashflow_spec = CashflowSpec::fixed(0.06, Tenor::annual(), DayCount::Act365F);
+        bond.call_put = Some(CallPutSchedule {
+            calls: vec![CallPut {
+                date: call_date,
+                price_pct_of_par: 100.0,
+                end_date: None,
+                make_whole: None,
+            }],
+            puts: vec![],
+        });
+
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .knots([(0.0, 1.0), (5.0, 0.55)])
+            .build()
+            .expect("curve");
+        let market = MarketContext::new().insert(curve);
+        let discount_curve = market.get_discount("USD-OIS").expect("discount curve");
+        let dc = discount_curve.day_count();
+        let time_to_maturity = dc
+            .year_fraction(as_of, maturity, DayCountContext::default())
+            .expect("time to maturity");
+        let event_time = dc
+            .year_fraction(as_of, call_date, DayCountContext::default())
+            .expect("call time");
+        let step =
+            map_date_to_step(as_of, call_date, maturity, tree_steps, dc).clamp(1, tree_steps);
+        let step_time = time_to_maturity / tree_steps as f64 * step as f64;
+        assert!(
+            (event_time - step_time).abs() > 1e-4,
+            "test requires an off-grid exercise date"
+        );
+
+        let raw_exercise_date_cashflow = bond
+            .pricing_dated_cashflows(&market, as_of)
+            .expect("cashflows")
+            .into_iter()
+            .filter(|(date, _)| *date == call_date)
+            .map(|(_, amount)| amount.amount())
+            .sum::<f64>();
+        assert!(
+            raw_exercise_date_cashflow > 0.0,
+            "test requires a coupon on the exercise date"
+        );
+
+        let valuator =
+            BondValuator::new(bond, &market, as_of, time_to_maturity, tree_steps).expect("tree");
+        let expected = BondValuator::value_at_step_time(
+            raw_exercise_date_cashflow,
+            event_time,
+            step_time,
+            discount_curve.as_ref(),
+        );
+        let actual = valuator.cashflow_vec[step];
+
+        assert!(
+            (actual - expected).abs() < 1e-10,
+            "exercise-date cashflow should be valued consistently with call redemption timing: actual={actual}, expected={expected}, raw={raw_exercise_date_cashflow}"
+        );
+    }
+}

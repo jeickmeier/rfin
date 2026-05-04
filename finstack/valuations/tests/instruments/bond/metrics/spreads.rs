@@ -657,6 +657,74 @@ fn test_callable_bond_oas_and_vega_use_explicit_bdt_tree_path() {
 }
 
 #[test]
+fn test_callable_bond_vega_is_invariant_to_vol_bump_size() {
+    use finstack_core::market_data::term_structures::DiscountCurve;
+
+    fn vega_with_bump(
+        base_bond: &Bond,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+        bump: f64,
+    ) -> f64 {
+        let mut bond = base_bond.clone();
+        bond.pricing_overrides = bond.pricing_overrides.with_vol_bump(bump);
+        bond.price_with_metrics(
+            market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .expect("callable bond vega should compute")
+        .measures["vega"]
+    }
+
+    let as_of = date!(2025 - 01 - 01);
+    let mut bond = Bond::fixed(
+        "CALLABLE-VEGA-BUMP-INVARIANT",
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        date!(2032 - 01 - 01),
+        "USD-OIS",
+    )
+    .unwrap();
+    bond.call_put = Some(CallPutSchedule {
+        calls: vec![CallPut {
+            date: date!(2028 - 01 - 01),
+            price_pct_of_par: 100.0,
+            end_date: None,
+            make_whole: None,
+        }],
+        puts: vec![],
+    });
+    bond.pricing_overrides = serde_json::from_value(serde_json::json!({
+        "quoted_clean_price": 103.0,
+        "tree_volatility": 0.20,
+        "implied_volatility": 0.20,
+        "tree_steps": 40,
+        "vol_model": "black",
+        "mean_reversion": 0.0
+    }))
+    .expect("BDT pricing overrides should deserialize");
+
+    let curve = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .knots([(0.0, 1.0), (7.0, 0.82)])
+        .build()
+        .unwrap();
+    let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
+
+    let vega_half_point = vega_with_bump(&bond, &market, as_of, 0.005);
+    let vega_one_point = vega_with_bump(&bond, &market, as_of, 0.01);
+    let scale = vega_one_point.abs().max(1e-12);
+
+    assert!(
+        (vega_half_point - vega_one_point).abs() / scale < 0.05,
+        "vega should be normalized per one vol point, not scale with finite-difference bump: half_point={vega_half_point}, one_point={vega_one_point}"
+    );
+}
+
+#[test]
 fn test_callable_bdt_oas_recovers_settlement_date_clean_price() {
     use finstack_core::market_data::term_structures::DiscountCurve;
 

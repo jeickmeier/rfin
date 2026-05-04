@@ -6,8 +6,10 @@ use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContex
 use crate::instruments::fixed_income::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
-use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::dates::{
+    BusinessDayConvention, Date, DayCount, DayCountContext, StubKind, Tenor,
+};
+use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use rust_decimal::prelude::ToPrimitive;
 
 /// Configuration for fixed-leg conventions used in ASW par/market metrics.
@@ -142,6 +144,146 @@ fn build_future_dates_from_flows(
     dates.push(as_of);
     dates.extend(set);
     dates
+}
+
+fn build_asw_schedule(
+    start: Date,
+    end: Date,
+    frequency: Tenor,
+    stub: StubKind,
+    bdc: BusinessDayConvention,
+    calendar_id: Option<&str>,
+) -> finstack_core::Result<Vec<Date>> {
+    if start >= end {
+        return Err(finstack_core::Error::Validation(format!(
+            "ASW schedule requires start before end: start={start}, end={end}"
+        )));
+    }
+    let calendar = calendar_id.and_then(finstack_core::dates::calendar::calendar_by_id);
+    let adjust_date = |date: Date| -> finstack_core::Result<Date> {
+        if let Some(cal) = calendar {
+            finstack_core::dates::adjust(date, bdc, cal)
+        } else {
+            Ok(date)
+        }
+    };
+
+    let mut dates = Vec::new();
+    dates.push(adjust_date(start)?);
+
+    let mut raw = start;
+    loop {
+        let next = frequency.add_to_date(raw, None, BusinessDayConvention::Unadjusted)?;
+        if next >= end {
+            break;
+        }
+        dates.push(adjust_date(next)?);
+        raw = next;
+    }
+
+    if !matches!(stub, StubKind::None) || dates.last().copied() != Some(end) {
+        dates.push(adjust_date(end)?);
+    }
+    dates.sort();
+    dates.dedup();
+    Ok(dates)
+}
+
+fn asw_effective_date(
+    issue_date: Date,
+    quote_date: Date,
+    end: Date,
+    frequency: Tenor,
+    _stub: StubKind,
+    _bdc: BusinessDayConvention,
+    _calendar_id: Option<&str>,
+) -> finstack_core::Result<Date> {
+    let mut previous = issue_date;
+    let mut current = issue_date;
+    while current < end {
+        let next = frequency.add_to_date(current, None, BusinessDayConvention::Unadjusted)?;
+        if next >= quote_date {
+            break;
+        }
+        previous = next;
+        current = next;
+    }
+    Ok(previous.min(quote_date))
+}
+
+fn asw_float_leg_conventions(fwd: &ForwardCurve) -> (DayCount, Tenor, BusinessDayConvention) {
+    let id = fwd.id().as_str().to_ascii_uppercase();
+    if id.contains("SOFRRATE") || id.contains("SOFR") {
+        (
+            DayCount::Act360,
+            Tenor::annual(),
+            BusinessDayConvention::ModifiedFollowing,
+        )
+    } else if id.contains("EURIBOR-6M") || id.contains("EURIBOR6M") {
+        (
+            DayCount::Act360,
+            Tenor::semi_annual(),
+            BusinessDayConvention::ModifiedFollowing,
+        )
+    } else {
+        (
+            fwd.day_count(),
+            Tenor::from_years(fwd.tenor(), fwd.day_count()),
+            BusinessDayConvention::ModifiedFollowing,
+        )
+    }
+}
+
+struct AssetSwapForwardInputs<'a> {
+    disc: &'a DiscountCurve,
+    fwd: &'a ForwardCurve,
+    fixed_dc: DayCount,
+    fixed_schedule: &'a [Date],
+    float_dc: DayCount,
+    float_schedule: &'a [Date],
+    float_spread_bp: f64,
+}
+
+fn asset_swap_forward_components_split(
+    inputs: AssetSwapForwardInputs<'_>,
+) -> finstack_core::Result<(f64, f64, f64)> {
+    let fixed_ann = fixed_leg_annuity(inputs.disc, inputs.fixed_dc, inputs.fixed_schedule)?;
+    let float_schedule = inputs.float_schedule;
+    if float_schedule.len() < 2 {
+        return Ok((0.0, fixed_ann, 0.0));
+    }
+
+    let f_base = inputs.fwd.base_date();
+    let spread = inputs.float_spread_bp * 1e-4;
+    let mut float_pv = finstack_core::math::summation::NeumaierAccumulator::new();
+    let mut float_ann = finstack_core::math::summation::NeumaierAccumulator::new();
+
+    let mut prev = float_schedule[0];
+    for &date in &float_schedule[1..] {
+        let t1 = if prev <= f_base {
+            0.0
+        } else {
+            inputs
+                .float_dc
+                .year_fraction(f_base, prev, DayCountContext::default())?
+        };
+        let t2 = if date <= f_base {
+            0.0
+        } else {
+            inputs
+                .float_dc
+                .year_fraction(f_base, date, DayCountContext::default())?
+        };
+        let yf = inputs
+            .float_dc
+            .year_fraction(prev, date, DayCountContext::default())?;
+        let df = inputs.disc.df_on_date_curve(date)?;
+        float_pv.add((inputs.fwd.rate_period(t1, t2) + spread) * yf * df);
+        float_ann.add(yf * df);
+        prev = date;
+    }
+
+    Ok((float_pv.total(), fixed_ann, float_ann.total()))
 }
 
 /// PV of coupon-only leg from a custom schedule (excludes amortization and principal).
@@ -675,6 +817,92 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             .or(bond_calendar_id);
 
         let quote_ctx = QuoteDateContext::new(bond, &context.curves, context.as_of)?;
+        if let Some(clean_px) = quoted_clean {
+            let flows = bond.pricing_dated_cashflows(&context.curves, context.as_of)?;
+            if let Some((_, workout_flows, workout_quote_date)) =
+                crate::instruments::fixed_income::bond::metrics::quoted_workout_path(
+                    bond,
+                    context.curves.as_ref(),
+                    context.as_of,
+                    &flows,
+                )?
+            {
+                let workout_maturity = workout_flows
+                    .last()
+                    .map(|(date, _)| *date)
+                    .unwrap_or(maturity);
+                if workout_maturity < maturity {
+                    let effective_date = asw_effective_date(
+                        bond.issue_date,
+                        workout_quote_date,
+                        workout_maturity,
+                        freq,
+                        stub,
+                        bdc,
+                        calendar_id,
+                    )?;
+                    let fixed_schedule = build_asw_schedule(
+                        effective_date,
+                        workout_maturity,
+                        freq,
+                        StubKind::None,
+                        bdc,
+                        calendar_id,
+                    )?;
+                    if fixed_schedule.len() < 2 {
+                        return Err(finstack_core::Error::Validation(
+                            "ASW market calculation requires at least two fixed-leg schedule dates"
+                                .to_string(),
+                        ));
+                    }
+                    let dc_fixed = self.config.fixed_leg_day_count.unwrap_or(dc);
+                    if let Some(fwd_id) = asw_forward_curve_id.as_ref() {
+                        let fwd = context.curves.get_forward(fwd_id)?;
+                        let (float_dc, float_freq, float_bdc) = asw_float_leg_conventions(&fwd);
+                        let float_schedule = build_asw_schedule(
+                            effective_date,
+                            workout_maturity,
+                            float_freq,
+                            StubKind::None,
+                            float_bdc,
+                            None,
+                        )?;
+                        let (float_pv, fixed_ann, float_ann) =
+                            asset_swap_forward_components_split(AssetSwapForwardInputs {
+                                disc: disc.as_ref(),
+                                fwd: fwd.as_ref(),
+                                fixed_dc: dc_fixed,
+                                fixed_schedule: &fixed_schedule,
+                                float_dc,
+                                float_schedule: &float_schedule,
+                                float_spread_bp: 0.0,
+                            })?;
+                        if float_ann.abs() < 1e-12 {
+                            return Err(finstack_core::Error::Validation(
+                                "ASW market calculation is undefined for near-zero floating-leg annuity"
+                                    .to_string(),
+                            ));
+                        }
+                        return Ok(
+                            (coupon * fixed_ann + 1.0 - clean_px / 100.0 - float_pv) / float_ann
+                        );
+                    } else {
+                        let (par_rate, ann) = par_rate_and_annuity_from_discount(
+                            disc.as_ref(),
+                            dc_fixed,
+                            &fixed_schedule,
+                        )?;
+                        if ann.abs() < 1e-12 {
+                            return Err(finstack_core::Error::Validation(
+                                "ASW market calculation is undefined for near-zero fixed-leg annuity"
+                                    .to_string(),
+                            ));
+                        }
+                        return Ok((coupon - par_rate) + (1.0 - clean_px / 100.0) / ann);
+                    }
+                }
+            }
+        }
         if quote_ctx.quote_date >= maturity {
             return Err(finstack_core::Error::Validation(
                 "ASW market calculation requires at least two fixed-leg schedule dates".to_string(),

@@ -4,6 +4,7 @@ use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
+use std::borrow::Cow;
 
 /// Calculates Macaulay duration for bonds.
 ///
@@ -66,12 +67,22 @@ impl MetricCalculator for MacaulayDurationCalculator {
 
         // Compute quote-date context (settlement date) for yield-based duration
         let quote_ctx = QuoteDateContext::new(bond, &context.curves, context.as_of)?;
-        let quote_date = quote_ctx.quote_date;
+        let (yield_rate, risk_flows, quote_date) =
+            if let Some((workout_yield, workout_flows, workout_quote_date)) =
+                super::quoted_workout_path(bond, context.curves.as_ref(), context.as_of, flows)?
+            {
+                (workout_yield, Cow::Owned(workout_flows), workout_quote_date)
+            } else {
+                (ytm, Cow::Borrowed(flows.as_slice()), quote_ctx.quote_date)
+            };
 
         // Calculate price from flows using quote_date to ensure consistency with YTM
         let price =
             crate::instruments::fixed_income::bond::pricing::quote_conversions::price_from_ytm(
-                bond, flows, quote_date, ytm,
+                bond,
+                risk_flows.as_ref(),
+                quote_date,
+                yield_rate,
             )?;
         if price.abs() < ZERO_TOLERANCE {
             return Ok(0.0);
@@ -80,7 +91,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
         // Calculate Macaulay duration using quote_date as time origin
         let mut weighted_time = 0.0;
 
-        for &(date, amount) in flows {
+        for &(date, amount) in risk_flows.as_ref() {
             if date <= quote_date {
                 continue;
             }
@@ -94,7 +105,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
                 )?
                 .max(0.0);
             let df = crate::instruments::fixed_income::bond::pricing::quote_conversions::df_from_yield(
-                ytm,
+                yield_rate,
                 t,
                 crate::instruments::fixed_income::bond::pricing::quote_conversions::YieldCompounding::Street,
                 bond.cashflow_spec.frequency(),

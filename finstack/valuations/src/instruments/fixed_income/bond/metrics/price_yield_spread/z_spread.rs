@@ -3,6 +3,7 @@ use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::math::solver::{BrentSolver, Solver};
+use std::borrow::Cow;
 
 /// Configuration for Z-spread solver with maturity-aware bracket sizing.
 ///
@@ -241,14 +242,24 @@ impl MetricCalculator for ZSpreadCalculator {
         // shift exp(-z * t) is applied relative to the same date as the base DFs.
         let flows = bond.pricing_dated_cashflows(&context.curves, context.as_of)?;
         let disc = context.curves.get_discount(&bond.discount_curve_id)?;
-        let quote_date = quote_ctx.quote_date;
+        let (spread_flows, quote_date) = if let Some((_, workout_flows, workout_quote_date)) =
+            crate::instruments::fixed_income::bond::metrics::quoted_workout_path(
+                bond,
+                context.curves.as_ref(),
+                context.as_of,
+                &flows,
+            )? {
+            (Cow::Owned(workout_flows), workout_quote_date)
+        } else {
+            (Cow::Borrowed(flows.as_slice()), quote_ctx.quote_date)
+        };
         let compounds_per_year = bond_z_spread_compounding_frequency(bond);
         // Keep z-spread time axis on the discount-curve basis for consistency with
         // existing solver calibration and parity tests.
         let dc = disc.day_count();
 
         // Cache (time_from_quote_date, df_from_quote_date, amount) for each future cashflow
-        let cached_flows: Vec<(f64, f64, f64)> = flows
+        let cached_flows: Vec<(f64, f64, f64)> = spread_flows
             .iter()
             .filter(|(d, _)| *d > quote_date)
             .map(|(d, amt)| -> finstack_core::Result<(f64, f64, f64)> {

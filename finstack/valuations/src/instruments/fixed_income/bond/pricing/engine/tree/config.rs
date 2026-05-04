@@ -1,4 +1,5 @@
 use super::super::super::super::types::Bond;
+use crate::instruments::pricing_overrides::{OasPriceBasis, OasQuoteCompounding};
 use finstack_core::types::CurveId;
 use finstack_core::types::Percentage;
 
@@ -204,6 +205,10 @@ pub struct TreePricerConfig {
 
     /// Optional discount curve used only for tree/OAS calibration.
     pub tree_discount_curve_id: Option<CurveId>,
+    /// Quote convention used for OAS inputs and outputs.
+    pub oas_quote_compounding: OasQuoteCompounding,
+    /// Price/accrual target convention for OAS inversion.
+    pub oas_price_basis: OasPriceBasis,
 }
 
 impl Default for TreePricerConfig {
@@ -222,6 +227,8 @@ impl Default for TreePricerConfig {
             mean_reversion: None,
             tree_model: TreeModelChoice::default(),
             tree_discount_curve_id: None,
+            oas_quote_compounding: OasQuoteCompounding::Continuous,
+            oas_price_basis: OasPriceBasis::SettlementDirty,
         }
     }
 }
@@ -310,6 +317,8 @@ pub fn bond_tree_config(bond: &Bond) -> TreePricerConfig {
             .model_config
             .tree_discount_curve_id
             .clone(),
+        oas_quote_compounding: bond.pricing_overrides.model_config.oas_quote_compounding,
+        oas_price_basis: bond.pricing_overrides.model_config.oas_price_basis,
     }
 }
 
@@ -352,6 +361,8 @@ impl TreePricerConfig {
             mean_reversion: None,
             tree_model: TreeModelChoice::HoLee,
             tree_discount_curve_id: None,
+            oas_quote_compounding: OasQuoteCompounding::Continuous,
+            oas_price_basis: OasPriceBasis::SettlementDirty,
         }
     }
 
@@ -366,6 +377,8 @@ impl TreePricerConfig {
             mean_reversion: None,
             tree_model: TreeModelChoice::HoLee,
             tree_discount_curve_id: None,
+            oas_quote_compounding: OasQuoteCompounding::Continuous,
+            oas_price_basis: OasPriceBasis::SettlementDirty,
         }
     }
 
@@ -407,6 +420,8 @@ impl TreePricerConfig {
                 sigma: lognormal_vol,
             },
             tree_discount_curve_id: None,
+            oas_quote_compounding: OasQuoteCompounding::Continuous,
+            oas_price_basis: OasPriceBasis::SettlementDirty,
         }
     }
 
@@ -424,6 +439,8 @@ impl TreePricerConfig {
                 sigma: lognormal_vol.as_decimal(),
             },
             tree_discount_curve_id: None,
+            oas_quote_compounding: OasQuoteCompounding::Continuous,
+            oas_price_basis: OasPriceBasis::SettlementDirty,
         }
     }
 
@@ -461,6 +478,8 @@ impl TreePricerConfig {
             mean_reversion: None,
             tree_model: TreeModelChoice::HoLee,
             tree_discount_curve_id: None,
+            oas_quote_compounding: OasQuoteCompounding::Continuous,
+            oas_price_basis: OasPriceBasis::SettlementDirty,
         }
     }
 
@@ -475,6 +494,8 @@ impl TreePricerConfig {
             mean_reversion: None,
             tree_model: TreeModelChoice::HoLee,
             tree_discount_curve_id: None,
+            oas_quote_compounding: OasQuoteCompounding::Continuous,
+            oas_price_basis: OasPriceBasis::SettlementDirty,
         }
     }
 
@@ -506,6 +527,8 @@ impl TreePricerConfig {
             mean_reversion: None,
             tree_model: TreeModelChoice::HoLee,
             tree_discount_curve_id: None,
+            oas_quote_compounding: OasQuoteCompounding::Continuous,
+            oas_price_basis: OasPriceBasis::SettlementDirty,
         }
     }
 
@@ -520,6 +543,8 @@ impl TreePricerConfig {
             mean_reversion: None,
             tree_model: TreeModelChoice::HoLee,
             tree_discount_curve_id: None,
+            oas_quote_compounding: OasQuoteCompounding::Continuous,
+            oas_price_basis: OasPriceBasis::SettlementDirty,
         }
     }
 
@@ -542,6 +567,8 @@ impl TreePricerConfig {
             mean_reversion: Some(kappa),
             tree_model: TreeModelChoice::HullWhite { kappa, sigma },
             tree_discount_curve_id: None,
+            oas_quote_compounding: OasQuoteCompounding::Continuous,
+            oas_price_basis: OasPriceBasis::SettlementDirty,
         }
     }
 
@@ -565,6 +592,8 @@ impl TreePricerConfig {
                 swaption_vol_surface_id,
             },
             tree_discount_curve_id: None,
+            oas_quote_compounding: OasQuoteCompounding::Continuous,
+            oas_price_basis: OasPriceBasis::SettlementDirty,
         }
     }
 }
