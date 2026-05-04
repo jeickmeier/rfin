@@ -344,6 +344,7 @@ fn bench_tree_step_scaling(c: &mut Criterion) {
             tree_discount_curve_id: None,
             oas_quote_compounding: Default::default(),
             oas_price_basis: Default::default(),
+            tree_compounding: Default::default(),
         };
         let pricer = TreePricer::with_config(config);
 

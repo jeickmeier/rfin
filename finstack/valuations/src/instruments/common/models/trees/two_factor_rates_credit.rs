@@ -323,7 +323,7 @@ impl TreeModel for RatesCreditTree {
 
                 // Rate transition probability with mean reversion
                 let p_r = if self.config.rate_mean_reversion > 0.0 && r_t > 0.0 {
-                    let log_r = r_t.ln();
+                    let log_r = r_t.max(1e-8).ln();
                     let log_base = self.config.base_rate.max(1e-8).ln();
                     let drift = -self.config.rate_mean_reversion * (log_r - log_base);
                     let rate_vol = self.config.rate_vol.max(1e-12);
@@ -337,7 +337,7 @@ impl TreeModel for RatesCreditTree {
 
                     // Hazard transition probability with mean reversion
                     let p_h = if self.config.hazard_mean_reversion > 0.0 && h_t > 0.0 {
-                        let log_h = h_t.ln();
+                        let log_h = h_t.max(1e-8).ln();
                         let log_base = self.config.base_hazard.max(1e-8).ln();
                         let drift = -self.config.hazard_mean_reversion * (log_h - log_base);
                         let hazard_vol = self.config.hazard_vol.max(1e-12);
@@ -429,6 +429,31 @@ mod tests {
             .base_date(test_base_date())
             .recovery_rate(0.4)
             .knots([(0.0, 0.02), (2.0, 0.025), (5.0, 0.03), (10.0, 0.035)])
+            .par_interp(ParInterp::Linear)
+            .build()
+            .expect("hazard curve should build")
+    }
+
+    fn near_zero_discount_curve() -> DiscountCurve {
+        DiscountCurve::builder("USD-OIS")
+            .base_date(test_base_date())
+            .knots([
+                (0.0, 1.0),
+                (1.0, (-0.000001_f64).exp()),
+                (2.0, (-0.000002_f64).exp()),
+                (5.0, (-0.000005_f64).exp()),
+            ])
+            .interp(InterpStyle::LogLinear)
+            .build()
+            .expect("curve should build")
+    }
+
+    fn near_zero_hazard_curve() -> HazardCurve {
+        use finstack_core::market_data::term_structures::ParInterp;
+        HazardCurve::builder("LOW-HAZ")
+            .base_date(test_base_date())
+            .recovery_rate(0.4)
+            .knots([(0.0, 1e-8), (2.0, 1e-8), (5.0, 1e-8)])
             .par_interp(ParInterp::Linear)
             .build()
             .expect("hazard curve should build")
@@ -550,5 +575,34 @@ mod tests {
                 error
             );
         }
+    }
+
+    #[test]
+    fn near_zero_rates_with_mean_reversion_price_finitely() {
+        let disc = near_zero_discount_curve();
+        let haz = near_zero_hazard_curve();
+        let mut tree = RatesCreditTree::new(RatesCreditConfig {
+            steps: 20,
+            rate_vol: 0.20,
+            hazard_vol: 0.20,
+            base_rate: 0.02,
+            base_hazard: 0.01,
+            rate_mean_reversion: 0.001,
+            hazard_mean_reversion: 0.001,
+            ..Default::default()
+        });
+
+        tree.calibrate(&disc, &haz, 2.0).expect("calibration");
+
+        let price = tree
+            .price(
+                StateVariables::default(),
+                2.0,
+                &MarketContext::new(),
+                &DummyValuator,
+            )
+            .expect("pricing should succeed");
+
+        assert!(price.is_finite() && price > 0.0, "price={price}");
     }
 }

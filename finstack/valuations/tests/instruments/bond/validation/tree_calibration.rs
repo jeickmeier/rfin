@@ -357,8 +357,8 @@ fn test_mean_reversion_none_matches_ho_lee() {
 
 #[test]
 fn test_mean_reversion_reduces_rate_dispersion() {
-    use finstack_valuations::instruments::models::HullWhiteTreeConfig;
     use finstack_valuations::instruments::models::HullWhiteTree;
+    use finstack_valuations::instruments::models::HullWhiteTreeConfig;
 
     let as_of = date!(2020 - 01 - 01);
     let rate = 0.05;

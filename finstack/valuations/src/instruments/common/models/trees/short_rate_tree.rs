@@ -652,20 +652,18 @@ impl ShortRateTree {
 
         // Build tree forward
         for step in 0..self.config.steps {
-            // We are at step i (time t_i). We have rates[i] and state_prices[i].
-            // We want to determine rates[i+1] such that the bond price P(0, t_{i+2}) matches market.
-            // Note: rates[i] determines discounting from t_{i+1} to t_i.
-            // Wait, rates[i] applies to [t_i, t_{i+1}].
-            // So rates[i] determines P(0, t_{i+1}) given P(0, t_i).
-            // But rates[i] is already fixed!
-            // We are determining rates[i+1] which applies to [t_{i+1}, t_{i+2}].
-            // So we calibrate rates[i+1] to match P(0, t_{i+2}).
+            // rates[step] discounts the interval [t_step, t_{step+1}].
+            // The next row rates[step + 1] discounts [t_{step+1}, t_{step+2}],
+            // so it is calibrated to P(0, t_{step+2}) when that maturity
+            // exists. The terminal row rates[N] is populated for lattice
+            // geometry and accessor consistency; backward induction never uses
+            // it for discounting because pricing stops at maturity.
 
             let next_next_time = if step + 2 < self.time_steps.len() {
                 self.time_steps[step + 2]
             } else {
-                // End of tree, no need to calibrate further rates (they won't be used for discounting)
-                // But we still need to populate the vector to avoid index errors
+                // Terminal row: populate but do not calibrate an unused
+                // post-maturity discounting interval.
                 0.0
             };
 
@@ -1207,9 +1205,9 @@ impl TreeModel for ShortRateTree {
                     )?;
 
                     let actual_span = vol_up - vol_down;
-                    greeks.vega = (price_up - price_down) / actual_span * vol_bump;
+                    greeks.vega = (price_up - price_down) / actual_span * 0.01;
                 } else {
-                    greeks.vega = price_up - base_price;
+                    greeks.vega = (price_up - base_price) / vol_bump * 0.01;
                 }
             }
 
@@ -1296,11 +1294,48 @@ mod tests {
             .expect("should succeed")
     }
 
+    fn create_flat_curve(rate: f64) -> DiscountCurve {
+        let knots = [0.0, 0.25, 0.5, 1.0, 2.0, 5.0]
+            .into_iter()
+            .map(|t| (t, (-rate * t).exp()));
+        DiscountCurve::builder(TEST_CURVE_ID)
+            .base_date(
+                finstack_core::dates::Date::from_calendar_date(2025, Month::January, 1)
+                    .expect("should succeed"),
+            )
+            .knots(knots)
+            .interp(InterpStyle::LogLinear)
+            .build()
+            .expect("should succeed")
+    }
+
     struct ConstantValuator;
 
     impl TreeValuator for ConstantValuator {
         fn value_at_maturity(&self, _state: &NodeState) -> Result<f64> {
             Ok(1.0)
+        }
+
+        fn value_at_node(
+            &self,
+            _state: &NodeState,
+            continuation_value: f64,
+            _dt: f64,
+        ) -> Result<f64> {
+            Ok(continuation_value)
+        }
+    }
+
+    struct RateCallValuator {
+        strike: f64,
+    }
+
+    impl TreeValuator for RateCallValuator {
+        fn value_at_maturity(&self, state: &NodeState) -> Result<f64> {
+            let rate = state
+                .interest_rate()
+                .ok_or_else(|| Error::internal("rate-call node missing interest rate"))?;
+            Ok((rate - self.strike).max(0.0))
         }
 
         fn value_at_node(
@@ -1336,10 +1371,37 @@ mod tests {
     }
 
     #[test]
+    fn ho_lee_stored_lattice_prices_zero_coupon_to_calibration_curve() {
+        let steps = 12;
+        let maturity = 2.0;
+        let mut tree = ShortRateTree::ho_lee(steps, 0.015);
+        let curve = create_test_curve();
+        tree.calibrate(&test_curve_id(), &curve, maturity)
+            .expect("Ho-Lee calibration");
+
+        let market = MarketContext::new();
+        let actual = tree
+            .price(
+                StateVariables::default(),
+                maturity,
+                &market,
+                &ConstantValuator,
+            )
+            .expect("Ho-Lee zero-coupon price");
+        let expected = curve.df(maturity);
+
+        assert!(
+            (actual - expected).abs() < 1e-8,
+            "Ho-Lee stored lattice should price a zero coupon to the calibration curve: actual={actual}, expected={expected}"
+        );
+    }
+
+    #[test]
     fn test_rate_access() {
         let mut tree = ShortRateTree::ho_lee(5, 0.01);
         let curve = create_test_curve();
-        tree.calibrate(&test_curve_id(), &curve, 1.0).expect("should succeed");
+        tree.calibrate(&test_curve_id(), &curve, 1.0)
+            .expect("should succeed");
 
         // Should be able to access rates at valid nodes
         let r0 = tree.rate_at_node(0, 0).expect("should succeed");
@@ -1367,7 +1429,8 @@ mod tests {
         let mut tree = ShortRateTree::black_derman_toy(6, 0.20, 0.0);
         let curve = create_test_curve();
 
-        tree.calibrate(&test_curve_id(), &curve, 2.0).expect("should succeed");
+        tree.calibrate(&test_curve_id(), &curve, 2.0)
+            .expect("should succeed");
 
         assert_eq!(tree.rates.len(), 7);
         assert_eq!(tree.probs.len(), 6);
@@ -1383,7 +1446,8 @@ mod tests {
         let maturity = 2.0;
         let mut tree = ShortRateTree::black_derman_toy(steps, 0.20, 0.0);
         let curve = create_test_curve();
-        tree.calibrate(&test_curve_id(), &curve, maturity).expect("BDT calibration");
+        tree.calibrate(&test_curve_id(), &curve, maturity)
+            .expect("BDT calibration");
 
         let mut vars = StateVariables::default();
         vars.insert(
@@ -1409,7 +1473,8 @@ mod tests {
 
         let mut tree = ShortRateTree::new(config);
         let curve = create_test_curve();
-        tree.calibrate(&test_curve_id(), &curve, 2.0).expect("BDT calibration");
+        tree.calibrate(&test_curve_id(), &curve, 2.0)
+            .expect("BDT calibration");
 
         for step in 0..=6 {
             assert_eq!(
@@ -1424,7 +1489,8 @@ mod tests {
     fn test_short_rate_tree_rejects_branching_geometry_mismatch() {
         let mut tree = ShortRateTree::new(ShortRateTreeConfig::bdt(6, 0.20, 0.0).with_trinomial());
         let curve = create_test_curve();
-        tree.calibrate(&test_curve_id(), &curve, 2.0).expect("BDT calibration");
+        tree.calibrate(&test_curve_id(), &curve, 2.0)
+            .expect("BDT calibration");
 
         let mut vars = StateVariables::default();
         vars.insert(
@@ -1455,7 +1521,11 @@ mod tests {
         tree_mr.calibrate(&cid, &curve, 2.0).expect("BDT(κ=0.05)");
 
         let quality = tree_mr.calibration_result().expect("quality");
-        assert!(quality.is_acceptable(), "BDT(κ=0.05) calibration: max_error={:.2}bp", quality.max_error_bps);
+        assert!(
+            quality.is_acceptable(),
+            "BDT(κ=0.05) calibration: max_error={:.2}bp",
+            quality.max_error_bps
+        );
 
         let max_rate_no_mr = tree_no_mr.rate_at_node(steps, 0).expect("top node no MR");
         let max_rate_mr = tree_mr.rate_at_node(steps, 0).expect("top node MR");
@@ -1466,12 +1536,72 @@ mod tests {
 
         let market = MarketContext::new();
         let mut vars = StateVariables::default();
-        vars.insert(short_rate_keys::SHORT_RATE, tree_mr.rate_at_node(0, 0).expect("root"));
-        let zcb = tree_mr.price(vars, 2.0, &market, &ConstantValuator).expect("ZCB price");
+        vars.insert(
+            short_rate_keys::SHORT_RATE,
+            tree_mr.rate_at_node(0, 0).expect("root"),
+        );
+        let zcb = tree_mr
+            .price(vars, 2.0, &market, &ConstantValuator)
+            .expect("ZCB price");
         let target = curve.df(2.0);
         assert!(
             (zcb - target).abs() < 1e-6,
             "BDT(κ=0.05) should still price ZCBs to curve: got={zcb:.8}, target={target:.8}"
+        );
+    }
+
+    #[test]
+    fn short_rate_tree_vega_is_per_one_percent_vol_move_for_custom_bump() {
+        let steps = 10;
+        let maturity = 2.0;
+        let bump = 0.02;
+        let curve = create_test_curve();
+        let curve_id = test_curve_id();
+        let market = MarketContext::new().insert(curve.clone());
+        let valuator = RateCallValuator { strike: 0.03 };
+        let initial_vars = StateVariables::default();
+
+        let config = ShortRateTreeConfig::bdt(steps, 0.20, 0.0);
+        let mut tree = ShortRateTree::new(config.clone());
+        tree.calibrate(&curve_id, &curve, maturity)
+            .expect("base calibration");
+
+        let greeks = tree
+            .calculate_greeks(
+                initial_vars.clone(),
+                maturity,
+                &market,
+                &valuator,
+                Some(bump),
+            )
+            .expect("short-rate greeks");
+
+        let mut up_config = config.clone();
+        up_config.volatility += bump;
+        let mut up_tree = ShortRateTree::new(up_config);
+        up_tree
+            .calibrate(&curve_id, &curve, maturity)
+            .expect("up calibration");
+        let price_up = up_tree
+            .price(initial_vars.clone(), maturity, &market, &valuator)
+            .expect("up price");
+
+        let mut down_config = config;
+        down_config.volatility = (down_config.volatility - bump).max(1e-6);
+        let mut down_tree = ShortRateTree::new(down_config);
+        down_tree
+            .calibrate(&curve_id, &curve, maturity)
+            .expect("down calibration");
+        let price_down = down_tree
+            .price(initial_vars, maturity, &market, &valuator)
+            .expect("down price");
+
+        let expected = (price_up - price_down) / (2.0 * bump) * 0.01;
+        assert!(
+            (greeks.vega - expected).abs() < 1e-12,
+            "vega should be per 1 percentage-point vol move: got={}, expected={}",
+            greeks.vega,
+            expected
         );
     }
 
@@ -1635,6 +1765,65 @@ mod tests {
         assert!(!poor.is_acceptable());
     }
 
+    #[test]
+    fn compounding_conventions_stay_finite_for_deeply_negative_rates() {
+        for compounding in [
+            TreeCompounding::Simple,
+            TreeCompounding::SemiAnnual,
+            TreeCompounding::Quarterly,
+            TreeCompounding::Monthly,
+        ] {
+            let df = compounding.df(-100.0, 0.5);
+            let continuous = compounding.to_continuous(-100.0, 0.5);
+            assert!(
+                df.is_finite() && df > 0.0,
+                "{compounding:?} discount factor should stay positive and finite, got {df}"
+            );
+            assert!(
+                continuous.is_finite(),
+                "{compounding:?} continuous equivalent should stay finite, got {continuous}"
+            );
+        }
+    }
+
+    #[test]
+    fn bdt_calibrates_near_zero_flat_curve_without_fallbacks() {
+        let curve = create_flat_curve(0.0001);
+        let mut tree = ShortRateTree::new(ShortRateTreeConfig::bdt(12, 0.20, 0.0));
+
+        tree.calibrate(&test_curve_id(), &curve, 2.0)
+            .expect("near-zero BDT calibration");
+
+        let quality = tree.calibration_result().expect("quality");
+        assert_eq!(quality.fallback_count, 0);
+        assert!(quality.is_acceptable(), "quality={quality:?}");
+        for step in 0..=12 {
+            for node in 0..=step {
+                let rate = tree.rate_at_node(step, node).expect("rate");
+                assert!(rate.is_finite() && rate > 0.0, "rate={rate}");
+            }
+        }
+    }
+
+    #[test]
+    fn bdt_calibrates_high_rate_flat_curve_with_finite_rates() {
+        let curve = create_flat_curve(0.75);
+        let mut tree = ShortRateTree::new(ShortRateTreeConfig::bdt(12, 0.20, 0.0));
+
+        tree.calibrate(&test_curve_id(), &curve, 2.0)
+            .expect("high-rate BDT calibration");
+
+        let quality = tree.calibration_result().expect("quality");
+        assert_eq!(quality.fallback_count, 0);
+        assert!(quality.is_acceptable(), "quality={quality:?}");
+        for step in 0..=12 {
+            for node in 0..=step {
+                let rate = tree.rate_at_node(step, node).expect("rate");
+                assert!(rate.is_finite() && rate > 0.0, "rate={rate}");
+            }
+        }
+    }
+
     // ========================================================================
     // Config Factory Tests
     // ========================================================================
@@ -1745,7 +1934,8 @@ mod tests {
     fn test_probability_and_time_accessors_validate_bounds() {
         let mut tree = ShortRateTree::ho_lee(5, 0.01);
         let curve = create_test_curve();
-        tree.calibrate(&test_curve_id(), &curve, 1.0).expect("should succeed");
+        tree.calibrate(&test_curve_id(), &curve, 1.0)
+            .expect("should succeed");
 
         assert_eq!(tree.probabilities(0).expect("probabilities"), (0.5, 0.5));
         assert_eq!(tree.time_at_step(0).expect("time"), 0.0);

@@ -64,8 +64,12 @@ fn call_friction_raises_callable_price_toward_straight() {
         volatility: vol,
         ..Default::default()
     });
-    tree.calibrate(&CurveId::new("USD-OIS"), discount_curve.as_ref(), time_to_maturity)
-        .unwrap();
+    tree.calibrate(
+        &CurveId::new("USD-OIS"),
+        discount_curve.as_ref(),
+        time_to_maturity,
+    )
+    .unwrap();
 
     let mut vars = StateVariables::default();
     vars.insert(short_rate_keys::OAS, 0.0);

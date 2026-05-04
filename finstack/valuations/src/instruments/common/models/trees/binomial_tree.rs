@@ -807,7 +807,12 @@ impl TreeModel for BinomialTree {
             let price_vol_up =
                 self.price(vars_vol_up, time_to_maturity, market_context, valuator)?;
 
-            greeks.vega = price_vol_up - base_price;
+            let mut vars_vol_down = initial_vars.clone();
+            vars_vol_down.insert(state_keys::VOLATILITY, (vol - h).max(1e-6));
+            let price_vol_down =
+                self.price(vars_vol_down, time_to_maturity, market_context, valuator)?;
+
+            greeks.vega = (price_vol_up - price_vol_down) / 2.0;
         }
 
         // Calculate Rho (rate sensitivity)
@@ -1149,6 +1154,49 @@ mod tests {
         assert!((improved.delta - ((4.0 * 0.46 - 0.4) / 3.0)).abs() < 1e-12);
         assert!((improved.gamma - ((4.0 * 0.035 - 0.03) / 3.0)).abs() < 1e-12);
         assert!((improved.theta - ((-4.0 + 1.2) / 3.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn tree_model_vega_uses_central_difference_per_one_percent_vol() {
+        let tree = BinomialTree::crr(101);
+        let market_context = MarketContext::new();
+        let initial_vars = single_factor_equity_state(100.0, 0.05, 0.0, 0.20);
+        let valuator = OptionValuator {
+            strike: 100.0,
+            option_type: OptionType::Call,
+            exercise_steps: None,
+        };
+
+        let greeks = TreeModel::calculate_greeks(
+            &tree,
+            initial_vars.clone(),
+            1.0,
+            &market_context,
+            &valuator,
+            None,
+        )
+        .expect("greeks should compute");
+
+        let h = 0.01;
+        let mut vars_up = initial_vars.clone();
+        vars_up.insert(state_keys::VOLATILITY, 0.20 + h);
+        let price_up = tree
+            .price(vars_up, 1.0, &market_context, &valuator)
+            .expect("up-vol price");
+
+        let mut vars_down = initial_vars;
+        vars_down.insert(state_keys::VOLATILITY, 0.20 - h);
+        let price_down = tree
+            .price(vars_down, 1.0, &market_context, &valuator)
+            .expect("down-vol price");
+
+        let expected_vega = (price_up - price_down) / 2.0;
+        assert!(
+            (greeks.vega - expected_vega).abs() < 1e-12,
+            "vega should use central difference per 1 percentage-point vol move: got={}, expected={}",
+            greeks.vega,
+            expected_vega
+        );
     }
 
     #[test]

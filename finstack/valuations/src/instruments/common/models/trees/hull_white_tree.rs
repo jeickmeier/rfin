@@ -260,7 +260,7 @@ impl HullWhiteTree {
             let mut step_probs = Vec::with_capacity(2 * curr_j_max + 1);
             for j in 0..=(2 * curr_j_max) {
                 let j_signed = j as i32 - curr_j_max as i32;
-                let p = Self::compute_probabilities(config.kappa, dt, dx, j_signed, curr_j_max)?;
+                let p = Self::compute_probabilities(config.kappa, dt, dx, j_signed, j_max)?;
                 step_probs.push(p);
             }
             probs.push(step_probs);
@@ -333,40 +333,33 @@ impl HullWhiteTree {
         let m = kappa * dt;
         let jf = j as f64;
 
-        // Standard interior node probabilities (Hull-White trinomial)
-        let mut p_up = 1.0 / 6.0 + (jf * jf * m * m + jf * m) / 2.0;
+        // Standard interior node probabilities (Hull-White trinomial).
+        // The expected offset is -j*kappa*dt, pulling x back toward zero.
+        let mut p_up = 1.0 / 6.0 + (jf * jf * m * m - jf * m) / 2.0;
         let mut p_mid = 2.0 / 3.0 - jf * jf * m * m;
-        let mut p_down = 1.0 / 6.0 + (jf * jf * m * m - jf * m) / 2.0;
+        let mut p_down = 1.0 / 6.0 + (jf * jf * m * m + jf * m) / 2.0;
 
-        // At boundaries (|j| >= j_max), use Hull & White (1994) two-branch
-        // approximation: suppress the outward branch and match the first moment.
+        // At boundaries (|j| >= j_max), use Hull & White (1994) shifted
+        // branching to stay inside the capped lattice while matching the first
+        // two moments.
         //
-        // The exact Hull-White boundary treatment uses shifted branching:
-        //   Type B (j=+j_max): branches to j, j-1, j-2  (offsets 0, -1, -2)
-        //   Type C (j=-j_max): branches to j+2, j+1, j   (offsets +2, +1, 0)
-        // which matches both first and second moments exactly. However, this
-        // requires topology changes to forward_state_prices/backward_induction.
-        //
-        // This simplified version suppresses the outward branch (p_up=0 at upper,
-        // p_down=0 at lower) and matches the first moment only. The second moment
-        // is only approximately matched, but the calibration error remains <1bp
-        // for typical parameters (kappa < 0.10, steps >= 100).
+        // The tuple still stores probabilities in the branch order used by
+        // transition_offsets(): upper boundary (0, -1, -2), lower boundary
+        // (+2, +1, 0), interior (+1, 0, -1).
         let j_abs = j.unsigned_abs() as usize;
         if j_abs >= j_max && j_max > 0 {
+            let mean = -jf * m;
+            let second_moment = 1.0 / 3.0 + mean * mean;
             if j > 0 {
-                // Upper boundary: suppress up-move, match E[Δx] = -κjdx·dt
-                // p_down·(-dx) = -κjdx·dt  =>  p_down = κj·dt = jM
-                let p_down_target = jf * m;
-                p_up = 0.0;
-                p_down = p_down_target.clamp(0.0, 1.0);
-                p_mid = 1.0 - p_down;
+                // Upper boundary Type B: offsets 0, -1, -2.
+                p_down = (second_moment + mean) / 2.0;
+                p_mid = -second_moment - 2.0 * mean;
+                p_up = 1.0 - p_mid - p_down;
             } else if j < 0 {
-                // Lower boundary: suppress down-move, match E[Δx] = -κjdx·dt
-                // p_up·(+dx) = -κjdx·dt  =>  p_up = -jM (positive since j < 0)
-                let p_up_target = -jf * m;
-                p_down = 0.0;
-                p_up = p_up_target.clamp(0.0, 1.0);
-                p_mid = 1.0 - p_up;
+                // Lower boundary Type C: offsets +2, +1, 0.
+                p_up = (second_moment - mean) / 2.0;
+                p_mid = 2.0 * mean - second_moment;
+                p_down = 1.0 - p_up - p_mid;
             }
         }
 
@@ -412,6 +405,35 @@ impl HullWhiteTree {
         Ok((p_up, p_mid, p_down))
     }
 
+    fn transition_offsets(j: i32, j_max: usize, probs: (f64, f64, f64)) -> [(i32, f64); 3] {
+        let (p_up, p_mid, p_down) = probs;
+        let j_abs = j.unsigned_abs() as usize;
+        if j_abs >= j_max && j_max > 0 {
+            if j > 0 {
+                // Upper boundary: branches to j, j-1, j-2.
+                [(0, p_up), (-1, p_mid), (-2, p_down)]
+            } else if j < 0 {
+                // Lower boundary: branches to j+2, j+1, j.
+                [(2, p_up), (1, p_mid), (0, p_down)]
+            } else {
+                [(1, p_up), (0, p_mid), (-1, p_down)]
+            }
+        } else {
+            [(1, p_up), (0, p_mid), (-1, p_down)]
+        }
+    }
+
+    fn transition_index(j: i32, offset: i32, next_j_max: usize) -> Option<usize> {
+        let next_j = j + offset;
+        let lower = -(next_j_max as i32);
+        let upper = next_j_max as i32;
+        if (lower..=upper).contains(&next_j) {
+            Some((next_j + next_j_max as i32) as usize)
+        } else {
+            None
+        }
+    }
+
     /// Calibrate α at next step to match target discount factor.
     ///
     /// For continuous compounding, the closed-form solution is used:
@@ -440,8 +462,7 @@ impl HullWhiteTree {
                     let x_j = j_signed as f64 * dx;
                     let (p_up, p_mid, p_down) = curr_probs[j];
                     let base_discount = (-x_j * dt).exp();
-                    weighted_sum +=
-                        curr_state_prices[j] * base_discount * (p_up + p_mid + p_down);
+                    weighted_sum += curr_state_prices[j] * base_discount * (p_up + p_mid + p_down);
                 }
                 if weighted_sum <= 0.0 {
                     return Err(Error::Validation(
@@ -472,9 +493,7 @@ impl HullWhiteTree {
                 };
                 BrentSolver::new()
                     .solve(objective, initial_guess)
-                    .map_err(|e| {
-                        Error::Validation(format!("HW alpha calibration failed: {e}"))
-                    })
+                    .map_err(|e| Error::Validation(format!("HW alpha calibration failed: {e}")))
             }
         }
     }
@@ -500,24 +519,21 @@ impl HullWhiteTree {
             let x_j = j_signed as f64 * dx;
             let r_j = x_j + alpha[step];
 
-            let (p_up, p_mid, p_down) = curr_probs[j];
+            let probs = curr_probs[j];
             let discount = compounding.df(r_j, dt);
             let q_contribution = curr_state_prices[j] * discount;
 
-            // Map to next step indices
-            let next_mid = (j_signed + next_j_max as i32) as usize;
-
-            // Up transition (j -> j+1)
-            if next_mid + 1 < num_next_nodes {
-                next_prices[next_mid + 1] += q_contribution * p_up;
-            }
-            // Mid transition (j -> j)
-            if next_mid < num_next_nodes {
-                next_prices[next_mid] += q_contribution * p_mid;
-            }
-            // Down transition (j -> j-1)
-            if next_mid > 0 {
-                next_prices[next_mid - 1] += q_contribution * p_down;
+            let boundary_j_max = if curr_j_max == next_j_max {
+                curr_j_max
+            } else {
+                usize::MAX
+            };
+            for (offset, probability) in Self::transition_offsets(j_signed, boundary_j_max, probs) {
+                if let Some(next_idx) = Self::transition_index(j_signed, offset, next_j_max) {
+                    if next_idx < num_next_nodes {
+                        next_prices[next_idx] += q_contribution * probability;
+                    }
+                }
             }
         }
 
@@ -790,29 +806,23 @@ impl HullWhiteTree {
             for (j, scratch_j) in scratch.iter_mut().enumerate().take(num_nodes) {
                 let j_signed = j as i32 - j_max_curr as i32;
                 let r_j = j_signed as f64 * self.dx + alpha_step;
-                let (p_up, p_mid, p_down) = self.probabilities(step, j);
+                let probs = self.probabilities(step, j);
 
-                let next_mid = (j_signed + j_max_next as i32) as usize;
-
-                let v_up = if next_mid + 1 < num_next_nodes {
-                    values[next_mid + 1]
+                let mut expected_value = 0.0;
+                let boundary_j_max = if j_max_curr == j_max_next {
+                    j_max_curr
                 } else {
-                    values[num_next_nodes - 1]
+                    usize::MAX
                 };
-
-                let v_mid = if next_mid < num_next_nodes {
-                    values[next_mid]
-                } else {
-                    values[num_next_nodes - 1]
-                };
-
-                let v_down = if next_mid > 0 {
-                    values[next_mid - 1]
-                } else {
-                    values[0]
-                };
-
-                let expected_value = p_up * v_up + p_mid * v_mid + p_down * v_down;
+                for (offset, probability) in
+                    Self::transition_offsets(j_signed, boundary_j_max, probs)
+                {
+                    if let Some(next_idx) = Self::transition_index(j_signed, offset, j_max_next) {
+                        if next_idx < num_next_nodes {
+                            expected_value += probability * values[next_idx];
+                        }
+                    }
+                }
                 let discounted = expected_value * comp.df(r_j, self.dt);
 
                 *scratch_j = intermediate_value_fn(step, j, discounted);
@@ -931,6 +941,68 @@ mod tests {
             }
             other => panic!("expected validation error, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn interior_probabilities_match_mean_reversion_moments() {
+        let kappa = 0.03;
+        let dt = 0.05;
+        let dx = 0.01 * (3.0_f64 * dt).sqrt();
+        let j = 12;
+        let j_max = 50;
+
+        let (p_up, p_mid, p_down) =
+            HullWhiteTree::compute_probabilities(kappa, dt, dx, j, j_max).expect("probabilities");
+
+        let m = kappa * dt;
+        let expected_mean_offset = -(j as f64) * m;
+        let expected_second_moment = 1.0 / 3.0 + expected_mean_offset * expected_mean_offset;
+
+        let actual_mean_offset = p_up - p_down;
+        let actual_second_moment = p_up + p_down;
+
+        assert!(
+            (actual_mean_offset - expected_mean_offset).abs() < 1e-12,
+            "mean offset should pull positive j back toward zero: actual={actual_mean_offset}, expected={expected_mean_offset}"
+        );
+        assert!(
+            (actual_second_moment - expected_second_moment).abs() < 1e-12,
+            "second moment mismatch: actual={actual_second_moment}, expected={expected_second_moment}"
+        );
+        assert!((p_up + p_mid + p_down - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn boundary_probabilities_match_shifted_branch_moments() {
+        let kappa = 0.15;
+        let dt = 0.05;
+        let dx = 0.01 * (3.0_f64 * dt).sqrt();
+        let j_max = 25;
+
+        let (p_upper_0, p_upper_m1, p_upper_m2) =
+            HullWhiteTree::compute_probabilities(kappa, dt, dx, j_max as i32, j_max)
+                .expect("upper boundary probabilities");
+        let m = kappa * dt;
+        let upper_expected_mean = -(j_max as f64) * m;
+        let upper_expected_second = 1.0 / 3.0 + upper_expected_mean * upper_expected_mean;
+        let upper_mean = -p_upper_m1 - 2.0 * p_upper_m2;
+        let upper_second = p_upper_m1 + 4.0 * p_upper_m2;
+
+        assert!((upper_mean - upper_expected_mean).abs() < 1e-12);
+        assert!((upper_second - upper_expected_second).abs() < 1e-12);
+        assert!((p_upper_0 + p_upper_m1 + p_upper_m2 - 1.0).abs() < 1e-12);
+
+        let (p_lower_p2, p_lower_p1, p_lower_0) =
+            HullWhiteTree::compute_probabilities(kappa, dt, dx, -(j_max as i32), j_max)
+                .expect("lower boundary probabilities");
+        let lower_expected_mean = (j_max as f64) * m;
+        let lower_expected_second = 1.0 / 3.0 + lower_expected_mean * lower_expected_mean;
+        let lower_mean = 2.0 * p_lower_p2 + p_lower_p1;
+        let lower_second = 4.0 * p_lower_p2 + p_lower_p1;
+
+        assert!((lower_mean - lower_expected_mean).abs() < 1e-12);
+        assert!((lower_second - lower_expected_second).abs() < 1e-12);
+        assert!((p_lower_p2 + p_lower_p1 + p_lower_0 - 1.0).abs() < 1e-12);
     }
 
     #[test]
