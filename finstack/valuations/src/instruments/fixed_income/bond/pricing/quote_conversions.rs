@@ -20,9 +20,18 @@ use finstack_core::dates::Date;
 use finstack_core::dates::DayCountContext;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
+use finstack_core::types::CurveId;
 use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
 use std::sync::Arc;
+
+fn resolved_asw_forward_curve_id(bond: &Bond) -> Option<CurveId> {
+    bond.pricing_overrides
+        .model_config
+        .asw_forward_curve_id
+        .clone()
+        .or_else(|| bond.forward_curve_id.clone())
+}
 
 /// Convert payment frequency to approximate periods per year.
 ///
@@ -1348,19 +1357,18 @@ fn price_from_asw_market(
     }
 
     let dc = bond.cashflow_spec.day_count();
-    let forward_components =
-        if let Some(fwd_id) = &bond.pricing_overrides.model_config.asw_forward_curve_id {
-            let fwd = curves.get_forward(fwd_id)?;
-            Some(asset_swap_forward_components(
-                disc.as_ref(),
-                fwd.as_ref(),
-                dc,
-                &sched,
-                0.0,
-            )?)
-        } else {
-            None
-        };
+    let forward_components = if let Some(fwd_id) = resolved_asw_forward_curve_id(bond) {
+        let fwd = curves.get_forward(fwd_id.as_str())?;
+        Some(asset_swap_forward_components(
+            disc.as_ref(),
+            fwd.as_ref(),
+            dc,
+            &sched,
+            0.0,
+        )?)
+    } else {
+        None
+    };
     let (par_rate, ann) = if let Some((float_pv, fixed_ann, float_ann)) = forward_components {
         if fixed_ann.abs() < 1e-12 {
             (0.0, 0.0)

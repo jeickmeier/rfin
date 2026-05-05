@@ -457,8 +457,8 @@ impl TermLoanTreePricer {
                 .unwrap_or(self.config.tree_steps),
             volatility: loan
                 .pricing_overrides
-                .model_config
-                .tree_volatility
+                .market_quotes
+                .implied_volatility
                 .unwrap_or(self.config.volatility),
             tolerance: self.config.tolerance,
             max_iterations: self.config.max_iterations,
@@ -563,8 +563,8 @@ impl TermLoanTreePricer {
                 .unwrap_or(self.config.tree_steps),
             volatility: loan
                 .pricing_overrides
-                .model_config
-                .tree_volatility
+                .market_quotes
+                .implied_volatility
                 .unwrap_or(self.config.volatility),
             tolerance: self.config.tolerance,
             max_iterations: self.config.max_iterations,

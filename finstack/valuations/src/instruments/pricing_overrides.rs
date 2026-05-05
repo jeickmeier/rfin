@@ -419,9 +419,6 @@ pub struct ModelConfig {
     pub sabr_params: Option<SABRParameters>,
     /// Number of time steps for tree-based pricing (e.g., 100)
     pub tree_steps: Option<usize>,
-    /// Volatility for tree-based pricing (annualized).
-    /// Interpretation depends on the model (Normal vs Lognormal).
-    pub tree_volatility: Option<f64>,
     /// Use Gobet-Miri discrete monitoring correction for barrier options.
     ///
     /// When true, uses a Monte Carlo correction for discrete monitoring
@@ -510,11 +507,6 @@ impl ModelConfig {
         if let Some(paths) = self.mc_paths {
             if paths == 0 {
                 return Err(InputError::Invalid.into());
-            }
-        }
-        if let Some(v) = self.tree_volatility {
-            if !nonneg(v) {
-                return Err(InputError::NegativeValue.into());
             }
         }
         if let Some(v) = self.call_friction_cents {
@@ -764,7 +756,7 @@ impl ScenarioPricingOverrides {
 ///
 /// Sub-struct fields are flattened so existing JSON payloads with flat field names
 /// continue to round-trip correctly.
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(Debug, Clone, Default, serde::Serialize, schemars::JsonSchema)]
 #[serde(default)]
 pub struct PricingOverrides {
     /// Market-quoted values (prices, implied vol, spreads).
@@ -782,6 +774,47 @@ pub struct PricingOverrides {
     /// Term loan specific overrides
     #[serde(skip_serializing_if = "Option::is_none")]
     pub term_loan: Option<TermLoanOverrides>,
+}
+
+impl<'de> serde::Deserialize<'de> for PricingOverrides {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        if value
+            .as_object()
+            .is_some_and(|object| object.contains_key("tree_volatility"))
+        {
+            return Err(serde::de::Error::custom(
+                "`tree_volatility` was removed; use `implied_volatility`",
+            ));
+        }
+
+        #[derive(Default, serde::Deserialize)]
+        #[serde(default)]
+        struct PricingOverridesHelper {
+            #[serde(flatten)]
+            market_quotes: MarketQuoteOverrides,
+            #[serde(flatten)]
+            metrics: MetricPricingOverrides,
+            #[serde(flatten)]
+            model_config: ModelConfig,
+            #[serde(flatten)]
+            scenario: ScenarioPricingOverrides,
+            term_loan: Option<TermLoanOverrides>,
+        }
+
+        let helper =
+            PricingOverridesHelper::deserialize(value).map_err(serde::de::Error::custom)?;
+        Ok(Self {
+            market_quotes: helper.market_quotes,
+            metrics: helper.metrics,
+            model_config: helper.model_config,
+            scenario: helper.scenario,
+            term_loan: helper.term_loan,
+        })
+    }
 }
 
 impl PricingOverrides {
@@ -904,12 +937,6 @@ impl PricingOverrides {
     /// Set number of time steps for tree-based pricing.
     pub fn with_tree_steps(mut self, steps: usize) -> Self {
         self.model_config.tree_steps = Some(steps);
-        self
-    }
-
-    /// Set volatility for tree-based pricing.
-    pub fn with_tree_volatility(mut self, vol: f64) -> Self {
-        self.model_config.tree_volatility = Some(vol);
         self
     }
 
@@ -1156,6 +1183,17 @@ mod tests {
     }
 
     #[test]
+    fn serde_rejects_removed_tree_volatility_field() {
+        let err = serde_json::from_str::<PricingOverrides>(r#"{"tree_volatility":0.15}"#)
+            .expect_err("tree_volatility was removed; use implied_volatility");
+
+        assert!(
+            err.to_string().contains("tree_volatility"),
+            "error should name removed field, got {err}"
+        );
+    }
+
+    #[test]
     fn serde_roundtrip_preserves_all_fields() {
         let po = PricingOverrides::none()
             .with_quoted_clean_price(100.0)
@@ -1164,7 +1202,6 @@ mod tests {
             .with_rate_bump(2.0)
             .with_spot_bump(0.01)
             .with_tree_steps(200)
-            .with_tree_volatility(0.15)
             .with_price_shock_pct(-0.10)
             .with_theta_period("1W");
 
@@ -1177,7 +1214,6 @@ mod tests {
         assert_eq!(rt.metrics.bump_config.rate_bump_bp, Some(2.0));
         assert_eq!(rt.metrics.bump_config.spot_bump_pct, Some(0.01));
         assert_eq!(rt.model_config.tree_steps, Some(200));
-        assert_eq!(rt.model_config.tree_volatility, Some(0.15));
         assert_eq!(rt.scenario.scenario_price_shock_pct, Some(-0.10));
         assert_eq!(rt.metrics.theta_period.as_deref(), Some("1W"));
     }

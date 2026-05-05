@@ -76,13 +76,13 @@ pub(crate) fn compute_pv(
     let disc_curve = market.get_discount(inst.discount_curve_id.as_str())?;
     let df = disc_curve.df_between_dates(as_of, inst.expiry)?;
 
-    // Get volatility
-    let sigma = if let Some(impl_vol) = inst.pricing_overrides.market_quotes.implied_volatility {
-        impl_vol
-    } else {
-        let vol_surface = market.get_surface(inst.vol_surface_id.as_str())?;
-        vol_surface.value_clamped(t, inst.strike)
-    };
+    let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+        &inst.pricing_overrides.market_quotes,
+        market,
+        inst.vol_surface_id.as_str(),
+        t,
+        inst.strike,
+    )?;
 
     // Get forward prices for all future fixing dates
     let price_curve = market.get_price_curve(inst.forward_curve_id.as_str())?;

@@ -258,8 +258,8 @@ impl SnowballHw1fMcPricer {
             .unwrap_or(self.hw_params.kappa);
         let sigma = inst
             .pricing_overrides
-            .model_config
-            .tree_volatility
+            .market_quotes
+            .implied_volatility
             .unwrap_or(self.hw_params.sigma);
         HullWhiteParams::new(kappa, sigma)
     }

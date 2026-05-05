@@ -204,7 +204,7 @@ mod tests {
         let mut pricing_overrides = PricingOverrides::default();
         pricing_overrides.model_config.mc_paths = Some(32);
         pricing_overrides.model_config.mean_reversion = Some(0.05);
-        pricing_overrides.model_config.tree_volatility = Some(1e-12);
+        pricing_overrides.market_quotes.implied_volatility = Some(1e-12);
 
         let tarn = Tarn {
             id: InstrumentId::new("TARN-WASM-E2E"),
@@ -239,7 +239,7 @@ mod tests {
         let mut pricing_overrides = PricingOverrides::default();
         pricing_overrides.model_config.mc_paths = Some(32);
         pricing_overrides.model_config.mean_reversion = Some(0.05);
-        pricing_overrides.model_config.tree_volatility = Some(1e-12);
+        pricing_overrides.market_quotes.implied_volatility = Some(1e-12);
 
         let snowball = Snowball {
             id: InstrumentId::new("SNOWBALL-WASM-E2E"),
@@ -314,7 +314,7 @@ mod tests {
         let mut pricing_overrides = PricingOverrides::default();
         pricing_overrides.model_config.mc_paths = Some(8);
         pricing_overrides.model_config.mean_reversion = Some(0.05);
-        pricing_overrides.model_config.tree_volatility = Some(1e-12);
+        pricing_overrides.market_quotes.implied_volatility = Some(1e-12);
 
         let range_accrual = RangeAccrual::builder()
             .id(InstrumentId::new("RA-WASM-E2E"))

@@ -294,7 +294,7 @@ def _tarn_json() -> str:
             "pricing_overrides": {
                 "mc_paths": 32,
                 "mean_reversion": 0.05,
-                "tree_volatility": 1e-12,
+                "implied_volatility": 1e-12,
             },
             "attributes": {},
         },
@@ -327,7 +327,7 @@ def _snowball_json() -> str:
             "pricing_overrides": {
                 "mc_paths": 32,
                 "mean_reversion": 0.05,
-                "tree_volatility": 1e-12,
+                "implied_volatility": 1e-12,
             },
             "attributes": {},
         },
@@ -401,7 +401,7 @@ def _callable_range_accrual_json() -> str:
             "pricing_overrides": {
                 "mc_paths": 8,
                 "mean_reversion": 0.05,
-                "tree_volatility": 1e-12,
+                "implied_volatility": 1e-12,
             },
             "attributes": {},
         },

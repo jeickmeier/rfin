@@ -34,7 +34,6 @@
             "spot_bump_pct": null,
             "theta_period": null,
             "tree_steps": null,
-            "tree_volatility": null,
             "upfront_payment": null,
             "use_gobet_miri": false,
             "vega_bump_decimal": null,
@@ -1015,6 +1014,36 @@
               ],
               "type": "object"
             },
+            "OasPriceBasis": {
+              "description": "Price/accrual convention used for OAS inversion targets.",
+              "oneOf": [
+                {
+                  "const": "settlement_dirty",
+                  "description": "Target the full settlement dirty price.",
+                  "type": "string"
+                },
+                {
+                  "const": "forward_accrued_clean",
+                  "description": "Target clean price plus only the forward accrued amount from valuation to settlement.",
+                  "type": "string"
+                }
+              ]
+            },
+            "OasQuoteCompounding": {
+              "description": "Quote convention used when reporting or consuming OAS values.",
+              "oneOf": [
+                {
+                  "const": "continuous",
+                  "description": "Continuous additive spread, matching the tree's internal short-rate shift.",
+                  "type": "string"
+                },
+                {
+                  "const": "semi_annual",
+                  "description": "Semiannual bond-equivalent OAS quote.",
+                  "type": "string"
+                }
+              ]
+            },
             "OptionType": {
               "description": "Option type for pricing",
               "oneOf": [
@@ -1140,6 +1169,16 @@
                     "number",
                     "null"
                   ]
+                },
+                "oas_price_basis": {
+                  "$ref": "#/$defs/OasPriceBasis",
+                  "default": "settlement_dirty",
+                  "description": "Price/accrual target convention for OAS inversion."
+                },
+                "oas_quote_compounding": {
+                  "$ref": "#/$defs/OasQuoteCompounding",
+                  "default": "continuous",
+                  "description": "Quote compounding convention for OAS inputs and outputs."
                 },
                 "quoted_asw_market": {
                   "description": "Quoted asset-swap spread (market convention) in decimal.",
@@ -1296,15 +1335,6 @@
                   "minimum": 0,
                   "type": [
                     "integer",
-                    "null"
-                  ]
-                },
-                "tree_volatility": {
-                  "default": null,
-                  "description": "Volatility for tree-based pricing (annualized).\nInterpretation depends on the model (Normal vs Lognormal).",
-                  "format": "double",
-                  "type": [
-                    "number",
                     "null"
                   ]
                 },
@@ -1584,12 +1614,13 @@
                 "credit_spread_bump_bp": null,
                 "mc_seed_scenario": null,
                 "mean_reversion": null,
+                "oas_price_basis": "settlement_dirty",
+                "oas_quote_compounding": "continuous",
                 "rate_bump_bp": null,
                 "rho_bump_decimal": null,
                 "spot_bump_pct": null,
                 "theta_period": null,
                 "tree_steps": null,
-                "tree_volatility": null,
                 "use_gobet_miri": false,
                 "vega_bump_decimal": null,
                 "vol_bump_pct": null,

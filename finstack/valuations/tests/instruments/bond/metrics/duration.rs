@@ -171,7 +171,7 @@ fn callable_risk_bond(as_of: finstack_core::dates::Date) -> Bond {
     });
     bond.pricing_overrides = PricingOverrides::default()
         .with_quoted_clean_price(99.0)
-        .with_tree_volatility(0.01);
+        .with_implied_vol(0.01);
     bond
 }
 

@@ -139,18 +139,16 @@
             }
           },
           "discount_curve_id": "USD-SWAP-490",
+          "forward_curve_id": "USD-SOFRRATE",
           "pricing_overrides": {
             "quoted_clean_price": 103.3975,
             "tree_steps": 200,
-            "tree_volatility": 0.2223,
             "implied_volatility": 0.2223,
             "vol_model": "black",
             "mean_reversion": 0.0,
             "tree_discount_curve_id": "USD-OAS-S23",
-            "bond_risk_basis": "bullet_discountable",
             "oas_quote_compounding": "continuous",
-            "oas_price_basis": "forward_accrued_clean",
-            "asw_forward_curve_id": "USD-SOFRRATE"
+            "oas_price_basis": "forward_accrued_clean"
           },
           "call_put": {
             "calls": [

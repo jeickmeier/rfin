@@ -93,15 +93,14 @@ impl CDSOptionPricer {
         // Discount factor to option expiry (NOT used in pricing as risky_annuity is already PV)
         // let df_expiry = disc.df(t);
 
-        // Volatility (use override if present, else surface)
-        let sigma = if let Some(vol) = option.pricing_overrides.market_quotes.implied_volatility {
-            vol
-        } else {
-            let strike_f64 = decimal_to_f64(option.strike, "strike")?;
-            curves
-                .get_surface(option.vol_surface_id.as_str())?
-                .value_clamped(t, strike_f64)
-        };
+        let strike_f64 = decimal_to_f64(option.strike, "strike")?;
+        let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+            &option.pricing_overrides.market_quotes,
+            curves,
+            option.vol_surface_id.as_str(),
+            t,
+            strike_f64,
+        )?;
 
         // Price using Black-style on spreads
         // Note: risky_annuity is already PV'd to as_of, so we pass df=1.0 (or remove it from formula)
@@ -615,16 +614,15 @@ impl CDSOptionPricer {
             price_for_sigma(sigma) - target
         };
 
-        // Initial guess: override vol, else surface vol, else config default
-        let sigma0 = if let Some(v) = option.pricing_overrides.market_quotes.implied_volatility {
-            v
-        } else {
-            curves
-                .get_surface(option.vol_surface_id.as_str())
-                .ok()
-                .map(|s| s.value_clamped(t, decimal_to_f64(option.strike, "strike").unwrap_or(0.0)))
-                .unwrap_or(self.config.iv_initial_guess)
-        };
+        let strike_f64 = decimal_to_f64(option.strike, "strike").unwrap_or(0.0);
+        let sigma0 = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+            &option.pricing_overrides.market_quotes,
+            curves,
+            option.vol_surface_id.as_str(),
+            t,
+            strike_f64,
+        )
+        .unwrap_or(self.config.iv_initial_guess);
         let x0 = (initial_guess.unwrap_or(sigma0.max(credit::MIN_VOLATILITY_GREEKS))).ln();
 
         let solver = BrentSolver::new().tolerance(1e-10);

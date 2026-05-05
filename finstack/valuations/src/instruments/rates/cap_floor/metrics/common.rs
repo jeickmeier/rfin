@@ -65,10 +65,13 @@ where
             context.as_of,
             payment_date,
         )?;
-        let sigma = context
-            .curves
-            .get_surface(option.vol_surface_id.as_str())?
-            .value_clamped(effective_t_fix, strike);
+        let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+            &option.pricing_overrides.market_quotes,
+            context.curves.as_ref(),
+            option.vol_surface_id.as_str(),
+            effective_t_fix,
+            strike,
+        )?;
 
         let per_unit = f(forward, sigma, effective_t_fix);
         Ok(per_unit * option.notional.amount() * tau * df)

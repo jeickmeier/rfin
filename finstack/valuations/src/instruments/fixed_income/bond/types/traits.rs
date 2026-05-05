@@ -117,6 +117,10 @@ impl crate::instruments::common_impl::traits::CurveDependencies for Bond {
         let mut builder = crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone());
 
+        if let Some(ref forward_curve_id) = self.forward_curve_id {
+            builder = builder.forward(forward_curve_id.clone());
+        }
+
         // Add credit curve if present
         if let Some(ref credit_curve_id) = self.credit_curve_id {
             builder = builder.credit(credit_curve_id.clone());

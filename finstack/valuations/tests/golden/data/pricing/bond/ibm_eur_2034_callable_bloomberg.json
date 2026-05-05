@@ -138,15 +138,14 @@
             }
           },
           "discount_curve_id": "EUR-SWAP-514",
+          "forward_curve_id": "EUR-EURIBOR-6M",
           "pricing_overrides": {
             "quoted_clean_price": 97.484,
             "tree_steps": 200,
-            "tree_volatility": 0.2321,
             "implied_volatility": 0.2321,
             "vol_model": "black",
             "mean_reversion": 0.0,
-            "tree_discount_curve_id": "EUR-OAS-960",
-            "asw_forward_curve_id": "EUR-EURIBOR-6M"
+            "tree_discount_curve_id": "EUR-OAS-960"
           },
           "call_put": {
             "calls": [
@@ -185,7 +184,7 @@
               "swap_curve": "45 EUR vs 6M EURIBOR",
               "oas_model": "Lognormal",
               "oas_volatility": "0.2321",
-              "tree_volatility_note": "Finstack BDT tree consumes lognormal short-rate volatility; tree_volatility and implied_volatility both preserve Bloomberg's 23.21% lognormal source quote."
+              "implied_volatility_note": "Finstack BDT tree consumes the flat implied_volatility override as Bloomberg's 23.21% lognormal source quote."
             }
           },
           "settlement_days": 3,

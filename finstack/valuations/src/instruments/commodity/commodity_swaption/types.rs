@@ -298,14 +298,13 @@ impl crate::instruments::common_impl::traits::Instrument for CommoditySwaption {
             ));
         }
 
-        // Get volatility
-        let sigma = if let Some(impl_vol) = self.pricing_overrides.market_quotes.implied_volatility
-        {
-            impl_vol
-        } else {
-            let surface = market.get_surface(self.vol_surface_id.as_str())?;
-            surface.value_clamped(t, self.fixed_price)
-        };
+        let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+            &self.pricing_overrides.market_quotes,
+            market,
+            self.vol_surface_id.as_str(),
+            t,
+            self.fixed_price,
+        )?;
 
         // Black-76 on forward swap rate
         let unit_price = black76_swaption_price(
@@ -372,13 +371,13 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for CommodityS
             return Ok(intrinsic * annuity * self.notional);
         }
 
-        let sigma = if let Some(impl_vol) = self.pricing_overrides.market_quotes.implied_volatility
-        {
-            impl_vol
-        } else {
-            let surface = market.get_surface(self.vol_surface_id.as_str())?;
-            surface.value_clamped(t, self.fixed_price)
-        };
+        let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+            &self.pricing_overrides.market_quotes,
+            market,
+            self.vol_surface_id.as_str(),
+            t,
+            self.fixed_price,
+        )?;
         if sigma <= 0.0 {
             return Ok(0.0);
         }
@@ -484,13 +483,13 @@ impl crate::instruments::common_impl::traits::OptionVegaProvider for CommoditySw
             return Ok(0.0);
         }
 
-        let sigma = if let Some(impl_vol) = self.pricing_overrides.market_quotes.implied_volatility
-        {
-            impl_vol
-        } else {
-            let surface = market.get_surface(self.vol_surface_id.as_str())?;
-            surface.value_clamped(t, self.fixed_price)
-        };
+        let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+            &self.pricing_overrides.market_quotes,
+            market,
+            self.vol_surface_id.as_str(),
+            t,
+            self.fixed_price,
+        )?;
         if sigma <= 0.0 {
             return Ok(0.0);
         }

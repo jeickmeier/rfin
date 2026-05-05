@@ -103,13 +103,13 @@ impl FxTouchOptionCalculator {
             .rate(FxQuery::new(inst.base_currency, inst.quote_currency, as_of))?
             .rate;
 
-        let sigma = if let Some(impl_vol) = inst.pricing_overrides.market_quotes.implied_volatility
-        {
-            impl_vol
-        } else {
-            let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
-            vol_surface.value_clamped(t_vol, inst.barrier_level)
-        };
+        let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+            &inst.pricing_overrides.market_quotes,
+            curves,
+            inst.vol_surface_id.as_str(),
+            t_vol,
+            inst.barrier_level,
+        )?;
 
         Ok((spot, r_d, r_f, sigma, t_vol))
     }

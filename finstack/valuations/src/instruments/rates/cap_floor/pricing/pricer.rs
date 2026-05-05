@@ -74,7 +74,6 @@ pub(crate) fn price_cap_floor(
 
     let disc_curve = curves.get_discount(cap_floor.discount_curve_id.as_ref())?;
     let fwd_curve = curves.get_forward(cap_floor.forward_curve_id.as_ref())?;
-    let vol_surface = curves.get_surface(cap_floor.vol_surface_id.as_str())?;
     let strike = cap_floor.strike_f64()?;
 
     let mut total_pv = Money::new(0.0, cap_floor.notional.currency());
@@ -116,7 +115,13 @@ pub(crate) fn price_cap_floor(
         };
         let df = relative_df_discount_curve(disc_curve.as_ref(), as_of, pay)?;
         let sigma = if effective_t_fix > 0.0 {
-            vol_surface.value_clamped(effective_t_fix, strike)
+            crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+                &cap_floor.pricing_overrides.market_quotes,
+                curves,
+                cap_floor.vol_surface_id.as_str(),
+                effective_t_fix,
+                strike,
+            )?
         } else {
             0.0
         };

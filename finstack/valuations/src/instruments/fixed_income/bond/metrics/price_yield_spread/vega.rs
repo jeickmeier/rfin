@@ -42,7 +42,7 @@ fn holder_option_value_at_vol(
     volatility: f64,
 ) -> finstack_core::Result<f64> {
     let mut bumped = bond.clone();
-    bumped.pricing_overrides.model_config.tree_volatility = Some(volatility);
+    bumped.pricing_overrides.market_quotes.implied_volatility = Some(volatility);
     let quote_date = settlement_date(&bumped, context.as_of)?;
     let price_with_options =
         price_from_oas(&bumped, context.curves.as_ref(), quote_date, oas_decimal)?;

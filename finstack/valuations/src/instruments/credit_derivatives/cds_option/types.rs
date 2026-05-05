@@ -377,14 +377,13 @@ impl CDSOption {
             crate::instruments::credit_derivatives::cds_option::pricer::CDSOptionPricer::default();
         let fwd_bp = pricer.forward_spread_bp(self, curves, as_of)?;
 
-        // Volatility (use override if present, else surface)
-        let sigma = if let Some(v) = self.pricing_overrides.market_quotes.implied_volatility {
-            v
-        } else {
-            curves
-                .get_surface(self.vol_surface_id.as_str())?
-                .value_clamped(t, self.strike.to_f64().unwrap_or(0.0))
-        };
+        let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+            &self.pricing_overrides.market_quotes,
+            curves,
+            self.vol_surface_id.as_str(),
+            t,
+            self.strike.to_f64().unwrap_or(0.0),
+        )?;
 
         // Risky annuity
         let risky_annuity = pricer.risky_annuity(self, curves, as_of)?;

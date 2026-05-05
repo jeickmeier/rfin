@@ -141,8 +141,8 @@ fn rfr_observation_midpoint_time(
 fn hull_white_tree_vega_per_pct(option: &CapFloor, context: &MetricContext) -> Result<f64> {
     let base_vol = option
         .pricing_overrides
-        .model_config
-        .tree_volatility
+        .market_quotes
+        .implied_volatility
         .unwrap_or_else(|| HullWhiteParams::default().sigma);
     if base_vol <= DEFAULT_HW_VEGA_BUMP {
         return Ok(0.0);
@@ -150,11 +150,11 @@ fn hull_white_tree_vega_per_pct(option: &CapFloor, context: &MetricContext) -> R
 
     let bump = DEFAULT_HW_VEGA_BUMP;
     let mut up = option.clone();
-    up.pricing_overrides.model_config.tree_volatility = Some(base_vol + bump);
+    up.pricing_overrides.market_quotes.implied_volatility = Some(base_vol + bump);
     let pv_up = context.reprice_instrument_raw(&up, context.curves.as_ref(), context.as_of)?;
 
     let mut down = option.clone();
-    down.pricing_overrides.model_config.tree_volatility = Some(base_vol - bump);
+    down.pricing_overrides.market_quotes.implied_volatility = Some(base_vol - bump);
     let pv_down = context.reprice_instrument_raw(&down, context.curves.as_ref(), context.as_of)?;
 
     Ok((pv_up - pv_down) / (2.0 * bump) * 0.01)

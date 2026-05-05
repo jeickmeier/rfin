@@ -216,6 +216,7 @@
     },
     "coupon_type": {
       "$ref": "#/$defs/CouponType",
+      "default": "Cash",
       "description": "Coupon settlement behavior: cash, PIK, or an explicit split of the\ncoupon amount."
     },
     "dc": {
@@ -223,6 +224,7 @@
       "description": "Day-count convention used to convert each accrual period into a year\nfraction."
     },
     "end_of_month": {
+      "default": false,
       "description": "Whether end-of-month rolling should be preserved during schedule\ngeneration.",
       "type": "boolean"
     },
@@ -231,6 +233,7 @@
       "description": "Coupon accrual and payment frequency."
     },
     "payment_lag_days": {
+      "default": 0,
       "description": "Payment lag in business days after the adjusted accrual end date.",
       "format": "int32",
       "type": "integer"
@@ -250,13 +253,10 @@
     }
   },
   "required": [
-    "coupon_type",
     "rate",
     "freq",
     "dc",
-    "calendar_id",
-    "end_of_month",
-    "payment_lag_days"
+    "calendar_id"
   ],
   "title": "Coupon Specifications",
   "type": "object"

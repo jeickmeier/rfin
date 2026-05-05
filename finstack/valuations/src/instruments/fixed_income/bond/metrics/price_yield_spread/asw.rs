@@ -10,7 +10,16 @@ use finstack_core::dates::{
     BusinessDayConvention, Date, DayCount, DayCountContext, StubKind, Tenor,
 };
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+use finstack_core::types::CurveId;
 use rust_decimal::prelude::ToPrimitive;
+
+fn resolved_asw_forward_curve_id(bond: &Bond) -> Option<CurveId> {
+    bond.pricing_overrides
+        .model_config
+        .asw_forward_curve_id
+        .clone()
+        .or_else(|| bond.forward_curve_id.clone())
+}
 
 /// Configuration for fixed-leg conventions used in ASW par/market metrics.
 ///
@@ -537,11 +546,7 @@ impl MetricCalculator for AssetSwapParCalculator {
         let discount_curve_id = bond.discount_curve_id.to_owned();
         let maturity = bond.maturity;
         let bond_dc = bond.cashflow_spec.day_count();
-        let asw_forward_curve_id = bond
-            .pricing_overrides
-            .model_config
-            .asw_forward_curve_id
-            .clone();
+        let asw_forward_curve_id = resolved_asw_forward_curve_id(bond);
         let disc = context.curves.get_discount(&discount_curve_id)?;
 
         // Extract schedule params from cashflow_spec, allowing ASW config to
@@ -690,10 +695,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 b.pricing_overrides.market_quotes.quoted_clean_price,
                 b.custom_cashflows.is_some(),
                 coupon_rate,
-                b.pricing_overrides
-                    .model_config
-                    .asw_forward_curve_id
-                    .clone(),
+                resolved_asw_forward_curve_id(b),
             )
         };
         let disc = context.curves.get_discount(&discount_curve_id)?;

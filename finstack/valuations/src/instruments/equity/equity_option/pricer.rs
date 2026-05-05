@@ -236,13 +236,13 @@ pub(crate) fn collect_inputs_extended(
         (raw_spot, q)
     };
 
-    // Volatility from override or surface (using t_vol for surface lookup)
-    let sigma = if let Some(impl_vol) = inst.pricing_overrides.market_quotes.implied_volatility {
-        impl_vol
-    } else {
-        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
-        vol_surface.value_clamped(t_vol, inst.strike)
-    };
+    let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+        &inst.pricing_overrides.market_quotes,
+        curves,
+        inst.vol_surface_id.as_str(),
+        t_vol,
+        inst.strike,
+    )?;
 
     Ok(EquityOptionInputs {
         spot,

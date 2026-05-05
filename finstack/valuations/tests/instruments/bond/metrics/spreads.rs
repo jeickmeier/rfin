@@ -277,6 +277,73 @@ fn test_asw_market_uses_configured_forward_curve() {
 }
 
 #[test]
+fn test_asw_market_falls_back_to_bond_forward_curve_id() {
+    use finstack_core::dates::DayCount;
+    use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+
+    let as_of = date!(2025 - 01 - 01);
+    let mut bond = Bond::fixed(
+        "ASW-BOND-FORWARD-FALLBACK",
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        date!(2030 - 01 - 01),
+        "USD-OIS",
+    )
+    .unwrap();
+    bond.forward_curve_id = Some("USD-SOFR-6M".into());
+    bond.pricing_overrides = PricingOverrides::default().with_quoted_clean_price(98.0);
+
+    let discount_curve = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .knots([(0.0, 1.0), (5.0, 0.85)])
+        .build()
+        .unwrap();
+    let low_forward_curve = ForwardCurve::builder("USD-SOFR-6M", 0.5)
+        .base_date(as_of)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, 0.01), (5.0, 0.01)])
+        .build()
+        .unwrap();
+    let high_forward_curve = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+        .base_date(as_of)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, 0.04), (5.0, 0.04)])
+        .build()
+        .unwrap();
+    let market = finstack_core::market_data::context::MarketContext::new()
+        .insert(discount_curve.clone())
+        .insert(low_forward_curve)
+        .insert(high_forward_curve);
+
+    let fallback = bond
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ASWMarket],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .expect("ASW with bond forward curve fallback should compute")
+        .measures["asw_market"];
+
+    bond.pricing_overrides.model_config.asw_forward_curve_id = Some("USD-SOFR-3M".into());
+    let explicit_override = bond
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ASWMarket],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .expect("ASW explicit forward override should compute")
+        .measures["asw_market"];
+
+    assert!(
+        (fallback - explicit_override).abs() > 1e-3,
+        "ASW should use bond.forward_curve_id only when asw_forward_curve_id is absent: fallback={fallback}, explicit_override={explicit_override}"
+    );
+}
+
+#[test]
 fn test_oas_metric_uses_bond_tree_pricing_overrides() {
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_valuations::instruments::fixed_income::bond::{CallPut, CallPutSchedule};
@@ -311,12 +378,12 @@ fn test_oas_metric_uses_bond_tree_pricing_overrides() {
     let mut low_vol_bond = base_bond.clone();
     low_vol_bond.pricing_overrides = PricingOverrides::default()
         .with_quoted_clean_price(99.0)
-        .with_tree_volatility(0.001);
+        .with_implied_vol(0.001);
 
     let mut high_vol_bond = base_bond;
     high_vol_bond.pricing_overrides = PricingOverrides::default()
         .with_quoted_clean_price(99.0)
-        .with_tree_volatility(0.05);
+        .with_implied_vol(0.05);
 
     let low = low_vol_bond
         .price_with_metrics(
@@ -370,7 +437,7 @@ fn test_oas_metric_uses_tree_discount_curve_override() {
     });
     bond.pricing_overrides = PricingOverrides::default()
         .with_quoted_clean_price(99.0)
-        .with_tree_volatility(0.01)
+        .with_implied_vol(0.01)
         .with_tree_discount_curve_id("USD-TREE");
 
     let pricing_curve = DiscountCurve::builder("USD-OIS")
@@ -440,7 +507,7 @@ fn test_embedded_option_value_uses_solved_oas_and_holder_sign() {
     });
     bond.pricing_overrides = PricingOverrides::default()
         .with_quoted_clean_price(103.0)
-        .with_tree_volatility(0.02);
+        .with_implied_vol(0.02);
 
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
@@ -507,7 +574,7 @@ fn test_embedded_option_value_uses_settlement_date_oas_pricing_basis() {
     });
     bond.pricing_overrides = serde_json::from_value(serde_json::json!({
         "quoted_oas": quoted_oas,
-        "tree_volatility": 0.20,
+        "implied_volatility": 0.20,
         "tree_steps": 80,
         "vol_model": "black",
         "mean_reversion": 0.0
@@ -545,7 +612,7 @@ fn test_embedded_option_value_uses_settlement_date_oas_pricing_basis() {
 }
 
 #[test]
-fn test_callable_bond_vega_is_registered_and_bumps_tree_volatility() {
+fn test_callable_bond_vega_is_registered_and_bumps_implied_volatility() {
     use finstack_core::market_data::term_structures::DiscountCurve;
 
     let as_of = date!(2025 - 01 - 01);
@@ -569,7 +636,7 @@ fn test_callable_bond_vega_is_registered_and_bumps_tree_volatility() {
     });
     bond.pricing_overrides = PricingOverrides::default()
         .with_quoted_clean_price(103.0)
-        .with_tree_volatility(0.02);
+        .with_implied_vol(0.02);
 
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
@@ -623,7 +690,7 @@ fn test_callable_bond_oas_and_vega_use_explicit_bdt_tree_path() {
     });
     bond.pricing_overrides = serde_json::from_value(serde_json::json!({
         "quoted_clean_price": 103.0,
-        "tree_volatility": 0.20,
+        "implied_volatility": 0.20,
         "tree_steps": 40,
         "vol_model": "black",
         "mean_reversion": 0.0
@@ -699,7 +766,7 @@ fn test_callable_bond_vega_is_invariant_to_vol_bump_size() {
     });
     bond.pricing_overrides = serde_json::from_value(serde_json::json!({
         "quoted_clean_price": 103.0,
-        "tree_volatility": 0.20,
+        "implied_volatility": 0.20,
         "implied_volatility": 0.20,
         "tree_steps": 40,
         "vol_model": "black",
@@ -756,7 +823,7 @@ fn test_callable_bdt_oas_recovers_settlement_date_clean_price() {
         puts: vec![],
     });
     bond.pricing_overrides = serde_json::from_value(serde_json::json!({
-        "tree_volatility": 0.20,
+        "implied_volatility": 0.20,
         "tree_steps": 80,
         "vol_model": "black",
         "mean_reversion": 0.0
@@ -823,7 +890,7 @@ fn test_callable_bond_value_uses_same_bdt_tree_dispatch_as_oas_pricer() {
         puts: vec![],
     });
     bond.pricing_overrides = serde_json::from_value(serde_json::json!({
-        "tree_volatility": 0.20,
+        "implied_volatility": 0.20,
         "tree_steps": 40,
         "vol_model": "black",
         "mean_reversion": 0.0

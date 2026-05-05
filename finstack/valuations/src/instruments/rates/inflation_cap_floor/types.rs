@@ -342,16 +342,6 @@ impl InflationCapFloor {
     ) -> finstack_core::Result<Money> {
         let strike = self.strike_f64()?;
         let disc = curves.get_discount(self.discount_curve_id.as_str())?;
-        let vol_surface = if self
-            .pricing_overrides
-            .market_quotes
-            .implied_volatility
-            .is_none()
-        {
-            Some(curves.get_surface(self.vol_surface_id.as_str())?)
-        } else {
-            None
-        };
 
         let mut total_pv = Money::new(0.0, self.notional.currency());
 
@@ -392,16 +382,13 @@ impl InflationCapFloor {
             let df = disc.df(t_pay);
 
             let sigma = if t_fix > 0.0 {
-                if let Some(impl_vol) = self.pricing_overrides.market_quotes.implied_volatility {
-                    impl_vol
-                } else if let Some(vol) = &vol_surface {
-                    vol.value_clamped(t_fix, strike)
-                } else {
-                    return Err(finstack_core::InputError::NotFound {
-                        id: "inflation_cap_floor_vol_surface".to_string(),
-                    }
-                    .into());
-                }
+                crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+                    &self.pricing_overrides.market_quotes,
+                    curves,
+                    self.vol_surface_id.as_str(),
+                    t_fix,
+                    strike,
+                )?
             } else {
                 0.0
             };

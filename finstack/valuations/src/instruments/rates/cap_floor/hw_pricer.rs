@@ -157,7 +157,11 @@ impl CapFloorHullWhitePricer {
         let model_config = &cap_floor.pricing_overrides.model_config;
         let hw_params = HullWhiteParams::new(
             model_config.mean_reversion.unwrap_or(self.hw_params.kappa),
-            model_config.tree_volatility.unwrap_or(self.hw_params.sigma),
+            cap_floor
+                .pricing_overrides
+                .market_quotes
+                .implied_volatility
+                .unwrap_or(self.hw_params.sigma),
         )
         .map_err(|e| {
             PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())

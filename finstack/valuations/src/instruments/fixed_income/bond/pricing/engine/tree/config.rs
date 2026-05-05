@@ -263,15 +263,16 @@ impl Default for TreePricerConfig {
 /// let config = bond_tree_config(&bond);
 /// ```
 pub fn bond_tree_config(bond: &Bond) -> TreePricerConfig {
+    let volatility = bond
+        .pricing_overrides
+        .market_quotes
+        .implied_volatility
+        .unwrap_or(0.01);
+
     // For callable/putable bonds, default to Hull-White with reasonable parameters.
     // HullWhiteCalibratedToSwaptions should be preferred when swaption vol data
     // is available in the market context.
     let tree_model = if bond.call_put.is_some() {
-        let volatility = bond
-            .pricing_overrides
-            .model_config
-            .tree_volatility
-            .unwrap_or(0.01);
         if matches!(
             bond.pricing_overrides.model_config.vol_model,
             Some(crate::instruments::common_impl::parameters::VolatilityModel::Black)
@@ -306,11 +307,7 @@ pub fn bond_tree_config(bond: &Bond) -> TreePricerConfig {
             .model_config
             .tree_steps
             .unwrap_or(100),
-        volatility: bond
-            .pricing_overrides
-            .model_config
-            .tree_volatility
-            .unwrap_or(0.01),
+        volatility,
         tolerance: 1e-6,
         max_iterations: 50,
         initial_bracket_size_bp: Some(1000.0),

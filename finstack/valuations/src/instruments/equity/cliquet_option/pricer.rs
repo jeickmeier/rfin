@@ -147,7 +147,6 @@ impl CliquetOptionMcPricer {
 
         // Get curves
         let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
-        let vol_surface = curves.get_surface(inst.vol_surface_id.as_str())?;
 
         // Dividend yield from scalar id if provided
         //
@@ -252,12 +251,13 @@ impl CliquetOptionMcPricer {
             let forward_price =
                 initial_spot * (-div_yield * curr_t).exp() / df_curr * df_base_to_as_of;
 
-            let vol_curr = if let Some(iv) = inst.pricing_overrides.market_quotes.implied_volatility
-            {
-                iv
-            } else {
-                vol_surface.value_clamped(curr_t, forward_price)
-            };
+            let vol_curr = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
+                &inst.pricing_overrides.market_quotes,
+                curves,
+                inst.vol_surface_id.as_str(),
+                curr_t,
+                forward_price,
+            )?;
             let var_curr = vol_curr * vol_curr * curr_t;
 
             let fwd_var = var_curr - prev_var;
