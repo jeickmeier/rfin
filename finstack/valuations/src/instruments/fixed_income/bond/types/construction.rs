@@ -822,21 +822,21 @@ impl Bond {
         let call_put = CallPutSchedule {
             calls: vec![
                 CallPut {
-                    date: date!(2027 - 01 - 15),
+                    start_date: date!(2027 - 01 - 15),
+                    end_date: date!(2027 - 01 - 15),
                     price_pct_of_par: 103.0,
-                    end_date: None,
                     make_whole: None,
                 },
                 CallPut {
-                    date: date!(2029 - 01 - 15),
+                    start_date: date!(2029 - 01 - 15),
+                    end_date: date!(2029 - 01 - 15),
                     price_pct_of_par: 101.0,
-                    end_date: None,
                     make_whole: None,
                 },
                 CallPut {
-                    date: date!(2031 - 01 - 15),
+                    start_date: date!(2031 - 01 - 15),
+                    end_date: date!(2031 - 01 - 15),
                     price_pct_of_par: 100.0,
-                    end_date: None,
                     make_whole: None,
                 },
             ],

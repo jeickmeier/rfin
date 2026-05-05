@@ -218,21 +218,21 @@ fn test_multiple_call_dates() {
 
     let mut call_put = CallPutSchedule::default();
     call_put.calls.push(CallPut {
-        date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+        start_date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+        end_date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
         price_pct_of_par: 105.0,
-        end_date: None,
         make_whole: None,
     });
     call_put.calls.push(CallPut {
-        date: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
+        start_date: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
+        end_date: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
         price_pct_of_par: 103.0,
-        end_date: None,
         make_whole: None,
     });
     call_put.calls.push(CallPut {
-        date: Date::from_calendar_date(2029, Month::January, 1).unwrap(),
+        start_date: Date::from_calendar_date(2029, Month::January, 1).unwrap(),
+        end_date: Date::from_calendar_date(2029, Month::January, 1).unwrap(),
         price_pct_of_par: 101.0,
-        end_date: None,
         make_whole: None,
     });
 
@@ -266,16 +266,16 @@ fn test_overlapping_call_windows_order_invariant() {
     let mut schedule_a = CallPutSchedule::default();
     // Higher call price window (starts earlier, overlaps later window)
     schedule_a.calls.push(CallPut {
-        date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+        start_date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+        end_date: Date::from_calendar_date(2029, Month::January, 1).unwrap(),
         price_pct_of_par: 105.0,
-        end_date: Some(Date::from_calendar_date(2029, Month::January, 1).unwrap()),
         make_whole: None,
     });
     // Step-down to cheaper call later, overlapping 2028-2029
     schedule_a.calls.push(CallPut {
-        date: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
+        start_date: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
+        end_date: Date::from_calendar_date(2029, Month::January, 1).unwrap(),
         price_pct_of_par: 101.0,
-        end_date: Some(Date::from_calendar_date(2029, Month::January, 1).unwrap()),
         make_whole: None,
     });
     bond_a.call_put = Some(schedule_a);
@@ -283,15 +283,15 @@ fn test_overlapping_call_windows_order_invariant() {
     let mut schedule_b = CallPutSchedule::default();
     // Same two windows but reversed insertion order
     schedule_b.calls.push(CallPut {
-        date: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
+        start_date: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
+        end_date: Date::from_calendar_date(2029, Month::January, 1).unwrap(),
         price_pct_of_par: 101.0,
-        end_date: Some(Date::from_calendar_date(2029, Month::January, 1).unwrap()),
         make_whole: None,
     });
     schedule_b.calls.push(CallPut {
-        date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+        start_date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+        end_date: Date::from_calendar_date(2029, Month::January, 1).unwrap(),
         price_pct_of_par: 105.0,
-        end_date: Some(Date::from_calendar_date(2029, Month::January, 1).unwrap()),
         make_whole: None,
     });
     bond_b.call_put = Some(schedule_b);
@@ -332,21 +332,21 @@ fn test_multiple_put_dates() {
 
     let mut call_put = CallPutSchedule::default();
     call_put.puts.push(CallPut {
-        date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+        start_date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+        end_date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
         price_pct_of_par: 98.0,
-        end_date: None,
         make_whole: None,
     });
     call_put.puts.push(CallPut {
-        date: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
+        start_date: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
+        end_date: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
         price_pct_of_par: 99.0,
-        end_date: None,
         make_whole: None,
     });
     call_put.puts.push(CallPut {
-        date: Date::from_calendar_date(2029, Month::January, 1).unwrap(),
+        start_date: Date::from_calendar_date(2029, Month::January, 1).unwrap(),
+        end_date: Date::from_calendar_date(2029, Month::January, 1).unwrap(),
         price_pct_of_par: 100.0,
-        end_date: None,
         make_whole: None,
     });
 
@@ -447,9 +447,9 @@ fn test_call_before_conversion_window() {
 
     let mut call_put = CallPutSchedule::default();
     call_put.calls.push(CallPut {
-        date: call_date,
+        start_date: call_date,
+        end_date: call_date,
         price_pct_of_par: 102.0,
-        end_date: None,
         make_whole: None,
     });
     bond.call_put = Some(call_put);
@@ -486,9 +486,9 @@ fn test_call_during_conversion_window() {
 
     let mut call_put = CallPutSchedule::default();
     call_put.calls.push(CallPut {
-        date: call_date,
+        start_date: call_date,
+        end_date: call_date,
         price_pct_of_par: 102.0,
-        end_date: None,
         make_whole: None,
     });
     bond.call_put = Some(call_put);

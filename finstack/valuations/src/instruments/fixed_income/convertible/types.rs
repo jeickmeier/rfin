@@ -510,15 +510,15 @@ impl ConvertibleBond {
             .underlying_equity_id_opt(Some("INDU".to_string()))
             .call_put_opt(Some(CallPutSchedule {
                 calls: vec![CallPut {
-                    date: date!(2026 - 03 - 15),
+                    start_date: date!(2026 - 03 - 15),
+                    end_date: maturity,
                     price_pct_of_par: 101.0,
-                    end_date: Some(maturity),
                     make_whole: None,
                 }],
                 puts: vec![CallPut {
-                    date: date!(2025 - 03 - 15),
+                    start_date: date!(2025 - 03 - 15),
+                    end_date: date!(2025 - 03 - 15),
                     price_pct_of_par: 100.0,
-                    end_date: None,
                     make_whole: None,
                 }],
             }))

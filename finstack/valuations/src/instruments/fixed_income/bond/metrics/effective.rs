@@ -228,9 +228,9 @@ mod tests {
 
         let mut schedule = CallPutSchedule::default();
         schedule.calls.push(CallPut {
-            date: call_date,
+            start_date: call_date,
+            end_date: maturity,
             price_pct_of_par: 100.0,
-            end_date: Some(maturity),
             make_whole: None,
         });
         bond.call_put = Some(schedule);

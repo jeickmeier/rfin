@@ -138,9 +138,9 @@ fn test_ytw_off_cycle_call_uses_dirty_street_redemption() {
     bond.settlement_convention = None;
     bond.call_put = Some(CallPutSchedule {
         calls: vec![CallPut {
-            date: call_date,
+            start_date: call_date,
+            end_date: call_date,
             price_pct_of_par: 100.0,
-            end_date: None,
             make_whole: None,
         }],
         puts: vec![],

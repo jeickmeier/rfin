@@ -158,57 +158,53 @@ impl Bond {
             for call in &call_put.calls {
                 if call.price_pct_of_par <= 0.0 {
                     return Err(finstack_core::Error::Validation(format!(
-                        "Bond call price must be positive, got {} on {}",
-                        call.price_pct_of_par, call.date
+                        "Bond call price must be positive, got {} for period [{}, {}]",
+                        call.price_pct_of_par, call.start_date, call.end_date
                     )));
                 }
-                if call.date < self.issue_date || call.date > self.maturity {
+                if call.start_date < self.issue_date || call.start_date > self.maturity {
                     return Err(finstack_core::Error::Validation(format!(
-                        "Call exercise date {} is outside bond life [{}, {}]",
-                        call.date, self.issue_date, self.maturity
+                        "Call exercise start date {} is outside bond life [{}, {}]",
+                        call.start_date, self.issue_date, self.maturity
                     )));
                 }
-                if let Some(end) = call.end_date {
-                    if end > self.maturity {
-                        return Err(finstack_core::Error::Validation(format!(
-                            "Call exercise end date {} is after maturity {}",
-                            end, self.maturity
-                        )));
-                    }
-                    if call.date > end {
-                        return Err(finstack_core::Error::Validation(format!(
-                            "Call exercise start date {} is after end date {}",
-                            call.date, end
-                        )));
-                    }
+                if call.end_date > self.maturity {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Call exercise end date {} is after maturity {}",
+                        call.end_date, self.maturity
+                    )));
+                }
+                if call.start_date > call.end_date {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Call exercise start date {} is after end date {}",
+                        call.start_date, call.end_date
+                    )));
                 }
             }
             for put in &call_put.puts {
                 if put.price_pct_of_par <= 0.0 {
                     return Err(finstack_core::Error::Validation(format!(
-                        "Bond put price must be positive, got {} on {}",
-                        put.price_pct_of_par, put.date
+                        "Bond put price must be positive, got {} for period [{}, {}]",
+                        put.price_pct_of_par, put.start_date, put.end_date
                     )));
                 }
-                if put.date < self.issue_date || put.date > self.maturity {
+                if put.start_date < self.issue_date || put.start_date > self.maturity {
                     return Err(finstack_core::Error::Validation(format!(
-                        "Put exercise date {} is outside bond life [{}, {}]",
-                        put.date, self.issue_date, self.maturity
+                        "Put exercise start date {} is outside bond life [{}, {}]",
+                        put.start_date, self.issue_date, self.maturity
                     )));
                 }
-                if let Some(end) = put.end_date {
-                    if end > self.maturity {
-                        return Err(finstack_core::Error::Validation(format!(
-                            "Put exercise end date {} is after maturity {}",
-                            end, self.maturity
-                        )));
-                    }
-                    if put.date > end {
-                        return Err(finstack_core::Error::Validation(format!(
-                            "Put exercise start date {} is after end date {}",
-                            put.date, end
-                        )));
-                    }
+                if put.end_date > self.maturity {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Put exercise end date {} is after maturity {}",
+                        put.end_date, self.maturity
+                    )));
+                }
+                if put.start_date > put.end_date {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Put exercise start date {} is after end date {}",
+                        put.start_date, put.end_date
+                    )));
                 }
             }
         }

@@ -360,9 +360,9 @@ fn test_oas_metric_uses_bond_tree_pricing_overrides() {
     .unwrap();
     base_bond.call_put = Some(CallPutSchedule {
         calls: vec![CallPut {
-            date: date!(2028 - 01 - 01),
+            start_date: date!(2028 - 01 - 01),
+            end_date: date!(2028 - 01 - 01),
             price_pct_of_par: 100.0,
-            end_date: None,
             make_whole: None,
         }],
         puts: vec![],
@@ -428,9 +428,9 @@ fn test_oas_metric_uses_tree_discount_curve_override() {
     bond.settlement_convention = None;
     bond.call_put = Some(CallPutSchedule {
         calls: vec![CallPut {
-            date: date!(2028 - 04 - 01),
+            start_date: date!(2028 - 04 - 01),
+            end_date: date!(2028 - 04 - 01),
             price_pct_of_par: 100.0,
-            end_date: None,
             make_whole: None,
         }],
         puts: vec![],
@@ -498,9 +498,9 @@ fn test_embedded_option_value_uses_solved_oas_and_holder_sign() {
     bond.settlement_convention = None;
     bond.call_put = Some(CallPutSchedule {
         calls: vec![CallPut {
-            date: date!(2028 - 01 - 01),
+            start_date: date!(2028 - 01 - 01),
+            end_date: date!(2028 - 01 - 01),
             price_pct_of_par: 100.0,
-            end_date: None,
             make_whole: None,
         }],
         puts: vec![],
@@ -565,9 +565,9 @@ fn test_embedded_option_value_uses_settlement_date_oas_pricing_basis() {
     });
     bond.call_put = Some(CallPutSchedule {
         calls: vec![CallPut {
-            date: date!(2028 - 01 - 02),
+            start_date: date!(2028 - 01 - 02),
+            end_date: date!(2028 - 01 - 02),
             price_pct_of_par: 100.0,
-            end_date: None,
             make_whole: None,
         }],
         puts: vec![],
@@ -627,9 +627,9 @@ fn test_callable_bond_vega_is_registered_and_bumps_implied_volatility() {
     .unwrap();
     bond.call_put = Some(CallPutSchedule {
         calls: vec![CallPut {
-            date: date!(2028 - 01 - 01),
+            start_date: date!(2028 - 01 - 01),
+            end_date: date!(2028 - 01 - 01),
             price_pct_of_par: 100.0,
-            end_date: None,
             make_whole: None,
         }],
         puts: vec![],
@@ -681,9 +681,9 @@ fn test_callable_bond_oas_and_vega_use_explicit_bdt_tree_path() {
     .unwrap();
     bond.call_put = Some(CallPutSchedule {
         calls: vec![CallPut {
-            date: date!(2028 - 01 - 01),
+            start_date: date!(2028 - 01 - 01),
+            end_date: date!(2028 - 01 - 01),
             price_pct_of_par: 100.0,
-            end_date: None,
             make_whole: None,
         }],
         puts: vec![],
@@ -757,9 +757,9 @@ fn test_callable_bond_vega_is_invariant_to_vol_bump_size() {
     .unwrap();
     bond.call_put = Some(CallPutSchedule {
         calls: vec![CallPut {
-            date: date!(2028 - 01 - 01),
+            start_date: date!(2028 - 01 - 01),
+            end_date: date!(2028 - 01 - 01),
             price_pct_of_par: 100.0,
-            end_date: None,
             make_whole: None,
         }],
         puts: vec![],
@@ -815,9 +815,9 @@ fn test_callable_bdt_oas_recovers_settlement_date_clean_price() {
     });
     bond.call_put = Some(CallPutSchedule {
         calls: vec![CallPut {
-            date: date!(2028 - 01 - 02),
+            start_date: date!(2028 - 01 - 02),
+            end_date: date!(2028 - 01 - 02),
             price_pct_of_par: 150.0,
-            end_date: None,
             make_whole: None,
         }],
         puts: vec![],
@@ -882,9 +882,9 @@ fn test_callable_bond_value_uses_same_bdt_tree_dispatch_as_oas_pricer() {
     .unwrap();
     bond.call_put = Some(CallPutSchedule {
         calls: vec![CallPut {
-            date: date!(2028 - 01 - 01),
+            start_date: date!(2028 - 01 - 01),
+            end_date: date!(2028 - 01 - 01),
             price_pct_of_par: 100.0,
-            end_date: None,
             make_whole: None,
         }],
         puts: vec![],

@@ -114,9 +114,9 @@ fn test_day_count_propagation_for_call_put() {
 
     let mut call_put = CallPutSchedule::default();
     call_put.calls.push(CallPut {
-        date: call_date,
+        start_date: call_date,
+        end_date: call_date,
         price_pct_of_par: 101.0,
-        end_date: None,
         make_whole: None,
     });
     bond.call_put = Some(call_put);
@@ -282,15 +282,15 @@ fn test_call_put_on_same_date() {
     let mut bond = create_standard_convertible();
     let mut call_put = CallPutSchedule::default();
     call_put.calls.push(CallPut {
-        date: option_date,
+        start_date: option_date,
+        end_date: option_date,
         price_pct_of_par: 102.0,
-        end_date: None,
         make_whole: None,
     });
     call_put.puts.push(CallPut {
-        date: option_date,
+        start_date: option_date,
+        end_date: option_date,
         price_pct_of_par: 98.0,
-        end_date: None,
         make_whole: None,
     });
     bond.call_put = Some(call_put);
@@ -315,9 +315,9 @@ fn test_call_put_at_maturity() {
     let mut bond = create_standard_convertible();
     let mut call_put = CallPutSchedule::default();
     call_put.calls.push(CallPut {
-        date: bond.maturity,
+        start_date: bond.maturity,
+        end_date: bond.maturity,
         price_pct_of_par: 100.0,
-        end_date: None,
         make_whole: None,
     });
     bond.call_put = Some(call_put);
@@ -344,10 +344,11 @@ fn test_call_put_before_issue() {
     let mut call_put = CallPutSchedule::default();
 
     // Call date before issue (should be ignored)
+    let before_issue = Date::from_calendar_date(2024, Month::January, 1).unwrap();
     call_put.calls.push(CallPut {
-        date: Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+        start_date: before_issue,
+        end_date: before_issue,
         price_pct_of_par: 102.0,
-        end_date: None,
         make_whole: None,
     });
     bond.call_put = Some(call_put);
@@ -377,10 +378,11 @@ fn test_call_put_after_maturity() {
     let mut call_put = CallPutSchedule::default();
 
     // Call date after maturity (should be ignored)
+    let after_maturity = Date::from_calendar_date(2031, Month::January, 1).unwrap();
     call_put.calls.push(CallPut {
-        date: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
+        start_date: after_maturity,
+        end_date: after_maturity,
         price_pct_of_par: 102.0,
-        end_date: None,
         make_whole: None,
     });
     bond.call_put = Some(call_put);

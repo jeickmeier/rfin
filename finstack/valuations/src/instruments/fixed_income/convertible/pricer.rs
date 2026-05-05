@@ -188,35 +188,30 @@ impl ConvertibleBondValuator {
             *coupon_map.entry(bounded_step).or_insert(0.0) += cf.amount.amount();
         }
 
-        // Map call/put schedules to tree steps, supporting exercise periods (end_date)
+        // Map call/put schedules to tree steps, supporting exercise periods.
         let mut call_map: HashMap<usize, f64> = HashMap::default();
         let mut put_map: HashMap<usize, f64> = HashMap::default();
 
         if let Some(ref call_put) = bond.call_put {
             for call in &call_put.calls {
-                if call.date > base_date && call.date <= bond.maturity {
+                if call.end_date > base_date && call.start_date <= bond.maturity {
                     let call_price = bond.notional.amount() * (call.price_pct_of_par / 100.0);
                     let start_step = map_date_to_step(
                         base_date,
-                        call.date,
+                        call.start_date.max(base_date),
                         bond.maturity,
                         steps,
                         cashflow_schedule.day_count,
                     );
 
                     // Exercise period: map all steps from start to end
-                    let end_step = if let Some(end) = call.end_date {
-                        let end_clamped = end.min(bond.maturity);
-                        map_date_to_step(
-                            base_date,
-                            end_clamped,
-                            bond.maturity,
-                            steps,
-                            cashflow_schedule.day_count,
-                        )
-                    } else {
-                        start_step
-                    };
+                    let end_step = map_date_to_step(
+                        base_date,
+                        call.end_date.min(bond.maturity),
+                        bond.maturity,
+                        steps,
+                        cashflow_schedule.day_count,
+                    );
 
                     // For overlapping call windows (e.g., step-down calls), the issuer
                     // will select the *cheapest* call price available at each step.
@@ -230,28 +225,23 @@ impl ConvertibleBondValuator {
             }
 
             for put in &call_put.puts {
-                if put.date > base_date && put.date <= bond.maturity {
+                if put.end_date > base_date && put.start_date <= bond.maturity {
                     let put_price = bond.notional.amount() * (put.price_pct_of_par / 100.0);
                     let start_step = map_date_to_step(
                         base_date,
-                        put.date,
+                        put.start_date.max(base_date),
                         bond.maturity,
                         steps,
                         cashflow_schedule.day_count,
                     );
 
-                    let end_step = if let Some(end) = put.end_date {
-                        let end_clamped = end.min(bond.maturity);
-                        map_date_to_step(
-                            base_date,
-                            end_clamped,
-                            bond.maturity,
-                            steps,
-                            cashflow_schedule.day_count,
-                        )
-                    } else {
-                        start_step
-                    };
+                    let end_step = map_date_to_step(
+                        base_date,
+                        put.end_date.min(bond.maturity),
+                        bond.maturity,
+                        steps,
+                        cashflow_schedule.day_count,
+                    );
 
                     // For overlapping put windows, the holder will select the *highest*
                     // put price available at each step.

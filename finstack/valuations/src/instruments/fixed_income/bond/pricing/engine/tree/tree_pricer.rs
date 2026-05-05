@@ -66,8 +66,13 @@ impl TreePricer {
         let exercise_times: Vec<f64> = call_put
             .calls
             .iter()
-            .map(|call| call.date)
-            .chain(call_put.puts.iter().map(|put| put.date))
+            .flat_map(|call| [call.start_date, call.end_date])
+            .chain(
+                call_put
+                    .puts
+                    .iter()
+                    .flat_map(|put| [put.start_date, put.end_date]),
+            )
             .filter(|date| *date > as_of && *date < bond.maturity)
             .filter_map(|date| {
                 day_count

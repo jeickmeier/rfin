@@ -162,9 +162,9 @@ fn callable_risk_bond(as_of: finstack_core::dates::Date) -> Bond {
     .unwrap();
     bond.call_put = Some(CallPutSchedule {
         calls: vec![CallPut {
-            date: date!(2028 - 01 - 01),
+            start_date: date!(2028 - 01 - 01),
+            end_date: date!(2028 - 01 - 01),
             price_pct_of_par: 100.0,
-            end_date: None,
             make_whole: None,
         }],
         puts: vec![],

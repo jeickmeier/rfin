@@ -305,9 +305,9 @@ pub fn create_callable_convertible(call_date: Date, call_price_pct: f64) -> Conv
 
     let mut call_put = CallPutSchedule::default();
     call_put.calls.push(CallPut {
-        date: call_date,
+        start_date: call_date,
+        end_date: call_date,
         price_pct_of_par: call_price_pct,
-        end_date: None,
         make_whole: None,
     });
 
@@ -321,9 +321,9 @@ pub fn create_puttable_convertible(put_date: Date, put_price_pct: f64) -> Conver
 
     let mut call_put = CallPutSchedule::default();
     call_put.puts.push(CallPut {
-        date: put_date,
+        start_date: put_date,
+        end_date: put_date,
         price_pct_of_par: put_price_pct,
-        end_date: None,
         make_whole: None,
     });
 
@@ -342,15 +342,15 @@ pub fn create_callable_puttable_convertible(
 
     let mut call_put = CallPutSchedule::default();
     call_put.calls.push(CallPut {
-        date: call_date,
+        start_date: call_date,
+        end_date: call_date,
         price_pct_of_par: call_price_pct,
-        end_date: None,
         make_whole: None,
     });
     call_put.puts.push(CallPut {
-        date: put_date,
+        start_date: put_date,
+        end_date: put_date,
         price_pct_of_par: put_price_pct,
-        end_date: None,
         make_whole: None,
     });
 

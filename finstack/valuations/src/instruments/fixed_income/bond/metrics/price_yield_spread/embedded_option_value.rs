@@ -191,9 +191,9 @@ mod tests {
 
         let mut call_put = CallPutSchedule::default();
         call_put.calls.push(CallPut {
-            date: call_date,
+            start_date: call_date,
+            end_date: call_date,
             price_pct_of_par: 100.0,
-            end_date: None,
             make_whole: None,
         });
 
@@ -228,9 +228,9 @@ mod tests {
 
         let mut call_put = CallPutSchedule::default();
         call_put.puts.push(CallPut {
-            date: put_date,
+            start_date: put_date,
+            end_date: put_date,
             price_pct_of_par: 100.0,
-            end_date: None,
             make_whole: None,
         });
 

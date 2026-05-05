@@ -201,9 +201,9 @@ fn create_callable_bond(maturity_years: i32) -> Bond {
         if first_call_year < maturity_year {
             let first_call = Date::from_calendar_date(first_call_year, Month::January, 1).unwrap();
             schedule.calls.push(CallPut {
-                date: first_call,
+                start_date: first_call,
+                end_date: first_call,
                 price_pct_of_par: 101.0,
-                end_date: None,
                 make_whole: None,
             });
         }
@@ -212,9 +212,9 @@ fn create_callable_bond(maturity_years: i32) -> Bond {
             let second_call =
                 Date::from_calendar_date(first_call_year + 1, Month::January, 1).unwrap();
             schedule.calls.push(CallPut {
-                date: second_call,
+                start_date: second_call,
+                end_date: second_call,
                 price_pct_of_par: 100.5,
-                end_date: None,
                 make_whole: None,
             });
         }

@@ -709,21 +709,32 @@ pub(crate) fn solve_ytw_from_flows(
     let mut candidates: Vec<(Date, Money)> = Vec::new();
 
     if let Some(cp) = &bond.call_put {
+        let mut push_period_candidates =
+            |start_date: Date, end_date: Date, price_pct_of_par: f64| {
+                let mut exercise_dates = vec![start_date, end_date];
+                exercise_dates.extend(
+                    flows
+                        .iter()
+                        .map(|(date, _)| *date)
+                        .filter(|date| *date >= start_date && *date <= end_date),
+                );
+                exercise_dates.sort_unstable();
+                exercise_dates.dedup();
+
+                for exercise_date in exercise_dates {
+                    if exercise_date >= as_of && exercise_date <= bond.maturity {
+                        candidates.push((
+                            exercise_date,
+                            Money::new(price_pct_of_par, bond.notional.currency()),
+                        ));
+                    }
+                }
+            };
         for c in &cp.calls {
-            if c.date >= as_of && c.date <= bond.maturity {
-                candidates.push((
-                    c.date,
-                    Money::new(c.price_pct_of_par, bond.notional.currency()),
-                ));
-            }
+            push_period_candidates(c.start_date, c.end_date, c.price_pct_of_par);
         }
         for p in &cp.puts {
-            if p.date >= as_of && p.date <= bond.maturity {
-                candidates.push((
-                    p.date,
-                    Money::new(p.price_pct_of_par, bond.notional.currency()),
-                ));
-            }
+            push_period_candidates(p.start_date, p.end_date, p.price_pct_of_par);
         }
     }
     // At maturity, principal redemption is already present in the cashflow schedule,

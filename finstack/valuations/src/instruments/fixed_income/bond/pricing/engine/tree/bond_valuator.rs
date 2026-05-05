@@ -74,6 +74,27 @@ pub struct BondValuator {
 }
 
 impl BondValuator {
+    fn exercise_dates_for_period(
+        start_date: Date,
+        end_date: Date,
+        as_of: Date,
+        maturity: Date,
+        _cashflow_dates: &[Date],
+    ) -> Vec<Date> {
+        // Treat a call/put period as a quoted schedule interval: the start and
+        // end dates are exercise dates, but interior coupon dates are not
+        // invented as additional exercise opportunities unless listed.
+        let mut dates = Vec::new();
+        for date in [start_date, end_date] {
+            if date > as_of && date <= maturity {
+                dates.push(date);
+            }
+        }
+        dates.sort_unstable();
+        dates.dedup();
+        dates
+    }
+
     fn make_whole_call_price(
         call: &crate::instruments::fixed_income::bond::CallPut,
         reference_curve: &dyn finstack_core::market_data::traits::Discounting,
@@ -222,16 +243,25 @@ impl BondValuator {
         // tree step used for the call/put (ceil mapping), preventing timing
         // mismatches between coupon receipt and exercise decision.
         let mut exercise_dates = std::collections::HashSet::new();
+        let cashflow_dates: Vec<Date> = flows.iter().map(|(date, _)| *date).collect();
         if let Some(ref call_put) = bond.call_put {
             for call in &call_put.calls {
-                if call.date > as_of && call.date <= bond.maturity {
-                    exercise_dates.insert(call.date);
-                }
+                exercise_dates.extend(Self::exercise_dates_for_period(
+                    call.start_date,
+                    call.end_date,
+                    as_of,
+                    bond.maturity,
+                    &cashflow_dates,
+                ));
             }
             for put in &call_put.puts {
-                if put.date > as_of && put.date <= bond.maturity {
-                    exercise_dates.insert(put.date);
-                }
+                exercise_dates.extend(Self::exercise_dates_for_period(
+                    put.start_date,
+                    put.end_date,
+                    as_of,
+                    bond.maturity,
+                    &cashflow_dates,
+                ));
             }
         }
 
@@ -290,14 +320,20 @@ impl BondValuator {
         let mut put_vec: Vec<Option<f64>> = vec![None; num_steps];
         if let Some(ref call_put) = bond.call_put {
             for call in &call_put.calls {
-                if call.date > as_of && call.date <= bond.maturity {
+                for exercise_date in Self::exercise_dates_for_period(
+                    call.start_date,
+                    call.end_date,
+                    as_of,
+                    bond.maturity,
+                    &cashflow_dates,
+                ) {
                     let exercise_time = dc_curve.year_fraction(
                         as_of,
-                        call.date,
+                        exercise_date,
                         finstack_core::dates::DayCountContext::default(),
                     )?;
                     let step =
-                        map_date_to_step(as_of, call.date, bond.maturity, tree_steps, dc_curve)
+                        map_date_to_step(as_of, exercise_date, bond.maturity, tree_steps, dc_curve)
                             .clamp(1, num_steps - 1);
                     let outstanding = outstanding_principal_vec[step];
                     let floor_price = outstanding * (call.price_pct_of_par / 100.0);
@@ -317,7 +353,7 @@ impl BondValuator {
                     };
                     let accrued_on_call = crate::cashflow::accrual::accrued_interest_amount(
                         &full_schedule,
-                        call.date,
+                        exercise_date,
                         &bond.accrual_config(),
                     )?;
                     let call_price = Self::value_at_step_time(
@@ -326,25 +362,33 @@ impl BondValuator {
                         time_steps[step],
                         discount_curve.as_ref(),
                     );
-                    call_vec[step] = Some(call_price);
+                    call_vec[step] = Some(
+                        call_vec[step].map_or(call_price, |existing| existing.min(call_price)),
+                    );
                 }
             }
             for put in &call_put.puts {
-                if put.date > as_of && put.date <= bond.maturity {
+                for exercise_date in Self::exercise_dates_for_period(
+                    put.start_date,
+                    put.end_date,
+                    as_of,
+                    bond.maturity,
+                    &cashflow_dates,
+                ) {
                     let exercise_time = dc_curve.year_fraction(
                         as_of,
-                        put.date,
+                        exercise_date,
                         finstack_core::dates::DayCountContext::default(),
                     )?;
                     let step =
-                        map_date_to_step(as_of, put.date, bond.maturity, tree_steps, dc_curve)
+                        map_date_to_step(as_of, exercise_date, bond.maturity, tree_steps, dc_curve)
                             .clamp(1, num_steps - 1);
                     // Use outstanding principal at exercise step, not original notional
                     let outstanding = outstanding_principal_vec[step];
                     let clean_put_price = outstanding * (put.price_pct_of_par / 100.0);
                     let accrued_on_put = crate::cashflow::accrual::accrued_interest_amount(
                         &full_schedule,
-                        put.date,
+                        exercise_date,
                         &bond.accrual_config(),
                     )?;
                     let put_price = Self::value_at_step_time(
@@ -353,7 +397,8 @@ impl BondValuator {
                         time_steps[step],
                         discount_curve.as_ref(),
                     );
-                    put_vec[step] = Some(put_price);
+                    put_vec[step] =
+                        Some(put_vec[step].map_or(put_price, |existing| existing.max(put_price)));
                 }
             }
         }
@@ -625,9 +670,9 @@ mod tests {
         bond.cashflow_spec = CashflowSpec::fixed(0.06, Tenor::annual(), DayCount::Act365F);
         bond.call_put = Some(CallPutSchedule {
             calls: vec![CallPut {
-                date: call_date,
+                start_date: call_date,
+                end_date: call_date,
                 price_pct_of_par: 100.0,
-                end_date: None,
                 make_whole: None,
             }],
             puts: vec![],

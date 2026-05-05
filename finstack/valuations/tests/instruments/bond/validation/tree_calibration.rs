@@ -128,9 +128,9 @@ fn test_callable_bond_tree_pricing_reasonable() {
         finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
     call_schedule.calls.push(
         finstack_valuations::instruments::fixed_income::bond::CallPut {
-            date: date!(2025 - 01 - 01),
+            start_date: date!(2025 - 01 - 01),
+            end_date: date!(2025 - 01 - 01),
             price_pct_of_par: 102.0,
-            end_date: None,
             make_whole: None,
         },
     );
@@ -196,9 +196,9 @@ fn test_tree_convergence_with_steps() {
         finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
     call_schedule.calls.push(
         finstack_valuations::instruments::fixed_income::bond::CallPut {
-            date: date!(2023 - 01 - 01),
+            start_date: date!(2023 - 01 - 01),
+            end_date: date!(2023 - 01 - 01),
             price_pct_of_par: 102.0,
-            end_date: None,
             make_whole: None,
         },
     );
@@ -255,9 +255,9 @@ fn test_putable_bond_tree_pricing_reasonable() {
         finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
     put_schedule.puts.push(
         finstack_valuations::instruments::fixed_income::bond::CallPut {
-            date: date!(2025 - 01 - 01),
+            start_date: date!(2025 - 01 - 01),
+            end_date: date!(2025 - 01 - 01),
             price_pct_of_par: 98.0,
-            end_date: None,
             make_whole: None,
         },
     );

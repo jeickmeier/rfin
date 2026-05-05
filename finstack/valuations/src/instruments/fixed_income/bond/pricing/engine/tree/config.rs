@@ -269,14 +269,16 @@ pub fn bond_tree_config(bond: &Bond) -> TreePricerConfig {
         .implied_volatility
         .unwrap_or(0.01);
 
+    let uses_black_lognormal = matches!(
+        bond.pricing_overrides.model_config.vol_model,
+        Some(crate::instruments::common_impl::parameters::VolatilityModel::Black)
+    );
+
     // For callable/putable bonds, default to Hull-White with reasonable parameters.
     // HullWhiteCalibratedToSwaptions should be preferred when swaption vol data
     // is available in the market context.
     let tree_model = if bond.call_put.is_some() {
-        if matches!(
-            bond.pricing_overrides.model_config.vol_model,
-            Some(crate::instruments::common_impl::parameters::VolatilityModel::Black)
-        ) {
+        if uses_black_lognormal {
             let mean_reversion = bond
                 .pricing_overrides
                 .model_config
@@ -300,6 +302,11 @@ pub fn bond_tree_config(bond: &Bond) -> TreePricerConfig {
     } else {
         TreeModelChoice::HoLee
     };
+    let tree_compounding = if matches!(&tree_model, TreeModelChoice::BlackDermanToy { .. }) {
+        TreeCompounding::Simple
+    } else {
+        TreeCompounding::default()
+    };
 
     TreePricerConfig {
         tree_steps: bond
@@ -320,7 +327,7 @@ pub fn bond_tree_config(bond: &Bond) -> TreePricerConfig {
             .clone(),
         oas_quote_compounding: bond.pricing_overrides.model_config.oas_quote_compounding,
         oas_price_basis: bond.pricing_overrides.model_config.oas_price_basis,
-        tree_compounding: TreeCompounding::default(),
+        tree_compounding,
     }
 }
 
@@ -365,7 +372,7 @@ impl TreePricerConfig {
             tree_discount_curve_id: None,
             oas_quote_compounding: OasQuoteCompounding::Continuous,
             oas_price_basis: OasPriceBasis::SettlementDirty,
-            tree_compounding: TreeCompounding::default(),
+            tree_compounding: TreeCompounding::Simple,
         }
     }
 
@@ -382,7 +389,7 @@ impl TreePricerConfig {
             tree_discount_curve_id: None,
             oas_quote_compounding: OasQuoteCompounding::Continuous,
             oas_price_basis: OasPriceBasis::SettlementDirty,
-            tree_compounding: TreeCompounding::default(),
+            tree_compounding: TreeCompounding::Simple,
         }
     }
 
@@ -607,5 +614,46 @@ impl TreePricerConfig {
             oas_price_basis: OasPriceBasis::SettlementDirty,
             tree_compounding: TreeCompounding::default(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::instruments::common_impl::parameters::VolatilityModel;
+    use crate::instruments::fixed_income::bond::{CallPut, CallPutSchedule};
+    use finstack_core::currency::Currency;
+    use finstack_core::money::Money;
+    use time::macros::date;
+
+    #[test]
+    fn black_lognormal_callable_config_uses_simple_tree_compounding() {
+        let mut bond = Bond::fixed(
+            "BDT-CALLABLE",
+            Money::new(1_000.0, Currency::USD),
+            0.05,
+            date!(2025 - 01 - 01),
+            date!(2030 - 01 - 01),
+            "USD-OIS",
+        )
+        .expect("fixed bond should build");
+        bond.call_put = Some(CallPutSchedule {
+            calls: vec![CallPut {
+                start_date: date!(2027 - 01 - 01),
+                end_date: date!(2028 - 01 - 01),
+                price_pct_of_par: 101.0,
+                make_whole: None,
+            }],
+            puts: vec![],
+        });
+        bond.pricing_overrides.model_config.vol_model = Some(VolatilityModel::Black);
+
+        let config = bond_tree_config(&bond);
+
+        assert_eq!(config.tree_compounding, TreeCompounding::Simple);
+        assert!(matches!(
+            config.tree_model,
+            TreeModelChoice::BlackDermanToy { .. }
+        ));
     }
 }

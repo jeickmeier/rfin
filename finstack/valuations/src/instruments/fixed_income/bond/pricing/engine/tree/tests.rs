@@ -46,9 +46,9 @@ fn create_callable_bond() -> Bond {
     let call_date = Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date");
     let mut call_put = CallPutSchedule::default();
     call_put.calls.push(CallPut {
-        date: call_date,
+        start_date: call_date,
+        end_date: call_date,
         price_pct_of_par: 102.0,
-        end_date: None,
         make_whole: None,
     });
     bond.call_put = Some(call_put);
@@ -59,9 +59,9 @@ fn create_make_whole_callable_bond() -> Bond {
     let call_date = Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date");
     let mut call_put = CallPutSchedule::default();
     call_put.calls.push(CallPut {
-        date: call_date,
+        start_date: call_date,
+        end_date: call_date,
         price_pct_of_par: 102.0,
-        end_date: None,
         make_whole: Some(crate::instruments::fixed_income::bond::MakeWholeSpec {
             reference_curve_id: CurveId::from("USD-TSY"),
             spread_bps: 25.0,
@@ -138,6 +138,37 @@ fn test_bond_valuator_with_calls() {
 }
 
 #[test]
+fn test_bond_valuator_maps_call_period_to_listed_endpoint_steps() {
+    let bond = create_test_bond();
+    let mut json = serde_json::to_value(&bond).expect("Bond serialization should succeed");
+    json.as_object_mut()
+        .expect("serialized bond should be an object")
+        .insert(
+            "call_put".to_string(),
+            serde_json::json!({
+                "calls": [{
+                    "start_date": "2027-01-01",
+                    "end_date": "2028-01-01",
+                    "price_pct_of_par": 101.0
+                }],
+                "puts": []
+            }),
+        );
+    let bond: Bond = serde_json::from_value(json).expect("bond should accept call periods");
+
+    let market_context = create_test_market_context();
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+    let valuator = BondValuator::new(bond, &market_context, as_of, 5.0, 50)
+        .expect("BondValuator creation should succeed in test");
+
+    let call_steps = valuator.call_vec.iter().filter(|c| c.is_some()).count();
+    assert_eq!(
+        call_steps, 2,
+        "call period should map only listed start/end exercise dates, not interior coupon dates"
+    );
+}
+
+#[test]
 fn test_bond_valuator_make_whole_call_exceeds_floor_when_reference_curve_is_low() {
     let bond = create_make_whole_callable_bond();
     let market_context = create_test_market_context();
@@ -169,9 +200,9 @@ fn test_bond_valuator_street_call_redemption_includes_accrued_interest() {
     let call_date = Date::from_calendar_date(2027, Month::April, 1).expect("Valid test date");
     let mut call_put = CallPutSchedule::default();
     call_put.calls.push(CallPut {
-        date: call_date,
+        start_date: call_date,
+        end_date: call_date,
         price_pct_of_par: 100.0,
-        end_date: None,
         make_whole: None,
     });
     bond.call_put = Some(call_put);

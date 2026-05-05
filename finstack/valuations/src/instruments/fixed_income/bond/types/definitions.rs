@@ -9,6 +9,10 @@ use finstack_core::types::{CurveId, InstrumentId};
 
 use super::CashflowSpec;
 
+fn is_linear_accrual_method(method: &crate::cashflow::accrual::AccrualMethod) -> bool {
+    matches!(method, crate::cashflow::accrual::AccrualMethod::Linear)
+}
+
 /// Bond settlement and ex-coupon conventions.
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct BondSettlementConvention {
@@ -86,7 +90,8 @@ pub struct Bond {
     ///
     /// For inflation-linked bonds (TIPS, UK Linkers), use the dedicated
     /// `InflationLinkedBond` instrument which handles index-ratio accrual.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_linear_accrual_method")]
+    #[schemars(extend("default" = "Linear"))]
     #[builder(default)]
     pub accrual_method: crate::cashflow::accrual::AccrualMethod,
     /// Attributes for scenario selection and tagging.
@@ -181,7 +186,7 @@ impl<'de> serde::Deserialize<'de> for Bond {
 
 /// Call or put option on a bond.
 ///
-/// Represents a single call or put option with an exercise date and redemption price.
+/// Represents a single call or put option with an exercise period and redemption price.
 /// Call options allow the issuer to redeem early; put options allow the holder to redeem early.
 ///
 /// # Examples
@@ -193,31 +198,24 @@ impl<'de> serde::Deserialize<'de> for Bond {
 ///
 /// // Discrete call option: issuer can redeem at 102% of par on Jan 1, 2027
 /// let call = CallPut {
-///     date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+///     start_date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+///     end_date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
 ///     price_pct_of_par: 102.0,
-///     end_date: None,
 ///     make_whole: None,
 /// };
 /// ```
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct CallPut {
-    /// Exercise date of the option (or start of exercise period).
+    /// First date when the option can be exercised.
     #[schemars(with = "String")]
-    pub date: Date,
+    pub start_date: Date,
+    /// Last date when the option can be exercised, inclusive.
+    ///
+    /// Use the same value as `start_date` for one-day/discrete exercise.
+    #[schemars(with = "String")]
+    pub end_date: Date,
     /// Redemption price as percentage of par amount.
     pub price_pct_of_par: f64,
-    /// Optional end date for exercise periods. When present, the option is
-    /// exercisable from `date` to `end_date` (inclusive). When absent, the option
-    /// is exercisable only on `date` (European-style discrete exercise).
-    ///
-    /// # Industry Practice
-    ///
-    /// Many callable bonds have continuous exercise windows (e.g., "callable any
-    /// time after year 3 at 102% of par"). Set `date` to the first exercise date
-    /// and `end_date` to the last exercise date for such provisions.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(with = "Option<String>")]
-    pub end_date: Option<Date>,
     /// Optional make-whole call specification.
     ///
     /// When set, the call price is computed as:
@@ -262,9 +260,9 @@ pub struct MakeWholeSpec {
 ///
 /// let mut schedule = CallPutSchedule::default();
 /// schedule.calls.push(CallPut {
-///     date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+///     start_date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+///     end_date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
 ///     price_pct_of_par: 102.0,
-///     end_date: None,
 ///     make_whole: None,
 /// });
 /// ```

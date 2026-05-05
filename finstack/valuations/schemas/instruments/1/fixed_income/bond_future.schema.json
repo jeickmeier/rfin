@@ -673,18 +673,11 @@
               ]
             },
             "CallPut": {
-              "description": "Call or put option on a bond.\n\nRepresents a single call or put option with an exercise date and redemption price.\nCall options allow the issuer to redeem early; put options allow the holder to redeem early.\n\n# Examples\n\n```rust\nuse finstack_valuations::instruments::fixed_income::bond::CallPut;\nuse finstack_core::dates::Date;\nuse time::Month;\n\n// Discrete call option: issuer can redeem at 102% of par on Jan 1, 2027\nlet call = CallPut {\n    date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),\n    price_pct_of_par: 102.0,\n    end_date: None,\n    make_whole: None,\n};\n```",
+              "description": "Call or put option on a bond.\n\nRepresents a single call or put option with an exercise period and redemption price.\nCall options allow the issuer to redeem early; put options allow the holder to redeem early.\n\n# Examples\n\n```rust\nuse finstack_valuations::instruments::fixed_income::bond::CallPut;\nuse finstack_core::dates::Date;\nuse time::Month;\n\n// Discrete call option: issuer can redeem at 102% of par on Jan 1, 2027\nlet call = CallPut {\n    start_date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),\n    end_date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),\n    price_pct_of_par: 102.0,\n    make_whole: None,\n};\n```",
               "properties": {
-                "date": {
-                  "description": "Exercise date of the option (or start of exercise period).",
-                  "type": "string"
-                },
                 "end_date": {
-                  "description": "Optional end date for exercise periods. When present, the option is\nexercisable from `date` to `end_date` (inclusive). When absent, the option\nis exercisable only on `date` (European-style discrete exercise).\n\n# Industry Practice\n\nMany callable bonds have continuous exercise windows (e.g., \"callable any\ntime after year 3 at 102% of par\"). Set `date` to the first exercise date\nand `end_date` to the last exercise date for such provisions.",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "description": "Last date when the option can be exercised, inclusive.\n\nUse the same value as `start_date` for one-day/discrete exercise.",
+                  "type": "string"
                 },
                 "make_whole": {
                   "anyOf": [
@@ -701,16 +694,21 @@
                   "description": "Redemption price as percentage of par amount.",
                   "format": "double",
                   "type": "number"
+                },
+                "start_date": {
+                  "description": "First date when the option can be exercised.",
+                  "type": "string"
                 }
               },
               "required": [
-                "date",
+                "start_date",
+                "end_date",
                 "price_pct_of_par"
               ],
               "type": "object"
             },
             "CallPutSchedule": {
-              "description": "Schedule of call and put options for a bond.\n\nContains lists of call and put options that can be exercised during the bond's life.\nUsed for pricing callable/putable bonds and calculating yield-to-worst.\n\n# Examples\n\n```rust\nuse finstack_valuations::instruments::fixed_income::bond::{CallPut, CallPutSchedule};\nuse finstack_core::dates::Date;\nuse time::Month;\n\nlet mut schedule = CallPutSchedule::default();\nschedule.calls.push(CallPut {\n    date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),\n    price_pct_of_par: 102.0,\n    end_date: None,\n    make_whole: None,\n});\n```",
+              "description": "Schedule of call and put options for a bond.\n\nContains lists of call and put options that can be exercised during the bond's life.\nUsed for pricing callable/putable bonds and calculating yield-to-worst.\n\n# Examples\n\n```rust\nuse finstack_valuations::instruments::fixed_income::bond::{CallPut, CallPutSchedule};\nuse finstack_core::dates::Date;\nuse time::Month;\n\nlet mut schedule = CallPutSchedule::default();\nschedule.calls.push(CallPut {\n    start_date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),\n    end_date: Date::from_calendar_date(2027, Month::January, 1).unwrap(),\n    price_pct_of_par: 102.0,\n    make_whole: None,\n});\n```",
               "properties": {
                 "calls": {
                   "description": "Call options (issuer can redeem early).",

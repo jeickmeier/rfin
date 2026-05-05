@@ -124,9 +124,9 @@ fn create_callable_convertible() -> ConvertibleBond {
     let mut call_put = CallPutSchedule::default();
 
     call_put.calls.push(CallPut {
-        date: maturity_3y(),
+        start_date: maturity_3y(),
+        end_date: maturity_3y(),
         price_pct_of_par: 105.0,
-        end_date: None,
         make_whole: None,
     });
 
