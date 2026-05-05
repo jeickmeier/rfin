@@ -48,9 +48,6 @@
             },
             "reset_lag_days": 2,
             "dc": "Act360",
-            "bdc": "modified_following",
-            "end_of_month": false,
-            "payment_lag_days": 0,
             "calendar_id": "weekends_only",
             "fixing_calendar_id": "weekends_only"
           }
@@ -60,7 +57,6 @@
           "unit": "months"
         },
         "day_count": "Act360",
-        "bdc": "modified_following",
         "stub": "None",
         "discount_curve_id": "USD-CORP",
         "credit_curve_id": "ACME-HZD",
@@ -69,12 +65,8 @@
             "bp": 250
           }
         },
-        "coupon_type": "Cash",
         "pricing_overrides": {
-          "quoted_clean_price": 99.0,
-          "adaptive_bumps": false,
-          "use_gobet_miri": false,
-          "vol_surface_extrapolation": "error"
+          "quoted_clean_price": 99.0
         },
         "settlement_days": 2,
         "attributes": {

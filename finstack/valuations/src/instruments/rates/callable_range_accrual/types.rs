@@ -37,6 +37,7 @@ pub struct CallableRangeAccrual {
     /// Bermudan call provision.
     pub call_provision: BermudanCallProvision,
     /// Pricing overrides.
+    #[serde(default)]
     pub pricing_overrides: PricingOverrides,
     /// Attributes.
     pub attributes: Attributes,

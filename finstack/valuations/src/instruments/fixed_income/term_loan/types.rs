@@ -253,6 +253,8 @@ pub struct TermLoan {
     pub amortization: AmortizationSpec,
 
     /// Coupon split type (Cash/PIK/Split)
+    #[builder(default = CouponType::Cash)]
+    #[serde(default)]
     pub coupon_type: CouponType,
 
     /// Upfront fee at issue (if any)
@@ -265,6 +267,8 @@ pub struct TermLoan {
     pub covenants: Option<CovenantSpec>,
 
     /// Pricing overrides (quoted price, seed, etc.)
+    #[builder(default)]
+    #[serde(default)]
     pub pricing_overrides: PricingOverrides,
 
     /// Optional EIR amortization settings for reporting schedules

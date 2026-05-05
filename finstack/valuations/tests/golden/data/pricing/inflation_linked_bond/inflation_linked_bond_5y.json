@@ -38,7 +38,6 @@
           "count": 6,
           "unit": "months"
         },
-        "day_count": "Act365F",
         "issue_date": "2024-01-15",
         "maturity": "2031-04-30",
         "base_index": 300.0,
@@ -59,7 +58,8 @@
           ],
           "meta": {}
         },
-        "quoted_clean": 101.25
+        "quoted_clean": 101.25,
+        "day_count": "Act365F"
       }
     },
     "market": {

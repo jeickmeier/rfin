@@ -86,6 +86,7 @@ pub struct Snowball {
     /// Day count convention.
     pub day_count: DayCount,
     /// Pricing overrides.
+    #[serde(default)]
     pub pricing_overrides: PricingOverrides,
     /// Attributes.
     pub attributes: Attributes,

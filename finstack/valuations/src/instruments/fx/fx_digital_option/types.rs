@@ -108,6 +108,8 @@ pub struct FxDigitalOption {
     /// FX volatility surface ID
     pub vol_surface_id: CurveId,
     /// Pricing overrides (manual price, yield, spread)
+    #[serde(default)]
+    #[builder(default)]
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
     pub attributes: Attributes,

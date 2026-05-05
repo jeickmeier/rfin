@@ -32,20 +32,15 @@
         "underlying_ticker": "SPX",
         "strike": 4500.0,
         "option_type": "call",
-        "exercise_style": "european",
         "expiry": "2027-04-30",
         "notional": {
           "amount": "100",
           "currency": "USD"
         },
-        "day_count": "Act365F",
-        "settlement": "cash",
         "discount_curve_id": "USD-OIS",
         "spot_id": "SPX-SPOT",
         "vol_surface_id": "SPX-VOL",
         "div_yield_id": "SPX-DIVYIELD",
-        "discrete_dividends": [],
-        "pricing_overrides": {},
         "attributes": {
           "tags": [
             "golden"

@@ -177,6 +177,8 @@ pub struct EquityOption {
     #[schemars(with = "Option<Vec<String>>")]
     pub exercise_schedule: Option<Vec<Date>>,
     /// Pricing overrides (manual price, yield, spread)
+    #[serde(default)]
+    #[builder(default)]
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
     pub attributes: Attributes,

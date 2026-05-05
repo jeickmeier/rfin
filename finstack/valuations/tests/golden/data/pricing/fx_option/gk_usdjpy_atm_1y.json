@@ -34,18 +34,14 @@
         "quote_currency": "JPY",
         "strike": 145.0,
         "option_type": "call",
-        "exercise_style": "european",
         "expiry": "2027-04-30",
-        "day_count": "Act365F",
         "notional": {
           "amount": "1000000",
           "currency": "USD"
         },
-        "settlement": "cash",
         "domestic_discount_curve_id": "JPY-OIS",
         "foreign_discount_curve_id": "USD-OIS",
         "vol_surface_id": "USDJPY-VOL",
-        "pricing_overrides": {},
         "attributes": {
           "tags": [
             "golden"

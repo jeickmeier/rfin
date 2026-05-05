@@ -32,18 +32,14 @@
         "quote_currency": "USD",
         "strike": 1.14,
         "option_type": "call",
-        "exercise_style": "european",
         "expiry": "2026-10-30",
-        "day_count": "Act365F",
         "notional": {
           "amount": "1000000",
           "currency": "EUR"
         },
-        "settlement": "cash",
         "domestic_discount_curve_id": "USD-OIS",
         "foreign_discount_curve_id": "EUR-OIS",
         "vol_surface_id": "EURUSD-VOL",
-        "pricing_overrides": {},
         "attributes": {
           "tags": [
             "golden"

@@ -63,8 +63,6 @@
             "count": 3,
             "unit": "months"
           },
-          "stub": "ShortFront",
-          "bdc": "modified_following",
           "calendar_id": "nyse",
           "day_count": "Act360",
           "spread_bp": "100.0",

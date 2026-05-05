@@ -63,27 +63,20 @@
           "maturity": "2034-05-15",
           "cashflow_spec": {
             "Fixed": {
-              "coupon_type": "Cash",
               "rate": "0.0425",
               "freq": {
                 "count": 6,
                 "unit": "months"
               },
               "dc": "Thirty360",
-              "bdc": "modified_following",
               "calendar_id": "nyse",
-              "stub": "None",
-              "end_of_month": false,
-              "payment_lag_days": 0
+              "stub": "None"
             }
           },
           "discount_curve_id": "USD-TREASURY",
           "credit_curve_id": null,
           "pricing_overrides": {
-            "quoted_clean_price": 98.5,
-            "adaptive_bumps": false,
-            "use_gobet_miri": false,
-            "vol_surface_extrapolation": "error"
+            "quoted_clean_price": 98.5
           },
           "call_put": null,
           "accrual_method": "Linear",
@@ -97,7 +90,6 @@
           "ex_coupon_days": 0
         },
         "discount_curve_id": "USD-TREASURY",
-        "pricing_overrides": {},
         "attributes": {
           "tags": [
             "golden"

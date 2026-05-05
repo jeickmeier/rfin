@@ -49,7 +49,6 @@
         "id": "IBM-USD-CDSO-PAYER-ATM-3M-20260502",
         "strike": "0.0058395400",
         "option_type": "call",
-        "exercise_style": "european",
         "expiry": "2026-06-26",
         "cds_maturity": "2031-06-20",
         "day_count": "Act360",
@@ -57,7 +56,6 @@
           "amount": "10000000",
           "currency": "USD"
         },
-        "settlement": "cash",
         "cash_settlement_date": "2026-05-07",
         "exercise_settlement_date": "2026-06-24",
         "underlying_effective_date": "2026-06-21",
@@ -99,7 +97,9 @@
           }
         },
         "underlying_is_index": false,
-        "forward_spread_adjust": "0"
+        "forward_spread_adjust": "0",
+        "exercise_style": "european",
+        "settlement": "cash"
       }
     },
     "market": {

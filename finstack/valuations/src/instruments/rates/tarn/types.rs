@@ -62,6 +62,7 @@ pub struct Tarn {
     /// Day count convention for coupon accrual.
     pub day_count: DayCount,
     /// Pricing overrides.
+    #[serde(default)]
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection.
     pub attributes: Attributes,

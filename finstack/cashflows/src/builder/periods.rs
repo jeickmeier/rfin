@@ -136,6 +136,7 @@ fn enrich_period_schedule(
 ///     day_count: DayCount::Act360,
 ///     payment_lag_days: 2,
 ///     reset_lag_days: Some(2),
+///     adjust_accrual_dates: false,
 /// })
 /// .expect("single-period build succeeds");
 ///
@@ -207,6 +208,7 @@ pub fn build_single_period(
 ///     day_count: DayCount::Act360,
 ///     payment_lag_days: 2,
 ///     reset_lag_days: Some(2),
+///     adjust_accrual_dates: false,
 /// })
 /// .expect("period build succeeds");
 ///

@@ -36,14 +36,14 @@
         "fixed_rate": 0.0225,
         "inflation_index_id": "US-CPI",
         "discount_curve_id": "USD-OIS",
-        "day_count": "Act365F",
         "side": "pay",
         "attributes": {
           "tags": [
             "golden"
           ],
           "meta": {}
-        }
+        },
+        "day_count": "Act365F"
       }
     },
     "market": {

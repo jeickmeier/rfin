@@ -46,7 +46,6 @@
         "discount_curve_id": "USD-OIS",
         "spot_id": "SPX-SPOT",
         "div_yield_id": "SPX-DIVYIELD",
-        "pricing_overrides": {},
         "attributes": {
           "tags": [
             "golden"

@@ -80,14 +80,12 @@
               "unit": "years"
             },
             "day_count": "Act360",
-            "bdc": "modified_following",
             "calendar_id": "usny",
             "stub": "None",
             "start": "2026-05-04",
             "end": "2031-05-04",
             "par_method": null,
             "payment_lag_days": 2,
-            "end_of_month": false,
             "compounding_simple": true
           },
           "float": {
@@ -99,7 +97,6 @@
               "unit": "years"
             },
             "day_count": "Act360",
-            "bdc": "modified_following",
             "calendar_id": "usny",
             "stub": "None",
             "reset_lag_days": 0,
@@ -107,7 +104,6 @@
             "fixing_calendar_id": "usny",
             "start": "2026-05-04",
             "end": "2031-05-04",
-            "end_of_month": false,
             "compounding": {
               "CompoundedWithRateCutoff": {
                 "cutoff_days": 1

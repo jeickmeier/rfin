@@ -95,8 +95,6 @@
             "unit": "months"
           },
           "day_count": "Act360",
-          "exercise_style": "european",
-          "settlement": "cash",
           "cash_settlement_method": "isda_par_par",
           "vol_model": "normal",
           "discount_curve_id": "USD-SOFR-DISC",
@@ -111,15 +109,13 @@
               "unit": "months"
             },
             "day_count": "Act360",
-            "bdc": "modified_following",
             "calendar_id": "usny",
             "stub": "None",
             "start": "2027-05-05",
             "end": "2032-05-05",
             "par_method": null,
             "compounding_simple": true,
-            "payment_lag_days": 2,
-            "end_of_month": false
+            "payment_lag_days": 2
           },
           "underlying_float_leg": {
             "discount_curve_id": "USD-SOFR-DISC",
@@ -130,7 +126,6 @@
               "unit": "months"
             },
             "day_count": "Act360",
-            "bdc": "modified_following",
             "calendar_id": "usny",
             "stub": "None",
             "reset_lag_days": 0,
@@ -142,8 +137,7 @@
                 "cutoff_days": 1
               }
             },
-            "payment_lag_days": 2,
-            "end_of_month": false
+            "payment_lag_days": 2
           },
           "pricing_overrides": {
             "vol_surface_extrapolation": "clamp"
@@ -164,7 +158,8 @@
               "screen_volatility_type": "Normal",
               "legacy_fixture_name": "usd_swaption_5y_into_5y_receiver_25_otm"
             }
-          }
+          },
+          "settlement": "cash"
         }
       }
     },

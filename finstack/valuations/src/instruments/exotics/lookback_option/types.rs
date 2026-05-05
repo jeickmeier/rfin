@@ -150,6 +150,8 @@ pub struct LookbackOption {
     #[serde(default)]
     pub use_gobet_miri: bool,
     /// Pricing overrides (manual price, yield, spread)
+    #[serde(default)]
+    #[builder(default)]
     pub pricing_overrides: PricingOverrides,
     /// Observed minimum spot price since inception (required for Floating Call / Fixed Put)
     pub observed_min: Option<Money>,

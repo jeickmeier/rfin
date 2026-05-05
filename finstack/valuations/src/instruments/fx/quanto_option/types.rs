@@ -77,6 +77,8 @@ pub struct QuantoOption {
     /// Optional FX volatility surface ID
     pub fx_vol_id: Option<CurveId>,
     /// Pricing overrides (manual price, yield, spread)
+    #[serde(default)]
+    #[builder(default)]
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
@@ -130,6 +132,7 @@ struct QuantoOptionUnchecked {
     #[serde(default)]
     fx_vol_id: Option<CurveId>,
     /// Pricing overrides (manual price, yield, spread).
+    #[serde(default)]
     pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping.
     attributes: Attributes,

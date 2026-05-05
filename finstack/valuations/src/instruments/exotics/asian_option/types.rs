@@ -136,6 +136,8 @@ pub struct AsianOption {
     /// Optional dividend yield curve ID
     pub div_yield_id: Option<CurveId>,
     /// Pricing overrides (manual price, yield, spread)
+    #[serde(default)]
+    #[builder(default)]
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
     pub attributes: Attributes,

@@ -101,7 +101,6 @@ pub struct FxForward {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quote_calendar_id: Option<String>,
     /// Attributes for tagging and selection.
-    #[builder(default)]
     #[serde(default)]
     #[builder(default)]
     pub pricing_overrides: crate::instruments::PricingOverrides,

@@ -44,7 +44,6 @@
             "meta": {}
           },
           "spot_lag_days": 0,
-          "bdc": "modified_following",
           "calendar_id": null
         }
       }

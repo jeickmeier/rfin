@@ -51,7 +51,6 @@
         "effective_date": "2026-04-30",
         "accumulated_loss": 0.0,
         "standard_imm_dates": false,
-        "pricing_overrides": {},
         "attributes": {
           "tags": [
             "golden"

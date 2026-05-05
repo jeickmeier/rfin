@@ -85,9 +85,9 @@
                 "currency": "USD"
               },
               "acquisition_date": null,
-              "day_count": "Act365F",
               "smm_override": null,
-              "mdr_override": null
+              "mdr_override": null,
+              "day_count": "Act365F"
             }
           ],
           "cumulative_defaults": {
@@ -253,11 +253,8 @@
                   },
                   "reset_lag_days": 2,
                   "dc": "Act360",
-                  "bdc": "modified_following",
                   "calendar_id": "NYC",
-                  "fixing_calendar_id": "NYC",
-                  "end_of_month": false,
-                  "payment_lag_days": 0
+                  "fixing_calendar_id": "NYC"
                 }
               },
               "oc_trigger": null,
@@ -436,7 +433,6 @@
                 "unit": "months"
               },
               "day_count": "Thirty360",
-              "bdc": "modified_following",
               "calendar_id": "USD",
               "stub": "None",
               "start": "2024-01-01",
@@ -453,7 +449,6 @@
                 "unit": "months"
               },
               "day_count": "Act360",
-              "bdc": "modified_following",
               "calendar_id": "USD",
               "stub": "None",
               "reset_lag_days": 2,

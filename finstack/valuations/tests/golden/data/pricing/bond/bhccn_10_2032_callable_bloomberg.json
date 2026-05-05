@@ -128,7 +128,6 @@
           "maturity": "2032-04-15",
           "cashflow_spec": {
             "Fixed": {
-              "coupon_type": "Cash",
               "rate": "0.10",
               "freq": {
                 "count": 6,
@@ -136,9 +135,6 @@
               },
               "dc": "Thirty360",
               "bdc": "following",
-              "stub": "ShortFront",
-              "end_of_month": false,
-              "payment_lag_days": 0,
               "calendar_id": "weekends_only"
             }
           },
@@ -152,9 +148,6 @@
             "mean_reversion": 0.0,
             "tree_discount_curve_id": "USD-OAS-S23",
             "bond_risk_basis": "bullet_discountable",
-            "adaptive_bumps": false,
-            "use_gobet_miri": false,
-            "vol_surface_extrapolation": "error",
             "oas_quote_compounding": "continuous",
             "oas_price_basis": "forward_accrued_clean",
             "asw_forward_curve_id": "USD-SOFRRATE"

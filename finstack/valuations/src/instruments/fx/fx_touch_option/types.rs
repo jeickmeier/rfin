@@ -203,6 +203,8 @@ pub struct FxTouchOption {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub observed_touch: Option<bool>,
     /// Pricing overrides (manual price, yield, spread)
+    #[serde(default)]
+    #[builder(default)]
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
     pub attributes: Attributes,

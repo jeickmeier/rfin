@@ -128,17 +128,12 @@
           "maturity": "2034-02-03",
           "cashflow_spec": {
             "Fixed": {
-              "coupon_type": "Cash",
               "rate": "0.0345",
               "freq": {
                 "count": 12,
                 "unit": "months"
               },
               "dc": "ActAct",
-              "bdc": "modified_following",
-              "stub": "ShortFront",
-              "end_of_month": false,
-              "payment_lag_days": 0,
               "calendar_id": "target2"
             }
           },
@@ -151,10 +146,7 @@
             "vol_model": "black",
             "mean_reversion": 0.0,
             "tree_discount_curve_id": "EUR-OAS-960",
-            "asw_forward_curve_id": "EUR-EURIBOR-6M",
-            "adaptive_bumps": false,
-            "use_gobet_miri": false,
-            "vol_surface_extrapolation": "error"
+            "asw_forward_curve_id": "EUR-EURIBOR-6M"
           },
           "call_put": {
             "calls": [
@@ -613,7 +605,7 @@
           "oas_volatility": 0.2321,
           "option_px_value": -700.0,
           "vega": -0.01,
-          "oas_to_maturity_yield": 0.03830,
+          "oas_to_maturity_yield": 0.0383,
           "oas_to_maturity_spread": 0.00701,
           "oas_to_maturity_duration": 6.73,
           "oas_to_maturity_risk": 6.62,
@@ -844,11 +836,11 @@
       "tolerance_reason": "Bloomberg accrued interest is displayed to cents at settlement 2026-05-06."
     },
     "ytm": {
-      "abs": 0.00001,
+      "abs": 1e-05,
       "tolerance_reason": "Bloomberg yield is displayed to six decimals in percent."
     },
     "ytw": {
-      "abs": 0.00001,
+      "abs": 1e-05,
       "tolerance_reason": "Bloomberg workout is maturity at 100.00 and displays the same yield-to-worst."
     },
     "z_spread": {

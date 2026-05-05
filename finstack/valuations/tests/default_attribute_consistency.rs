@@ -93,3 +93,70 @@ fn builder_default_requires_serde_default_in_instrument_types() {
         violations.join("\n")
     );
 }
+
+#[test]
+fn pricing_overrides_fields_default_to_empty_in_instrument_types() {
+    let instruments_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/instruments");
+    let mut files = Vec::new();
+    collect_types_rs_files(&instruments_dir, &mut files)
+        .expect("should collect instrument types.rs files");
+    files.sort();
+
+    let mut violations = Vec::new();
+
+    for file in files {
+        let content = fs::read_to_string(&file).expect("should read instrument types.rs");
+        let lines: Vec<&str> = content.lines().collect();
+
+        let mut pending_attrs: Vec<String> = Vec::new();
+        let mut i = 0usize;
+        while i < lines.len() {
+            let trimmed = lines[i].trim_start();
+
+            if trimmed.starts_with("#[") {
+                let (attr, end_idx) = parse_attribute(&lines, i);
+                pending_attrs.push(attr);
+                i = end_idx + 1;
+                continue;
+            }
+
+            if trimmed.starts_with("pub pricing_overrides:") && trimmed.contains("PricingOverrides")
+            {
+                let has_serde_default = pending_attrs
+                    .iter()
+                    .any(|a| a.contains("serde(") && a.contains("default"));
+
+                if !has_serde_default {
+                    let rel = file
+                        .strip_prefix(env!("CARGO_MANIFEST_DIR"))
+                        .unwrap_or(&file)
+                        .display()
+                        .to_string();
+                    violations.push(format!(
+                        "{}:{}: {} (serde_default={})",
+                        rel,
+                        i + 1,
+                        trimmed,
+                        has_serde_default
+                    ));
+                }
+
+                pending_attrs.clear();
+            } else if trimmed.starts_with("pub ")
+                || (!trimmed.is_empty()
+                    && !trimmed.starts_with("//")
+                    && !trimmed.starts_with("///"))
+            {
+                pending_attrs.clear();
+            }
+
+            i += 1;
+        }
+    }
+
+    assert!(
+        violations.is_empty(),
+        "Public instrument pricing_overrides fields must default to empty for serde.\n{}",
+        violations.join("\n")
+    );
+}

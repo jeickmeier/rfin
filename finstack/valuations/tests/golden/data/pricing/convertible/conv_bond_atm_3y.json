@@ -41,7 +41,6 @@
         },
         "underlying_equity_id": "ACME",
         "fixed_coupon": {
-          "coupon_type": "Cash",
           "rate": 0.02,
           "freq": {
             "count": 6,
@@ -50,8 +49,6 @@
           "dc": "Thirty360",
           "bdc": "following",
           "stub": "None",
-          "end_of_month": false,
-          "payment_lag_days": 0,
           "calendar_id": "weekends_only"
         },
         "attributes": {
@@ -61,11 +58,6 @@
           "meta": {
             "vol_surface_id": "ACME-VOL"
           }
-        },
-        "pricing_overrides": {
-          "adaptive_bumps": false,
-          "use_gobet_miri": false,
-          "vol_surface_extrapolation": "error"
         },
         "id": "CONV-BOND-ATM-3Y-GOLDEN",
         "issue_date": "2026-04-30"

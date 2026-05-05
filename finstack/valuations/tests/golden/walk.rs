@@ -257,6 +257,94 @@ fn validate_pricing_input_schema(path: &Path, fixture: &GoldenFixture) -> Result
     Ok(())
 }
 
+fn strip_default_instrument_inputs(value: &mut serde_json::Value) {
+    let Some(object) = value.as_object_mut() else {
+        return;
+    };
+
+    for child in object.values_mut() {
+        strip_default_instrument_inputs(child);
+    }
+
+    remove_default_string(object, "coupon_type", "Cash");
+    remove_default_string(object, "bdc", "modified_following");
+    remove_default_string(object, "stub", "ShortFront");
+    remove_default_string(object, "vol_surface_extrapolation", "error");
+    remove_default_bool(object, "adaptive_bumps", false);
+    remove_default_bool(object, "use_gobet_miri", false);
+    remove_default_bool(object, "end_of_month", false);
+    remove_default_i64(object, "payment_lag_days", 0);
+    remove_default_f64(object, "vol_shift", 0.0);
+    remove_default_f64(object, "rho_bump_decimal", 0.0001);
+    remove_default_f64(object, "vega_bump_decimal", 0.0001);
+    remove_empty_array(object, "discrete_dividends");
+    remove_empty_object(object, "pricing_overrides");
+}
+
+fn remove_default_string(
+    object: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    default: &str,
+) {
+    if object.get(key).and_then(serde_json::Value::as_str) == Some(default) {
+        object.remove(key);
+    }
+}
+
+fn remove_default_bool(
+    object: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    default: bool,
+) {
+    if object.get(key).and_then(serde_json::Value::as_bool) == Some(default) {
+        object.remove(key);
+    }
+}
+
+fn remove_default_i64(
+    object: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    default: i64,
+) {
+    if object.get(key).and_then(serde_json::Value::as_i64) == Some(default) {
+        object.remove(key);
+    }
+}
+
+fn remove_default_f64(
+    object: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    default: f64,
+) {
+    if object
+        .get(key)
+        .and_then(serde_json::Value::as_f64)
+        .is_some_and(|value| (value - default).abs() < f64::EPSILON)
+    {
+        object.remove(key);
+    }
+}
+
+fn remove_empty_array(object: &mut serde_json::Map<String, serde_json::Value>, key: &str) {
+    if object
+        .get(key)
+        .and_then(serde_json::Value::as_array)
+        .is_some_and(Vec::is_empty)
+    {
+        object.remove(key);
+    }
+}
+
+fn remove_empty_object(object: &mut serde_json::Map<String, serde_json::Value>, key: &str) {
+    if object
+        .get(key)
+        .and_then(serde_json::Value::as_object)
+        .is_some_and(serde_json::Map::is_empty)
+    {
+        object.remove(key);
+    }
+}
+
 fn validate_object_keys(
     field: &str,
     object: &serde_json::Map<String, serde_json::Value>,
@@ -757,4 +845,48 @@ fn pricing_fixture_discovery_uses_existing_json_files() {
     assert!(relatives.contains("pricing/cds/cds_5y_par_spread.json"));
     assert!(relatives.contains("pricing/irs/usd_sofr_5y_receive_fixed_swpm.json"));
     assert!(!relatives.contains("pricing/cds/cds_5y_running_upfront.json"));
+}
+
+#[test]
+fn pricing_instrument_json_accepts_omitted_golden_defaults() {
+    let failures = collect_fixture_paths_under("pricing")
+        .expect("pricing fixture discovery should walk the pricing directory")
+        .into_iter()
+        .filter_map(|path| {
+            let relative =
+                fixture_relative_path(&path).unwrap_or_else(|_| path.display().to_string());
+            stripped_default_instrument_parse_error(&path).map(|err| format!("{relative}: {err}"))
+        })
+        .collect::<Vec<_>>();
+
+    assert!(
+        failures.is_empty(),
+        "{} pricing fixture(s) require explicit default instrument inputs:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
+}
+
+fn stripped_default_instrument_parse_error(path: &Path) -> Option<String> {
+    let raw = match fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(err) => return Some(format!("read failed: {err}")),
+    };
+    let fixture: GoldenFixture = match serde_json::from_str(&raw) {
+        Ok(fixture) => fixture,
+        Err(err) => return Some(format!("parse failed: {err}")),
+    };
+    let Some(mut instrument_json) = fixture.inputs.get("instrument_json").cloned() else {
+        return Some("missing inputs.instrument_json".to_string());
+    };
+
+    strip_default_instrument_inputs(&mut instrument_json);
+    let instrument_json = match serde_json::to_string(&instrument_json) {
+        Ok(instrument_json) => instrument_json,
+        Err(err) => return Some(format!("serialize stripped instrument: {err}")),
+    };
+
+    parse_boxed_instrument_json(&instrument_json, None)
+        .err()
+        .map(|err| format!("stripped default instrument inputs failed to parse: {err}"))
 }

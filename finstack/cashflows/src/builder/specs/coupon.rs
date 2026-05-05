@@ -13,10 +13,18 @@ use super::schedule::ScheduleParams;
 /// - `PIK`: 100% capitalized into principal.
 /// - `Split { cash_pct, pik_pct }`: percentages applied to the coupon amount.
 #[derive(
-    Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 pub enum CouponType {
     /// Cash variant.
+    #[default]
     Cash,
     /// PIK variant.
     PIK,
@@ -71,6 +79,7 @@ impl CouponType {
 pub struct FixedCouponSpec {
     /// Coupon settlement behavior: cash, PIK, or an explicit split of the
     /// coupon amount.
+    #[serde(default)]
     pub coupon_type: CouponType,
     /// Coupon rate as a decimal (e.g., 0.05 for 5%). Uses Decimal for exact representation.
     pub rate: Decimal,
@@ -92,8 +101,10 @@ pub struct FixedCouponSpec {
     pub stub: StubKind,
     /// Whether end-of-month rolling should be preserved during schedule
     /// generation.
+    #[serde(default)]
     pub end_of_month: bool,
     /// Payment lag in business days after the adjusted accrual end date.
+    #[serde(default)]
     pub payment_lag_days: i32,
 }
 
@@ -369,8 +380,10 @@ pub struct FloatingRateSpec {
     #[serde(default)]
     pub fixing_calendar_id: Option<String>,
     /// End-of-month rolling.
+    #[serde(default)]
     pub end_of_month: bool,
     /// Payment lag in business days after accrual end.
+    #[serde(default)]
     pub payment_lag_days: i32,
 
     /// Overnight compounding method for overnight rate indices (SOFR, ESTR, SONIA).
@@ -458,6 +471,7 @@ pub struct FloatingCouponSpec {
     pub rate_spec: FloatingRateSpec,
 
     /// Coupon type (Cash/PIK/Split).
+    #[serde(default)]
     pub coupon_type: CouponType,
 
     /// Payment frequency (may differ from reset frequency in rate_spec).
@@ -505,6 +519,7 @@ pub struct FloatingCouponSpec {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct StepUpCouponSpec {
     /// Coupon type (Cash/PIK/Split).
+    #[serde(default)]
     pub coupon_type: CouponType,
     /// Initial coupon rate (annual, decimal). Used until the first step date.
     pub initial_rate: Decimal,
@@ -532,8 +547,10 @@ pub struct StepUpCouponSpec {
     #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
     /// Whether to apply end-of-month rule.
+    #[serde(default)]
     pub end_of_month: bool,
     /// Payment lag in business days after accrual end.
+    #[serde(default)]
     pub payment_lag_days: i32,
 }
 

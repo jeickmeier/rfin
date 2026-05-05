@@ -145,6 +145,8 @@ pub struct InflationCapFloor {
     /// Volatility surface identifier.
     pub vol_surface_id: CurveId,
     /// Pricing overrides (implied volatility, surface extrapolation).
+    #[serde(default)]
+    #[builder(default)]
     pub pricing_overrides: PricingOverrides,
     /// Optional contract-level lag override.
     #[builder(optional)]
