@@ -1,7 +1,6 @@
 //! Market validation tests for option value bounds and no-arbitrage conditions.
 
 use super::common::*;
-use crate::finstack_test_utils as test_utils;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use rust_decimal::prelude::ToPrimitive;
@@ -289,17 +288,7 @@ fn test_put_call_parity() {
         let put_pv = put.value(&market, as_of).unwrap().amount();
 
         // Compute forward spread and risky annuity from the underlying CDS metrics
-        let mut underlying = test_utils::cds_buy_protection(
-            "CDS-FWD",
-            call.notional,
-            strike,
-            call.expiry,
-            call.cds_maturity,
-            call.discount_curve_id.clone(),
-            call.credit_curve_id.clone(),
-        )
-        .expect("underlying CDS should build");
-        underlying.protection.recovery_rate = call.recovery_rate;
+        let underlying = option_underlying_cds(&call, strike);
 
         let result = underlying
             .price_with_metrics(
@@ -342,17 +331,10 @@ fn test_put_call_parity_at_forward() {
 
     // Get forward spread
     let temp_option = CDSOptionBuilder::new().build(as_of);
-    let mut underlying = test_utils::cds_buy_protection(
-        "CDS-FWD-TEMP",
-        temp_option.notional,
+    let underlying = option_underlying_cds(
+        &temp_option,
         temp_option.strike.to_f64().unwrap_or(0.0) * 10000.0,
-        temp_option.expiry,
-        temp_option.cds_maturity,
-        temp_option.discount_curve_id.clone(),
-        temp_option.credit_curve_id.clone(),
-    )
-    .expect("underlying CDS should build");
-    underlying.protection.recovery_rate = temp_option.recovery_rate;
+    );
     let forward = underlying
         .price_with_metrics(
             &market,

@@ -5,11 +5,11 @@ from __future__ import annotations
 from tests.golden.schema import GoldenFixture
 
 
-def validate_source_validation_fixture(runner: str, fixture: GoldenFixture) -> bool:
+def validate_source_validation_fixture(runner: str, fixture: GoldenFixture) -> None:
     """Validate explicit non-executable source-validation metadata."""
     source_validation = fixture.inputs.get("source_validation")
     if source_validation is None:
-        return False
+        return
     status = source_validation.get("status")
     if status != "non_executable":
         msg = f"{runner} source_validation status must be 'non_executable', got {status!r}"
@@ -30,7 +30,6 @@ def validate_source_validation_fixture(runner: str, fixture: GoldenFixture) -> b
             "expected values belong in top-level expected_outputs"
         )
         raise ValueError(msg)
-    return True
 
 
 def reject_flattened_outputs(runner: str, fixture: GoldenFixture) -> dict[str, float]:

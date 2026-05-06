@@ -1,7 +1,6 @@
 //! Integration tests for CDS Option pricing workflows.
 
 use super::common::*;
-use crate::finstack_test_utils as test_utils;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use rust_decimal::prelude::ToPrimitive;
@@ -168,17 +167,7 @@ fn test_forward_spread_calculation() {
     let option = CDSOptionBuilder::new().build(as_of);
 
     let strike_bp = option.strike.to_f64().unwrap_or(0.0) * 10000.0;
-    let mut underlying = test_utils::cds_buy_protection(
-        "CDS-FWD",
-        option.notional,
-        strike_bp,
-        option.expiry,
-        option.cds_maturity,
-        option.discount_curve_id.clone(),
-        option.credit_curve_id.clone(),
-    )
-    .expect("underlying CDS should build");
-    underlying.protection.recovery_rate = option.recovery_rate;
+    let underlying = option_underlying_cds(&option, strike_bp);
     let forward = underlying
         .price_with_metrics(
             &market,

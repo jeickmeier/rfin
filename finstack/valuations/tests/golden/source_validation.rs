@@ -1,15 +1,13 @@
-//! Per-domain golden runners.
+//! Source-validation metadata checks for golden fixtures.
 
 use crate::golden::schema::GoldenFixture;
-
-pub mod pricing_common;
 
 pub(crate) fn validate_source_validation_fixture(
     runner: &str,
     fixture: &GoldenFixture,
-) -> Result<bool, String> {
+) -> Result<(), String> {
     let Some(source_validation) = fixture.inputs.get("source_validation") else {
-        return Ok(false);
+        return Ok(());
     };
     let status = source_validation
         .get("status")
@@ -39,5 +37,5 @@ pub(crate) fn validate_source_validation_fixture(
             "{runner} source_validation.reference_outputs is not allowed; expected values belong in top-level expected_outputs"
         ));
     }
-    Ok(true)
+    Ok(())
 }

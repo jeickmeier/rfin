@@ -1,8 +1,7 @@
-//! Runner trait, fixture dispatch, and `run_golden!` test macro.
+//! Fixture execution and comparison reporting.
 
 use crate::golden::schema::GoldenFixture;
 use crate::golden::tolerance::{compare, ComparisonResult};
-use std::collections::BTreeMap;
 use std::fs::OpenOptions;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -13,45 +12,41 @@ const REPORT_HEADER: &str = "runner,fixture,metric,actual,expected,abs_diff,rel_
 const REPORT_LOCK_TIMEOUT: Duration = Duration::from_secs(30);
 const REPORT_LOCK_POLL: Duration = Duration::from_millis(10);
 
-/// One runner per fixture domain. Runners build canonical API inputs and extract metrics.
-pub trait DomainRunner {
-    /// Run the canonical computation for this fixture.
-    fn run(&self, fixture: &GoldenFixture) -> Result<BTreeMap<String, f64>, String>;
-}
-
-/// Dispatch a fixture to its domain runner by `domain` field.
-pub fn dispatch(fixture: &GoldenFixture) -> Result<Box<dyn DomainRunner>, String> {
-    match fixture.domain.as_str() {
+fn is_pricing_domain(domain: &str) -> bool {
+    matches!(
+        domain,
         "fixed_income.bond"
-        | "fixed_income.bond_future"
-        | "fixed_income.convertible"
-        | "fixed_income.inflation_linked_bond"
-        | "fixed_income.term_loan"
-        | "fixed_income.structured_credit"
-        | "equity.equity_option"
-        | "equity.equity_index_future"
-        | "credit.cds"
-        | "credit.cds_option"
-        | "credit.cds_tranche"
-        | "fx.fx_swap"
-        | "fx.fx_option"
-        | "rates.cap_floor"
-        | "rates.deposit"
-        | "rates.fra"
-        | "rates.irs"
-        | "rates.ir_future"
-        | "rates.inflation_swap"
-        | "rates.swaption" => Ok(Box::new(
-            crate::golden::runners::pricing_common::PricingRunner,
-        )),
-        other => Err(format!("no runner registered for domain '{other}'")),
-    }
+            | "fixed_income.bond_future"
+            | "fixed_income.convertible"
+            | "fixed_income.inflation_linked_bond"
+            | "fixed_income.term_loan"
+            | "fixed_income.structured_credit"
+            | "equity.equity_option"
+            | "equity.equity_index_future"
+            | "credit.cds"
+            | "credit.cds_option"
+            | "credit.cds_tranche"
+            | "fx.fx_swap"
+            | "fx.fx_option"
+            | "rates.cap_floor"
+            | "rates.deposit"
+            | "rates.fra"
+            | "rates.irs"
+            | "rates.ir_future"
+            | "rates.inflation_swap"
+            | "rates.swaption"
+    )
 }
 
 /// Run a fixture end-to-end and return one comparison result per expected metric.
 pub fn run_fixture(fixture: &GoldenFixture) -> Result<Vec<ComparisonResult>, String> {
-    let runner = dispatch(fixture)?;
-    let actuals = runner.run(fixture)?;
+    if !is_pricing_domain(&fixture.domain) {
+        return Err(format!(
+            "no runner registered for domain '{}'",
+            fixture.domain
+        ));
+    }
+    let actuals = crate::golden::pricing_common::run_pricing_fixture(fixture)?;
     fixture
         .expected_outputs
         .iter()
@@ -212,35 +207,11 @@ fn csv_escape(value: &str) -> String {
     }
 }
 
-/// Run one golden fixture from a path relative to `tests/golden/data/`.
-#[macro_export]
-macro_rules! run_golden {
-    ($relative_path:expr) => {{
-        let manifest_dir = env!("CARGO_MANIFEST_DIR");
-        let path = std::path::Path::new(manifest_dir)
-            .join("tests/golden/data")
-            .join($relative_path);
-        let results = $crate::golden::runner::run_golden_at_path(&path)
-            .unwrap_or_else(|err| panic!("run fixture {:?}: {}", path, err));
-        let failures = results
-            .iter()
-            .filter(|result| !result.passed)
-            .map(|result| result.failure_message(&path.display().to_string()))
-            .collect::<Vec<_>>();
-        if !failures.is_empty() {
-            panic!(
-                "{} metric(s) failed:\n{}",
-                failures.len(),
-                failures.join("\n\n")
-            );
-        }
-    }};
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::golden::schema::{Provenance, ToleranceEntry};
+    use std::collections::BTreeMap;
 
     #[test]
     fn run_golden_at_path_writes_comparison_csv() {
@@ -259,7 +230,7 @@ mod tests {
     }
 
     #[test]
-    fn run_golden_at_path_validates_fixture_before_dispatch() {
+    fn run_golden_at_path_validates_fixture_before_execution() {
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         let fixture_path =
             Path::new(manifest_dir).join("../../target/golden-test-invalid-schema.json");
@@ -316,9 +287,11 @@ mod tests {
             tolerances: BTreeMap::from([("npv".to_string(), abs_zero())]),
         };
 
-        let err =
-            crate::golden::runners::validate_source_validation_fixture("test runner", &fixture)
-                .expect_err("source reference outputs must fail");
+        let err = crate::golden::source_validation::validate_source_validation_fixture(
+            "test runner",
+            &fixture,
+        )
+        .expect_err("source reference outputs must fail");
 
         assert!(
             err.contains("reference_outputs is not allowed"),
@@ -370,9 +343,11 @@ mod tests {
             tolerances: BTreeMap::from([("selection::tech".to_string(), abs_zero())]),
         };
 
-        let err =
-            crate::golden::runners::validate_source_validation_fixture("test runner", &fixture)
-                .expect_err("source validation must explain non-execution");
+        let err = crate::golden::source_validation::validate_source_validation_fixture(
+            "test runner",
+            &fixture,
+        )
+        .expect_err("source validation must explain non-execution");
 
         assert!(err.contains("must explain"), "unexpected error: {err}");
     }
@@ -397,9 +372,11 @@ mod tests {
             tolerances: BTreeMap::from([("selection::tech".to_string(), abs_zero())]),
         };
 
-        let err =
-            crate::golden::runners::validate_source_validation_fixture("test runner", &fixture)
-                .expect_err("source validation must reject actual_outputs");
+        let err = crate::golden::source_validation::validate_source_validation_fixture(
+            "test runner",
+            &fixture,
+        )
+        .expect_err("source validation must reject actual_outputs");
 
         assert!(
             err.contains("must not keep inputs.actual_outputs"),

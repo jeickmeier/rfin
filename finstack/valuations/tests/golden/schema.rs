@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 
 /// Top-level fixture envelope. One per JSON file under `tests/golden/data/`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GoldenFixture {
     /// Schema version. Must equal `"finstack.golden/1"`.
     pub schema_version: String,
@@ -28,6 +29,7 @@ pub struct GoldenFixture {
 
 /// Fixture provenance and review metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Provenance {
     /// YYYY-MM-DD market date the reference values represent.
     pub as_of: String,
@@ -54,6 +56,7 @@ pub struct Provenance {
 
 /// Screenshot evidence for manually captured external references.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Screenshot {
     /// Path relative to the fixture JSON.
     pub path: String,
@@ -67,6 +70,7 @@ pub struct Screenshot {
 
 /// Per-metric tolerance. A comparison passes if either `abs` or `rel` is satisfied.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ToleranceEntry {
     /// Absolute tolerance: `|actual - expected| <= abs`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -115,5 +119,69 @@ mod tests {
         assert_eq!(fixture.name, "test_fixture");
         assert_eq!(fixture.expected_outputs.get("npv"), Some(&100.0));
         assert!(fixture.provenance.screenshots.is_empty());
+    }
+
+    #[test]
+    fn rejects_unknown_top_level_fields() {
+        let json = r#"{
+          "schema_version": "finstack.golden/1",
+          "name": "test_fixture",
+          "domain": "rates.irs",
+          "description": "Minimal smoke fixture",
+          "provenance": {
+            "as_of": "2026-04-30",
+            "source": "quantlib",
+            "source_detail": "QL 1.34",
+            "captured_by": "test",
+            "captured_on": "2026-04-30",
+            "last_reviewed_by": "test",
+            "last_reviewed_on": "2026-04-30",
+            "review_interval_months": 6,
+            "regen_command": ""
+          },
+          "inputs": {"foo": 1},
+          "expected_outputs": {"npv": 100.0},
+          "tolerances": {"npv": {"abs": 0.01}},
+          "unexpected": true
+        }"#;
+
+        let err = serde_json::from_str::<GoldenFixture>(json).expect_err("unknown field fails");
+
+        assert!(
+            err.to_string().contains("unknown field"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn rejects_unknown_nested_metadata_fields() {
+        let json = r#"{
+          "schema_version": "finstack.golden/1",
+          "name": "test_fixture",
+          "domain": "rates.irs",
+          "description": "Minimal smoke fixture",
+          "provenance": {
+            "as_of": "2026-04-30",
+            "source": "quantlib",
+            "source_detail": "QL 1.34",
+            "captured_by": "test",
+            "captured_on": "2026-04-30",
+            "last_reviewed_by": "test",
+            "last_reviewed_on": "2026-04-30",
+            "review_interval_months": 6,
+            "regen_command": "",
+            "unexpected": true
+          },
+          "inputs": {"foo": 1},
+          "expected_outputs": {"npv": 100.0},
+          "tolerances": {"npv": {"abs": 0.01}}
+        }"#;
+
+        let err = serde_json::from_str::<GoldenFixture>(json).expect_err("unknown field fails");
+
+        assert!(
+            err.to_string().contains("unknown field"),
+            "unexpected error: {err}"
+        );
     }
 }

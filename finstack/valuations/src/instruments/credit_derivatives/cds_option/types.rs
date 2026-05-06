@@ -23,7 +23,10 @@ use crate::instruments::common_impl::parameters::CreditParams;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
-use finstack_core::dates::{Date, DayCount, DayCountContext};
+use finstack_core::dates::{
+    adjust, BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount, DayCountContext,
+    HolidayCalendar,
+};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, Percentage};
 use rust_decimal::prelude::ToPrimitive;
@@ -404,22 +407,65 @@ impl CDSOption {
     /// accrual period.
     ///
     /// `start = cash_settlement_date`, `end = exercise_settlement_date` when
-    /// both are supplied; otherwise falls back to `(as_of, expiry)`.
+    /// supplied; otherwise both dates are derived from standard CDS option
+    /// offsets.
     pub(crate) fn black_time_to_expiry(
         &self,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let (start, end) = if let (Some(cash_settlement), Some(exercise_settlement)) =
-            (self.cash_settlement_date, self.exercise_settlement_date)
-        {
-            (cash_settlement, exercise_settlement)
-        } else {
-            (as_of, self.expiry)
-        };
+        let start = self.effective_cash_settlement_date(as_of)?;
+        let end = self.effective_exercise_settlement_date()?;
+        if end <= start {
+            return Ok(0.0);
+        }
 
         let end_inclusive = end + time::Duration::days(1);
         self.day_count
             .year_fraction(start, end_inclusive, DayCountContext::default())
+    }
+
+    pub(crate) fn effective_cash_settlement_date(
+        &self,
+        as_of: Date,
+    ) -> finstack_core::Result<Date> {
+        if let Some(date) = self.cash_settlement_date {
+            return Ok(date);
+        }
+
+        let calendar = self.standard_calendar()?;
+        let trade_date = adjust(as_of, BusinessDayConvention::Following, calendar)?;
+        trade_date.add_business_days(
+            self.underlying_convention.settlement_delay().into(),
+            calendar,
+        )
+    }
+
+    pub(crate) fn effective_exercise_settlement_date(&self) -> finstack_core::Result<Date> {
+        if let Some(date) = self.exercise_settlement_date {
+            return Ok(date);
+        }
+
+        let calendar = self.standard_calendar()?;
+        let adjusted_expiry = adjust(self.expiry, BusinessDayConvention::Following, calendar)?;
+        adjusted_expiry.add_business_days(-2, calendar)
+    }
+
+    pub(crate) fn effective_underlying_effective_date(&self) -> Date {
+        self.underlying_effective_date.unwrap_or_else(|| {
+            previous_cds_roll_on_or_before(self.expiry) + time::Duration::days(1)
+        })
+    }
+
+    fn standard_calendar(&self) -> finstack_core::Result<&'static dyn HolidayCalendar> {
+        let calendar_id = self.underlying_convention.default_calendar();
+        CalendarRegistry::global()
+            .resolve_str(calendar_id)
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "missing CDS option calendar '{calendar_id}' for {:?}",
+                    self.underlying_convention
+                ))
+            })
     }
 
     /// Calculate delta of this CDS option.
@@ -615,3 +661,69 @@ crate::impl_empty_cashflow_provider!(
     CDSOption,
     crate::cashflow::builder::CashflowRepresentation::Placeholder
 );
+
+fn previous_cds_roll_on_or_before(date: Date) -> Date {
+    const CDS_ROLL_MONTHS: [time::Month; 4] = [
+        time::Month::March,
+        time::Month::June,
+        time::Month::September,
+        time::Month::December,
+    ];
+
+    for month in CDS_ROLL_MONTHS.iter().rev().copied() {
+        if let Ok(candidate) = Date::from_calendar_date(date.year(), month, 20) {
+            if candidate <= date {
+                return candidate;
+            }
+        }
+    }
+
+    Date::from_calendar_date(date.year().saturating_sub(1), time::Month::December, 20)
+        .unwrap_or(date)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use time::macros::date;
+
+    #[test]
+    fn standard_dates_match_bloomberg_cds_option_golden() {
+        let option_params = CDSOptionParams::call(
+            Decimal::from_str_exact("0.0058395400").expect("valid strike"),
+            date!(2026 - 06 - 26),
+            date!(2031 - 06 - 20),
+            Money::new(10_000_000.0, Currency::USD),
+        )
+        .expect("valid option params");
+        let credit_params = CreditParams::corporate_standard("IBM", "IBM-USD-SENIOR");
+        let option = CDSOption::new(
+            "IBM-USD-CDSO-PAYER-ATM-3M-20260502",
+            &option_params,
+            &credit_params,
+            "USD-S531-SWAP",
+            "IBM-CDSO-VOL",
+        )
+        .expect("valid option");
+
+        let as_of = date!(2026 - 05 - 02);
+
+        assert_eq!(
+            option
+                .effective_cash_settlement_date(as_of)
+                .expect("cash settlement date"),
+            date!(2026 - 05 - 07)
+        );
+        assert_eq!(
+            option
+                .effective_exercise_settlement_date()
+                .expect("exercise settlement date"),
+            date!(2026 - 06 - 24)
+        );
+        assert_eq!(
+            option.effective_underlying_effective_date(),
+            date!(2026 - 06 - 21)
+        );
+    }
+}

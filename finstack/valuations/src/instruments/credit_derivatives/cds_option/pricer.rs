@@ -235,7 +235,7 @@ fn synthetic_underlying_cds(option: &CDSOption) -> Result<CreditDefaultSwap> {
         PayReceive::PayFixed,
         option.underlying_convention,
         spread_bp,
-        option.underlying_effective_date.unwrap_or(option.expiry),
+        option.effective_underlying_effective_date(),
         option.cds_maturity,
         option.recovery_rate,
         option.discount_curve_id.to_owned(),
@@ -511,9 +511,8 @@ impl CDSOptionPricer {
         // remains the fixed payoff date.
         let as_of_shifted = as_of + Duration::days(1);
         let mut shifted_option = option.clone();
-        if let Some(cash_settlement_date) = shifted_option.cash_settlement_date.as_mut() {
-            *cash_settlement_date += Duration::days(1);
-        }
+        shifted_option.cash_settlement_date =
+            Some(option.effective_cash_settlement_date(as_of)? + Duration::days(1));
         let pv_shifted = self.npv(&shifted_option, curves, as_of_shifted)?.amount();
 
         // Theta = (PV_shifted - PV_base) / dt

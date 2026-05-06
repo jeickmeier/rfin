@@ -11,11 +11,6 @@ from .conftest import DATA_ROOTS, WORKSPACE_ROOT, validate_fixture
 from .schema import GoldenFixture
 
 VALUATION_DATA_ROOT = WORKSPACE_ROOT / "finstack/valuations/tests/golden/data"
-RUST_GOLDEN_TEST_SOURCES = [
-    WORKSPACE_ROOT / "finstack/valuations/tests/golden/pricing.rs",
-]
-RUN_GOLDEN_RE = re.compile(r'run_golden!\("([^"]+)"\)')
-RUST_DISCOVERED_FIXTURE_PREFIXES = ("pricing/",)
 PYTHON_DISCOVER_FIXTURES_RE = re.compile(r'discover_fixtures\("([^"]+)"\)')
 
 
@@ -30,15 +25,6 @@ def _all_fixtures() -> list[Path]:
     return sorted(paths)
 
 
-def _declared_rust_fixture_paths() -> set[str]:
-    declared: set[str] = set()
-    for source in RUST_GOLDEN_TEST_SOURCES:
-        if not source.exists():
-            continue
-        declared.update(RUN_GOLDEN_RE.findall(source.read_text(encoding="utf-8")))
-    return declared
-
-
 def _declared_python_fixture_roots() -> set[str]:
     declared: set[str] = set()
     for source in (WORKSPACE_ROOT / "finstack-py/tests/golden").glob("test_*.py"):
@@ -50,19 +36,6 @@ def _declared_python_fixture_roots() -> set[str]:
 def test_fixture_well_formed(path: Path) -> None:
     fixture = GoldenFixture.from_path(path)
     validate_fixture(path, fixture)
-
-
-def test_valuation_fixtures_are_declared_in_rust_golden_tests() -> None:
-    declared = _declared_rust_fixture_paths()
-    fixture_paths = sorted(
-        str(path.relative_to(VALUATION_DATA_ROOT))
-        for path in VALUATION_DATA_ROOT.rglob("*.json")
-        if "screenshots" not in path.parts
-    )
-    missing = [
-        path for path in fixture_paths if path not in declared and not path.startswith(RUST_DISCOVERED_FIXTURE_PREFIXES)
-    ]
-    assert not missing, "fixtures missing Rust run_golden! declarations:\n" + "\n".join(missing)
 
 
 def test_python_discovery_covers_all_golden_json_fixtures() -> None:

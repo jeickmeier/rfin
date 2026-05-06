@@ -8,6 +8,30 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = "finstack.golden/1"
+_GOLDEN_FIXTURE_KEYS = {
+    "schema_version",
+    "name",
+    "domain",
+    "description",
+    "provenance",
+    "inputs",
+    "expected_outputs",
+    "tolerances",
+}
+_PROVENANCE_KEYS = {
+    "as_of",
+    "source",
+    "source_detail",
+    "captured_by",
+    "captured_on",
+    "last_reviewed_by",
+    "last_reviewed_on",
+    "review_interval_months",
+    "regen_command",
+    "screenshots",
+}
+_SCREENSHOT_KEYS = {"path", "screen", "captured_on", "description"}
+_TOLERANCE_KEYS = {"abs", "rel", "tolerance_reason"}
 
 
 @dataclass
@@ -62,8 +86,13 @@ class GoldenFixture:
     def from_path(cls, path: Path) -> GoldenFixture:
         """Load and parse a golden fixture from disk."""
         raw = json.loads(path.read_text(encoding="utf-8"))
+        _reject_unknown_keys("fixture", raw, _GOLDEN_FIXTURE_KEYS)
         prov_raw = raw["provenance"]
-        screenshots = [Screenshot(**screenshot) for screenshot in prov_raw.get("screenshots", [])]
+        _reject_unknown_keys("provenance", prov_raw, _PROVENANCE_KEYS)
+        screenshots = []
+        for screenshot in prov_raw.get("screenshots", []):
+            _reject_unknown_keys("screenshot", screenshot, _SCREENSHOT_KEYS)
+            screenshots.append(Screenshot(**screenshot))
         provenance = Provenance(
             as_of=prov_raw["as_of"],
             source=prov_raw["source"],
@@ -76,7 +105,10 @@ class GoldenFixture:
             regen_command=prov_raw["regen_command"],
             screenshots=screenshots,
         )
-        tolerances = {metric: ToleranceEntry(**tolerance) for metric, tolerance in raw["tolerances"].items()}
+        tolerances = {}
+        for metric, tolerance in raw["tolerances"].items():
+            _reject_unknown_keys(f"tolerances.{metric}", tolerance, _TOLERANCE_KEYS)
+            tolerances[metric] = ToleranceEntry(**tolerance)
         return cls(
             schema_version=raw["schema_version"],
             name=raw["name"],
@@ -87,3 +119,10 @@ class GoldenFixture:
             expected_outputs={metric: float(value) for metric, value in raw["expected_outputs"].items()},
             tolerances=tolerances,
         )
+
+
+def _reject_unknown_keys(label: str, value: dict[str, Any], allowed: set[str]) -> None:
+    extra = sorted(set(value) - allowed)
+    if extra:
+        msg = f"{label} has unknown key(s): {extra}"
+        raise ValueError(msg)
