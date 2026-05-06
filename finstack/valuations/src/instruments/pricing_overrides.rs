@@ -492,6 +492,28 @@ pub struct ModelConfig {
     /// denominator instead of using scheduled risky annuity only.
     #[serde(default)]
     pub cds_par_spread_uses_full_premium: bool,
+    /// Adjust CDS premium accrual period boundaries by the premium calendar.
+    ///
+    /// When true, intermediate IMM coupon dates are business-day adjusted before
+    /// computing premium accrual fractions. This matches QuantLib CDS schedules
+    /// built with a business day convention.
+    #[serde(default)]
+    pub cds_adjust_premium_accrual_dates: bool,
+    /// Apply QuantLib ISDA half-day accrual-on-default bias.
+    ///
+    /// QuantLib's `IsdaCdsEngine` defaults to `HalfDayBias`, adding half a
+    /// day of premium accrual in the default-accrual integral.
+    #[serde(default)]
+    pub cds_aod_half_day_bias: bool,
+    /// Add one calendar day to *every* Act/360 premium accrual period.
+    ///
+    /// QuantLib exposes this as `Actual360(true)` on the CDS coupon
+    /// day-count and uses it inside `IsdaCdsEngine`. The Bloomberg CDSW
+    /// convention only treats the *final* coupon period as inclusive of
+    /// the maturity date, so this is opt-in for QuantLib parity tests
+    /// rather than the default for production CDS pricing.
+    #[serde(default)]
+    pub cds_act360_include_last_day: bool,
 }
 
 impl ModelConfig {

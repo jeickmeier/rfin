@@ -142,14 +142,44 @@ impl CDSPricer {
         cds: &CreditDefaultSwap,
         period: &CouponPeriod,
     ) -> Result<f64> {
-        // CDSW convention: the final premium period is inclusive of the maturity
-        // date (one extra day) for Act/360. Skip this adjustment when the period
-        // is empty (start == end) so that degenerate same-day schedules do not
-        // accrue a phantom one-day coupon.
+        // QuantLib `Actual360(true)` parity: when explicitly requested,
+        // every Act/360 accrual period is inclusive of its end date. This
+        // is opt-in via `cds_act360_include_last_day` for QuantLib parity
+        // tests; production CDS pricing uses the standard Bloomberg CDSW
+        // rule below.
+        if cds
+            .pricing_overrides
+            .model_config
+            .cds_act360_include_last_day
+            && cds.premium.day_count == finstack_core::dates::DayCount::Act360
+            && period.accrual_end > period.accrual_start
+        {
+            let days = finstack_core::dates::DayCount::calendar_days(
+                period.accrual_start,
+                period.accrual_end,
+            ) + 1;
+            return Ok((days.max(0) as f64) / 360.0);
+        }
+        // CDSW final-coupon convention: the final Act/360 premium period is
+        // inclusive of the maturity date (one extra calendar day). The rule
+        // is the canonical Bloomberg CDSW behaviour and is shared by every
+        // pricer/convention that uses business-day-adjusted accrual periods
+        // (`uses_adjusted_premium_accrual_dates()` — currently
+        // `BloombergCdswClean` plus the explicit override flag). The CDS
+        // option synthetic underlying and CDS tranche index legs both type
+        // their underlying CDS as Bloomberg-clean so they pick up this rule
+        // automatically.
+        //
+        // The `payment_date == cds.premium.end` guard avoids double-counting
+        // when business-day adjustment has already pushed the final accrual
+        // boundary past the unadjusted maturity (e.g. a Sunday IMM rolling
+        // forward to Monday). In that case the BDA shift already accounts
+        // for the extra calendar day(s) and the +1-day rule must not apply
+        // on top of it.
         if cds.uses_adjusted_premium_accrual_dates()
+            && cds.premium.day_count == finstack_core::dates::DayCount::Act360
             && period.is_final
             && period.payment_date == cds.premium.end
-            && cds.premium.day_count == finstack_core::dates::DayCount::Act360
             && period.accrual_end > period.accrual_start
         {
             let days = finstack_core::dates::DayCount::calendar_days(
@@ -281,9 +311,15 @@ impl CDSPricer {
                 ann += unit_spread * accrual * sp * df;
 
                 // AoD part per unit spread in this period.
+                let aod_accrual_start = if cds.uses_clean_price() {
+                    start_date.max(as_of)
+                } else {
+                    start_date
+                };
                 ann += self.accrual_on_default_dispatch(AodInputs {
                     cds,
                     spread: unit_spread,
+                    accrual_start_date: aod_accrual_start,
                     start_date: start_date.max(as_of),
                     end_date,
                     settlement_delay: cds.protection.settlement_delay,
@@ -353,9 +389,15 @@ impl CDSPricer {
             per_bp_pv += ONE_BASIS_POINT * accrual * sp * df;
 
             if self.config.include_accrual {
+                let aod_accrual_start = if cds.uses_clean_price() {
+                    start_date.max(as_of)
+                } else {
+                    start_date
+                };
                 per_bp_pv += self.accrual_on_default_dispatch(AodInputs {
                     cds,
                     spread: ONE_BASIS_POINT,
+                    accrual_start_date: aod_accrual_start,
                     start_date: start_date.max(as_of),
                     end_date,
                     settlement_delay: cds.protection.settlement_delay,
@@ -407,9 +449,15 @@ impl CDSPricer {
             per_bp_pv += ONE_BASIS_POINT * accrual * sp * df;
 
             if self.config.include_accrual {
+                let aod_accrual_start = if cds.uses_clean_price() {
+                    start_date.max(as_of).max(forward_start)
+                } else {
+                    start_date.max(forward_start)
+                };
                 per_bp_pv += self.accrual_on_default_dispatch(AodInputs {
                     cds,
                     spread: ONE_BASIS_POINT,
+                    accrual_start_date: aod_accrual_start,
                     start_date: start_date.max(as_of).max(forward_start),
                     end_date,
                     settlement_delay: cds.protection.settlement_delay,

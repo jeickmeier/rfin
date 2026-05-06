@@ -22,6 +22,13 @@ pub(crate) struct CDSPricer {
 pub(super) struct AodInputs<'a> {
     pub(super) cds: &'a CreditDefaultSwap,
     pub(super) spread: f64,
+    /// Date from which premium accrual is measured for the AoD integral.
+    /// For ISDA-dirty pricing this is the coupon period start; for
+    /// clean-price pricing it is `start_date.max(as_of)` (i.e. accrual is
+    /// measured from valuation date inside the in-progress coupon).
+    pub(super) accrual_start_date: Date,
+    /// Lower bound of the default-time integration interval. Always
+    /// `>= as_of` (defaults strictly before `as_of` are not integrated).
     pub(super) start_date: Date,
     pub(super) end_date: Date,
     pub(super) settlement_delay: u16,
@@ -248,12 +255,18 @@ impl CDSPricer {
 
             if self.config.include_accrual {
                 let spread_sign = spread.signum();
+                let aod_accrual_start = if cds.uses_clean_price() {
+                    start_date.max(as_of)
+                } else {
+                    start_date
+                };
                 // Keep AoD on the same dollar basis as the scheduled coupon leg.
                 premium_pv += spread_sign
                     * cds.notional.amount()
                     * self.accrual_on_default_dispatch(AodInputs {
                         cds,
                         spread: spread.abs(),
+                        accrual_start_date: aod_accrual_start,
                         start_date: start_date.max(as_of),
                         end_date,
                         settlement_delay: cds.protection.settlement_delay,
@@ -286,6 +299,19 @@ impl CDSPricer {
         if inp.end_date <= inp.start_date {
             return Ok(0.0);
         }
+        // `accrual_start_date` may pre-date the hazard curve base for the
+        // in-progress coupon period of an ISDA-dirty CDS valued mid-period.
+        // Compute a signed year fraction so the accrual origin extends back
+        // across the base date instead of clamping to zero.
+        let t_accrual_start = if inp.accrual_start_date < inp.surv.base_date() {
+            -inp.surv.day_count().year_fraction(
+                inp.accrual_start_date,
+                inp.surv.base_date(),
+                finstack_core::dates::DayCountContext::default(),
+            )?
+        } else {
+            haz_t(inp.surv, inp.accrual_start_date)?
+        };
         let t_start = haz_t(inp.surv, inp.start_date)?;
         let t_end = haz_t(inp.surv, inp.end_date)?;
         let t_asof = haz_t(inp.surv, inp.as_of)?;
@@ -294,13 +320,36 @@ impl CDSPricer {
             return Ok(0.0);
         }
 
-        let tau_remaining = year_fraction(inp.cds.premium.day_count, inp.start_date, inp.end_date)?;
-        let period_length_haz = t_end - t_start;
-        if period_length_haz <= 0.0 || tau_remaining <= 0.0 {
+        // QuantLib parity: with `Actual360(true)` the within-period
+        // accrual fraction is inclusive of the upper boundary. Mirror that
+        // behaviour for the AoD integral when the override is requested
+        // so the linear `tau` interpolation matches QuantLib's
+        // `IsdaCdsEngine`.
+        let tau_remaining = if inp
+            .cds
+            .pricing_overrides
+            .model_config
+            .cds_act360_include_last_day
+            && inp.cds.premium.day_count == finstack_core::dates::DayCount::Act360
+            && inp.end_date > inp.accrual_start_date
+        {
+            let days =
+                finstack_core::dates::DayCount::calendar_days(inp.accrual_start_date, inp.end_date)
+                    + 1;
+            (days.max(0) as f64) / 360.0
+        } else {
+            year_fraction(
+                inp.cds.premium.day_count,
+                inp.accrual_start_date,
+                inp.end_date,
+            )?
+        };
+        let accrual_period_length_haz = t_end - t_accrual_start;
+        if accrual_period_length_haz <= 0.0 || tau_remaining <= 0.0 {
             return Ok(0.0);
         }
         // Linear scale from hazard-time position to instrument-day-count accrual.
-        let tau_per_haz = tau_remaining / period_length_haz;
+        let tau_per_haz = tau_remaining / accrual_period_length_haz;
 
         let boundaries = isda_standard_model_boundaries(t_start, t_end, inp.surv, inp.disc);
         let mut accrual_pv = 0.0;
@@ -346,7 +395,15 @@ impl CDSPricer {
             };
 
             // Accrued fraction at interval start, expressed in instrument-DC units.
-            let tau_at_t1 = (t1 - t_start) * tau_per_haz;
+            let accrual_bias = if inp.cds.premium.day_count
+                == finstack_core::dates::DayCount::Act360
+                && inp.cds.pricing_overrides.model_config.cds_aod_half_day_bias
+            {
+                0.5 / 360.0
+            } else {
+                0.0
+            };
+            let tau_at_t1 = (t1 - t_accrual_start) * tau_per_haz + accrual_bias;
 
             // Analytical integration for
             //   ∫ spread * (τ_at_t1 + (t - t1) * tau_per_haz) * λ * S(t1) * D(t1)
@@ -364,8 +421,9 @@ impl CDSPricer {
                 // Small-k fallback: midpoint approximation keeps AoD well-behaved
                 // for near-zero hazard or near-zero (r+λ).
                 let t_mid = (t1 + t2) * 0.5;
-                let position = ((t_mid - t_start) / period_length_haz).clamp(0.0, 1.0);
-                let accrued_tau = tau_remaining * position;
+                let position =
+                    ((t_mid - t_accrual_start) / accrual_period_length_haz).clamp(0.0, 1.0);
+                let accrued_tau = tau_remaining * position + accrual_bias;
                 inp.spread * accrued_tau * (sp1 - sp2) * df1
             };
             accrual_pv += contribution;

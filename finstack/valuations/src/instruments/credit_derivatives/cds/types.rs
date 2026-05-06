@@ -967,7 +967,10 @@ impl CreditDefaultSwap {
         matches!(
             self.valuation_convention,
             CdsValuationConvention::BloombergCdswClean
-        )
+        ) || self
+            .pricing_overrides
+            .model_config
+            .cds_adjust_premium_accrual_dates
     }
 
     fn build_premium_leg_schedule(
