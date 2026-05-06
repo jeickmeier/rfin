@@ -8,11 +8,14 @@ from finstack.core.market_data import MarketContext
 
 from finstack.valuations import ValuationResult, price_instrument_with_metrics
 from tests.golden.pricing_validation import validated_instrument_json
+from tests.golden.runners import validate_source_validation_fixture
 from tests.golden.schema import GoldenFixture
 
 
 def run_pricing_fixture(fixture: GoldenFixture) -> dict[str, float]:
     """Run one common pricing fixture through the Python bindings."""
+    validate_source_validation_fixture("pricing runner", fixture)
+
     inputs = fixture.inputs
     market = MarketContext.from_json(json.dumps(inputs["market"]))
     instrument_json = validated_instrument_json(inputs["instrument_json"])
@@ -35,3 +38,8 @@ def run_pricing_fixture(fixture: GoldenFixture) -> dict[str, float]:
             raise ValueError(f"result missing metric {metric!r}")
         actuals[metric] = float(value)
     return actuals
+
+
+def run(fixture: GoldenFixture) -> dict[str, float]:
+    """Run a fixture that follows the shared pricing input contract."""
+    return run_pricing_fixture(fixture)

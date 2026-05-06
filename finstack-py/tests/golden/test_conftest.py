@@ -11,10 +11,9 @@ from .conftest import (
     WORKSPACE_ROOT,
     discover_fixtures,
     fixture_path,
-    non_compared_metric_reason,
     validate_fixture,
 )
-from .runners import attribution_common
+from .runners import pricing_common, validate_source_validation_fixture
 from .schema import GoldenFixture, Provenance, ToleranceEntry
 from .tolerance import compare
 
@@ -39,35 +38,6 @@ def test_discover_fixtures_empty_dir() -> None:
     assert discover_fixtures("pricing/nonexistent") == []
 
 
-def test_run_golden_rejects_source_validation_without_executable_inputs() -> None:
-    fixture = _fixture(
-        inputs={
-            "source_validation": {
-                "status": "non_executable",
-                "reason": "unit test",
-            },
-        },
-        expected_outputs={"selection::tech": 0.01},
-    )
-
-    with pytest.raises(ValueError, match="requires executable inputs"):
-        attribution_common.run(fixture)
-
-
-def test_attribution_raw_looking_keys_do_not_bypass_execution_requirement() -> None:
-    fixture = _fixture(
-        inputs={
-            "components": {"selection::tech": 0.01},
-            "sums": {"total_active": ["selection::tech"]},
-            "holdings": [],
-        },
-        expected_outputs={"total_active": 0.01},
-    )
-
-    with pytest.raises(ValueError, match="requires executable inputs"):
-        attribution_common.run(fixture)
-
-
 def test_source_validation_rejects_reference_outputs() -> None:
     fixture = _fixture(
         inputs={
@@ -81,7 +51,22 @@ def test_source_validation_rejects_reference_outputs() -> None:
     )
 
     with pytest.raises(ValueError, match="reference_outputs is not allowed"):
-        attribution_common.run(fixture)
+        validate_source_validation_fixture("test runner", fixture)
+
+
+def test_pricing_runner_validates_source_validation_before_input_parsing() -> None:
+    fixture = _fixture(
+        inputs={
+            "source_validation": {
+                "status": "non_executable",
+            },
+        },
+        expected_outputs={"npv": 0.0},
+        domain="rates.deposit",
+    )
+
+    with pytest.raises(ValueError, match="must explain"):
+        pricing_common.run(fixture)
 
 
 def test_validate_fixture_source_validation_requires_reason() -> None:
@@ -149,7 +134,6 @@ def test_required_pricing_risk_metric_cannot_be_non_compared() -> None:
         domain="credit.cds_tranche",
     )
 
-    assert non_compared_metric_reason(fixture, "cs01") is None
     with pytest.raises(AssertionError, match="required executable pricing/risk metrics"):
         validate_fixture(WORKSPACE_ROOT / "dummy.json", fixture)
 
@@ -186,7 +170,7 @@ def test_source_reference_non_compared_metric_does_not_bypass_comparison() -> No
         domain="rates.irs",
     )
 
-    assert non_compared_metric_reason(fixture, "npv") is None
+    validate_fixture(WORKSPACE_ROOT / "dummy.json", fixture)
 
 
 def test_pricing_validation_rejects_invalid_instrument_json() -> None:
@@ -222,7 +206,7 @@ def test_pricing_validation_requires_expected_metrics_to_be_requested() -> None:
 def _fixture(
     inputs: dict,
     expected_outputs: dict[str, float],
-    domain: str = "attribution.equity",
+    domain: str = "analytics.returns",
 ) -> GoldenFixture:
     return GoldenFixture(
         schema_version="finstack.golden/1",

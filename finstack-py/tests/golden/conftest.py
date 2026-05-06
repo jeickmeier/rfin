@@ -40,9 +40,6 @@ REPORT_LOCK_POLL_SECONDS = 0.01
 
 DATA_ROOTS = {
     "pricing": WORKSPACE_ROOT / "finstack/valuations/tests/golden/data",
-    "calibration": WORKSPACE_ROOT / "finstack/valuations/tests/golden/data",
-    "integration": WORKSPACE_ROOT / "finstack/valuations/tests/golden/data",
-    "attribution": WORKSPACE_ROOT / "finstack/valuations/tests/golden/data",
     "analytics": WORKSPACE_ROOT / "finstack/analytics/tests/golden/data",
 }
 VALID_SOURCES = {
@@ -81,42 +78,32 @@ PRICING_INPUT_KEYS = {
 PRICING_OPTIONAL_INPUT_KEYS = {"source_validation"}
 
 _DOMAIN_RUNNERS = {
-    "attribution.equity": "attribution_common",
-    "attribution.fixed_income": "attribution_common",
     "analytics.benchmark": "analytics_common",
     "analytics.drawdown": "analytics_common",
     "analytics.performance": "analytics_common",
     "analytics.returns": "analytics_common",
     "analytics.risk": "analytics_common",
     "analytics.vol": "analytics_common",
-    "credit.cds": "pricing_cds",
-    "credit.cds_option": "pricing_cds_option",
-    "credit.cds_tranche": "pricing_cds_tranche",
-    "equity.equity_option": "pricing_equity_option",
-    "equity.equity_index_future": "pricing_equity_index_future",
-    "fixed_income.bond": "pricing_bond",
-    "fixed_income.bond_future": "pricing_bond_future",
-    "fixed_income.convertible": "pricing_convertible",
-    "fixed_income.inflation_linked_bond": "pricing_inflation_linked_bond",
-    "fixed_income.term_loan": "pricing_term_loan",
-    "fixed_income.structured_credit": "pricing_structured_credit",
-    "fx.fx_option": "pricing_fx_option",
-    "fx.fx_swap": "pricing_fx_swap",
-    "rates.calibration.curves": "calibration_curves",
-    "rates.calibration.swaption_vol": "calibration_swaption_vol",
-    "inflation.calibration.curves": "calibration_inflation_curves",
-    "equity.calibration.vol_smile": "calibration_vol_smile",
-    "fx.calibration.vol_smile": "calibration_vol_smile",
-    "credit.calibration.hazard": "calibration_hazard",
-    "credit.integration": "integration_credit",
-    "rates.integration": "integration_rates",
-    "rates.cap_floor": "pricing_cap_floor",
-    "rates.deposit": "pricing_deposit",
-    "rates.fra": "pricing_fra",
-    "rates.inflation_swap": "pricing_inflation_swap",
-    "rates.irs": "pricing_irs",
-    "rates.ir_future": "pricing_ir_future",
-    "rates.swaption": "pricing_swaption",
+    "credit.cds": "pricing_common",
+    "credit.cds_option": "pricing_common",
+    "credit.cds_tranche": "pricing_common",
+    "equity.equity_option": "pricing_common",
+    "equity.equity_index_future": "pricing_common",
+    "fixed_income.bond": "pricing_common",
+    "fixed_income.bond_future": "pricing_common",
+    "fixed_income.convertible": "pricing_common",
+    "fixed_income.inflation_linked_bond": "pricing_common",
+    "fixed_income.term_loan": "pricing_common",
+    "fixed_income.structured_credit": "pricing_common",
+    "fx.fx_option": "pricing_common",
+    "fx.fx_swap": "pricing_common",
+    "rates.cap_floor": "pricing_common",
+    "rates.deposit": "pricing_common",
+    "rates.fra": "pricing_common",
+    "rates.inflation_swap": "pricing_common",
+    "rates.irs": "pricing_common",
+    "rates.ir_future": "pricing_common",
+    "rates.swaption": "pricing_common",
 }
 
 
@@ -176,11 +163,6 @@ def run_golden(relative_path: str) -> None:
     if failures:
         msg = f"{len(failures)} metric(s) failed:\n" + "\n\n".join(failures)
         raise AssertionError(msg)
-
-
-def non_compared_metric_reason(fixture: GoldenFixture, metric: str) -> str | None:
-    _ = (fixture, metric)
-    return None
 
 
 def validate_fixture(path: Path, fixture: GoldenFixture) -> None:
@@ -254,14 +236,7 @@ def _validate_object_keys(field: str, obj: dict, required: set[str], optional: s
 
 
 def _validate_required_pricing_risk_metrics(fixture: GoldenFixture) -> None:
-    if ".integration" in fixture.domain or ".calibration." in fixture.domain:
-        return
-
-    if (
-        fixture.domain.startswith("rates.")
-        and fixture.domain != "rates.integration"
-        and not fixture.domain.startswith("rates.calibration.")
-    ):
+    if fixture.domain.startswith("rates."):
         assert "dv01" in fixture.expected_outputs, "rates pricing fixtures must assert dv01"
 
     if fixture.domain.startswith("fixed_income."):
@@ -344,8 +319,6 @@ def _has_zero_metric_reason(fixture: GoldenFixture, metric: str) -> bool:
 
 
 def is_required_executable_pricing_risk_metric(fixture: GoldenFixture, metric: str) -> bool:
-    if ".integration" in fixture.domain or ".calibration." in fixture.domain:
-        return False
     if fixture.domain.startswith("rates."):
         return metric == "dv01"
     if fixture.domain.startswith("fixed_income."):

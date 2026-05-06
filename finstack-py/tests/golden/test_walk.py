@@ -13,12 +13,9 @@ from .schema import GoldenFixture
 VALUATION_DATA_ROOT = WORKSPACE_ROOT / "finstack/valuations/tests/golden/data"
 RUST_GOLDEN_TEST_SOURCES = [
     WORKSPACE_ROOT / "finstack/valuations/tests/golden/pricing.rs",
-    WORKSPACE_ROOT / "finstack/valuations/tests/golden/calibration.rs",
-    WORKSPACE_ROOT / "finstack/valuations/tests/golden/integration.rs",
-    WORKSPACE_ROOT / "finstack/valuations/tests/golden/attribution.rs",
 ]
 RUN_GOLDEN_RE = re.compile(r'run_golden!\("([^"]+)"\)')
-RUST_DISCOVERED_FIXTURE_PREFIXES = ("integration/", "pricing/")
+RUST_DISCOVERED_FIXTURE_PREFIXES = ("pricing/",)
 PYTHON_DISCOVER_FIXTURES_RE = re.compile(r'discover_fixtures\("([^"]+)"\)')
 
 

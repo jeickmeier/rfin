@@ -22,81 +22,27 @@ pub trait DomainRunner {
 /// Dispatch a fixture to its domain runner by `domain` field.
 pub fn dispatch(fixture: &GoldenFixture) -> Result<Box<dyn DomainRunner>, String> {
     match fixture.domain.as_str() {
-        "rates.calibration.curves" => Ok(Box::new(
-            crate::golden::runners::calibration_curves::CalibrationCurvesRunner,
-        )),
-        "inflation.calibration.curves" => Ok(Box::new(
-            crate::golden::runners::calibration_inflation_curves::CalibrationInflationCurvesRunner,
-        )),
-        "rates.calibration.swaption_vol" => Ok(Box::new(
-            crate::golden::runners::calibration_swaption_vol::CalibrationSwaptionVolRunner,
-        )),
-        "equity.calibration.vol_smile" | "fx.calibration.vol_smile" => Ok(Box::new(
-            crate::golden::runners::calibration_vol_smile::CalibrationVolSmileRunner,
-        )),
-        "credit.calibration.hazard" => Ok(Box::new(
-            crate::golden::runners::calibration_hazard::CalibrationHazardRunner,
-        )),
-        "rates.integration" => Ok(Box::new(
-            crate::golden::runners::integration_rates::IntegrationRatesRunner,
-        )),
-        "credit.integration" => Ok(Box::new(
-            crate::golden::runners::integration_credit::IntegrationCreditRunner,
-        )),
-        "attribution.equity" | "attribution.fixed_income" => Ok(Box::new(
-            crate::golden::runners::attribution_common::AttributionRunner,
-        )),
-        "fixed_income.bond" => Ok(Box::new(crate::golden::runners::pricing_bond::BondRunner)),
-        "fixed_income.bond_future" => Ok(Box::new(
-            crate::golden::runners::pricing_bond_future::BondFutureRunner,
-        )),
-        "fixed_income.convertible" => Ok(Box::new(
-            crate::golden::runners::pricing_convertible::ConvertibleRunner,
-        )),
-        "fixed_income.inflation_linked_bond" => Ok(Box::new(
-            crate::golden::runners::pricing_inflation_linked_bond::InflationLinkedBondRunner,
-        )),
-        "fixed_income.term_loan" => Ok(Box::new(
-            crate::golden::runners::pricing_term_loan::TermLoanRunner,
-        )),
-        "equity.equity_option" => Ok(Box::new(
-            crate::golden::runners::pricing_equity_option::EquityOptionRunner,
-        )),
-        "equity.equity_index_future" => Ok(Box::new(
-            crate::golden::runners::pricing_equity_index_future::EquityIndexFutureRunner,
-        )),
-        "credit.cds" => Ok(Box::new(crate::golden::runners::pricing_cds::CdsRunner)),
-        "credit.cds_option" => Ok(Box::new(
-            crate::golden::runners::pricing_cds_option::CdsOptionRunner,
-        )),
-        "credit.cds_tranche" => Ok(Box::new(
-            crate::golden::runners::pricing_cds_tranche::CdsTrancheRunner,
-        )),
-        "fixed_income.structured_credit" => Ok(Box::new(
-            crate::golden::runners::pricing_structured_credit::StructuredCreditRunner,
-        )),
-        "fx.fx_swap" => Ok(Box::new(
-            crate::golden::runners::pricing_fx_swap::FxSwapRunner,
-        )),
-        "fx.fx_option" => Ok(Box::new(
-            crate::golden::runners::pricing_fx_option::FxOptionRunner,
-        )),
-        "rates.cap_floor" => Ok(Box::new(
-            crate::golden::runners::pricing_cap_floor::CapFloorRunner,
-        )),
-        "rates.deposit" => Ok(Box::new(
-            crate::golden::runners::pricing_deposit::DepositRunner,
-        )),
-        "rates.fra" => Ok(Box::new(crate::golden::runners::pricing_fra::FraRunner)),
-        "rates.irs" => Ok(Box::new(crate::golden::runners::pricing_irs::IrsRunner)),
-        "rates.ir_future" => Ok(Box::new(
-            crate::golden::runners::pricing_ir_future::IrFutureRunner,
-        )),
-        "rates.inflation_swap" => Ok(Box::new(
-            crate::golden::runners::pricing_inflation_swap::InflationSwapRunner,
-        )),
-        "rates.swaption" => Ok(Box::new(
-            crate::golden::runners::pricing_swaption::SwaptionRunner,
+        "fixed_income.bond"
+        | "fixed_income.bond_future"
+        | "fixed_income.convertible"
+        | "fixed_income.inflation_linked_bond"
+        | "fixed_income.term_loan"
+        | "fixed_income.structured_credit"
+        | "equity.equity_option"
+        | "equity.equity_index_future"
+        | "credit.cds"
+        | "credit.cds_option"
+        | "credit.cds_tranche"
+        | "fx.fx_swap"
+        | "fx.fx_option"
+        | "rates.cap_floor"
+        | "rates.deposit"
+        | "rates.fra"
+        | "rates.irs"
+        | "rates.ir_future"
+        | "rates.inflation_swap"
+        | "rates.swaption" => Ok(Box::new(
+            crate::golden::runners::pricing_common::PricingRunner,
         )),
         other => Err(format!("no runner registered for domain '{other}'")),
     }
@@ -121,11 +67,6 @@ pub fn run_fixture(fixture: &GoldenFixture) -> Result<Vec<ComparisonResult>, Str
             Ok(compare(metric, actual, *expected, tolerance))
         })
         .collect()
-}
-
-fn non_compared_metric_reason(fixture: &GoldenFixture, metric: &str) -> Option<String> {
-    let _ = (fixture, metric);
-    None
 }
 
 /// Run one golden fixture from disk, write a CSV comparison report, and return failures.
@@ -357,71 +298,6 @@ mod tests {
     }
 
     #[test]
-    fn flattened_output_placeholder_runner_is_not_false_green() {
-        let fixture = GoldenFixture {
-            schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
-            name: "placeholder".to_string(),
-            domain: "rates.calibration.curves".to_string(),
-            description: "Placeholder fixture".to_string(),
-            provenance: Provenance {
-                as_of: "2026-04-30".to_string(),
-                source: "formula".to_string(),
-                source_detail: "unit test".to_string(),
-                captured_by: "test".to_string(),
-                captured_on: "2026-04-30".to_string(),
-                last_reviewed_by: "test".to_string(),
-                last_reviewed_on: "2026-04-30".to_string(),
-                review_interval_months: 6,
-                regen_command: String::new(),
-                screenshots: Vec::new(),
-            },
-            inputs: serde_json::json!({"actual_outputs": {"calibration_rmse": 0.0}}),
-            expected_outputs: BTreeMap::from([("calibration_rmse".to_string(), 0.0)]),
-            tolerances: BTreeMap::from([(
-                "calibration_rmse".to_string(),
-                ToleranceEntry {
-                    abs: Some(0.0),
-                    rel: None,
-                    tolerance_reason: None,
-                },
-            )]),
-        };
-
-        let err = crate::golden::runners::reject_flattened_outputs("placeholder runner", &fixture)
-            .expect_err("placeholder helper should fail");
-
-        assert!(
-            err.contains("requires executable inputs"),
-            "unexpected error: {err}"
-        );
-    }
-
-    #[test]
-    fn attribution_raw_looking_keys_do_not_bypass_execution_requirement() {
-        let fixture = GoldenFixture {
-            schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
-            name: "attribution_placeholder".to_string(),
-            domain: "attribution.equity".to_string(),
-            description: "Attribution placeholder fixture".to_string(),
-            provenance: test_provenance(),
-            inputs: serde_json::json!({
-                "components": {"selection::tech": 0.01},
-                "sums": {"total_active": ["selection::tech"]},
-                "holdings": []
-            }),
-            expected_outputs: BTreeMap::from([("total_active".to_string(), 0.01)]),
-            tolerances: BTreeMap::from([("total_active".to_string(), abs_zero())]),
-        };
-
-        let err = run_fixture(&fixture).expect_err("non-source attribution must reject");
-
-        assert!(
-            err.contains("requires executable inputs"),
-            "unexpected error: {err}"
-        );
-    }
-
-    #[test]
     fn source_validation_rejects_reference_outputs() {
         let fixture = GoldenFixture {
             schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
@@ -440,7 +316,9 @@ mod tests {
             tolerances: BTreeMap::from([("npv".to_string(), abs_zero())]),
         };
 
-        let err = run_fixture(&fixture).expect_err("source reference outputs must fail");
+        let err =
+            crate::golden::runners::validate_source_validation_fixture("test runner", &fixture)
+                .expect_err("source reference outputs must fail");
 
         assert!(
             err.contains("reference_outputs is not allowed"),
@@ -479,7 +357,7 @@ mod tests {
         let fixture = GoldenFixture {
             schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
             name: "source_validation_missing_reason".to_string(),
-            domain: "attribution.equity".to_string(),
+            domain: "rates.deposit".to_string(),
             description: "Source validation reason test".to_string(),
             provenance: test_provenance(),
             inputs: serde_json::json!({
@@ -492,7 +370,9 @@ mod tests {
             tolerances: BTreeMap::from([("selection::tech".to_string(), abs_zero())]),
         };
 
-        let err = run_fixture(&fixture).expect_err("source validation must explain non-execution");
+        let err =
+            crate::golden::runners::validate_source_validation_fixture("test runner", &fixture)
+                .expect_err("source validation must explain non-execution");
 
         assert!(err.contains("must explain"), "unexpected error: {err}");
     }
@@ -502,7 +382,7 @@ mod tests {
         let fixture = GoldenFixture {
             schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
             name: "source_validation_actual_outputs".to_string(),
-            domain: "attribution.equity".to_string(),
+            domain: "rates.deposit".to_string(),
             description: "Source validation actual_outputs test".to_string(),
             provenance: test_provenance(),
             inputs: serde_json::json!({
@@ -517,90 +397,14 @@ mod tests {
             tolerances: BTreeMap::from([("selection::tech".to_string(), abs_zero())]),
         };
 
-        let err = run_fixture(&fixture).expect_err("source validation must reject actual_outputs");
+        let err =
+            crate::golden::runners::validate_source_validation_fixture("test runner", &fixture)
+                .expect_err("source validation must reject actual_outputs");
 
         assert!(
             err.contains("must not keep inputs.actual_outputs"),
             "unexpected error: {err}"
         );
-    }
-
-    #[test]
-    fn source_validation_fixture_without_executable_inputs_fails_golden_run() {
-        let fixture = GoldenFixture {
-            schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
-            name: "source_validation_non_executable".to_string(),
-            domain: "attribution.equity".to_string(),
-            description: "Source validation non-executable test".to_string(),
-            provenance: test_provenance(),
-            inputs: serde_json::json!({
-                "source_validation": {
-                    "status": "non_executable",
-                    "reason": "unit test"
-                }
-            }),
-            expected_outputs: BTreeMap::from([("selection::tech".to_string(), 0.01)]),
-            tolerances: BTreeMap::from([("selection::tech".to_string(), abs_zero())]),
-        };
-
-        let err = run_fixture(&fixture)
-            .expect_err("source-validation metadata must not provide executable actuals");
-
-        assert!(
-            err.contains("requires executable inputs"),
-            "unexpected error: {err}"
-        );
-    }
-
-    #[test]
-    fn required_pricing_risk_metric_cannot_be_non_compared() {
-        let fixture = GoldenFixture {
-            schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
-            name: "bad_non_compared_required_metric".to_string(),
-            domain: "credit.cds_tranche".to_string(),
-            description: "Required metric bypass test".to_string(),
-            provenance: test_provenance(),
-            inputs: serde_json::json!({
-                "source_reference": {
-                    "non_compared_metrics": ["cs01"],
-                    "non_compared_metrics_reason": "unit test"
-                }
-            }),
-            expected_outputs: BTreeMap::from([
-                ("cs01".to_string(), 1.0),
-                ("dv01".to_string(), 2.0),
-            ]),
-            tolerances: BTreeMap::from([
-                ("cs01".to_string(), abs_zero()),
-                ("dv01".to_string(), abs_zero()),
-            ]),
-        };
-
-        assert!(non_compared_metric_reason(&fixture, "cs01").is_none());
-    }
-
-    #[test]
-    fn source_reference_non_compared_metric_does_not_bypass_comparison() {
-        let fixture = GoldenFixture {
-            schema_version: crate::golden::schema::SCHEMA_VERSION.to_string(),
-            name: "bad_non_compared_optional_metric".to_string(),
-            domain: "rates.irs".to_string(),
-            description: "Optional metric bypass test".to_string(),
-            provenance: test_provenance(),
-            inputs: serde_json::json!({
-                "source_reference": {
-                    "non_compared_metrics": ["npv"],
-                    "non_compared_metrics_reason": "unit test"
-                }
-            }),
-            expected_outputs: BTreeMap::from([("npv".to_string(), 1.0), ("dv01".to_string(), 2.0)]),
-            tolerances: BTreeMap::from([
-                ("npv".to_string(), abs_zero()),
-                ("dv01".to_string(), abs_zero()),
-            ]),
-        };
-
-        assert!(non_compared_metric_reason(&fixture, "npv").is_none());
     }
 
     fn test_provenance() -> Provenance {

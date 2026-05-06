@@ -371,15 +371,7 @@ fn validate_object_keys(
 }
 
 fn validate_required_pricing_risk_metrics(fixture: &GoldenFixture) -> Result<(), String> {
-    if fixture.domain.contains(".integration") || fixture.domain.contains(".calibration.") {
-        return Ok(());
-    }
-
-    if fixture.domain.starts_with("rates.")
-        && fixture.domain != "rates.integration"
-        && !fixture.domain.starts_with("rates.calibration.")
-        && !fixture.expected_outputs.contains_key("dv01")
-    {
+    if fixture.domain.starts_with("rates.") && !fixture.expected_outputs.contains_key("dv01") {
         return Err("rates pricing fixtures must assert dv01".to_string());
     }
 
@@ -425,9 +417,6 @@ fn validate_required_metrics_not_non_compared(fixture: &GoldenFixture) -> Result
 }
 
 fn is_required_executable_pricing_risk_metric(fixture: &GoldenFixture, metric: &str) -> bool {
-    if fixture.domain.contains(".integration") || fixture.domain.contains(".calibration.") {
-        return false;
-    }
     if fixture.domain.starts_with("rates.") {
         return metric == "dv01";
     }
@@ -627,12 +616,7 @@ fn collect_declared_run_golden_paths() -> Result<BTreeSet<String>, String> {
     let manifest_dir = env!("CARGO_MANIFEST_DIR");
     let golden_root = Path::new(manifest_dir).join("tests/golden");
     let mut declared = BTreeSet::new();
-    for source in [
-        "pricing.rs",
-        "calibration.rs",
-        "integration.rs",
-        "attribution.rs",
-    ] {
+    for source in ["pricing.rs"] {
         let path = golden_root.join(source);
         let raw = fs::read_to_string(&path).map_err(|err| format!("read {path:?}: {err}"))?;
         for line in raw.lines() {
@@ -725,7 +709,7 @@ mod tests {
             r#"{
               "schema_version": "finstack.golden/1",
               "name": "missing_source_validation_reason",
-              "domain": "attribution.equity",
+              "domain": "analytics.returns",
               "description": "Source validation missing reason test.",
               "provenance": {
                 "as_of": "2026-04-30",
@@ -819,7 +803,6 @@ fn all_fixtures_are_declared_in_rust_golden_tests() {
         .iter()
         .filter_map(|path| match fixture_relative_path(path) {
             Ok(relative) if relative.starts_with("pricing/") => None,
-            Ok(relative) if relative.starts_with("integration/") => None,
             Ok(relative) if declared.contains(&relative) => None,
             Ok(relative) => Some(format!("missing run_golden! declaration for {relative}")),
             Err(err) => Some(err),

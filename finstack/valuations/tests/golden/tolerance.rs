@@ -62,14 +62,9 @@ pub fn compare(metric: &str, actual: f64, expected: f64, tol: &ToleranceEntry) -
         expected,
         abs_diff,
         rel_diff,
-        passed: passed(abs_pass, rel_pass, tol),
+        passed: abs_pass || rel_pass,
         used_tolerance: tol.clone(),
     }
-}
-
-fn passed(abs_pass: bool, rel_pass: bool, tol: &ToleranceEntry) -> bool {
-    let _ = tol;
-    abs_pass || rel_pass
 }
 
 #[cfg(test)]

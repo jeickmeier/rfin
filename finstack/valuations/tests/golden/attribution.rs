@@ -1,1 +1,0 @@
-//! Attribution-domain golden tests.

@@ -1,5 +1,6 @@
 //! Shared pricing runner helpers for instrument-level golden fixtures.
 
+use crate::golden::runner::DomainRunner;
 use crate::golden::schema::GoldenFixture;
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::pricer::price_instrument_json_with_metrics;
@@ -13,6 +14,15 @@ struct PricingInputs {
     metrics: Vec<String>,
     instrument_json: serde_json::Value,
     market: MarketContext,
+}
+
+/// Shared runner for fixture domains that use the common pricing input contract.
+pub struct PricingRunner;
+
+impl DomainRunner for PricingRunner {
+    fn run(&self, fixture: &GoldenFixture) -> Result<BTreeMap<String, f64>, String> {
+        run_pricing_fixture(fixture)
+    }
 }
 
 /// Price an instrument fixture that follows the common pricing input contract.
