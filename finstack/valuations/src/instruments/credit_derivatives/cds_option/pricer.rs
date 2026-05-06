@@ -8,7 +8,7 @@
 //! forward spread, risky annuity, and discount factor into the option
 //! PV via the modified Black formula implemented on the instrument.
 
-use crate::constants::{credit, ONE_BASIS_POINT};
+use crate::constants::{credit, numerical, ONE_BASIS_POINT};
 use crate::instruments::common_impl::models::{d1, d2, norm_cdf, norm_pdf};
 use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Instrument;
@@ -251,7 +251,40 @@ fn synthetic_underlying_cds(option: &CDSOption) -> Result<CreditDefaultSwap> {
     Ok(cds)
 }
 
+struct ForwardCdsBlackInputs {
+    forward_spread_bp: f64,
+    risky_annuity: f64,
+}
+
 impl CDSOptionPricer {
+    fn forward_cds_black_inputs(
+        &self,
+        option: &CDSOption,
+        disc: &finstack_core::market_data::term_structures::DiscountCurve,
+        surv: &finstack_core::market_data::term_structures::HazardCurve,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<ForwardCdsBlackInputs> {
+        let cds = synthetic_underlying_cds(option)?;
+        let cds_pricer = CDSPricer::new();
+        let premium_per_bp =
+            cds_pricer.forward_premium_leg_pv_per_bp(&cds, disc, surv, as_of, option.expiry)?;
+        let risky_annuity = premium_per_bp / ONE_BASIS_POINT;
+        let denominator = risky_annuity * cds.notional.amount();
+        if denominator.abs() < numerical::RATE_COMPARISON_TOLERANCE {
+            return Err(finstack_core::Error::Validation(
+                "forward CDS annuity is too small for CDS option forward spread".to_string(),
+            ));
+        }
+
+        let protection_pv = cds_pricer
+            .pv_protection_leg(&cds, disc, surv, as_of)?
+            .amount();
+        Ok(ForwardCdsBlackInputs {
+            forward_spread_bp: protection_pv / denominator * self.config.bp_per_unit,
+            risky_annuity,
+        })
+    }
+
     fn forward_spread_from_pricer(
         &self,
         option: &CDSOption,
@@ -259,9 +292,9 @@ impl CDSOptionPricer {
         surv: &finstack_core::market_data::term_structures::HazardCurve,
         as_of: finstack_core::dates::Date,
     ) -> Result<f64> {
-        let cds = synthetic_underlying_cds(option)?;
-        let pricer = CDSPricer::new();
-        let mut forward_bp = pricer.par_spread(&cds, disc, surv, as_of)?;
+        let mut forward_bp = self
+            .forward_cds_black_inputs(option, disc, surv, as_of)?
+            .forward_spread_bp;
         if option.underlying_is_index {
             forward_bp += decimal_to_f64(option.forward_spread_adjust, "forward_spread_adjust")?
                 * self.config.bp_per_unit;
@@ -551,12 +584,12 @@ impl CDSOptionPricer {
             return Ok(ann);
         }
 
-        // Bloomberg CDSO scales Black PV by the full premium-leg risky annuity,
-        // including expected accrued premium on default, matching CDSW Spread DV01.
-        let mut cds = synthetic_underlying_cds(option)?;
-        cds.premium.spread_bp = Decimal::ZERO;
-        let cds_pricer = CDSPricer::new();
-        Ok(cds_pricer.premium_leg_pv_per_bp(&cds, disc, surv, as_of)? / ONE_BASIS_POINT)
+        // Bloomberg CDSO scales Black PV by the forward premium-leg risky annuity.
+        // Scheduled coupons follow the standard CDS schedule, while accrual-on-default
+        // starts only once the forward CDS protection is live.
+        Ok(self
+            .forward_cds_black_inputs(option, disc, surv, as_of)?
+            .risky_annuity)
     }
 
     /// Solve for implied volatility σ such that model price(σ) = target_price.
@@ -736,6 +769,76 @@ mod tests {
 
         assert_eq!(cds.premium.start, effective);
         assert_eq!(cds.protection_effective_date, Some(option.expiry));
+    }
+
+    #[test]
+    fn forward_cds_annuity_excludes_pre_expiry_accrual_on_default() {
+        use finstack_core::dates::{DayCount, DayCountContext};
+        use finstack_core::market_data::context::MarketContext;
+        use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+        use time::macros::date;
+
+        let as_of = date!(2025 - 01 - 02);
+        let forward_start = date!(2025 - 02 - 20);
+        let first_coupon = date!(2025 - 03 - 20);
+        let maturity = date!(2025 - 06 - 20);
+
+        let mut option = CDSOption::example().expect("CDSOption example is valid");
+        option.expiry = forward_start;
+        option.cds_maturity = maturity;
+        option.underlying_effective_date = Some(date!(2024 - 12 - 20));
+
+        let t_forward_start = DayCount::Act365F
+            .year_fraction(as_of, forward_start, DayCountContext::default())
+            .expect("valid forward-start year fraction");
+        let t_maturity = DayCount::Act365F
+            .year_fraction(as_of, maturity, DayCountContext::default())
+            .expect("valid maturity year fraction");
+
+        let discount = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 1.0), (1.0, 1.0)])
+            .build()
+            .expect("flat discount curve");
+        let hazard = HazardCurve::builder("CORP-HAZARD")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .recovery_rate(option.recovery_rate)
+            .knots([(0.0, 5.0), (t_forward_start, 0.0), (t_maturity, 0.0)])
+            .build()
+            .expect("front-loaded hazard curve");
+        let market = MarketContext::new().insert(discount).insert(hazard);
+
+        let pricer = CDSOptionPricer::default();
+        let actual = pricer
+            .risky_annuity(&option, &market, as_of)
+            .expect("risky annuity");
+
+        let hazard = market
+            .get_hazard("CORP-HAZARD")
+            .expect("hazard curve should be present");
+        let first_coupon_survival = hazard
+            .sp_on_date(first_coupon)
+            .expect("first coupon survival");
+        let final_coupon_survival = hazard.sp_on_date(maturity).expect("maturity survival");
+        let first_coupon_accrual = DayCount::Act360
+            .year_fraction(
+                option.underlying_effective_date.expect("effective date"),
+                first_coupon,
+                DayCountContext::default(),
+            )
+            .expect("first coupon accrual");
+        let final_coupon_accrual =
+            (DayCount::calendar_days(first_coupon, maturity) + 1).max(0) as f64 / 360.0;
+        let expected = first_coupon_accrual * first_coupon_survival
+            + final_coupon_accrual * final_coupon_survival;
+
+        assert!(
+            (actual - expected).abs() < 1e-12,
+            "forward CDS annuity must not include accrual-on-default before option expiry: \
+             actual={actual:.12}, expected={expected:.12}"
+        );
     }
 
     /// Diagnostic-only: prints the intermediate Black-on-spreads inputs that
@@ -1283,10 +1386,13 @@ mod tests {
         use finstack_core::currency::Currency;
         use finstack_core::dates::calendar::{calendar_by_id, CompositeCalendar, CompositeMode};
         use finstack_core::dates::{
-            adjust, BusinessDayConvention, Date, DayCount, DayCountContext,
+            adjust, BusinessDayConvention, Date, DateExt, DayCount, DayCountContext,
         };
         use finstack_core::market_data::context::MarketContext;
-        use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+        use finstack_core::market_data::term_structures::{
+            DiscountCurve, DiscountCurveRateCalibration, DiscountCurveRateQuote,
+            DiscountCurveRateQuoteType, HazardCurve,
+        };
         use finstack_core::math::interp::InterpStyle;
         use finstack_core::money::Money;
         use rust_decimal::Decimal;
@@ -1500,6 +1606,82 @@ mod tests {
             "BloombergCdswClean, calendar=NYSE, haz ACT/365F",
             &cds_cdsw,
             haz_arc.as_ref(),
+        );
+
+        let current_forward_annuity = cds_pricer
+            .forward_premium_leg_pv_per_bp(
+                &cds_cdsw,
+                disc_arc.as_ref(),
+                haz_arc.as_ref(),
+                as_of,
+                option_expiry,
+            )
+            .unwrap()
+            / ONE_BASIS_POINT;
+        let protection_pv = cds_pricer
+            .pv_protection_leg(&cds_cdsw, disc_arc.as_ref(), haz_arc.as_ref(), as_of)
+            .unwrap()
+            .amount();
+        let t_expiry = haz_arc
+            .day_count()
+            .year_fraction(haz_arc.base_date(), option_expiry, dc_ctx)
+            .unwrap();
+        let survival_to_expiry = haz_arc.sp(t_expiry);
+        let accrual_delta = cds_cdsw
+            .premium
+            .day_count
+            .year_fraction(underlying_eff, option_expiry, dc_ctx)
+            .unwrap();
+        let nyse_holiday_cal = calendar_by_id("nyse").expect("NYSE calendar");
+        let forward_cash_settle = option_expiry
+            .add_business_days(
+                cds_cdsw.protection.settlement_delay.into(),
+                nyse_holiday_cal,
+            )
+            .unwrap();
+        let screen_df = disc.df_between_dates(as_of, exercise_settle).unwrap();
+        let forward_cash_df = disc.df_between_dates(as_of, forward_cash_settle).unwrap();
+        let screen_clean_adjustment = screen_df * survival_to_expiry * accrual_delta;
+        let forward_cash_clean_adjustment = forward_cash_df * survival_to_expiry * accrual_delta;
+        let print_og_candidate = |label: &str, annuity: f64| {
+            let forward_bp = protection_pv / (annuity * 10_000_000.0) * 10_000.0;
+            let forward = forward_bp / 10_000.0;
+            let strike = strike_bp / 10_000.0;
+            let sigma = 0.8102_f64;
+            let t = 49.0_f64 / 360.0;
+            let t_minus_1d = 48.0_f64 / 360.0;
+            let d1_current = d1(forward, strike, 0.0, sigma, t, 0.0);
+            let d2_current = d2(forward, strike, 0.0, sigma, t, 0.0);
+            let npv = annuity
+                * 10_000_000.0
+                * (forward * norm_cdf(d1_current) - strike * norm_cdf(d2_current));
+            let vega = annuity * 10_000_000.0 * forward * norm_pdf(d1_current) * t.sqrt() / 100.0;
+            let d1_prev = d1(forward, strike, 0.0, sigma, t_minus_1d, 0.0);
+            let d2_prev = d2(forward, strike, 0.0, sigma, t_minus_1d, 0.0);
+            let npv_prev =
+                annuity * 10_000_000.0 * (forward * norm_cdf(d1_prev) - strike * norm_cdf(d2_prev));
+            eprintln!(
+                "    {label:<46}  A={annuity:.7} F={forward_bp:.6}bp NPV={npv:.2} (Δ {:+.2}) Vega={vega:.2} (Δ {:+.2}) BlackTheta1d={:+.2}",
+                npv - 31_177.82,
+                vega - 381.02,
+                npv_prev - npv,
+            );
+        };
+        eprintln!("\n  OpenGamma clean forward annuity adjustment candidates:");
+        eprintln!(
+            "    current_forward_annuity = {current_forward_annuity:.7}; Delta(underlying_eff, expiry) = {accrual_delta:.7}; Q(t,Te) = {survival_to_expiry:.7}"
+        );
+        eprintln!(
+            "    screen tes {exercise_settle}: adjustment = {screen_clean_adjustment:.7}; expiry+settle {forward_cash_settle}: adjustment = {forward_cash_clean_adjustment:.7}"
+        );
+        print_og_candidate("current forward annuity", current_forward_annuity);
+        print_og_candidate(
+            "OpenGamma + screen exercise settlement",
+            current_forward_annuity + screen_clean_adjustment,
+        );
+        print_og_candidate(
+            "OpenGamma + expiry spot CDS cash settle",
+            current_forward_annuity + forward_cash_clean_adjustment,
         );
 
         // Try a "joint NYSE+GBLO" via custom-built schedule manually constructed
@@ -1745,6 +1927,51 @@ mod tests {
             "  Analytic CS01 = annuity·Φ(d1)·(∂F/∂S)·N·1bp = {ra_ref}·{phi_d1:.4}·{df_ds:.4}·10M·1bp = {cs01_analytical:.2}"
         );
         eprintln!("  Bloomberg Spread DV01 = 2563.44");
+        let target_df_ds = 2563.44 / (ra_ref * phi_d1 * notional * 1e-4);
+        eprintln!("  Bloomberg-implied ∂F/∂S = {target_df_ds:.4}");
+
+        let cs01_from_df_ds =
+            |df_ds_candidate: f64| ra_ref * phi_d1 * df_ds_candidate * notional * 1e-4;
+        let print_cs01_candidate = |label: &str, df_ds_candidate: f64| {
+            let cs01 = cs01_from_df_ds(df_ds_candidate);
+            eprintln!(
+                "    {label:<34} ∂F/∂S={df_ds_candidate:>8.4}  CS01={cs01:>8.2}  Δ={:+.2}",
+                cs01 - 2563.44
+            );
+        };
+        print_cs01_candidate("direct forward-spread shock", 1.0);
+        print_cs01_candidate("parallel par-spread bump", df_ds);
+
+        let f_for_par_term = |terms: &[(f64, f64)], id: &str| {
+            let knots = bootstrap_flat_hazard_pieces(&disc_arc, terms, recovery, dc, as_of);
+            let haz = HazardCurve::builder(id)
+                .base_date(as_of)
+                .recovery_rate(recovery)
+                .knots(knots)
+                .build()
+                .unwrap();
+            cds_pricer
+                .par_spread(&cds_nyse, disc_arc.as_ref(), &haz, as_of)
+                .unwrap()
+        };
+        let mut bucketed_df_ds_sum = 0.0_f64;
+        for idx in 0..par_term.len() {
+            let mut key_up = par_term.clone();
+            let mut key_dn = par_term.clone();
+            key_up[idx].1 += 1.0;
+            key_dn[idx].1 -= 1.0;
+            let key_df_ds = (f_for_par_term(&key_up, "IBM-KEY-UP")
+                - f_for_par_term(&key_dn, "IBM-KEY-DN"))
+                / 2.0;
+            bucketed_df_ds_sum += key_df_ds;
+            if (par_term[idx].0 - 5.0).abs() <= f64::EPSILON {
+                print_cs01_candidate("5Y key-rate par-spread bump", key_df_ds);
+            }
+            if idx + 1 == par_term.len() {
+                print_cs01_candidate("maturity key-rate bump", key_df_ds);
+            }
+        }
+        print_cs01_candidate("bucketed key-rate sum", bucketed_df_ds_sum);
 
         // ----- Production CDSO pricer sanity --------------------------------
         // Build the option with Bloomberg's exact dates and pin the σ override,
@@ -1864,6 +2091,70 @@ mod tests {
         eprintln!(
             "  → live DV01   = {dv01:.4}  (Bloomberg -5.77,    Δ {:+.4})",
             dv01 - (-5.77)
+        );
+
+        let swap_quotes_pct = [
+            ("1M", 3.644),
+            ("2M", 3.6528),
+            ("3M", 3.6583),
+            ("6M", 3.672),
+            ("1Y", 3.7255),
+            ("2Y", 3.7125),
+            ("3Y", 3.681),
+            ("4Y", 3.684),
+            ("5Y", 3.7115),
+            ("6Y", 3.7555),
+            ("7Y", 3.8045),
+            ("8Y", 3.8505),
+            ("9Y", 3.894),
+            ("10Y", 3.937),
+            ("12Y", 4.0235),
+            ("15Y", 4.133),
+            ("20Y", 4.221),
+            ("25Y", 4.2265),
+            ("30Y", 4.1935),
+        ];
+        let rate_calibration = DiscountCurveRateCalibration {
+            index_id: "USD-SOFR-OIS".to_string(),
+            currency: Currency::USD,
+            quotes: swap_quotes_pct
+                .iter()
+                .map(|(tenor, rate_pct)| DiscountCurveRateQuote {
+                    quote_type: match *tenor {
+                        "1M" | "2M" | "3M" | "6M" => DiscountCurveRateQuoteType::Deposit,
+                        _ => DiscountCurveRateQuoteType::Swap,
+                    },
+                    tenor: (*tenor).to_string(),
+                    rate: rate_pct / 100.0,
+                })
+                .collect(),
+        };
+        let disc_with_calibration = disc
+            .to_builder_with_id("USD-S531-SWAP")
+            .rate_calibration(rate_calibration)
+            .build()
+            .unwrap();
+        let market_with_rate_calibration = MarketContext::new()
+            .insert(disc_with_calibration)
+            .insert(hazard.clone());
+        let quote_rebuild_result = price_instrument_json_with_metrics(
+            &instrument_json,
+            &market_with_rate_calibration,
+            "2026-05-02",
+            "black76",
+            &["dv01".to_string()],
+            None,
+        )
+        .unwrap();
+        let quote_rebuild_dv01 = quote_rebuild_result
+            .measures
+            .get("dv01")
+            .copied()
+            .unwrap_or(f64::NAN);
+        eprintln!(
+            "  → DV01 quote-rebuild diagnostic = {quote_rebuild_dv01:.4}  (Bloomberg -5.77, Δ {:+.4}; improvement vs direct {:+.4})",
+            quote_rebuild_dv01 - (-5.77),
+            (quote_rebuild_dv01 - (-5.77)).abs() - (dv01 - (-5.77)).abs()
         );
     }
 }

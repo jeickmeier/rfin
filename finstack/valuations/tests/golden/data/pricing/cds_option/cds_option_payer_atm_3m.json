@@ -38,6 +38,7 @@
     "valuation_date": "2026-05-02",
     "model": "black76",
     "metrics": [
+      "par_spread",
       "vega",
       "dv01",
       "cs01",
@@ -539,9 +540,10 @@
         "Expected outputs use Bloomberg screen values directly. Tolerances reflect the residual model-vs-screen convention drift after Phase A/B/C alignment work; documented finstack-vs-Bloomberg drift lives in finstack_reconciliation."
       ],
       "finstack_reconciliation": {
-        "expected_outputs_policy": "Bloomberg screen values for displayed metrics. Tolerances reflect the residual finstack-vs-Bloomberg convention drift after the CDSO Phase A/B/C alignment work (BloombergCdswClean synthetic underlying + inclusive-end Black-T rule). Deltas vs. Bloomberg are documented below for visibility into model-vs-market drift; the absolute tolerances are sized to allow the residual without re-introducing source_validation.",
+        "expected_outputs_policy": "Bloomberg screen values for displayed metrics. Tolerances are pinned to the observed deterministic finstack-vs-Bloomberg residual plus a narrow guard band, not broad model-risk allowances. Remaining deltas vs. Bloomberg are documented below for visibility into convention drift after the CDSO Phase A/B/C alignment work (BloombergCdswClean synthetic underlying + inclusive-end Black-T rule).",
         "metrics_compared": [
           "npv",
+          "par_spread",
           "vega",
           "dv01",
           "cs01",
@@ -550,36 +552,41 @@
         "model_fixes_applied": [
           "Replaced transcribed hazard knots (~1.017% IBM survival-probability-derived) with self-consistent knots bootstrapped from the par-spread term structure (Brent root finding, IMM-rolled maturities). Drops forward-spread drift from 3.7% to 0.30% and NPV drift from 23.0% to 7.8%.",
           "Added CdsOptionDv01Calculator that re-bootstraps the hazard curve from par_spreads under the bumped discount curve before repricing (Bloomberg CDSO convention), replacing the generic UnifiedDv01Calculator(parallel_combined). Drops IR DV01 magnitude from -20.54 (256% drift) to -9.35 (62% drift).",
-          "Threaded Bloomberg's underlying effective date into the synthetic CDSO underlying and switched the CDSO Black annuity to the full premium-leg PV01 including expected accrued premium on default.",
+          "Threaded Bloomberg's underlying effective date into the synthetic CDSO underlying and switched the CDSO Black annuity to the forward premium-leg PV01: scheduled coupons follow the standard CDS accrual schedule, while expected accrued premium on default starts only when forward protection is live.",
           "Switched the synthetic underlying CDS valuation_convention from IsdaDirty to BloombergCdswClean. CDSW uses adjusted-to-adjusted accrual periods plus the +1-day rule on the final ACT/360 period; this lifts the option's effective annuity from 4.5061 to 4.5084 (closer to Bloomberg-implied 4.51552).",
           "Extended CDSOption.black_time_to_expiry to count +1 day inclusive of the end date, mirroring the Bloomberg CDSW final-period convention. With ACT/360 day count, this makes the option's Black T = 49/360 = 0.13611 (vs the old 48/360 = 0.13333 and Bloomberg-implied ~0.13481)."
         ],
         "black_time_to_expiry": 0.136111,
         "black_time_to_expiry_minus_bloomberg_implied": 0.001304,
         "black_time_to_expiry_note": "ACT/360 with inclusive-end +1d rule: 49 days / 360 = 0.13611. Bloomberg implied T \u2248 0.13481 from back-solving NPV with annuity = 4.51552, F = K = 58.3954bp, \u03c3 = 0.8102. The +0.4% T overshoot is the dominant driver of the +0.06% NPV overshoot.",
-        "npv": 31197.369426030626,
-        "npv_minus_bloomberg_market_value": 19.549426030626,
-        "npv_rel_diff": 0.0006270299216118,
-        "npv_note": "Residual +0.06% (~$19.55) drift after Phase A/B/C alignment work (BloombergCdswClean synthetic underlying + inclusive-end +1d Black T). Down from -$58.33 in the prior IsdaDirty + 48d/360 setup. Closing further requires either a black_time_to_expiry_override or matching Bloomberg's exact hazard-bootstrap micro-conventions; both intentionally deferred.",
-        "vega": 383.558114695826,
-        "vega_minus_bloomberg_vega_1pct": 2.538114695826,
-        "vega_rel_diff": 0.006661368683603,
+        "npv": 31197.522977727032,
+        "npv_minus_bloomberg_market_value": 19.702977727032,
+        "npv_rel_diff": 0.0006319549515339,
+        "npv_note": "Residual +0.06% (~$19.70) drift after Phase A/B/C alignment work plus the forward-CDS annuity fix (BloombergCdswClean synthetic underlying + inclusive-end +1d Black T). Down from -$58.33 in the prior IsdaDirty + 48d/360 setup. Closing further requires matching Bloomberg's exact Black-T clock and hazard-bootstrap micro-conventions.",
+        "par_spread": 58.346227637476,
+        "par_spread_minus_bloomberg_atm_fwd_bp": -0.049172362524,
+        "par_spread_rel_diff": 0.0008420588355231,
+        "par_spread_note": "Finstack CDSOption par_spread is the Black forward CDS spread in bp. It is within 0.05bp of Bloomberg CDSO ATM Fwd (bp) 58.3954, inside the 0.1bp executable golden tolerance.",
+        "vega": 383.557865335175,
+        "vega_minus_bloomberg_vega_1pct": 2.537865335175,
+        "vega_rel_diff": 0.00666071422806,
         "vega_note": "Vega(1%) overshoots by ~0.67%; same T-convention root cause as NPV.",
-        "dv01": -7.435441557554,
-        "dv01_minus_bloomberg_ir_dv01": -1.665441557554,
-        "dv01_rel_diff": 0.2886380515692,
+        "dv01": -7.435441159741,
+        "dv01_minus_bloomberg_ir_dv01": -1.665441159741,
+        "dv01_rel_diff": 0.2886379826242,
         "dv01_note": "Bloomberg-style IR DV01: bump rates by +/-1bp parallel, re-bootstrap hazard from the unchanged par-spread term structure, reprice option (CdsOptionDv01Calculator). The 29% relative drift on the $-5.77 base translates to ~$1.7 absolute; further closure requires reproducing Bloomberg's exact rate-bump and hazard-bootstrap conventions.",
-        "cs01": 2498.925753422542,
-        "cs01_minus_bloomberg_spread_dv01": -64.514246577458,
-        "cs01_rel_diff": 0.02516705933334,
+        "cs01": 2498.948126046396,
+        "cs01_minus_bloomberg_spread_dv01": -64.491873953604,
+        "cs01_rel_diff": 0.02515833175483,
         "cs01_note": "Finstack CS01 is the parallel par-spread bump + hazard re-bootstrap CS01 (GenericParallelCs01) under the BloombergCdswClean synthetic underlying. The remaining ~2.5% drift comes from Bloomberg's CDSO Spread DV01 implying \u2202F/\u2202S \u2248 1.017 (likely a 5Y key-rate bump) versus finstack's parallel ~1.0004; user accepted this convention residual (Q3 \u2192 C3 in the alignment plan).",
-        "theta": -315.4991842706,
-        "theta_minus_bloomberg_theta_per_day": -6.4191842706,
-        "theta_rel_diff": 0.02076868212308,
+        "theta": -315.498960774788,
+        "theta_minus_bloomberg_theta_per_day": -6.418960774788,
+        "theta_rel_diff": 0.02076795902287,
         "theta_note": "Finstack theta is the 1-calendar-day forward finite-difference theta (PV(as_of+1d) - PV(as_of)). The ~2.0% drift vs. Bloomberg sits between the NPV and CS01 residuals."
       },
       "risk_metric_notes": {
         "npv": "Bloomberg Market Value is the option premium in USD: premium_pct/100 x notional = 0.311778% x 10,000,000 = 31,177.80 (small rounding vs. screen). Finstack NPV is the discounted Black-on-spreads payer-option PV with BloombergCdswClean synthetic underlying CDS and inclusive-end Black T (49d/360).",
+        "par_spread": "Bloomberg ATM Fwd (bp) is the CDSO screen forward CDS spread used as the ATM strike. Finstack par_spread for CDSOption is the executable Black forward CDS spread in bp.",
         "vega": "Bloomberg Vega(1%) is the dollar PV change for a +1 absolute percentage point move in lognormal spread vol. Matches finstack vega definition (per 1 vol point).",
         "dv01": "Bloomberg IR DV01 is the +1bp parallel discount-curve bump impact on option PV with par CDS spreads held constant via hazard re-bootstrap. Matches finstack CdsOptionDv01Calculator (added in this fix), mirroring CdsDv01Calculator for the underlying.",
         "cs01": "Bloomberg Spread DV01 is the +1bp par-spread bump on the credit curve with hazard re-bootstrap. Matches finstack parallel par-spread CS01 (GenericParallelCs01) which is the registered MetricId::Cs01 for CDSOption. Bloomberg's effective \u2202F/\u2202S \u2248 1.017 (likely a 5Y key-rate bump) vs finstack's parallel \u2248 1.0004 \u2014 the residual was accepted by the alignment plan (Q3 \u2192 C3).",
@@ -589,6 +596,7 @@
   },
   "expected_outputs": {
     "npv": 31177.82,
+    "par_spread": 58.3954,
     "vega": 381.02,
     "dv01": -5.77,
     "cs01": 2563.44,
@@ -596,29 +604,34 @@
   },
   "tolerances": {
     "npv": {
-      "abs": 25.0,
+      "abs": 20.0,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays Market Value in USD to cents; sized to absorb the residual ~$20 (~0.06%) drift after the CDSO Phase A/B/C alignment work (BloombergCdswClean synthetic underlying + inclusive-end +1d Black T rule). Closing this further requires either reproducing Bloomberg's exact CDSO Black T convention (no public spec) or adding a black_time_to_expiry_override; both intentionally deferred per the alignment plan."
+      "tolerance_reason": "Bloomberg displays Market Value in USD to cents. Live deterministic residual is $19.70 (0.063%) after CDSO convention alignment and the forward-CDS annuity fix; band remains $20 so any additional drift fails. Residual root cause is Black-T/annuity micro-convention mismatch versus Bloomberg."
+    },
+    "par_spread": {
+      "abs": 0.1,
+      "rel": 1e-08,
+      "tolerance_reason": "Bloomberg CDSO displays ATM Fwd (bp) as 58.3954. Finstack's executable CDS option par_spread metric is the Black forward CDS spread in bp and must match the screen within 0.1bp."
     },
     "vega": {
-      "abs": 3.0,
+      "abs": 2.6,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays Vega(1%) to cents; widened to absorb the residual ~$2 (~0.57%) drift; same root cause as NPV (T-convention overshoot under inclusive-end rule)."
+      "tolerance_reason": "Bloomberg displays Vega(1%) to cents. Live deterministic residual is $2.54 (0.67%); band is tightened to $2.60. Residual has the same Black-T/annuity convention source as NPV."
     },
     "dv01": {
-      "abs": 2.0,
+      "abs": 1.7,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays IR DV01 to cents; the small absolute base ($-5.77) means even a 30% relative drift translates to <$2. Closing further requires Bloomberg's exact rate-bump and hazard-bootstrap conventions."
+      "tolerance_reason": "Bloomberg displays IR DV01 to cents. Live deterministic residual is $1.67 on a small $-5.77 base; band is tightened to $1.70. Residual is isolated to Bloomberg's exact rate-bump plus hazard-rebootstrap convention, not numerical noise."
     },
     "cs01": {
-      "abs": 75.0,
+      "abs": 65.0,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays Spread DV01 to cents; the residual ~$68 (~2.6%) drift comes from Bloomberg's CDSO Spread DV01 implying \u2202F/\u2202S \u2248 1.017 (likely 5Y key-rate bump) vs finstack's parallel ~1.0004. Convention residual accepted (Q3 \u2192 C3)."
+      "tolerance_reason": "Bloomberg displays Spread DV01 to cents. Live deterministic residual is $64.49 (2.52%); band is tightened to $65. Bloomberg CDSO Spread DV01 implies \u2202F/\u2202S \u2248 1.017, likely a maturity/key-rate spread bump, while finstack's registered cs01 is a parallel par-spread bump at \u2202F/\u2202S \u2248 1.0004."
     },
     "theta": {
-      "abs": 7.5,
+      "abs": 6.5,
       "rel": 1e-08,
-      "tolerance_reason": "Bloomberg displays Theta per day to cents; the residual ~$6 (~2.0%) drift sits between the NPV and CS01 residuals; same convention root causes."
+      "tolerance_reason": "Bloomberg displays Theta per day to cents. Live deterministic residual is $6.42 (2.08%); band is tightened to $6.50. Residual follows the same Black-T/annuity convention mismatch as NPV and Vega."
     }
   }
 }
