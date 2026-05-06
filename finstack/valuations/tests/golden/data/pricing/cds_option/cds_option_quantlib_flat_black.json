@@ -43,7 +43,11 @@
         "vol_surface_id": "QL-CDSO-VOL",
         "underlying_convention": "isda_na",
         "pricing_overrides": {
-          "implied_volatility": 0.5
+          "implied_volatility": 0.5,
+          "cds_par_spread_uses_full_premium": true,
+          "cds_adjust_premium_accrual_dates": true,
+          "cds_aod_half_day_bias": true,
+          "cds_act360_include_last_day": true
         },
         "cash_settlement_date": "2026-01-05",
         "exercise_settlement_date": "2026-03-20",

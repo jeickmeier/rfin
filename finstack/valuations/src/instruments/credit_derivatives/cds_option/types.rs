@@ -402,9 +402,9 @@ impl CDSOption {
     /// Black time-to-expiry under the Bloomberg CDSO convention.
     ///
     /// Counts calendar days **inclusive of the end date** (one extra day
-    /// beyond `end - start`) and divides by `day_count`'s denominator. This
-    /// mirrors the Act/360 +1-day rule that CDSW uses on the final premium
-    /// accrual period.
+    /// beyond `end - start`) and divides by `day_count`'s denominator for
+    /// Act/360 Bloomberg-style option timing. Other day-count conventions use
+    /// their standard exclusive end date.
     ///
     /// `start = cash_settlement_date`, `end = exercise_settlement_date` when
     /// supplied; otherwise both dates are derived from standard CDS option
@@ -419,9 +419,13 @@ impl CDSOption {
             return Ok(0.0);
         }
 
-        let end_inclusive = end + time::Duration::days(1);
+        let accrual_end = if self.day_count == finstack_core::dates::DayCount::Act360 {
+            end + time::Duration::days(1)
+        } else {
+            end
+        };
         self.day_count
-            .year_fraction(start, end_inclusive, DayCountContext::default())
+            .year_fraction(start, accrual_end, DayCountContext::default())
     }
 
     pub(crate) fn effective_cash_settlement_date(

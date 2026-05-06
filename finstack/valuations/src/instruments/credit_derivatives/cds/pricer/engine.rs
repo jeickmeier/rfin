@@ -5,7 +5,7 @@ use super::helpers::{
 };
 use crate::constants::{credit, numerical, BASIS_POINTS_PER_UNIT};
 use crate::instruments::common_impl::helpers::year_fraction;
-use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
+use crate::instruments::credit_derivatives::cds::{CdsValuationConvention, CreditDefaultSwap};
 use finstack_core::dates::{Date, HolidayCalendar};
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
@@ -23,9 +23,10 @@ pub(super) struct AodInputs<'a> {
     pub(super) cds: &'a CreditDefaultSwap,
     pub(super) spread: f64,
     /// Date from which premium accrual is measured for the AoD integral.
-    /// For ISDA-dirty pricing this is the coupon period start; for
-    /// clean-price pricing it is `start_date.max(as_of)` (i.e. accrual is
-    /// measured from valuation date inside the in-progress coupon).
+    /// For spot CDS pricing this is the coupon period start. For forward
+    /// CDS pricing this is clamped to the forward protection start, because
+    /// defaults before the forward start cancel the forward CDS rather than
+    /// accruing premium.
     pub(super) accrual_start_date: Date,
     /// Lower bound of the default-time integration interval. Always
     /// `>= as_of` (defaults strictly before `as_of` are not integrated).
@@ -255,18 +256,20 @@ impl CDSPricer {
 
             if self.config.include_accrual {
                 let spread_sign = spread.signum();
-                let aod_accrual_start = if cds.uses_clean_price() {
-                    start_date.max(as_of)
-                } else {
-                    start_date
-                };
                 // Keep AoD on the same dollar basis as the scheduled coupon leg.
                 premium_pv += spread_sign
                     * cds.notional.amount()
                     * self.accrual_on_default_dispatch(AodInputs {
                         cds,
                         spread: spread.abs(),
-                        accrual_start_date: aod_accrual_start,
+                        accrual_start_date: if matches!(
+                            cds.valuation_convention,
+                            CdsValuationConvention::BloombergCdswClean
+                        ) {
+                            start_date.max(as_of)
+                        } else {
+                            start_date
+                        },
                         start_date: start_date.max(as_of),
                         end_date,
                         settlement_delay: cds.protection.settlement_delay,
@@ -395,14 +398,28 @@ impl CDSPricer {
             };
 
             // Accrued fraction at interval start, expressed in instrument-DC units.
-            let accrual_bias = if inp.cds.premium.day_count
-                == finstack_core::dates::DayCount::Act360
-                && inp.cds.pricing_overrides.model_config.cds_aod_half_day_bias
-            {
-                0.5 / 360.0
-            } else {
-                0.0
-            };
+            //
+            // QuantLib's `Actual360(true)` shifts discrete coupon accrual by
+            // one inclusive day. In the continuous default-accrual integral,
+            // that convention contributes half a day at the interval boundary.
+            // `IsdaCdsEngine` can also add its explicit `HalfDayBias`; when
+            // both QuantLib knobs are enabled the starting accrual is shifted
+            // by one full day.
+            let mut bias_days = 0.0;
+            if inp.cds.premium.day_count == finstack_core::dates::DayCount::Act360 {
+                if inp
+                    .cds
+                    .pricing_overrides
+                    .model_config
+                    .cds_act360_include_last_day
+                {
+                    bias_days += 0.5;
+                }
+                if inp.cds.pricing_overrides.model_config.cds_aod_half_day_bias {
+                    bias_days += 0.5;
+                }
+            }
+            let accrual_bias = bias_days / 360.0;
             let tau_at_t1 = (t1 - t_accrual_start) * tau_per_haz + accrual_bias;
 
             // Analytical integration for

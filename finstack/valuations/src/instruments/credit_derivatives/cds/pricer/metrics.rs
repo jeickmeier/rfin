@@ -2,7 +2,9 @@ use super::engine::{AodInputs, CDSPricer, CouponPeriod};
 use super::helpers::{df_asof_to, sp_cond_to};
 use crate::constants::{numerical, BASIS_POINTS_PER_UNIT, ONE_BASIS_POINT};
 use crate::instruments::common_impl::helpers::year_fraction;
-use crate::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
+use crate::instruments::credit_derivatives::cds::{
+    CdsValuationConvention, CreditDefaultSwap, PayReceive,
+};
 use finstack_core::dates::{adjust, next_cds_date, Date};
 #[cfg(test)]
 use finstack_core::market_data::context::MarketContext;
@@ -311,15 +313,17 @@ impl CDSPricer {
                 ann += unit_spread * accrual * sp * df;
 
                 // AoD part per unit spread in this period.
-                let aod_accrual_start = if cds.uses_clean_price() {
-                    start_date.max(as_of)
-                } else {
-                    start_date
-                };
                 ann += self.accrual_on_default_dispatch(AodInputs {
                     cds,
                     spread: unit_spread,
-                    accrual_start_date: aod_accrual_start,
+                    accrual_start_date: if matches!(
+                        cds.valuation_convention,
+                        CdsValuationConvention::BloombergCdswClean
+                    ) {
+                        start_date.max(as_of)
+                    } else {
+                        start_date
+                    },
                     start_date: start_date.max(as_of),
                     end_date,
                     settlement_delay: cds.protection.settlement_delay,
@@ -389,15 +393,17 @@ impl CDSPricer {
             per_bp_pv += ONE_BASIS_POINT * accrual * sp * df;
 
             if self.config.include_accrual {
-                let aod_accrual_start = if cds.uses_clean_price() {
-                    start_date.max(as_of)
-                } else {
-                    start_date
-                };
                 per_bp_pv += self.accrual_on_default_dispatch(AodInputs {
                     cds,
                     spread: ONE_BASIS_POINT,
-                    accrual_start_date: aod_accrual_start,
+                    accrual_start_date: if matches!(
+                        cds.valuation_convention,
+                        CdsValuationConvention::BloombergCdswClean
+                    ) {
+                        start_date.max(as_of)
+                    } else {
+                        start_date
+                    },
                     start_date: start_date.max(as_of),
                     end_date,
                     settlement_delay: cds.protection.settlement_delay,
@@ -449,15 +455,10 @@ impl CDSPricer {
             per_bp_pv += ONE_BASIS_POINT * accrual * sp * df;
 
             if self.config.include_accrual {
-                let aod_accrual_start = if cds.uses_clean_price() {
-                    start_date.max(as_of).max(forward_start)
-                } else {
-                    start_date.max(forward_start)
-                };
                 per_bp_pv += self.accrual_on_default_dispatch(AodInputs {
                     cds,
                     spread: ONE_BASIS_POINT,
-                    accrual_start_date: aod_accrual_start,
+                    accrual_start_date: start_date.max(forward_start),
                     start_date: start_date.max(as_of).max(forward_start),
                     end_date,
                     settlement_delay: cds.protection.settlement_delay,

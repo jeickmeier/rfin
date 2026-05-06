@@ -165,6 +165,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -289,6 +292,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -418,6 +424,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -826,6 +835,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -1658,6 +1670,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -1808,6 +1823,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -1976,6 +1994,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -2135,6 +2156,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -2352,6 +2376,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -2541,6 +2568,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -2654,6 +2684,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -2970,6 +3003,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -3134,6 +3170,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -3289,6 +3328,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -3573,6 +3615,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -3668,6 +3713,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -4237,6 +4285,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -4473,6 +4524,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -4630,6 +4684,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -4790,6 +4847,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -5104,6 +5164,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -5310,6 +5373,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -5490,6 +5556,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -5634,6 +5703,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -5749,6 +5821,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -5880,6 +5955,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -6217,6 +6295,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -6635,6 +6716,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -8283,6 +8367,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -8471,6 +8558,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -8636,6 +8726,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -8881,6 +8974,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -9093,6 +9189,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -9225,6 +9324,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -9344,6 +9446,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -9488,6 +9593,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -10278,6 +10386,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -10585,6 +10696,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -10727,6 +10841,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -10833,6 +10950,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -10938,6 +11058,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -11023,6 +11146,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -11148,6 +11274,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -11255,6 +11384,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -11383,6 +11515,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -11740,6 +11875,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -11947,6 +12085,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -12088,6 +12229,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -13462,6 +13606,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -13599,6 +13746,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -13673,6 +13823,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -13898,6 +14051,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -14366,6 +14522,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -15295,6 +15454,21 @@
                     "null"
                   ]
                 },
+                "cds_act360_include_last_day": {
+                  "default": false,
+                  "description": "Add one calendar day to *every* Act/360 premium accrual period.\n\nQuantLib exposes this as `Actual360(true)` on the CDS coupon\nday-count and uses it inside `IsdaCdsEngine`. The Bloomberg CDSW\nconvention only treats the *final* coupon period as inclusive of\nthe maturity date, so this is opt-in for QuantLib parity tests\nrather than the default for production CDS pricing.",
+                  "type": "boolean"
+                },
+                "cds_adjust_premium_accrual_dates": {
+                  "default": false,
+                  "description": "Adjust CDS premium accrual period boundaries by the premium calendar.\n\nWhen true, intermediate IMM coupon dates are business-day adjusted before\ncomputing premium accrual fractions. This matches QuantLib CDS schedules\nbuilt with a business day convention.",
+                  "type": "boolean"
+                },
+                "cds_aod_half_day_bias": {
+                  "default": false,
+                  "description": "Apply QuantLib ISDA half-day accrual-on-default bias.\n\nQuantLib's `IsdaCdsEngine` defaults to `HalfDayBias`, adding half a\nday of premium accrual in the default-accrual integral.",
+                  "type": "boolean"
+                },
                 "cds_clean_price": {
                   "default": false,
                   "description": "CDSW-style clean CDS valuation.\n\nWhen true, CDS base value and bump revaluations exclude accrued premium\nfrom the dirty model PV, matching Bloomberg CDSW's clean Principal field.",
@@ -15626,6 +15800,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -15781,6 +15958,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -15950,6 +16130,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -16210,6 +16393,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -16624,6 +16810,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -16876,6 +17065,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -17212,6 +17404,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -17893,6 +18088,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -18073,6 +18271,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -18263,6 +18464,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -18490,6 +18694,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -19296,6 +19503,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -19507,6 +19717,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -19596,6 +19809,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -19949,6 +20165,9 @@
                   "default": {
                     "adaptive_bumps": false,
                     "call_friction_cents": null,
+                    "cds_act360_include_last_day": false,
+                    "cds_adjust_premium_accrual_dates": false,
+                    "cds_aod_half_day_bias": false,
                     "cds_clean_price": false,
                     "cds_par_spread_uses_full_premium": false,
                     "credit_spread_bump_bp": null,
@@ -20035,6 +20254,9 @@
               "default": {
                 "adaptive_bumps": false,
                 "call_friction_cents": null,
+                "cds_act360_include_last_day": false,
+                "cds_adjust_premium_accrual_dates": false,
+                "cds_aod_half_day_bias": false,
                 "cds_clean_price": false,
                 "cds_par_spread_uses_full_premium": false,
                 "credit_spread_bump_bp": null,

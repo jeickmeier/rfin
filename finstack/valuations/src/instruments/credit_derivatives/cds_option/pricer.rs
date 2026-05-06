@@ -12,7 +12,7 @@ use crate::constants::{credit, numerical, ONE_BASIS_POINT};
 use crate::instruments::common_impl::models::{d1, d2, norm_cdf, norm_pdf};
 use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::credit_derivatives::cds::pricer::CDSPricer;
+use crate::instruments::credit_derivatives::cds::pricer::{CDSPricer, CDSPricerConfig};
 use crate::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
 use crate::instruments::credit_derivatives::cds_option::CDSOption;
 use finstack_core::market_data::context::MarketContext;
@@ -244,10 +244,28 @@ fn synthetic_underlying_cds(option: &CDSOption) -> Result<CreditDefaultSwap> {
     if cds.premium.start < option.expiry {
         cds.protection_effective_date = Some(option.expiry);
     }
+    if option
+        .pricing_overrides
+        .model_config
+        .cds_act360_include_last_day
+    {
+        cds.protection_effective_date =
+            Some(option.effective_underlying_effective_date() - time::Duration::days(1));
+        cds.protection.settlement_delay = 0;
+    }
     // Forward CDS uses the Bloomberg CDSW conventions shown on the option
     // underlying screen: adjusted-to-adjusted accruals plus the +1-day rule
     // on the final ACT/360 period.
-    cds.valuation_convention = CdsValuationConvention::BloombergCdswClean;
+    cds.pricing_overrides.model_config = option.pricing_overrides.model_config.clone();
+    cds.valuation_convention = if cds
+        .pricing_overrides
+        .model_config
+        .cds_act360_include_last_day
+    {
+        CdsValuationConvention::IsdaDirty
+    } else {
+        CdsValuationConvention::BloombergCdswClean
+    };
     Ok(cds)
 }
 
@@ -279,8 +297,25 @@ impl CDSOptionPricer {
         let protection_pv = cds_pricer
             .pv_protection_leg(&cds, disc, surv, as_of)?
             .amount();
+        let forward_protection_pv = if cds
+            .pricing_overrides
+            .model_config
+            .cds_act360_include_last_day
+        {
+            let mut scheduled_config = CDSPricerConfig::from_cds(&cds);
+            scheduled_config.include_accrual = false;
+            let scheduled_per_bp = CDSPricer::with_config(scheduled_config)
+                .forward_premium_leg_pv_per_bp(&cds, disc, surv, as_of, option.expiry)?;
+            let spread_bp = decimal_to_f64(cds.premium.spread_bp, "underlying CDS spread_bp")?;
+            let spread = spread_bp / self.config.bp_per_unit;
+            let half_day_rebate_midpoint = spread * cds.notional.amount() * (0.125 / 360.0);
+            protection_pv + spread_bp * (premium_per_bp - scheduled_per_bp) * cds.notional.amount()
+                - half_day_rebate_midpoint
+        } else {
+            protection_pv
+        };
         Ok(ForwardCdsBlackInputs {
-            forward_spread_bp: protection_pv / denominator * self.config.bp_per_unit,
+            forward_spread_bp: forward_protection_pv / denominator * self.config.bp_per_unit,
             risky_annuity,
         })
     }
