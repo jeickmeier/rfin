@@ -28,7 +28,7 @@ use finstack_core::dates::{
     HolidayCalendar,
 };
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId, Percentage};
+use finstack_core::types::{CurveId, InstrumentId};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
@@ -334,23 +334,6 @@ impl CDSOption {
             )));
         }
         self.pricing_overrides.market_quotes.implied_volatility = Some(vol);
-        Ok(self)
-    }
-
-    /// Set implied volatility override using a typed percentage.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if volatility is not positive.
-    pub fn with_implied_vol_pct(mut self, vol: Percentage) -> finstack_core::Result<Self> {
-        let vol_decimal = vol.as_decimal();
-        if vol_decimal <= MIN_IMPLIED_VOL {
-            return Err(finstack_core::Error::Validation(format!(
-                "implied_volatility must be positive, got {}",
-                vol_decimal
-            )));
-        }
-        self.pricing_overrides.market_quotes.implied_volatility = Some(vol_decimal);
         Ok(self)
     }
 

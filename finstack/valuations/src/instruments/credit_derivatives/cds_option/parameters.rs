@@ -10,7 +10,6 @@
 
 use crate::instruments::common_impl::parameters::OptionType;
 use finstack_core::dates::DayCount;
-use finstack_core::types::Bps;
 use finstack_core::{dates::Date, money::Money};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
@@ -137,29 +136,6 @@ impl CDSOptionParams {
         Ok(params)
     }
 
-    /// Create new credit option parameters using typed basis points.
-    ///
-    /// Converts from basis points to decimal rate internally.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - `strike_bps` is not positive or exceeds 10000bp
-    /// - `expiry` is not before `cds_maturity`
-    pub fn new_bps(
-        strike_bps: Bps,
-        expiry: Date,
-        cds_maturity: Date,
-        notional: Money,
-        option_type: OptionType,
-    ) -> finstack_core::Result<Self> {
-        let bp_value = strike_bps.as_bps() as f64;
-        let strike = Decimal::try_from(bp_value / 10000.0).map_err(|e| {
-            finstack_core::Error::Validation(format!("Invalid strike from bps: {}", e))
-        })?;
-        Self::new(strike, expiry, cds_maturity, notional, option_type)
-    }
-
     /// Create credit call option parameters with validation.
     pub fn call(
         strike: Decimal,
@@ -170,16 +146,6 @@ impl CDSOptionParams {
         Self::new(strike, expiry, cds_maturity, notional, OptionType::Call)
     }
 
-    /// Create credit call option parameters using typed basis points.
-    pub fn call_bps(
-        strike_bps: Bps,
-        expiry: Date,
-        cds_maturity: Date,
-        notional: Money,
-    ) -> finstack_core::Result<Self> {
-        Self::new_bps(strike_bps, expiry, cds_maturity, notional, OptionType::Call)
-    }
-
     /// Create credit put option parameters with validation.
     pub fn put(
         strike: Decimal,
@@ -188,16 +154,6 @@ impl CDSOptionParams {
         notional: Money,
     ) -> finstack_core::Result<Self> {
         Self::new(strike, expiry, cds_maturity, notional, OptionType::Put)
-    }
-
-    /// Create credit put option parameters using typed basis points.
-    pub fn put_bps(
-        strike_bps: Bps,
-        expiry: Date,
-        cds_maturity: Date,
-        notional: Money,
-    ) -> finstack_core::Result<Self> {
-        Self::new_bps(strike_bps, expiry, cds_maturity, notional, OptionType::Put)
     }
 
     /// Mark this option as referencing a CDS index and set an index factor.
@@ -220,21 +176,6 @@ impl CDSOptionParams {
     #[must_use]
     pub fn with_forward_spread_adjust(mut self, adjust: Decimal) -> Self {
         self.forward_spread_adjust = adjust;
-        self
-    }
-
-    /// Apply a forward spread adjustment using typed basis points.
-    #[must_use]
-    pub fn with_forward_spread_adjust_bps(mut self, adjust_bp: Bps) -> Self {
-        // Bps is an i32-backed type: direct arithmetic avoids any f64 conversion.
-        self.forward_spread_adjust = Decimal::from(adjust_bp.as_bps()) / Decimal::from(10_000_i32);
-        self
-    }
-
-    /// Set the day count for the option's Black time-to-expiry.
-    #[must_use]
-    pub fn with_day_count(mut self, day_count: DayCount) -> Self {
-        self.day_count = day_count;
         self
     }
 }

@@ -8,7 +8,7 @@
 //! forward spread, risky annuity, and discount factor into the option
 //! PV via the modified Black formula implemented on the instrument.
 
-use crate::constants::{credit, numerical, ONE_BASIS_POINT};
+use crate::constants::{credit, numerical, BASIS_POINTS_PER_UNIT, ONE_BASIS_POINT};
 use crate::instruments::common_impl::models::{d1, d2, norm_cdf, norm_pdf};
 use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Instrument;
@@ -22,6 +22,14 @@ use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
+/// Calendar days per year used to express daily theta as a year-fraction
+/// step in the finite-difference theta calculation.
+const THETA_DAYS_PER_YEAR: f64 = 365.0;
+
+/// Initial guess for the implied-volatility solver when no surface vol is
+/// available. 20% lognormal vol is a typical mid-grade CDS option level.
+const IV_INITIAL_GUESS: f64 = 0.20;
+
 fn decimal_to_f64(value: Decimal, field: &str) -> Result<f64> {
     value.to_f64().ok_or_else(|| {
         finstack_core::Error::Validation(format!(
@@ -30,39 +38,16 @@ fn decimal_to_f64(value: Decimal, field: &str) -> Result<f64> {
     })
 }
 
-/// Pricing engine for `CDSOption`.
+/// CDS option pricer implementing the Black76 model on forward CDS spreads.
 ///
-/// Stateless wrapper that sources required market inputs and delegates
-/// to the instrument's pricing math for the Black-on-spreads formula.
-/// Configuration for CDS option pricing
-#[derive(Debug, Clone)]
-pub(crate) struct CDSOptionPricerConfig {
-    /// Whether to use ISDA standard RPV01 schedule
-    pub(crate) use_isda_schedule_rpv01: bool,
-    /// Basis points per unit for spread conversion
-    pub(crate) bp_per_unit: f64,
-    /// Days per year for theta calculation
-    pub(crate) theta_days_per_year: f64,
-    /// Initial guess for implied volatility solver
-    pub(crate) iv_initial_guess: f64,
-}
-
-impl Default for CDSOptionPricerConfig {
-    fn default() -> Self {
-        Self {
-            use_isda_schedule_rpv01: true,
-            bp_per_unit: 10000.0,
-            theta_days_per_year: 365.0,
-            iv_initial_guess: 0.20,
-        }
-    }
-}
-
-/// CDS option pricer implementing Black76 model on CDS spreads.
+/// Stateless namespace: sources required market inputs and delegates to the
+/// instrument's pricing math for the Black-on-spreads formula. The pricer
+/// always uses the Bloomberg CDSO forward-premium-leg risky annuity (the
+/// only convention this engine supports) and reads scalar conventions
+/// (`BASIS_POINTS_PER_UNIT`, `THETA_DAYS_PER_YEAR`, `IV_INITIAL_GUESS`)
+/// from module-level constants.
 #[derive(Default)]
-pub(crate) struct CDSOptionPricer {
-    config: CDSOptionPricerConfig,
-}
+pub(crate) struct CDSOptionPricer;
 
 impl CDSOptionPricer {
     /// Price the CDS option and return its present value as of the discount curve base date.
@@ -88,7 +73,7 @@ impl CDSOptionPricer {
 
         // Risky annuity (RPV01) from option expiry to CDS maturity via CDS pricer
         let risky_annuity =
-            self.risky_annuity_from_pricer(option, disc.as_ref(), hazard.as_ref(), curves, as_of)?;
+            self.risky_annuity_from_pricer(option, disc.as_ref(), hazard.as_ref(), as_of)?;
 
         // Discount factor to option expiry (NOT used in pricing as risky_annuity is already PV)
         // let df_expiry = disc.df(t);
@@ -220,63 +205,9 @@ impl CDSOptionPricer {
         option.validate_supported_configuration()?;
         let disc = curves.get_discount(&option.discount_curve_id)?;
         let hazard = curves.get_hazard(&option.credit_curve_id)?;
-        self.risky_annuity_from_pricer(option, disc.as_ref(), hazard.as_ref(), curves, as_of)
+        self.risky_annuity_from_pricer(option, disc.as_ref(), hazard.as_ref(), as_of)
     }
-}
 
-fn synthetic_underlying_cds(option: &CDSOption) -> Result<CreditDefaultSwap> {
-    use crate::instruments::credit_derivatives::cds::CdsValuationConvention;
-
-    // Convert decimal strike to bp for CDS constructor (which expects bp)
-    let spread_bp = option.strike * Decimal::new(10000, 0);
-    let mut cds = CreditDefaultSwap::new_isda(
-        option.id.to_owned(),
-        Money::new(option.notional.amount(), option.notional.currency()),
-        PayReceive::PayFixed,
-        option.underlying_convention,
-        spread_bp,
-        option.effective_underlying_effective_date(),
-        option.cds_maturity,
-        option.recovery_rate,
-        option.discount_curve_id.to_owned(),
-        option.credit_curve_id.to_owned(),
-    )?;
-    if cds.premium.start < option.expiry {
-        cds.protection_effective_date = Some(option.expiry);
-    }
-    if option
-        .pricing_overrides
-        .model_config
-        .cds_act360_include_last_day
-    {
-        cds.protection_effective_date =
-            Some(option.effective_underlying_effective_date() - time::Duration::days(1));
-        cds.protection.settlement_delay = 0;
-    }
-    // Forward CDS uses the Bloomberg CDSW conventions shown on the option
-    // underlying screen: adjusted-to-adjusted accruals plus the +1-day rule
-    // on the final ACT/360 period. With `cds_act360_include_last_day` the
-    // option pricer is in QuantLib `IsdaCdsEngine` parity mode, so the synthetic
-    // CDS uses the matching dirty + adjusted + full-premium convention bundle.
-    cds.pricing_overrides.model_config = option.pricing_overrides.model_config.clone();
-    cds.valuation_convention = if cds
-        .pricing_overrides
-        .model_config
-        .cds_act360_include_last_day
-    {
-        CdsValuationConvention::QuantLibIsdaParity
-    } else {
-        CdsValuationConvention::BloombergCdswClean
-    };
-    Ok(cds)
-}
-
-struct ForwardCdsBlackInputs {
-    forward_spread_bp: f64,
-    risky_annuity: f64,
-}
-
-impl CDSOptionPricer {
     fn forward_cds_black_inputs(
         &self,
         option: &CDSOption,
@@ -309,7 +240,7 @@ impl CDSOptionPricer {
             let scheduled_per_bp = CDSPricer::with_config(scheduled_config)
                 .forward_premium_leg_pv_per_bp(&cds, disc, surv, as_of, option.expiry)?;
             let spread_bp = decimal_to_f64(cds.premium.spread_bp, "underlying CDS spread_bp")?;
-            let spread = spread_bp / self.config.bp_per_unit;
+            let spread = spread_bp / BASIS_POINTS_PER_UNIT;
             let half_day_rebate_midpoint = spread * cds.notional.amount() * (0.125 / 360.0);
             protection_pv + spread_bp * (premium_per_bp - scheduled_per_bp) * cds.notional.amount()
                 - half_day_rebate_midpoint
@@ -317,7 +248,7 @@ impl CDSOptionPricer {
             protection_pv
         };
         Ok(ForwardCdsBlackInputs {
-            forward_spread_bp: forward_protection_pv / denominator * self.config.bp_per_unit,
+            forward_spread_bp: forward_protection_pv / denominator * BASIS_POINTS_PER_UNIT,
             risky_annuity,
         })
     }
@@ -334,7 +265,7 @@ impl CDSOptionPricer {
             .forward_spread_bp;
         if option.underlying_is_index {
             forward_bp += decimal_to_f64(option.forward_spread_adjust, "forward_spread_adjust")?
-                * self.config.bp_per_unit;
+                * BASIS_POINTS_PER_UNIT;
         }
         Ok(forward_bp)
     }
@@ -366,7 +297,7 @@ impl CDSOptionPricer {
         let strike = decimal_to_f64(option.strike, "strike")?;
 
         if t <= 0.0 {
-            let forward = forward_spread_bp / self.config.bp_per_unit;
+            let forward = forward_spread_bp / BASIS_POINTS_PER_UNIT;
             let intrinsic = match option.option_type {
                 OptionType::Call => (forward - strike).max(0.0),
                 OptionType::Put => (strike - forward).max(0.0),
@@ -377,7 +308,7 @@ impl CDSOptionPricer {
             ));
         }
 
-        let forward = forward_spread_bp / self.config.bp_per_unit;
+        let forward = forward_spread_bp / BASIS_POINTS_PER_UNIT;
 
         // Guard against invalid strike
         if strike <= 0.0 {
@@ -443,7 +374,7 @@ impl CDSOptionPricer {
         let strike = decimal_to_f64(option.strike, "strike")?;
 
         if t <= 0.0 || sigma <= 0.0 {
-            let forward = forward_spread_bp / self.config.bp_per_unit;
+            let forward = forward_spread_bp / BASIS_POINTS_PER_UNIT;
             return Ok(match option.option_type {
                 OptionType::Call => {
                     if forward > strike {
@@ -461,7 +392,7 @@ impl CDSOptionPricer {
                 }
             });
         }
-        let forward = forward_spread_bp / self.config.bp_per_unit;
+        let forward = forward_spread_bp / BASIS_POINTS_PER_UNIT;
         if forward <= 0.0 || strike <= 0.0 {
             return Ok(0.0);
         }
@@ -497,7 +428,7 @@ impl CDSOptionPricer {
         if t < credit::MIN_TIME_TO_EXPIRY_GREEKS || sigma < credit::MIN_VOLATILITY_GREEKS {
             return Ok(0.0);
         }
-        let forward = forward_spread_bp / self.config.bp_per_unit;
+        let forward = forward_spread_bp / BASIS_POINTS_PER_UNIT;
         if forward <= 0.0 || strike <= 0.0 {
             return Ok(0.0);
         }
@@ -526,7 +457,7 @@ impl CDSOptionPricer {
         if t < credit::MIN_TIME_TO_EXPIRY_GREEKS {
             return Ok(0.0);
         }
-        let forward = forward_spread_bp / self.config.bp_per_unit;
+        let forward = forward_spread_bp / BASIS_POINTS_PER_UNIT;
         if forward <= 0.0 || strike <= 0.0 {
             return Ok(0.0);
         }
@@ -564,7 +495,7 @@ impl CDSOptionPricer {
         use time::Duration;
 
         // Time step: 1 calendar day
-        let dt_years = 1.0 / self.config.theta_days_per_year;
+        let dt_years = 1.0 / THETA_DAYS_PER_YEAR;
 
         // Check if already expired
         let t = option.black_time_to_expiry(as_of)?;
@@ -597,30 +528,8 @@ impl CDSOptionPricer {
         option: &CDSOption,
         disc: &finstack_core::market_data::term_structures::DiscountCurve,
         surv: &finstack_core::market_data::term_structures::HazardCurve,
-        _curves: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<f64> {
-        if !self.config.use_isda_schedule_rpv01 {
-            // Fallback to simple approximation if ever disabled
-            let cds_tenor = option.day_count.year_fraction(
-                option.expiry,
-                option.cds_maturity,
-                finstack_core::dates::DayCountContext::default(),
-            )?;
-            let t0 = option.day_count.year_fraction(
-                as_of,
-                option.expiry,
-                finstack_core::dates::DayCountContext::default(),
-            )?;
-            let mut ann = 0.0;
-            let n = (cds_tenor * 4.0).ceil() as usize;
-            for i in 1..=n {
-                let tau = cds_tenor * (i as f64) / (n as f64);
-                ann += 0.25 * disc.df(t0 + tau) * surv.sp(t0 + tau);
-            }
-            return Ok(ann);
-        }
-
         // Bloomberg CDSO scales Black PV by the forward premium-leg risky annuity.
         // Scheduled coupons follow the standard CDS schedule, while accrual-on-default
         // starts only once the forward CDS protection is live.
@@ -666,7 +575,7 @@ impl CDSOptionPricer {
 
         // Risky annuity from expiry to maturity
         let ra =
-            self.risky_annuity_from_pricer(option, disc.as_ref(), hazard.as_ref(), curves, as_of)?;
+            self.risky_annuity_from_pricer(option, disc.as_ref(), hazard.as_ref(), as_of)?;
         // df_expiry not needed as ra is already PV
 
         // Objective in log-σ space to keep σ>0
@@ -691,7 +600,7 @@ impl CDSOptionPricer {
             t,
             strike_f64,
         )
-        .unwrap_or(self.config.iv_initial_guess);
+        .unwrap_or(IV_INITIAL_GUESS);
         let x0 = (initial_guess.unwrap_or(sigma0.max(credit::MIN_VOLATILITY_GREEKS))).ln();
 
         let solver = BrentSolver::new().tolerance(1e-10);
@@ -701,34 +610,77 @@ impl CDSOptionPricer {
     }
 }
 
+/// Internal forward-CDS Black inputs returned by `forward_cds_black_inputs`.
+struct ForwardCdsBlackInputs {
+    forward_spread_bp: f64,
+    risky_annuity: f64,
+}
+
+/// Build the synthetic underlying CDS that backs the option's forward
+/// premium-leg risky annuity and protection PV calculations.
+fn synthetic_underlying_cds(option: &CDSOption) -> Result<CreditDefaultSwap> {
+    use crate::instruments::credit_derivatives::cds::CdsValuationConvention;
+
+    // Convert decimal strike to bp for CDS constructor (which expects bp)
+    let spread_bp = option.strike * Decimal::new(10000, 0);
+    let mut cds = CreditDefaultSwap::new_isda(
+        option.id.to_owned(),
+        Money::new(option.notional.amount(), option.notional.currency()),
+        PayReceive::PayFixed,
+        option.underlying_convention,
+        spread_bp,
+        option.effective_underlying_effective_date(),
+        option.cds_maturity,
+        option.recovery_rate,
+        option.discount_curve_id.to_owned(),
+        option.credit_curve_id.to_owned(),
+    )?;
+    if cds.premium.start < option.expiry {
+        cds.protection_effective_date = Some(option.expiry);
+    }
+    if option
+        .pricing_overrides
+        .model_config
+        .cds_act360_include_last_day
+    {
+        cds.protection_effective_date =
+            Some(option.effective_underlying_effective_date() - time::Duration::days(1));
+        cds.protection.settlement_delay = 0;
+    }
+    // Forward CDS uses the Bloomberg CDSW conventions shown on the option
+    // underlying screen: adjusted-to-adjusted accruals plus the +1-day rule
+    // on the final ACT/360 period. With `cds_act360_include_last_day` the
+    // option pricer is in QuantLib `IsdaCdsEngine` parity mode, so the synthetic
+    // CDS uses the matching dirty + adjusted + full-premium convention bundle.
+    cds.pricing_overrides.model_config = option.pricing_overrides.model_config.clone();
+    cds.valuation_convention = if cds
+        .pricing_overrides
+        .model_config
+        .cds_act360_include_last_day
+    {
+        CdsValuationConvention::QuantLibIsdaParity
+    } else {
+        CdsValuationConvention::BloombergCdswClean
+    };
+    Ok(cds)
+}
+
 // ========================= REGISTRY PRICER =========================
 
-/// Registry pricer for CDS Option using Black76 model
-pub(crate) struct SimpleCDSOptionBlackPricer {
-    model_key: crate::pricer::ModelKey,
-}
-
-impl SimpleCDSOptionBlackPricer {
-    /// Create a new CDS option pricer with default Black76 model
-    pub(crate) fn new() -> Self {
-        Self::with_model(crate::pricer::ModelKey::Black76)
-    }
-
-    /// Create a CDS option pricer with specified model key
-    pub(crate) fn with_model(model_key: crate::pricer::ModelKey) -> Self {
-        Self { model_key }
-    }
-}
-
-impl Default for SimpleCDSOptionBlackPricer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+/// Registry pricer adapter for `CDSOption` using the Black76 model.
+///
+/// CDS options have a single supported model in this engine (Black76 on
+/// forward CDS spreads); the registry adapter is therefore a unit struct
+/// that hard-codes `ModelKey::Black76`.
+#[derive(Default)]
+pub(crate) struct SimpleCDSOptionBlackPricer;
 
 impl crate::pricer::Pricer for SimpleCDSOptionBlackPricer {
     fn key(&self) -> crate::pricer::PricerKey {
-        crate::pricer::PricerKey::new(crate::pricer::InstrumentType::CDSOption, self.model_key)
+        crate::pricer::PricerKey::new(
+            crate::pricer::InstrumentType::CDSOption,
+            crate::pricer::ModelKey::Black76,
+        )
     }
 
     fn price_dyn(
@@ -766,7 +718,7 @@ impl crate::pricer::Pricer for SimpleCDSOptionBlackPricer {
             crate::results::ValuationResult::stamped(cds_option.id(), as_of, pv).with_details(
                 crate::results::ValuationDetails::CreditDerivative(
                     crate::results::CreditDerivativeValuationDetails {
-                        model_key: format!("{:?}", self.model_key),
+                        model_key: format!("{:?}", crate::pricer::ModelKey::Black76),
                         integration_method: None,
                     },
                 ),
