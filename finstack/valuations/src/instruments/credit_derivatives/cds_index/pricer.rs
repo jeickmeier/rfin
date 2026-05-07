@@ -37,38 +37,19 @@ use finstack_core::types::CurveId;
 use finstack_core::{Error, Result};
 use time::Duration;
 
-/// Configuration for CDS Index pricing. Wraps the underlying CDS config and adds
-/// index-specific policy controls.
-#[derive(Debug, Clone)]
-pub(crate) struct CDSIndexPricerConfig {
-    /// Underlying CDS pricer config to ensure parity on legs/AoD/schedules.
-    pub(crate) cds_config: CDSPricerConfig,
-    /// How to compute the par spread denominator in constituents aggregation.
-    pub(crate) par_spread_method: ParSpreadMethod,
-    /// Tolerance for weight sum validation.
-    pub(crate) weight_sum_tol: f64,
-    /// If true and ∑w deviates within a looser bound, renormalize for pricing.
-    pub(crate) normalize_weights: bool,
-    /// If true, scale index notional by `index.index_factor`.
-    pub(crate) use_index_factor: bool,
-}
-
-impl Default for CDSIndexPricerConfig {
-    fn default() -> Self {
-        Self {
-            cds_config: CDSPricerConfig::default(),
-            par_spread_method: ParSpreadMethod::RiskyAnnuity,
-            weight_sum_tol: 1e-8,
-            normalize_weights: false,
-            use_index_factor: true,
-        }
-    }
-}
+/// Tolerance applied to the constituent weight sum when validating that ∑w ≈ 1.
+const WEIGHT_SUM_TOL: f64 = 1e-8;
 
 /// CDS Index pricing engine. Aggregates single-name CDS pricing according to
 /// the index's configured pricing mode.
+///
+/// Behavior is fixed: par spread uses the risky-annuity denominator,
+/// constituent weights must sum to 1.0 (within `WEIGHT_SUM_TOL`), and the
+/// index factor is always applied to the synthetic / per-constituent notional.
 pub(crate) struct CDSIndexPricer {
-    config: CDSIndexPricerConfig,
+    /// Underlying CDS pricer config (kept verbatim from defaults; carried so
+    /// `project_cds_flows` and inner `CDSPricer` instances stay in sync).
+    cds_config: CDSPricerConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -106,14 +87,8 @@ impl CDSIndexPricer {
     /// Create a new CDS Index pricer
     pub(crate) fn new() -> Self {
         Self {
-            config: CDSIndexPricerConfig::default(),
+            cds_config: CDSPricerConfig::default(),
         }
-    }
-
-    /// Create a pricer with custom configuration
-    #[allow(dead_code)] // public API for external bindings
-    pub(crate) fn with_config(config: CDSIndexPricerConfig) -> Self {
-        Self { config }
     }
 
     /// Compute instrument NPV from the perspective of `PayReceive`
@@ -226,7 +201,7 @@ impl CDSIndexPricer {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<IndexParSpreadResult> {
-        let pricer = CDSPricer::with_config(self.config.cds_config.clone());
+        let pricer = CDSPricer::with_config(self.cds_config.clone());
         match index.pricing {
             IndexPricing::SingleCurve => {
                 let cds = self.synthetic_cds(index);
@@ -236,24 +211,13 @@ impl CDSIndexPricer {
                     pricer.par_spread(&cds, disc.as_ref(), surv.as_ref(), as_of)?;
                 let numerator_protection_pv =
                     pricer.pv_protection_leg(&cds, disc.as_ref(), surv.as_ref(), as_of)?;
-                // Use the unified par_spread_method config for both SingleCurve and
-                // Constituents modes to avoid silent divergence between two independent
-                // config fields (cds_config.par_spread_uses_full_premium vs par_spread_method).
-                let (denom_per_unit, method) = match self.config.par_spread_method {
-                    ParSpreadMethod::FullPremiumAoD => (
-                        pricer.premium_leg_pv_per_bp(&cds, disc.as_ref(), surv.as_ref(), as_of)?,
-                        ParSpreadMethod::FullPremiumAoD,
-                    ),
-                    ParSpreadMethod::RiskyAnnuity => (
-                        pricer.risky_annuity(&cds, disc.as_ref(), surv.as_ref(), as_of)?,
-                        ParSpreadMethod::RiskyAnnuity,
-                    ),
-                };
+                let denom_per_unit =
+                    pricer.risky_annuity(&cds, disc.as_ref(), surv.as_ref(), as_of)?;
                 let denominator = denom_per_unit * cds.notional.amount();
                 Ok(IndexParSpreadResult {
                     total_spread_bp,
                     constituents_spread_bp: Vec::new(),
-                    method,
+                    method: ParSpreadMethod::RiskyAnnuity,
                     numerator_protection_pv,
                     denominator,
                 })
@@ -263,7 +227,6 @@ impl CDSIndexPricer {
                 let mut numerator_protection_pv = Money::new(0.0, index.notional.currency());
                 let mut denominator = 0.0;
                 let mut constituents_spread_bp = Vec::with_capacity(positions.len());
-                let mut used_full_premium = false;
                 for position in positions {
                     let cds = &position.cds;
                     let disc = curves.get_discount(&cds.premium.discount_curve_id)?;
@@ -271,30 +234,16 @@ impl CDSIndexPricer {
                     let prot_pv =
                         pricer.pv_protection_leg(cds, disc.as_ref(), surv.as_ref(), as_of)?;
                     numerator_protection_pv = numerator_protection_pv.checked_add(prot_pv)?;
-                    let denom_per_unit = match self.config.par_spread_method {
-                        ParSpreadMethod::RiskyAnnuity => {
-                            pricer.risky_annuity(cds, disc.as_ref(), surv.as_ref(), as_of)?
-                        }
-                        ParSpreadMethod::FullPremiumAoD => {
-                            used_full_premium = true;
-                            pricer.premium_leg_pv_per_bp(
-                                cds,
-                                disc.as_ref(),
-                                surv.as_ref(),
-                                as_of,
-                            )?
-                        }
-                    };
-                    denominator += denom_per_unit * cds.notional.amount();
+                    let denom_per_unit =
+                        pricer.risky_annuity(cds, disc.as_ref(), surv.as_ref(), as_of)?;
+                    let local_denom = denom_per_unit * cds.notional.amount();
+                    denominator += local_denom;
                     // Guard per-constituent division: if the local denominator is near zero
                     // (e.g., for a near-defaulted name with negligible survival probability),
                     // report NaN rather than propagating Inf which corrupts aggregation.
-                    let local_denom = denom_per_unit * cds.notional.amount();
                     let constituent_spread_bp =
                         if local_denom.abs() < credit::PAR_SPREAD_DENOM_TOLERANCE {
                             f64::NAN
-                        } else if used_full_premium {
-                            prot_pv.amount() / local_denom
                         } else {
                             prot_pv.amount() / local_denom * BASIS_POINTS_PER_UNIT
                         };
@@ -313,15 +262,12 @@ impl CDSIndexPricer {
                             .to_string(),
                     ));
                 }
-                let total_spread_bp = if used_full_premium {
-                    numerator_protection_pv.amount() / denominator
-                } else {
-                    numerator_protection_pv.amount() / denominator * BASIS_POINTS_PER_UNIT
-                };
+                let total_spread_bp =
+                    numerator_protection_pv.amount() / denominator * BASIS_POINTS_PER_UNIT;
                 Ok(IndexParSpreadResult {
                     total_spread_bp,
                     constituents_spread_bp,
-                    method: self.config.par_spread_method,
+                    method: ParSpreadMethod::RiskyAnnuity,
                     numerator_protection_pv,
                     denominator,
                 })
@@ -424,7 +370,7 @@ impl CDSIndexPricer {
         let discount_id = &cds.premium.discount_curve_id;
         let bump_bp = 1.0_f64;
 
-        let pricer = CDSPricer::with_config(self.config.cds_config.clone());
+        let pricer = CDSPricer::with_config(self.cds_config.clone());
         let hazard = curves.get_hazard(credit_id)?;
         let hazard_ref = hazard.as_ref();
         let has_par_points = hazard_ref.par_spread_points().next().is_some();
@@ -540,7 +486,7 @@ impl CDSIndexPricer {
                 constituents: Vec::new(),
             });
         }
-        let pricer = CDSPricer::with_config(self.config.cds_config.clone());
+        let pricer = CDSPricer::with_config(self.cds_config.clone());
         match index.pricing {
             IndexPricing::SingleCurve => {
                 let cds = self.synthetic_cds(index);
@@ -574,32 +520,17 @@ impl CDSIndexPricer {
         }
     }
 
-    #[allow(dead_code)] // public API for external bindings
-    fn constituent_cdss(&self, index: &CDSIndex) -> Result<Vec<CreditDefaultSwap>> {
-        Ok(self
-            .constituent_positions(index)?
-            .into_iter()
-            .map(|c| c.cds)
-            .collect())
-    }
-
     fn constituent_positions(&self, index: &CDSIndex) -> Result<Vec<ResolvedConstituent>> {
         if index.constituents.is_empty() {
             return Err(finstack_core::InputError::TooFewPoints.into());
         }
-        // Validate weights and prepare effective weights (optionally renormalized)
         let sum_w: f64 = index.constituents.iter().map(|c| c.weight).sum();
         if index.constituents.iter().any(|c| c.weight < 0.0) {
             return Err(finstack_core::InputError::Invalid.into());
         }
-        if (sum_w - 1.0).abs() > self.config.weight_sum_tol {
-            if self.config.normalize_weights && sum_w > 0.0 {
-                // renormalize on the fly
-            } else {
-                return Err(finstack_core::InputError::Invalid.into());
-            }
+        if (sum_w - 1.0).abs() > WEIGHT_SUM_TOL {
+            return Err(finstack_core::InputError::Invalid.into());
         }
-        // Validate recoveries in [0,1] and suggest family-consistent values; enforce range only
         for c in &index.constituents {
             if !(0.0..=1.0).contains(&c.credit.recovery_rate) {
                 return Err(finstack_core::InputError::Invalid.into());
@@ -610,24 +541,20 @@ impl CDSIndexPricer {
         if active_constituents.is_empty() {
             return Ok(Vec::new());
         }
+        // When some constituents have defaulted, renormalize the surviving
+        // weights so they sum to 1 over the live names; otherwise leave the
+        // declared weights as-is.
         let active_sum_w: f64 = active_constituents.iter().map(|c| c.weight).sum();
         let norm = if active_constituents.len() != index.constituents.len() && active_sum_w > 0.0 {
             active_sum_w
-        } else if self.config.normalize_weights && sum_w > 0.0 {
-            sum_w
         } else {
             1.0
         };
         let mut out = Vec::with_capacity(active_constituents.len());
-        let scale = if self.config.use_index_factor {
-            index.index_factor
-        } else {
-            1.0
-        };
         for (i, con) in active_constituents.into_iter().enumerate() {
             let eff_w = con.weight / norm;
             let notional = Money::new(
-                index.notional.amount() * scale * eff_w,
+                index.notional.amount() * index.index_factor * eff_w,
                 index.notional.currency(),
             );
             let id = format!("{}-{:03}", index.id, i + 1);
@@ -698,12 +625,10 @@ impl CDSIndexPricer {
 
     fn synthetic_cds(&self, index: &CDSIndex) -> CreditDefaultSwap {
         let mut cds = index.to_synthetic_cds();
-        if self.config.use_index_factor {
-            cds.notional = Money::new(
-                index.notional.amount() * index.index_factor,
-                index.notional.currency(),
-            );
-        }
+        cds.notional = Money::new(
+            index.notional.amount() * index.index_factor,
+            index.notional.currency(),
+        );
         cds
     }
 
@@ -747,7 +672,7 @@ impl CDSIndexPricer {
                 let delta_default = (prev_survival - current_survival).max(0.0);
                 let conditional_default = delta_default / conditioning_survival;
                 let conditional_survival = current_survival / conditioning_survival;
-                let projected_survival = if self.config.cds_config.include_accrual {
+                let projected_survival = if self.cds_config.include_accrual {
                     conditional_survival + 0.5 * conditional_default
                 } else {
                     conditional_survival
@@ -768,7 +693,7 @@ impl CDSIndexPricer {
                     let settlement_date = Self::settlement_date_with_delay(
                         default_date,
                         cds.protection.settlement_delay,
-                        self.config.cds_config.business_days_per_year,
+                        self.cds_config.business_days_per_year,
                     );
                     projected_flows.push(CashFlow {
                         date: settlement_date,
