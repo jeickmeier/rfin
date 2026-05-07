@@ -15,12 +15,9 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds::{CDSConvention, PayReceive};
+use finstack_valuations::instruments::credit_derivatives::cds::PayReceive;
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
-    CDSIndex, CDSIndexConstituent, IndexPricing,
-};
-use finstack_valuations::instruments::credit_derivatives::cds_index::{
-    CDSIndexConstructionParams, CDSIndexParams,
+    CDSIndex, CDSIndexConstituent, CDSIndexParams, IndexPricing,
 };
 use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::instruments::Instrument;
@@ -32,34 +29,16 @@ fn create_cds_index_single_curve(tenor_years: i32) -> CDSIndex {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2025 + tenor_years, Month::January, 1).unwrap();
 
-    let index_params = CDSIndexParams {
-        index_name: "CDX.NA.IG".to_string(),
-        series: 42,
-        version: 1,
-        fixed_coupon_bp: 100.0, // 100 bps
-        index_factor: Some(1.0),
-        constituents: None,
-    };
+    let preset = CDSIndexParams::cdx_na_ig(42, 1, 100.0);
 
-    let construction_params = CDSIndexConstructionParams {
-        notional: Money::new(10_000_000.0, Currency::USD),
-        side: PayReceive::PayFixed,
-        convention: CDSConvention::IsdaNa,
-    };
-
-    let credit_params = CreditParams {
-        reference_entity: "CDX.NA.IG".to_string(),
-        credit_curve_id: "CDX-HAZARD".into(),
-        recovery_rate: 0.40,
-    };
-
-    CDSIndex::new_standard(
+    CDSIndex::from_preset(
+        &preset,
         format!("CDX-{}Y", tenor_years),
-        &index_params,
-        &construction_params,
+        Money::new(10_000_000.0, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &credit_params,
+        0.40,
         "USD-OIS",
         "CDX-HAZARD",
     )
@@ -69,7 +48,6 @@ fn create_cds_index_single_curve(tenor_years: i32) -> CDSIndex {
 fn create_cds_index_constituents(tenor_years: i32, num_names: usize) -> CDSIndex {
     let mut index = create_cds_index_single_curve(tenor_years);
 
-    // Create equal-weight constituents
     let weight = 1.0 / (num_names as f64);
     let mut constituents = Vec::with_capacity(num_names);
 

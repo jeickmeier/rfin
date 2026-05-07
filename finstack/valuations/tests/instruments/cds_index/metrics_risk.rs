@@ -14,7 +14,6 @@ use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
-#[ignore = "slow"]
 #[test]
 fn test_risky_pv01_positive() {
     // Test: Risky PV01 should be positive
@@ -39,7 +38,6 @@ fn test_risky_pv01_positive() {
     assert_in_range(rpv01, 3_500.0, 5_500.0, "Risky PV01 for $10MM, 5Y");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_cs01_positive() {
     // Test: CS01 should be positive
@@ -63,7 +61,6 @@ fn test_cs01_positive() {
     assert_positive(cs01, "CS01");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_dv01_calculation() {
     // Test: DV01 (interest rate sensitivity) calculation
@@ -88,7 +85,6 @@ fn test_dv01_calculation() {
     assert!(dv01.is_finite(), "DV01 should be finite");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_hazard_cs01_calculation() {
     // Test: Hazard CS01 (parallel hazard bump sensitivity)
@@ -113,7 +109,6 @@ fn test_hazard_cs01_calculation() {
     assert!(cs01.is_finite(), "CS01 should be finite");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_risky_pv01_scales_with_notional() {
     // Test: Risky PV01 scales linearly with notional
@@ -155,7 +150,6 @@ fn test_risky_pv01_scales_with_notional() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_cs01_scales_with_notional() {
     // Test: CS01 scales linearly with notional
@@ -197,7 +191,6 @@ fn test_cs01_scales_with_notional() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_dv01_scales_with_notional() {
     // Test: DV01 scales linearly with notional
@@ -239,7 +232,6 @@ fn test_dv01_scales_with_notional() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_risky_pv01_increases_with_maturity() {
     // Test: Risky PV01 increases with longer maturity
@@ -278,7 +270,6 @@ fn test_risky_pv01_increases_with_maturity() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_cs01_increases_with_maturity() {
     // Test: CS01 increases with longer maturity
@@ -317,7 +308,6 @@ fn test_cs01_increases_with_maturity() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_risky_pv01_present() {
     // Test: Risky PV01 metric is present and non-zero
@@ -340,7 +330,6 @@ fn test_risky_pv01_present() {
     assert!(metric_rpv01.abs() > 0.0, "risky_pv01 should be non-zero");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_cs01_matches_direct_method() {
     // Test: CS01 via metrics matches direct method
@@ -366,7 +355,6 @@ fn test_cs01_matches_direct_method() {
     assert_relative_eq(direct_cs01, metric_cs01, 0.001, "CS01: direct vs metric");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_risky_pv01_single_vs_constituents() {
     // Test: Risky PV01 consistency across pricing modes
@@ -401,7 +389,6 @@ fn test_risky_pv01_single_vs_constituents() {
     assert_relative_eq(rpv01_single, rpv01_const, 0.05, "Risky PV01 parity");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_cs01_single_vs_constituents() {
     // Test: CS01 consistency across pricing modes
@@ -444,7 +431,6 @@ fn test_cs01_single_vs_constituents() {
     assert_relative_eq(cs01_single, cs01_const, 0.05, "CS01 parity");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_all_risk_metrics_together() {
     // Test: All risk metrics computed together
@@ -471,7 +457,6 @@ fn test_all_risk_metrics_together() {
     assert!(result.measures.contains_key("dv01"));
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_risky_pv01_computable() {
     // Test: risky_pv01 metric computes for CDS Index
@@ -498,7 +483,6 @@ fn test_risky_pv01_computable() {
     assert!(rpv01.abs() > 0.0, "risky_pv01 should be non-zero");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_dv01_reasonable_magnitude() {
     // Test: DV01 has reasonable magnitude
@@ -528,7 +512,6 @@ fn test_dv01_reasonable_magnitude() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_risk_metrics_finite() {
     // Test: All risk metrics are finite

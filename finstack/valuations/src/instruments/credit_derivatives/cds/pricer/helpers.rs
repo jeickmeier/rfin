@@ -87,7 +87,8 @@ pub(super) fn isda_standard_model_boundaries(
     );
     // Times come from finite year-fractions on the curve day-counts; NaN here
     // would indicate a corrupt curve and produce silently-wrong PV. Fail fast.
-    #[allow(clippy::expect_used)] // NaN here implies corrupt curve data; loud failure beats silent drift
+    #[allow(clippy::expect_used)]
+    // NaN here implies corrupt curve data; loud failure beats silent drift
     {
         boundaries.sort_by(|a, b| {
             a.partial_cmp(b)
@@ -124,4 +125,3 @@ pub(super) fn sp_cond_to(surv: &HazardCurve, as_of: Date, date: Date) -> Result<
         Ok(0.0) // Already defaulted (or effectively defaulted) by as_of
     }
 }
-

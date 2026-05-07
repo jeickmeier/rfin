@@ -54,13 +54,19 @@ impl MetricCalculator for JumpToDefaultCalculator {
 
         // Check if we have constituent data for more accurate calculation
         if !index.constituents.is_empty() {
-            // Average per-name JTD using constituent-specific weights and recoveries
-            let n = index.constituents.len() as f64;
-            let sum_w: f64 = index.constituents.iter().map(|c| c.weight).sum();
+            // Average per-name JTD using surviving constituents only.
+            // Defaulted names have already been settled and are not exposed
+            // to a future jump-to-default event.
+            let active: Vec<_> = index.constituents.iter().filter(|c| !c.defaulted).collect();
+            if active.is_empty() {
+                return Ok(0.0);
+            }
+            let n = active.len() as f64;
+            let sum_w: f64 = active.iter().map(|c| c.weight).sum();
             let norm = if sum_w > 0.0 { sum_w } else { 1.0 };
 
             let mut weighted_lgd = 0.0;
-            for constituent in &index.constituents {
+            for constituent in active {
                 let lgd = 1.0 - constituent.credit.recovery_rate;
                 weighted_lgd += (constituent.weight / norm) * lgd;
             }

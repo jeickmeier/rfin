@@ -7,9 +7,12 @@
 //! - Bucketed DV01 (term structure sensitivity)
 
 use super::test_utils::*;
-use finstack_valuations::instruments::credit_derivatives::cds::PayReceive;
+use finstack_core::currency::Currency;
+use finstack_core::money::Money;
+use finstack_valuations::instruments::credit_derivatives::cds::{
+    PayReceive, RECOVERY_SENIOR_UNSECURED,
+};
 use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
-use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
@@ -44,16 +47,14 @@ fn test_jump_to_default_negative_for_protection_seller() {
     let end = date!(2030 - 01 - 01);
     let as_of = start;
 
-    let mut params = standard_construction_params(10_000_000.0);
-    params.side = PayReceive::ReceiveFixed; // Sell protection
-
-    let idx = CDSIndex::new_standard(
-        "CDX-JTD-SELL",
+    let idx = CDSIndex::from_preset(
         &standard_cdx_params(),
-        &params,
+        "CDX-JTD-SELL",
+        Money::new(10_000_000.0, Currency::USD),
+        PayReceive::ReceiveFixed, // Sell protection
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        RECOVERY_SENIOR_UNSECURED,
         "USD-OIS",
         "HZ-INDEX",
     )

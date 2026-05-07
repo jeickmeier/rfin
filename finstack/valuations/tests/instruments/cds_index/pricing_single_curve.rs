@@ -37,7 +37,6 @@ fn metric_value(
     result.measures[&metric]
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_npv_calculation() {
     // Test: NPV calculation in single-curve mode
@@ -54,7 +53,6 @@ fn test_single_curve_npv_calculation() {
     assert!(npv.amount().is_finite());
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_npv_components() {
     // Test: NPV = Protection PV - Premium PV (for protection buyer)
@@ -76,7 +74,6 @@ fn test_single_curve_npv_components() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_protection_leg_positive() {
     // Test: Protection leg PV should be positive for protection buyer
@@ -96,7 +93,6 @@ fn test_single_curve_protection_leg_positive() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_premium_leg_positive() {
     // Test: Premium leg PV should be positive
@@ -116,7 +112,6 @@ fn test_single_curve_premium_leg_positive() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_par_spread() {
     // Test: Par spread calculation
@@ -140,7 +135,6 @@ fn test_single_curve_par_spread() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_risky_pv01() {
     // Test: Risky PV01 calculation
@@ -158,7 +152,6 @@ fn test_single_curve_risky_pv01() {
     assert_in_range(rpv01, 3_500.0, 5_500.0, "Risky PV01 magnitude");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_cs01() {
     // Test: CS01 (credit sensitivity) calculation
@@ -176,7 +169,6 @@ fn test_single_curve_cs01() {
     assert!(cs01 > 100.0, "CS01 should be meaningful for $10MM notional");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_buy_vs_sell_protection() {
     // Test: Sign conventions for buy vs sell protection
@@ -188,16 +180,14 @@ fn test_single_curve_buy_vs_sell_protection() {
     let idx_buy = standard_single_curve_index("CDX-BUY", start, end, 10_000_000.0);
 
     // Sell protection (receive fixed)
-    let mut params_sell = standard_construction_params(10_000_000.0);
-    params_sell.side = PayReceive::ReceiveFixed;
-
-    let idx_sell = CDSIndex::new_standard(
-        "CDX-SELL",
+    let idx_sell = CDSIndex::from_preset(
         &standard_cdx_params(),
-        &params_sell,
+        "CDX-SELL",
+        Money::new(10_000_000.0, Currency::USD),
+        PayReceive::ReceiveFixed,
         start,
         end,
-        &finstack_valuations::instruments::CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        RECOVERY_SENIOR_UNSECURED,
         "USD-OIS",
         "HZ-INDEX",
     )
@@ -219,7 +209,6 @@ fn test_single_curve_buy_vs_sell_protection() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_npv_scales_with_notional() {
     // Test: NPV scales linearly with notional
@@ -237,7 +226,6 @@ fn test_single_curve_npv_scales_with_notional() {
     assert_linear_scaling(npv_10mm, 10_000_000.0, npv_20mm, 20_000_000.0, "NPV", 0.01);
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_risky_pv01_scales_with_notional() {
     // Test: Risky PV01 scales linearly with notional
@@ -262,7 +250,6 @@ fn test_single_curve_risky_pv01_scales_with_notional() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_cs01_scales_with_notional() {
     // Test: CS01 scales linearly with notional
@@ -287,7 +274,6 @@ fn test_single_curve_cs01_scales_with_notional() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_par_spread_independent_of_notional() {
     // Test: Par spread should be independent of notional
@@ -310,7 +296,6 @@ fn test_single_curve_par_spread_independent_of_notional() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_pricing_mode_verification() {
     // Test: Single-curve index has correct pricing mode
@@ -323,7 +308,6 @@ fn test_single_curve_pricing_mode_verification() {
     assert!(idx.constituents.is_empty());
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_maturity_impact() {
     // Test: Longer maturity increases protection value
@@ -349,7 +333,6 @@ fn test_single_curve_maturity_impact() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_risky_pv01_maturity_impact() {
     // Test: Longer maturity increases risky PV01
@@ -371,7 +354,6 @@ fn test_single_curve_risky_pv01_maturity_impact() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_synthetic_cds_pricing_equivalence() {
     // Test: Direct pricing matches synthetic CDS pricing
@@ -394,7 +376,6 @@ fn test_single_curve_synthetic_cds_pricing_equivalence() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_zero_notional() {
     // Test: Zero notional produces zero NPV
@@ -409,7 +390,6 @@ fn test_single_curve_zero_notional() {
     assert_eq!(npv.amount(), 0.0, "Zero notional should produce zero NPV");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_single_curve_upfront_payment() {
     // Test: Upfront payment affects NPV

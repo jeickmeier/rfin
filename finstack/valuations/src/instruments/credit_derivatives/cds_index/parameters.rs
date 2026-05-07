@@ -1,131 +1,92 @@
-//! CDS Index specific parameters.
+//! CDS Index preset descriptors.
+//!
+//! `CDSIndexParams` is a lightweight metadata bundle for well-known
+//! standardized indices (CDX.NA.IG, CDX.NA.HY, iTraxx Europe, etc.). It
+//! captures only the index identity (name, series, version), the running
+//! coupon, and the regional convention. Trade-specific state — notional,
+//! side, dates, curves, defaulted constituents, index factor — lives on
+//! the `CDSIndex` instrument itself.
+//!
+//! Use `CDSIndex::from_preset(&preset, ...)` to build an instrument from a
+//! preset, then chain `with_constituents`, `with_constituents_equal_weight`,
+//! and `with_index_factor` to attach trade state.
 
-use crate::instruments::common_impl::parameters::CreditParams;
-use crate::instruments::credit_derivatives::cds::{CDSConvention, PayReceive};
-use finstack_core::money::Money;
+use crate::instruments::credit_derivatives::cds::CDSConvention;
 
-/// Constituent definition for CDS Index parameters (credit + weight).
-#[derive(Debug, Clone)]
-pub struct CDSIndexConstituentParam {
-    /// Credit configuration for the issuer
-    pub credit: CreditParams,
-    /// Weight in the index notional (sum across names typically = 1.0)
-    pub weight: f64,
-}
-
-/// CDS Index specific parameters.
+/// Preset metadata for a well-known CDS index series.
 ///
-/// Groups parameters specific to CDS indices.
-#[derive(Debug, Clone)]
+/// Captures the index identity (name + series + version), running coupon,
+/// and regional ISDA convention. Pair with the trade-specific arguments
+/// (id, notional, side, dates, recovery, curves) on
+/// `CDSIndex::from_preset` to obtain a `CDSIndex` instrument.
+#[derive(Debug, Clone, PartialEq)]
 pub struct CDSIndexParams {
-    /// Index name (e.g., "CDX.NA.IG", "iTraxx Europe")
+    /// Index name (e.g., "CDX.NA.IG", "iTraxx Europe").
     pub index_name: String,
-    /// Index series number
+    /// Index series number (e.g., 42).
     pub series: u16,
-    /// Index version number
+    /// Index version number within the series.
     pub version: u16,
-    /// Fixed coupon in basis points
+    /// Running fixed coupon in basis points (e.g. 100bp for CDX.NA.IG).
     pub fixed_coupon_bp: f64,
-    /// Optional basket of underlying issuers (credit params + weights)
-    pub constituents: Option<Vec<CDSIndexConstituentParam>>,
-    /// Index factor (fraction of surviving notional since series inception)
-    pub index_factor: Option<f64>,
+    /// Regional ISDA convention. Bundled into the preset because each
+    /// well-known index has a fixed convention (CDX uses `IsdaNa`, iTraxx
+    /// uses `IsdaEu`).
+    pub convention: CDSConvention,
 }
 
 impl CDSIndexParams {
-    /// Create new CDS index parameters
+    /// Construct a custom preset.
+    ///
+    /// For standard indices prefer the dedicated factories:
+    /// [`CDSIndexParams::cdx_na_ig`], [`cdx_na_hy`](Self::cdx_na_hy),
+    /// [`itraxx_europe`](Self::itraxx_europe).
     pub fn new(
         index_name: impl Into<String>,
         series: u16,
         version: u16,
         fixed_coupon_bp: f64,
+        convention: CDSConvention,
     ) -> Self {
         Self {
             index_name: index_name.into(),
             series,
             version,
             fixed_coupon_bp,
-            constituents: None,
-            index_factor: None,
-        }
-    }
-
-    /// Create CDX North America Investment Grade parameters
-    pub fn cdx_na_ig(series: u16, version: u16, fixed_coupon_bp: f64) -> Self {
-        Self::new("CDX.NA.IG", series, version, fixed_coupon_bp)
-    }
-
-    /// Create CDX North America High Yield parameters
-    pub fn cdx_na_hy(series: u16, version: u16, fixed_coupon_bp: f64) -> Self {
-        Self::new("CDX.NA.HY", series, version, fixed_coupon_bp)
-    }
-
-    /// Create iTraxx Europe parameters
-    pub fn itraxx_europe(series: u16, version: u16, fixed_coupon_bp: f64) -> Self {
-        Self::new("iTraxx Europe", series, version, fixed_coupon_bp)
-    }
-
-    /// Attach explicit constituents to these params.
-    pub fn with_constituents(mut self, constituents: Vec<CDSIndexConstituentParam>) -> Self {
-        self.constituents = if constituents.is_empty() {
-            None
-        } else {
-            Some(constituents)
-        };
-        self
-    }
-
-    /// Attach equal-weight constituents from a list of credit params.
-    pub fn with_constituents_equal_weight(
-        mut self,
-        names: impl IntoIterator<Item = CreditParams>,
-    ) -> Self {
-        let list: Vec<CreditParams> = names.into_iter().collect();
-        if list.is_empty() {
-            self.constituents = None;
-            return self;
-        }
-        let w = 1.0 / (list.len() as f64);
-        let cons = list
-            .into_iter()
-            .map(|credit| CDSIndexConstituentParam { credit, weight: w })
-            .collect();
-        self.constituents = Some(cons);
-        self
-    }
-
-    /// Set an explicit index factor (0..=1). If omitted, defaults to 1.0.
-    pub fn with_index_factor(mut self, factor: f64) -> Self {
-        self.index_factor = Some(factor);
-        self
-    }
-}
-
-/// Complete CDS Index construction parameters.
-///
-/// Groups all parameters needed for CDS Index construction to reduce argument count.
-#[derive(Debug, Clone)]
-pub struct CDSIndexConstructionParams {
-    /// Notional amount
-    pub notional: Money,
-    /// Protection side (pay/receive)
-    pub side: PayReceive,
-    /// CDS convention
-    pub convention: CDSConvention,
-}
-
-impl CDSIndexConstructionParams {
-    /// Create new CDS index construction parameters
-    pub fn new(notional: Money, side: PayReceive, convention: CDSConvention) -> Self {
-        Self {
-            notional,
-            side,
             convention,
         }
     }
 
-    /// Create standard protection buyer parameters
-    pub fn buy_protection(notional: Money) -> Self {
-        Self::new(notional, PayReceive::PayFixed, CDSConvention::IsdaNa)
+    /// CDX.NA.IG (North American investment-grade) preset on `IsdaNa`.
+    pub fn cdx_na_ig(series: u16, version: u16, fixed_coupon_bp: f64) -> Self {
+        Self::new(
+            "CDX.NA.IG",
+            series,
+            version,
+            fixed_coupon_bp,
+            CDSConvention::IsdaNa,
+        )
+    }
+
+    /// CDX.NA.HY (North American high-yield) preset on `IsdaNa`.
+    pub fn cdx_na_hy(series: u16, version: u16, fixed_coupon_bp: f64) -> Self {
+        Self::new(
+            "CDX.NA.HY",
+            series,
+            version,
+            fixed_coupon_bp,
+            CDSConvention::IsdaNa,
+        )
+    }
+
+    /// iTraxx Europe (European investment-grade) preset on `IsdaEu`.
+    pub fn itraxx_europe(series: u16, version: u16, fixed_coupon_bp: f64) -> Self {
+        Self::new(
+            "iTraxx Europe",
+            series,
+            version,
+            fixed_coupon_bp,
+            CDSConvention::IsdaEu,
+        )
     }
 }

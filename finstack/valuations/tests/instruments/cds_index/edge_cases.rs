@@ -13,13 +13,16 @@ use super::test_utils::*;
 use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
+use finstack_valuations::instruments::credit_derivatives::cds::PayReceive;
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
-    CDSIndexConstituentParam, CDSIndexParams,
+    CDSIndex, CDSIndexConstituent, CDSIndexParams,
 };
 use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::instruments::Instrument;
 use time::macros::date;
+
+const TEST_NOTIONAL: f64 = 10_000_000.0;
+const TEST_RECOVERY: f64 = 0.40;
 
 #[test]
 fn test_zero_notional() {
@@ -171,32 +174,25 @@ fn test_constituents_weights_dont_sum_to_one() {
     let as_of = start;
 
     let constituents = vec![
-        CDSIndexConstituentParam {
-            credit: CreditParams::corporate_standard("N1", "HZ1"),
-            weight: 0.3, // Total = 0.9, not 1.0
-        },
-        CDSIndexConstituentParam {
-            credit: CreditParams::corporate_standard("N2", "HZ2"),
-            weight: 0.3,
-        },
-        CDSIndexConstituentParam {
-            credit: CreditParams::corporate_standard("N3", "HZ3"),
-            weight: 0.3,
-        },
+        CDSIndexConstituent::active(CreditParams::corporate_standard("N1", "HZ1"), 0.3),
+        CDSIndexConstituent::active(CreditParams::corporate_standard("N2", "HZ2"), 0.3),
+        CDSIndexConstituent::active(CreditParams::corporate_standard("N3", "HZ3"), 0.3),
+        // Sum = 0.9, not 1.0
     ];
 
-    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_constituents(constituents);
-    let idx = CDSIndex::new_standard(
+    let idx = CDSIndex::from_preset(
+        &CDSIndexParams::cdx_na_ig(42, 1, 100.0),
         "CDX-BAD-WEIGHTS",
-        &params,
-        &standard_construction_params(10_000_000.0),
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        TEST_RECOVERY,
         "USD-OIS",
         "HZ-INDEX",
     )
-    .expect("valid test parameters");
+    .expect("valid test parameters")
+    .with_constituents(constituents);
 
     let ctx = multi_constituent_market_context(as_of, 3);
     let result = idx.value(&ctx, as_of);
@@ -213,28 +209,23 @@ fn test_negative_weights() {
     let as_of = start;
 
     let constituents = vec![
-        CDSIndexConstituentParam {
-            credit: CreditParams::corporate_standard("N1", "HZ1"),
-            weight: -0.5, // Negative weight
-        },
-        CDSIndexConstituentParam {
-            credit: CreditParams::corporate_standard("N2", "HZ2"),
-            weight: 1.5,
-        },
+        CDSIndexConstituent::active(CreditParams::corporate_standard("N1", "HZ1"), -0.5),
+        CDSIndexConstituent::active(CreditParams::corporate_standard("N2", "HZ2"), 1.5),
     ];
 
-    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_constituents(constituents);
-    let idx = CDSIndex::new_standard(
+    let idx = CDSIndex::from_preset(
+        &CDSIndexParams::cdx_na_ig(42, 1, 100.0),
         "CDX-NEG-WEIGHTS",
-        &params,
-        &standard_construction_params(10_000_000.0),
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        TEST_RECOVERY,
         "USD-OIS",
         "HZ-INDEX",
     )
-    .expect("valid test parameters");
+    .expect("valid test parameters")
+    .with_constituents(constituents);
 
     let ctx = multi_constituent_market_context(as_of, 2);
     let result = idx.value(&ctx, as_of);
@@ -249,14 +240,14 @@ fn test_recovery_rate_zero() {
     let end = date!(2030 - 01 - 01);
     let as_of = start;
 
-    let credit = CreditParams::new("TEST", 0.0, "HZ-INDEX"); // Zero recovery
-    let idx = CDSIndex::new_standard(
-        "CDX-ZERO-REC",
+    let idx = CDSIndex::from_preset(
         &standard_cdx_params(),
-        &standard_construction_params(10_000_000.0),
+        "CDX-ZERO-REC",
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &credit,
+        0.0, // Zero recovery (100% LGD)
         "USD-OIS",
         "HZ-INDEX",
     )
@@ -275,14 +266,14 @@ fn test_recovery_rate_one() {
     let end = date!(2030 - 01 - 01);
     let as_of = start;
 
-    let credit = CreditParams::new("TEST", 1.0, "HZ-INDEX"); // Full recovery
-    let idx = CDSIndex::new_standard(
-        "CDX-FULL-REC",
+    let idx = CDSIndex::from_preset(
         &standard_cdx_params(),
-        &standard_construction_params(10_000_000.0),
+        "CDX-FULL-REC",
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &credit,
+        1.0, // Full recovery (zero LGD)
         "USD-OIS",
         "HZ-INDEX",
     )
@@ -301,18 +292,19 @@ fn test_index_factor_zero() {
     let end = date!(2030 - 01 - 01);
     let as_of = start;
 
-    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_index_factor(0.0);
-    let idx = CDSIndex::new_standard(
+    let idx = CDSIndex::from_preset(
+        &CDSIndexParams::cdx_na_ig(42, 1, 100.0),
         "CDX-ZERO-FACTOR",
-        &params,
-        &standard_construction_params(10_000_000.0),
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        TEST_RECOVERY,
         "USD-OIS",
         "HZ-INDEX",
     )
-    .expect("valid test parameters");
+    .expect("valid test parameters")
+    .with_index_factor(0.0);
 
     let ctx = standard_market_context(as_of);
     let result = idx.value(&ctx, as_of);
@@ -333,18 +325,19 @@ fn test_index_factor_greater_than_one() {
     let end = date!(2030 - 01 - 01);
     let as_of = start;
 
-    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_index_factor(1.5);
-    let idx = CDSIndex::new_standard(
+    let idx = CDSIndex::from_preset(
+        &CDSIndexParams::cdx_na_ig(42, 1, 100.0),
         "CDX-BIG-FACTOR",
-        &params,
-        &standard_construction_params(10_000_000.0),
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        TEST_RECOVERY,
         "USD-OIS",
         "HZ-INDEX",
     )
-    .expect("valid test parameters");
+    .expect("valid test parameters")
+    .with_index_factor(1.5);
 
     let ctx = standard_market_context(as_of);
     let result = idx.value(&ctx, as_of);
@@ -360,18 +353,19 @@ fn test_empty_constituents_list() {
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);
 
-    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_constituents(vec![]);
-    let idx = CDSIndex::new_standard(
+    let idx = CDSIndex::from_preset(
+        &CDSIndexParams::cdx_na_ig(42, 1, 100.0),
         "CDX-EMPTY",
-        &params,
-        &standard_construction_params(10_000_000.0),
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        TEST_RECOVERY,
         "USD-OIS",
         "HZ-INDEX",
     )
-    .expect("valid test parameters");
+    .expect("valid test parameters")
+    .with_constituents(vec![]);
 
     // Should be single-curve mode
     assert!(idx.constituents.is_empty());
@@ -384,23 +378,24 @@ fn test_missing_constituent_hazard_curve() {
     let end = date!(2030 - 01 - 01);
     let as_of = start;
 
-    let constituents = vec![CDSIndexConstituentParam {
-        credit: CreditParams::corporate_standard("N1", "MISSING-CURVE"),
-        weight: 1.0,
-    }];
+    let constituents = vec![CDSIndexConstituent::active(
+        CreditParams::corporate_standard("N1", "MISSING-CURVE"),
+        1.0,
+    )];
 
-    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_constituents(constituents);
-    let idx = CDSIndex::new_standard(
+    let idx = CDSIndex::from_preset(
+        &CDSIndexParams::cdx_na_ig(42, 1, 100.0),
         "CDX-MISSING-CONST",
-        &params,
-        &standard_construction_params(10_000_000.0),
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        TEST_RECOVERY,
         "USD-OIS",
         "HZ-INDEX",
     )
-    .expect("valid test parameters");
+    .expect("valid test parameters")
+    .with_constituents(constituents);
 
     let ctx = standard_market_context(as_of);
     let result = idx.value(&ctx, as_of);

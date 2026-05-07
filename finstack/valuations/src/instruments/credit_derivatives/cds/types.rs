@@ -912,7 +912,8 @@ impl CreditDefaultSwap {
     }
 
     pub(crate) fn uses_adjusted_premium_accrual_dates(&self) -> bool {
-        self.valuation_convention.uses_adjusted_premium_accrual_dates()
+        self.valuation_convention
+            .uses_adjusted_premium_accrual_dates()
     }
 
     fn build_premium_leg_schedule(

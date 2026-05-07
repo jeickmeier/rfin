@@ -10,15 +10,17 @@
 
 use super::test_utils::*;
 use finstack_core::currency::Currency;
+use finstack_core::money::Money;
+use finstack_valuations::instruments::credit_derivatives::cds::PayReceive;
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
-    CDSIndex, CDSIndexConstituent, IndexPricing,
-};
-use finstack_valuations::instruments::credit_derivatives::cds_index::{
-    CDSIndexConstituentParam, CDSIndexParams,
+    CDSIndex, CDSIndexConstituent, CDSIndexParams, IndexPricing,
 };
 use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::instruments::Instrument;
 use time::macros::date;
+
+const TEST_NOTIONAL: f64 = 10_000_000.0;
+const TEST_RECOVERY: f64 = 0.40;
 
 #[test]
 fn test_construction_single_curve_default() {
@@ -46,18 +48,19 @@ fn test_construction_with_index_factor() {
     let end = date!(2030 - 01 - 01);
     let factor = 0.95; // 95% surviving notional
 
-    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_index_factor(factor);
-    let idx = CDSIndex::new_standard(
+    let idx = CDSIndex::from_preset(
+        &CDSIndexParams::cdx_na_ig(42, 1, 100.0),
         "CDX-FACTOR",
-        &params,
-        &standard_construction_params(10_000_000.0),
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        TEST_RECOVERY,
         "USD-OIS",
         "HZ-INDEX",
     )
-    .expect("valid test parameters");
+    .expect("valid test parameters")
+    .with_index_factor(factor);
 
     assert_eq!(idx.index_factor, factor);
 }
@@ -163,32 +166,24 @@ fn test_weight_sum_validation() {
 
     // Create index with weights summing to ~1.0
     let constituents = vec![
-        CDSIndexConstituentParam {
-            credit: CreditParams::corporate_standard("N1", "HZ1"),
-            weight: 0.34,
-        },
-        CDSIndexConstituentParam {
-            credit: CreditParams::corporate_standard("N2", "HZ2"),
-            weight: 0.33,
-        },
-        CDSIndexConstituentParam {
-            credit: CreditParams::corporate_standard("N3", "HZ3"),
-            weight: 0.33,
-        },
+        CDSIndexConstituent::active(CreditParams::corporate_standard("N1", "HZ1"), 0.34),
+        CDSIndexConstituent::active(CreditParams::corporate_standard("N2", "HZ2"), 0.33),
+        CDSIndexConstituent::active(CreditParams::corporate_standard("N3", "HZ3"), 0.33),
     ];
 
-    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_constituents(constituents);
-    let idx = CDSIndex::new_standard(
+    let idx = CDSIndex::from_preset(
+        &CDSIndexParams::cdx_na_ig(42, 1, 100.0),
         "CDX-WEIGHTS",
-        &params,
-        &standard_construction_params(10_000_000.0),
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        TEST_RECOVERY,
         "USD-OIS",
         "HZ-INDEX",
     )
-    .expect("valid test parameters");
+    .expect("valid test parameters")
+    .with_constituents(constituents);
 
     let weight_sum: f64 = idx.constituents.iter().map(|c| c.weight).sum();
     assert!(
@@ -348,13 +343,14 @@ fn test_multiple_index_types_construction() {
     ];
 
     for (name, params) in indices {
-        let idx = CDSIndex::new_standard(
-            format!("{}-TEST", name),
+        let idx = CDSIndex::from_preset(
             &params,
-            &standard_construction_params(10_000_000.0),
+            format!("{}-TEST", name),
+            Money::new(TEST_NOTIONAL, Currency::USD),
+            PayReceive::PayFixed,
             start,
             end,
-            &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+            TEST_RECOVERY,
             "USD-OIS",
             "HZ-INDEX",
         )

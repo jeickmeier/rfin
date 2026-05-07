@@ -14,14 +14,13 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds::{CDSConvention, PayReceive};
-use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
-use finstack_valuations::instruments::credit_derivatives::cds_index::{
-    CDSIndexConstructionParams, CDSIndexParams,
-};
-use finstack_valuations::instruments::CreditParams;
+use finstack_valuations::instruments::credit_derivatives::cds_index::{CDSIndex, CDSIndexParams};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
+
+const TEST_NOTIONAL: f64 = 10_000_000.0;
+const TEST_RECOVERY: f64 = 0.40;
 
 #[test]
 fn test_cdx_na_ig_standard_conventions() {
@@ -29,18 +28,14 @@ fn test_cdx_na_ig_standard_conventions() {
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);
 
-    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0);
-    let idx = CDSIndex::new_standard(
+    let idx = CDSIndex::from_preset(
+        &CDSIndexParams::cdx_na_ig(42, 1, 100.0),
         "CDX.NA.IG.42",
-        &params,
-        &CDSIndexConstructionParams::new(
-            standard_construction_params(10_000_000.0).notional,
-            PayReceive::PayFixed,
-            CDSConvention::IsdaNa,
-        ),
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        TEST_RECOVERY,
         "USD-OIS",
         "HZ-INDEX",
     )
@@ -58,18 +53,14 @@ fn test_cdx_na_hy_standard_conventions() {
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);
 
-    let params = CDSIndexParams::cdx_na_hy(39, 1, 500.0);
-    let idx = CDSIndex::new_standard(
+    let idx = CDSIndex::from_preset(
+        &CDSIndexParams::cdx_na_hy(39, 1, 500.0),
         "CDX.NA.HY.39",
-        &params,
-        &CDSIndexConstructionParams::new(
-            standard_construction_params(10_000_000.0).notional,
-            PayReceive::PayFixed,
-            CDSConvention::IsdaNa,
-        ),
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        TEST_RECOVERY,
         "USD-OIS",
         "HZ-INDEX",
     )
@@ -85,18 +76,14 @@ fn test_itraxx_europe_standard_conventions() {
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);
 
-    let params = CDSIndexParams::itraxx_europe(41, 1, 25.0);
-    let idx = CDSIndex::new_standard(
+    let idx = CDSIndex::from_preset(
+        &CDSIndexParams::itraxx_europe(41, 1, 25.0),
         "iTraxx.Europe.41",
-        &params,
-        &CDSIndexConstructionParams::new(
-            standard_construction_params(10_000_000.0).notional,
-            PayReceive::PayFixed,
-            CDSConvention::IsdaEu,
-        ),
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        TEST_RECOVERY,
         "EUR-OIS",
         "HZ-INDEX",
     )
@@ -201,23 +188,20 @@ fn test_index_factor_application() {
     let end = date!(2030 - 01 - 01);
 
     let factor = 0.96; // 4% defaults
-    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_index_factor(factor);
 
-    let idx = CDSIndex::new_standard(
+    let idx = CDSIndex::from_preset(
+        &CDSIndexParams::cdx_na_ig(42, 1, 100.0),
         "CDX-SEASONED",
-        &params,
-        &CDSIndexConstructionParams::new(
-            standard_construction_params(10_000_000.0).notional,
-            PayReceive::PayFixed,
-            CDSConvention::IsdaNa,
-        ),
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        TEST_RECOVERY,
         "USD-OIS",
         "HZ-INDEX",
     )
-    .expect("valid test parameters");
+    .expect("valid test parameters")
+    .with_index_factor(factor);
 
     assert_eq!(idx.index_factor, factor);
 }
@@ -294,18 +278,14 @@ fn test_pricing_with_standard_conventions() {
     let end = date!(2030 - 03 - 20); // 5Y IMM
     let as_of = start;
 
-    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0);
-    let idx = CDSIndex::new_standard(
+    let idx = CDSIndex::from_preset(
+        &CDSIndexParams::cdx_na_ig(42, 1, 100.0),
         "CDX.NA.IG.42",
-        &params,
-        &CDSIndexConstructionParams::new(
-            standard_construction_params(10_000_000.0).notional,
-            PayReceive::PayFixed,
-            CDSConvention::IsdaNa,
-        ),
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        TEST_RECOVERY,
         "USD-OIS",
         "HZ-INDEX",
     )
@@ -390,19 +370,15 @@ fn test_fixed_coupon_in_premium_leg() {
     let end = date!(2030 - 01 - 01);
 
     let fixed_coupon = 100.0; // 100 bps
-    let params = CDSIndexParams::cdx_na_ig(42, 1, fixed_coupon);
 
-    let idx = CDSIndex::new_standard(
+    let idx = CDSIndex::from_preset(
+        &CDSIndexParams::cdx_na_ig(42, 1, fixed_coupon),
         "CDX-COUPON",
-        &params,
-        &CDSIndexConstructionParams::new(
-            standard_construction_params(10_000_000.0).notional,
-            PayReceive::PayFixed,
-            CDSConvention::IsdaNa,
-        ),
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        TEST_RECOVERY,
         "USD-OIS",
         "HZ-INDEX",
     )

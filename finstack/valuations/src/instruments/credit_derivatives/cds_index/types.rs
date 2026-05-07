@@ -24,8 +24,7 @@ use crate::instruments::credit_derivatives::cds::{
     CDSConvention, CreditDefaultSwap, PayReceive, PremiumLegSpec, ProtectionLegSpec,
 };
 
-use super::parameters::CDSIndexConstituentParam;
-use super::parameters::{CDSIndexConstructionParams, CDSIndexParams};
+use super::parameters::CDSIndexParams;
 use super::pricer::CDSIndexPricer;
 use crate::impl_instrument_base;
 
@@ -52,6 +51,7 @@ pub enum ParSpreadMethod {
 
 /// Constituent in a CDS index with weight and credit parameters.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CDSIndexConstituent {
     /// Credit configuration for the issuer (includes hazard curve id and recovery)
     pub credit: CreditParams,
@@ -63,6 +63,21 @@ pub struct CDSIndexConstituent {
     /// name is removed from the index. The index factor adjusts to reflect the reduced notional."
     #[serde(default)]
     pub defaulted: bool,
+}
+
+impl CDSIndexConstituent {
+    /// Construct an active (non-defaulted) constituent.
+    ///
+    /// Common case for new trades: `defaulted` defaults to `false`. Mark
+    /// names as defaulted explicitly via the struct literal when modeling
+    /// post-default state.
+    pub fn active(credit: CreditParams, weight: f64) -> Self {
+        Self {
+            credit,
+            weight,
+            defaulted: false,
+        }
+    }
 }
 
 /// Per-constituent result entry for index-level analytics.
@@ -230,93 +245,116 @@ impl CDSIndex {
         }
     }
 
-    /// Create a new CDS Index with standard ISDA conventions using parameter structs.
+    /// Construct a `CDSIndex` from a preset descriptor + trade-specific args.
+    ///
+    /// Replaces the previous `new_standard` constructor. Trade state that is
+    /// orthogonal to the preset (constituents, index factor) is attached
+    /// via the chained `with_*` methods on the returned instrument.
+    ///
+    /// # Example
+    ///
+    /// ```text
+    /// let idx = CDSIndex::from_preset(
+    ///     &CDSIndexParams::cdx_na_ig(42, 1, 100.0),
+    ///     "CDX-IG-42",
+    ///     Money::new(10_000_000.0, Currency::USD),
+    ///     PayReceive::PayFixed,
+    ///     start, end,
+    ///     0.40,
+    ///     "USD-OIS",
+    ///     "CDX.NA.IG.HAZARD",
+    /// )?
+    /// .with_index_factor(0.96)
+    /// .with_constituents(constituents);
+    /// ```
     ///
     /// # Errors
     ///
-    /// Returns an error if `fixed_coupon_bp` cannot be represented as Decimal.
+    /// Returns an error if `preset.fixed_coupon_bp` cannot be represented
+    /// as `Decimal`.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_standard(
+    pub fn from_preset(
+        preset: &CDSIndexParams,
         id: impl Into<InstrumentId>,
-        index_params: &CDSIndexParams,
-        construction_params: &CDSIndexConstructionParams,
+        notional: Money,
+        side: PayReceive,
         start: finstack_core::dates::Date,
         end: finstack_core::dates::Date,
-        credit_params: &CreditParams,
+        recovery_rate: f64,
         discount_curve_id: impl Into<CurveId>,
-        credit_id: impl Into<CurveId>,
+        credit_curve_id: impl Into<CurveId>,
     ) -> finstack_core::Result<Self> {
-        let dc = construction_params.convention.day_count();
-        let freq = construction_params.convention.frequency();
-        let bdc = construction_params.convention.business_day_convention();
-        let stub = construction_params.convention.stub_convention();
+        let convention = preset.convention;
+        let dc = convention.day_count();
+        let freq = convention.frequency();
+        let bdc = convention.business_day_convention();
+        let stub = convention.stub_convention();
 
-        let spread_bp_decimal = Decimal::try_from(index_params.fixed_coupon_bp).map_err(|e| {
+        let spread_bp_decimal = Decimal::try_from(preset.fixed_coupon_bp).map_err(|e| {
             finstack_core::Error::Validation(format!(
                 "fixed_coupon_bp {} cannot be represented as Decimal: {}",
-                index_params.fixed_coupon_bp, e
+                preset.fixed_coupon_bp, e
             ))
         })?;
 
-        let mut s = Self {
+        Ok(Self {
             id: id.into(),
-            index_name: index_params.index_name.to_owned(),
-            series: index_params.series,
-            version: index_params.version,
-            notional: construction_params.notional,
-            index_factor: index_params.index_factor.unwrap_or(1.0),
-            side: construction_params.side,
-            convention: construction_params.convention,
+            index_name: preset.index_name.clone(),
+            series: preset.series,
+            version: preset.version,
+            notional,
+            index_factor: 1.0,
+            side,
+            convention,
             premium: PremiumLegSpec {
                 start,
                 end,
                 frequency: freq,
                 stub,
                 bdc,
-                calendar_id: Some(
-                    construction_params
-                        .convention
-                        .default_calendar()
-                        .to_string(),
-                ),
+                calendar_id: Some(convention.default_calendar().to_string()),
                 day_count: dc,
                 spread_bp: spread_bp_decimal,
                 discount_curve_id: discount_curve_id.into(),
             },
             protection: ProtectionLegSpec {
-                credit_curve_id: credit_id.into(),
-                recovery_rate: credit_params.recovery_rate,
-                settlement_delay: construction_params.convention.settlement_delay(),
+                credit_curve_id: credit_curve_id.into(),
+                recovery_rate,
+                settlement_delay: convention.settlement_delay(),
             },
             pricing: IndexPricing::SingleCurve,
             constituents: Vec::new(),
             pricing_overrides: PricingOverrides::default(),
             margin_spec: None,
             attributes: Attributes::new(),
-        };
-
-        if let Some(cons) = &index_params.constituents {
-            if !cons.is_empty() {
-                s.pricing = IndexPricing::Constituents;
-                s.constituents = cons
-                    .iter()
-                    .map(|c: &CDSIndexConstituentParam| CDSIndexConstituent {
-                        credit: c.credit.clone(),
-                        weight: c.weight,
-                        defaulted: false,
-                    })
-                    .collect();
-            }
-        }
-
-        Ok(s)
+        })
     }
 
-    /// Map this index to a synthetic single-name CDS for valuation reuse
+    /// Set the index factor (fraction of original notional surviving).
+    ///
+    /// Defaults to 1.0. Set to less than 1.0 when modeling an index after
+    /// one or more constituents have defaulted; pair with `defaulted=true`
+    /// on the corresponding `CDSIndexConstituent`s. Validation occurs at
+    /// pricing time and rejects `index_factor` values that exceed
+    /// `1 − Σ defaulted weights`.
+    pub fn with_index_factor(mut self, factor: f64) -> Self {
+        self.index_factor = factor;
+        self
+    }
+
+    /// Map this index to a synthetic single-name CDS for valuation reuse.
+    ///
+    /// The synthetic CDS notional reflects `notional × index_factor`, i.e.
+    /// the surviving notional. Pricing this synthetic CDS directly therefore
+    /// produces the same dollar leg PVs as `IndexPricing::SingleCurve` mode
+    /// on the index itself.
     pub fn to_synthetic_cds(&self) -> CreditDefaultSwap {
         CreditDefaultSwap {
             id: self.id.to_owned(),
-            notional: self.notional,
+            notional: Money::new(
+                self.notional.amount() * self.index_factor,
+                self.notional.currency(),
+            ),
             side: self.side,
             convention: self.convention,
             premium: self.premium_with_standard_defaults(),

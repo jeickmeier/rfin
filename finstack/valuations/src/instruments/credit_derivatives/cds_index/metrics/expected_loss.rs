@@ -30,13 +30,21 @@ impl MetricCalculator for ExpectedLossCalculator {
         let notional = index.notional.amount() * scale;
 
         if !index.constituents.is_empty() {
-            let sum_w: f64 = index.constituents.iter().map(|c| c.weight).sum();
+            // Defaulted constituents have already been settled and are
+            // removed from forward exposure (their notional is captured by
+            // `index_factor`). Exclude them from the forward EL and weight
+            // surviving names so they sum to 1.
+            let active: Vec<_> = index.constituents.iter().filter(|c| !c.defaulted).collect();
+            if active.is_empty() {
+                return Ok(0.0);
+            }
+            let sum_w: f64 = active.iter().map(|c| c.weight).sum();
             if sum_w <= 0.0 {
                 return Ok(0.0);
             }
 
             let mut weighted_el = 0.0;
-            for constituent in &index.constituents {
+            for constituent in active {
                 let hazard = context
                     .curves
                     .get_hazard(constituent.credit.credit_curve_id.as_str())?;

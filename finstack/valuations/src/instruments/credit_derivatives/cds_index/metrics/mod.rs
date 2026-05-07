@@ -16,11 +16,8 @@
 mod cs01;
 mod expected_loss;
 mod jump_to_default;
-mod par_spread;
-mod pv_premium;
-mod pv_protection;
 mod recovery01;
-mod risky_pv01;
+mod simple;
 
 use crate::metrics::MetricRegistry;
 
@@ -32,7 +29,7 @@ pub(crate) fn register_cds_index_metrics(registry: &mut MetricRegistry) {
 
     registry.register_metric(
         MetricId::RiskyPv01,
-        Arc::new(risky_pv01::RiskyPv01Calculator),
+        Arc::new(simple::RiskyPv01Calculator),
         &[InstrumentType::CDSIndex],
     );
 
@@ -48,13 +45,11 @@ pub(crate) fn register_cds_index_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: InstrumentType::CDSIndex,
         metrics: [
-            (ParSpread, par_spread::ParSpreadCalculator),
+            (ParSpread, simple::ParSpreadCalculator),
             (Cs01, cs01::Cs01Calculator),
-            (Cs01Hazard, crate::metrics::GenericParallelCs01Hazard::<
-                crate::instruments::CDSIndex,
-            >::default()),
-            (ProtectionLegPv, pv_protection::ProtectionLegPvCalculator),
-            (PremiumLegPv, pv_premium::PremiumLegPvCalculator),
+            (Cs01Hazard, cs01::Cs01HazardCalculator),
+            (ProtectionLegPv, simple::ProtectionLegPvCalculator),
+            (PremiumLegPv, simple::PremiumLegPvCalculator),
             (ExpectedLoss, expected_loss::ExpectedLossCalculator),
             (JumpToDefault, jump_to_default::JumpToDefaultCalculator),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<

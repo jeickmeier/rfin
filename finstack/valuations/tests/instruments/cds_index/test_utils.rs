@@ -8,11 +8,10 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds::{
-    CDSConvention, PayReceive, RECOVERY_SENIOR_UNSECURED,
+    PayReceive, RECOVERY_SENIOR_UNSECURED,
 };
-use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
-    CDSIndexConstituentParam, CDSIndexConstructionParams, CDSIndexParams,
+    CDSIndex, CDSIndexConstituent, CDSIndexParams,
 };
 use finstack_valuations::instruments::CreditParams;
 
@@ -82,42 +81,33 @@ pub fn multi_constituent_market_context(base: Date, num_constituents: usize) -> 
     ctx
 }
 
-/// Create standard CDX IG index parameters
+/// Create standard CDX IG preset.
 pub fn standard_cdx_params() -> CDSIndexParams {
     CDSIndexParams::cdx_na_ig(42, 1, 100.0)
 }
 
-/// Create standard construction parameters
-pub fn standard_construction_params(notional: f64) -> CDSIndexConstructionParams {
-    CDSIndexConstructionParams::new(
-        Money::new(notional, Currency::USD),
-        PayReceive::PayFixed,
-        CDSConvention::IsdaNa,
-    )
-}
-
-/// Create equal-weight constituents
-pub fn equal_weight_constituents(count: usize) -> Vec<CDSIndexConstituentParam> {
+/// Create equal-weight constituents (active, not defaulted).
+pub fn equal_weight_constituents(count: usize) -> Vec<CDSIndexConstituent> {
     (0..count)
-        .map(|i| CDSIndexConstituentParam {
-            credit: CreditParams::corporate_standard(
-                format!("NAME{}", i + 1),
-                format!("HZ{}", i + 1),
-            ),
-            weight: 1.0 / count as f64,
+        .map(|i| {
+            CDSIndexConstituent::active(
+                CreditParams::corporate_standard(format!("NAME{}", i + 1), format!("HZ{}", i + 1)),
+                1.0 / count as f64,
+            )
         })
         .collect()
 }
 
 /// Create a standard single-curve index
 pub fn standard_single_curve_index(id: &str, start: Date, end: Date, notional: f64) -> CDSIndex {
-    CDSIndex::new_standard(
-        id,
+    CDSIndex::from_preset(
         &standard_cdx_params(),
-        &standard_construction_params(notional),
+        id,
+        Money::new(notional, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        RECOVERY_SENIOR_UNSECURED,
         "USD-OIS",
         "HZ-INDEX",
     )
@@ -132,20 +122,19 @@ pub fn standard_constituents_index(
     notional: f64,
     num_constituents: usize,
 ) -> CDSIndex {
-    let constituents = equal_weight_constituents(num_constituents);
-    let params = standard_cdx_params().with_constituents(constituents);
-
-    CDSIndex::new_standard(
+    CDSIndex::from_preset(
+        &standard_cdx_params(),
         id,
-        &params,
-        &standard_construction_params(notional),
+        Money::new(notional, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        RECOVERY_SENIOR_UNSECURED,
         "USD-OIS",
         "HZ-INDEX",
     )
     .expect("valid test parameters")
+    .with_constituents(equal_weight_constituents(num_constituents))
 }
 
 /// Analytical par spread for a flat hazard rate and constant recovery (bps)

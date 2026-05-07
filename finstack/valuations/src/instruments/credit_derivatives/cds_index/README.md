@@ -15,14 +15,41 @@
 ## Usage Example
 
 ```rust
-use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
+use finstack_valuations::instruments::credit_derivatives::cds::PayReceive;
+use finstack_valuations::instruments::credit_derivatives::cds_index::{
+    CDSIndex, CDSIndexConstituent, CDSIndexParams,
+};
+use finstack_valuations::instruments::CreditParams;
+use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use finstack_core::money::Money;
 use time::Month;
 
 let as_of = Date::from_calendar_date(2024, Month::January, 5)?;
-let index = CDSIndex::example();
-let pv = index.value(&market_context, as_of)?;
-let par = index.par_spread(&market_context, as_of)?;
+let start = Date::from_calendar_date(2024, Month::March, 20)?;
+let end = Date::from_calendar_date(2029, Month::December, 20)?;
+
+// Build from a well-known preset; convention is bundled with the preset.
+let idx = CDSIndex::from_preset(
+    &CDSIndexParams::cdx_na_ig(42, 1, 100.0),
+    "CDX-IG-42",
+    Money::new(10_000_000.0, Currency::USD),
+    PayReceive::PayFixed,
+    start,
+    end,
+    0.40,
+    "USD-OIS",
+    "CDX.NA.IG.HAZARD",
+)?
+// Optional trade-state setters can be chained:
+.with_index_factor(0.96)
+.with_constituents(vec![
+    CDSIndexConstituent::active(CreditParams::corporate_standard("ACME", "ACME-HAZ"), 0.5),
+    CDSIndexConstituent::active(CreditParams::corporate_standard("WIDGET", "WIDGET-HAZ"), 0.5),
+]);
+
+let pv = idx.value(&market_context, as_of)?;
+let par = idx.par_spread(&market_context, as_of)?;
 ```
 
 ## Limitations / Known Issues
@@ -33,9 +60,22 @@ let par = index.par_spread(&market_context, as_of)?;
 
 ## Pricing Methodology
 
-- Delegates protection/premium leg PVs to single-name CDS pricer; aggregates by weights when in constituents mode.
-- Par spread solved via Brent on index RPV01 with configurable denominator (risky annuity vs full premium AoD).
-- Supports index factor scaling and optional weight normalization; deterministic hazard/discount curves.
+- All priced quantities (NPV, leg PVs, par spread, RPV01, CS01) delegate to
+  the single-name `CDSPricer` (ISDA Standard Model integration). In
+  `Constituents` mode, results are aggregated across surviving names with
+  per-name weights renormalized over the live constituents.
+- The index `index_factor` scales the synthetic / per-constituent notional
+  (after defaults). Validation rejects an `index_factor` that exceeds
+  `1 - sum_defaulted_weights`, ensuring the surviving notional is consistent
+  with declared defaults.
+- Par spread denominator is the risky annuity (`RiskyAnnuity` method); the
+  Bloomberg-CDSW alternative (`FullPremiumAoD`) is exposed via
+  `CDSPricerConfig` plumbed through `CDSIndexPricer::with_config` (test-only).
+- The `CashflowProvider` schedule is an *informational* mid-period Riemann
+  projection of expected default and premium flows. It is intentionally a
+  coarser approximation than the priced PV: discounting it will agree with
+  `npv()` only to within a few percent for benign curves. Treat it as a
+  cashflow listing, not a numerical equality check.
 
 ## Metrics
 

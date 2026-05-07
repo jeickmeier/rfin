@@ -10,17 +10,21 @@
 //! - Weight validation and normalization
 
 use super::test_utils::*;
+use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_valuations::constants::BASIS_POINTS_PER_UNIT;
-use finstack_valuations::instruments::credit_derivatives::cds::RECOVERY_SENIOR_UNSECURED;
-use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndexConstituentParam;
+use finstack_valuations::instruments::credit_derivatives::cds::{
+    PayReceive, RECOVERY_SENIOR_UNSECURED,
+};
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
-    CDSIndex, IndexPricing, ParSpreadMethod,
+    CDSIndex, CDSIndexConstituent, IndexPricing, ParSpreadMethod,
 };
 use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
+
+const TEST_NOTIONAL: f64 = 10_000_000.0;
 
 fn metric_value(
     index: &CDSIndex,
@@ -39,7 +43,6 @@ fn metric_value(
     result.measures[&metric]
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_mode_pricing() {
     // Test: Basic constituents pricing works
@@ -56,7 +59,6 @@ fn test_constituents_mode_pricing() {
     assert_eq!(idx.pricing, IndexPricing::Constituents);
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_weight_based_allocation() {
     // Test: Notional is allocated according to weights
@@ -78,7 +80,6 @@ fn test_constituents_weight_based_allocation() {
     }
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_npv_components() {
     // Test: NPV = Protection PV - Premium PV (for protection buyer)
@@ -100,7 +101,6 @@ fn test_constituents_npv_components() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_par_spread() {
     // Test: Par spread calculation with constituents
@@ -123,7 +123,6 @@ fn test_constituents_par_spread() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_risky_pv01() {
     // Test: Risky PV01 aggregation
@@ -140,7 +139,6 @@ fn test_constituents_risky_pv01() {
     assert_in_range(rpv01, 3_500.0, 5_500.0, "Risky PV01 magnitude");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_cs01() {
     // Test: CS01 aggregation across constituents
@@ -156,7 +154,6 @@ fn test_constituents_cs01() {
     assert_positive(cs01, "CS01");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_weights_sum_to_one() {
     // Test: Constituent weights must sum to 1.0
@@ -177,7 +174,6 @@ fn test_constituents_weights_sum_to_one() {
     }
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_unequal_weights() {
     // Test: Support for unequal constituent weights
@@ -186,32 +182,24 @@ fn test_constituents_unequal_weights() {
     let as_of = start;
 
     let constituents = vec![
-        CDSIndexConstituentParam {
-            credit: CreditParams::corporate_standard("N1", "HZ1"),
-            weight: 0.50, // Large weight
-        },
-        CDSIndexConstituentParam {
-            credit: CreditParams::corporate_standard("N2", "HZ2"),
-            weight: 0.30,
-        },
-        CDSIndexConstituentParam {
-            credit: CreditParams::corporate_standard("N3", "HZ3"),
-            weight: 0.20, // Small weight
-        },
+        CDSIndexConstituent::active(CreditParams::corporate_standard("N1", "HZ1"), 0.50), // Large
+        CDSIndexConstituent::active(CreditParams::corporate_standard("N2", "HZ2"), 0.30),
+        CDSIndexConstituent::active(CreditParams::corporate_standard("N3", "HZ3"), 0.20), // Small
     ];
 
-    let params = standard_cdx_params().with_constituents(constituents);
-    let idx = CDSIndex::new_standard(
+    let idx = CDSIndex::from_preset(
+        &standard_cdx_params(),
         "CDX-UNEQUAL",
-        &params,
-        &standard_construction_params(10_000_000.0),
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        RECOVERY_SENIOR_UNSECURED,
         "USD-OIS",
         "HZ-INDEX",
     )
-    .expect("valid test parameters");
+    .expect("valid test parameters")
+    .with_constituents(constituents);
 
     let ctx = multi_constituent_market_context(as_of, 3);
     let result = idx.value(&ctx, as_of);
@@ -219,7 +207,6 @@ fn test_constituents_unequal_weights() {
     assert!(result.is_ok(), "Unequal weights should be supported");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_index_factor_application() {
     // Test: Index factor scales effective notional
@@ -229,21 +216,21 @@ fn test_constituents_index_factor_application() {
 
     let factor = 0.95; // 95% surviving
     let constituents = equal_weight_constituents(5);
-    let params = standard_cdx_params()
-        .with_constituents(constituents)
-        .with_index_factor(factor);
 
-    let idx = CDSIndex::new_standard(
+    let idx = CDSIndex::from_preset(
+        &standard_cdx_params(),
         "CDX-FACTOR",
-        &params,
-        &standard_construction_params(10_000_000.0),
+        Money::new(TEST_NOTIONAL, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        RECOVERY_SENIOR_UNSECURED,
         "USD-OIS",
         "HZ-INDEX",
     )
-    .expect("valid test parameters");
+    .expect("valid test parameters")
+    .with_index_factor(factor)
+    .with_constituents(constituents);
 
     assert_eq!(idx.index_factor, factor);
 
@@ -252,7 +239,6 @@ fn test_constituents_index_factor_application() {
     assert!(result.is_ok());
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_npv_scales_with_notional() {
     // Test: NPV scales linearly with notional in constituents mode
@@ -270,7 +256,6 @@ fn test_constituents_npv_scales_with_notional() {
     assert_linear_scaling(npv_10mm, 10_000_000.0, npv_20mm, 20_000_000.0, "NPV", 0.01);
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_risky_pv01_scales_with_notional() {
     // Test: Risky PV01 scales linearly with notional
@@ -295,7 +280,6 @@ fn test_constituents_risky_pv01_scales_with_notional() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_cs01_scales_with_notional() {
     // Test: CS01 scales linearly with notional
@@ -320,7 +304,6 @@ fn test_constituents_cs01_scales_with_notional() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_par_spread_independent_of_notional() {
     // Test: Par spread independent of notional
@@ -338,7 +321,6 @@ fn test_constituents_par_spread_independent_of_notional() {
     assert_relative_eq(par_1mm, par_100mm, 0.001, "Par spread notional-independent");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_different_counts() {
     // Test: Various constituent counts work correctly
@@ -360,7 +342,6 @@ fn test_constituents_different_counts() {
     }
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_pricing_mode_verification() {
     // Test: Constituents index has correct pricing mode
@@ -373,7 +354,6 @@ fn test_constituents_pricing_mode_verification() {
     assert_eq!(idx.constituents.len(), 5);
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_protection_leg_positive() {
     // Test: Protection leg PV is positive
@@ -389,7 +369,6 @@ fn test_constituents_protection_leg_positive() {
     assert_positive(pv_prot, "Protection leg PV");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_premium_leg_positive() {
     // Test: Premium leg PV is positive
@@ -405,7 +384,6 @@ fn test_constituents_premium_leg_positive() {
     assert_positive(pv_prem, "Premium leg PV");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_single_constituent() {
     // Test: Single constituent case works (edge case)
@@ -428,7 +406,6 @@ fn test_constituents_single_constituent() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_large_basket() {
     // Test: Large basket (125 names) works efficiently
@@ -445,7 +422,6 @@ fn test_constituents_large_basket() {
     assert_eq!(idx.constituents.len(), 125);
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_detailed_additive_metrics() {
     let start = date!(2025 - 01 - 01);
@@ -501,7 +477,6 @@ fn test_constituents_detailed_additive_metrics() {
     assert_relative_eq(cs01.total, cs01_sum, 1e-10, "CS01 total equals sum");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_detailed_weights_and_ids() {
     let start = date!(2025 - 01 - 01);
@@ -528,7 +503,6 @@ fn test_constituents_detailed_weights_and_ids() {
     }
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_constituents_par_spread_detailed_non_additive() {
     let start = date!(2025 - 01 - 01);

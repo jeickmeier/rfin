@@ -4,10 +4,9 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds::{CDSConvention, PayReceive};
-use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
+use finstack_valuations::instruments::credit_derivatives::cds::PayReceive;
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
-    CDSIndexConstituentParam, CDSIndexConstructionParams, CDSIndexParams,
+    CDSIndex, CDSIndexConstituent, CDSIndexParams,
 };
 use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::instruments::Instrument;
@@ -45,17 +44,14 @@ fn imm_20th_schedule_for_index_synthetic() {
     let start = as_of;
     let end = Date::from_calendar_date(2028, Month::January, 1).unwrap();
 
-    let idx = CDSIndex::new_standard(
-        "CDX-IMM",
+    let idx = CDSIndex::from_preset(
         &CDSIndexParams::cdx_na_ig(42, 1, 100.0),
-        &CDSIndexConstructionParams::new(
-            Money::new(1_000_000.0, Currency::USD),
-            PayReceive::PayFixed,
-            CDSConvention::IsdaNa,
-        ),
+        "CDX-IMM",
+        Money::new(1_000_000.0, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-IDX"),
+        0.40,
         "USD-OIS",
         "HZ-IDX",
     )
@@ -97,50 +93,43 @@ fn index_factor_scales_pv() {
         ctx = ctx.insert(flat_hazard(hid, as_of, rec, hz));
     }
 
-    let cons: Vec<CDSIndexConstituentParam> = names
+    let cons: Vec<CDSIndexConstituent> = names
         .iter()
-        .map(|(n, hid)| CDSIndexConstituentParam {
-            credit: CreditParams::corporate_standard(*n, *hid),
-            weight: 1.0 / 5.0,
+        .map(|(n, hid)| {
+            CDSIndexConstituent::active(CreditParams::corporate_standard(*n, *hid), 1.0 / 5.0)
         })
         .collect();
 
-    let p_base = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_constituents(cons.clone());
-    let p_scaled = CDSIndexParams::cdx_na_ig(42, 1, 100.0)
-        .with_index_factor(0.8)
-        .with_constituents(cons);
+    let preset = CDSIndexParams::cdx_na_ig(42, 1, 100.0);
 
-    let idx_base = CDSIndex::new_standard(
+    let idx_base = CDSIndex::from_preset(
+        &preset,
         "CDX-BASE",
-        &p_base,
-        &CDSIndexConstructionParams::new(
-            Money::new(10_000_000.0, Currency::USD),
-            PayReceive::PayFixed,
-            CDSConvention::IsdaNa,
-        ),
+        Money::new(10_000_000.0, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-IDX"),
+        rec,
         "USD-OIS",
         "HZ-IDX",
     )
-    .expect("valid test parameters");
+    .expect("valid test parameters")
+    .with_constituents(cons.clone());
 
-    let idx_scaled = CDSIndex::new_standard(
+    let idx_scaled = CDSIndex::from_preset(
+        &preset,
         "CDX-SCALED",
-        &p_scaled,
-        &CDSIndexConstructionParams::new(
-            Money::new(10_000_000.0, Currency::USD),
-            PayReceive::PayFixed,
-            CDSConvention::IsdaNa,
-        ),
+        Money::new(10_000_000.0, Currency::USD),
+        PayReceive::PayFixed,
         start,
         end,
-        &CreditParams::corporate_standard("INDEX", "HZ-IDX"),
+        rec,
         "USD-OIS",
         "HZ-IDX",
     )
-    .expect("valid test parameters");
+    .expect("valid test parameters")
+    .with_index_factor(0.8)
+    .with_constituents(cons);
 
     let pv_base = idx_base.value(&ctx, as_of).unwrap().amount();
     let pv_scaled = idx_scaled.value(&ctx, as_of).unwrap().amount();
