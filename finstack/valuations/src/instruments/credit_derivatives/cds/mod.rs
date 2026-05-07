@@ -130,19 +130,19 @@
 //! - CDS metrics module for CDS risk metrics (CS01, DV01, recovery sensitivity)
 
 pub(crate) mod metrics;
-pub(crate) mod parameters;
 pub(crate) mod pricer;
 mod types;
 
 pub use crate::market::conventions::ids::CdsDocClause;
-pub use parameters::{
-    RECOVERY_HIGH_YIELD_DEFAULT, RECOVERY_SENIOR_UNSECURED, RECOVERY_SUBORDINATED,
-};
+
+/// ISDA standard recovery rate for senior unsecured (40%).
+///
+/// Re-exported from [`crate::constants::isda::STANDARD_RECOVERY_SENIOR`].
+pub use crate::constants::isda::STANDARD_RECOVERY_SENIOR as RECOVERY_SENIOR_UNSECURED;
 pub use types::CDSConvention;
 pub use types::CdsValuationConvention;
 pub use types::CreditDefaultSwap;
 pub use types::CreditDefaultSwapBuilder;
-pub use types::IsdaCdsParams;
 pub use types::PayReceive;
 pub use types::PremiumLegSpec;
 pub use types::ProtectionLegSpec;

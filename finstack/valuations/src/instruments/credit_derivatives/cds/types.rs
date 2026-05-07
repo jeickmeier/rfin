@@ -39,7 +39,6 @@
 //!     .build()?;
 //! ```
 
-use crate::cashflow::traits::DatedFlows;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
 use crate::instruments::PricingOverrides;
@@ -583,31 +582,6 @@ pub struct CreditDefaultSwap {
     pub attributes: Attributes,
 }
 
-/// Parameters for building a CDS with standard ISDA conventions.
-#[derive(Debug, Clone)]
-pub struct IsdaCdsParams<'a> {
-    /// Unique CDS identifier.
-    pub id: InstrumentId,
-    /// CDS notional.
-    pub notional: Money,
-    /// Direction of the premium leg.
-    pub side: PayReceive,
-    /// ISDA market convention family to apply.
-    pub convention: CDSConvention,
-    /// Running spread in basis points.
-    pub spread_bp: f64,
-    /// Premium-leg start date.
-    pub start: Date,
-    /// Premium-leg end date.
-    pub end: Date,
-    /// Assumed recovery rate in decimal form.
-    pub recovery_rate: f64,
-    /// Discount curve identifier for premium-leg discounting.
-    pub discount_curve_id: &'a str,
-    /// Credit curve identifier for hazard-rate / survival lookup.
-    pub credit_curve_id: &'a str,
-}
-
 impl CreditDefaultSwap {
     /// Create a canonical example CDS for testing and documentation.
     ///
@@ -641,7 +615,8 @@ impl CreditDefaultSwap {
             })
             .protection(ProtectionLegSpec {
                 credit_curve_id: finstack_core::types::CurveId::new("CORP-HAZARD"),
-                recovery_rate: crate::instruments::credit_derivatives::cds::parameters::RECOVERY_SENIOR_UNSECURED,
+                recovery_rate:
+                    crate::instruments::credit_derivatives::cds::RECOVERY_SENIOR_UNSECURED,
                 settlement_delay: convention.settlement_delay(),
             })
             .pricing_overrides(PricingOverrides::default())
@@ -697,7 +672,8 @@ impl CreditDefaultSwap {
             })
             .protection(ProtectionLegSpec {
                 credit_curve_id: finstack_core::types::CurveId::new("EU-CORP-HAZARD"),
-                recovery_rate: crate::instruments::credit_derivatives::cds::parameters::RECOVERY_SENIOR_UNSECURED,
+                recovery_rate:
+                    crate::instruments::credit_derivatives::cds::RECOVERY_SENIOR_UNSECURED,
                 settlement_delay: convention.settlement_delay(),
             })
             .pricing_overrides(PricingOverrides::default())
@@ -719,48 +695,8 @@ impl CreditDefaultSwap {
 
     /// Create a new CDS with standard ISDA conventions using explicit inputs.
     ///
-    /// This is an internal helper method used by synthetic CDS creation in
-    /// cds_option and cds_index modules. For public API, use `builder()`.
-    ///
-    /// # Arguments
-    ///
-    /// * `spread_bp` - Spread in basis points as Decimal
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if validation fails (e.g., recovery rate out of bounds).
-    pub fn from_isda(params: IsdaCdsParams<'_>) -> finstack_core::Result<Self> {
-        let IsdaCdsParams {
-            id,
-            notional,
-            side,
-            convention,
-            spread_bp,
-            start,
-            end,
-            recovery_rate,
-            discount_curve_id,
-            credit_curve_id,
-        } = params;
-
-        Self::new_isda(
-            id,
-            notional,
-            side,
-            convention,
-            finstack_core::decimal::f64_to_decimal(spread_bp)?,
-            start,
-            end,
-            recovery_rate,
-            discount_curve_id,
-            credit_curve_id,
-        )
-    }
-
-    /// Create a new CDS with standard ISDA conventions using explicit inputs.
-    ///
-    /// Prefer [`Self::from_isda`] in public code. This helper remains available
-    /// for internal call sites that already hold a decimal spread.
+    /// Internal helper used by synthetic CDS creation in `cds_option` and
+    /// `cds_index`. For the public API, use [`builder()`](Self::builder).
     ///
     /// # Errors
     ///
@@ -986,7 +922,7 @@ impl CreditDefaultSwap {
             pricer.premium_cashflow_accruals(self, self.premium.start)?
         } else {
             pricer
-                .generate_schedule(self, self.premium.start)?
+                .generate_isda_schedule(self)?
                 .windows(2)
                 .map(|window| {
                     let accrual = self.premium.day_count.year_fraction(
@@ -1025,20 +961,6 @@ impl CreditDefaultSwap {
         ))
     }
 
-    /// Build premium leg cashflows
-    pub fn build_premium_schedule(
-        &self,
-        _curves: &MarketContext,
-        _as_of: Date,
-    ) -> finstack_core::Result<DatedFlows> {
-        Ok(self
-            .build_premium_leg_schedule()?
-            .flows
-            .iter()
-            .map(|cf| (cf.date, cf.amount))
-            .collect())
-    }
-
     /// ISDA-standard coupon date schedule (IMM 20th dates).
     ///
     /// This is **not** a pricing entry point; it is a schedule helper that
@@ -1062,98 +984,7 @@ impl CreditDefaultSwap {
         self.validate()?;
         let disc = market.get_discount(&self.premium.discount_curve_id)?;
         let surv = market.get_hazard(&self.protection.credit_curve_id)?;
-        let pricer = CDSPricer::new();
-
-        // Calculate NPV as protection leg PV - premium leg PV (from buyer's perspective)
-        let protection_pv =
-            pricer.pv_protection_leg_raw(self, disc.as_ref(), surv.as_ref(), as_of)?;
-        let premium_pv = pricer.pv_premium_leg_raw(self, disc.as_ref(), surv.as_ref(), as_of)?;
-
-        // Calculate dated upfront PV
-        let upfront_pv = if let Some((dt, amount)) = self.upfront {
-            if dt >= as_of {
-                let df = disc.df_between_dates(as_of, dt)?;
-                amount.amount() * df
-            } else {
-                0.0 // Past cashflow
-            }
-        } else {
-            0.0
-        };
-
-        // PV adjustment upfront: an override that represents an additional model-level
-        // upfront amount. Positive = paid by protection buyer (reduces buyer NPV,
-        // increases seller NPV), matching the economic convention of the dated upfront.
-        let upfront_adjustment = self
-            .pricing_overrides
-            .market_quotes
-            .upfront_payment
-            .map(|m| m.amount())
-            .unwrap_or(0.0);
-
-        // Apply sign convention based on side
-        // Base NPV = Protection (received) - Premium (paid) [as Buyer]
-        // Upfront: Positive amount is paid by Buyer. So it reduces Buyer NPV.
-        let mut npv_amount = match self.side {
-            PayReceive::PayFixed => {
-                // Protection buyer: pays premium, receives protection, pays upfront (if positive)
-                protection_pv - premium_pv - upfront_pv - upfront_adjustment
-            }
-            PayReceive::ReceiveFixed => {
-                // Protection seller: receives premium, pays protection, receives upfront (if positive)
-                premium_pv - protection_pv + upfront_pv + upfront_adjustment
-            }
-        };
-
-        if self.uses_clean_price() {
-            let accrued = self.accrued_premium_for_clean_price(as_of)?;
-            npv_amount = match self.side {
-                PayReceive::PayFixed => npv_amount + accrued,
-                PayReceive::ReceiveFixed => npv_amount - accrued,
-            };
-        }
-
-        Ok(npv_amount)
-    }
-
-    fn accrued_premium_for_clean_price(
-        &self,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<f64> {
-        if as_of <= self.premium.start || as_of >= self.premium.end {
-            return Ok(0.0);
-        }
-
-        let pricer = CDSPricer::new();
-        let schedule = pricer.generate_schedule(self, as_of)?;
-        let mut last_coupon = self.premium.start;
-        for &coupon_date in &schedule {
-            if coupon_date <= as_of {
-                last_coupon = coupon_date;
-            } else {
-                break;
-            }
-        }
-
-        let accrual_fraction = match self.premium.day_count {
-            // Bloomberg CDSW displays accrued days inclusively for standard CDS
-            // cash settlement. This turns 2026-03-20 to 2026-05-02 into 44 days.
-            DayCount::Act360 => {
-                let days = DayCount::calendar_days(last_coupon, as_of) + 1;
-                (days.max(0) as f64) / 360.0
-            }
-            _ => self.premium.day_count.year_fraction(
-                last_coupon,
-                as_of,
-                finstack_core::dates::DayCountContext::default(),
-            )?,
-        };
-        let spread = self.premium.spread_bp.to_f64().ok_or_else(|| {
-            finstack_core::Error::Validation(
-                "premium spread_bp cannot be represented as f64".into(),
-            )
-        })? / 10_000.0;
-        Ok(self.notional.amount() * spread * accrual_fraction)
+        CDSPricer::new().npv_full(self, disc.as_ref(), surv.as_ref(), as_of)
     }
 
     // (no public/raw-NPV helper; use `Instrument::value_raw()` instead)
@@ -1277,19 +1108,19 @@ mod tests {
     use time::macros::date;
 
     #[test]
-    fn from_isda_applies_standard_convention_fields() {
-        let cds = CreditDefaultSwap::from_isda(IsdaCdsParams {
-            id: InstrumentId::new("CDS-CORP-5Y"),
-            notional: Money::new(10_000_000.0, Currency::USD),
-            side: PayReceive::PayFixed,
-            convention: CDSConvention::IsdaNa,
-            spread_bp: 100.0,
-            start: date!(2025 - 03 - 20),
-            end: date!(2030 - 03 - 20),
-            recovery_rate: 0.40,
-            discount_curve_id: "USD-OIS",
-            credit_curve_id: "CORP-HAZARD",
-        })
+    fn new_isda_applies_standard_convention_fields() {
+        let cds = CreditDefaultSwap::new_isda(
+            InstrumentId::new("CDS-CORP-5Y"),
+            Money::new(10_000_000.0, Currency::USD),
+            PayReceive::PayFixed,
+            CDSConvention::IsdaNa,
+            Decimal::try_from(100.0).expect("valid spread_bp"),
+            date!(2025 - 03 - 20),
+            date!(2030 - 03 - 20),
+            0.40,
+            "USD-OIS",
+            "CORP-HAZARD",
+        )
         .expect("ISDA CDS constructor should succeed");
 
         assert_eq!(cds.id, InstrumentId::new("CDS-CORP-5Y"));

@@ -395,17 +395,13 @@ impl CDSIndexPricer {
         let ctx_up = curves.clone().insert(bumped_up);
         let disc_up = ctx_up.get_discount(discount_id)?;
         let surv_up = ctx_up.get_hazard(credit_id)?;
-        let pv_up = pricer
-            .npv(cds, disc_up.as_ref(), surv_up.as_ref(), as_of)?
-            .amount();
+        let pv_up = pricer.npv_full(cds, disc_up.as_ref(), surv_up.as_ref(), as_of)?;
 
         let bumped_down = bump_hazard_for(-bump_bp)?;
         let ctx_down = curves.clone().insert(bumped_down);
         let disc_down = ctx_down.get_discount(discount_id)?;
         let surv_down = ctx_down.get_hazard(credit_id)?;
-        let pv_down = pricer
-            .npv(cds, disc_down.as_ref(), surv_down.as_ref(), as_of)?
-            .amount();
+        let pv_down = pricer.npv_full(cds, disc_down.as_ref(), surv_down.as_ref(), as_of)?;
 
         Ok((pv_up - pv_down) / (2.0 * bump_bp))
     }

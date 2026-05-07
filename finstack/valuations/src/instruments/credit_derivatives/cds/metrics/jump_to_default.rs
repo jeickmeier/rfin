@@ -30,9 +30,9 @@
 //! accrued premium in the JTD to give a more accurate P&L impact.
 
 use crate::constants::BASIS_POINTS_PER_UNIT;
+use crate::instruments::credit_derivatives::cds::pricer::{AccrualDayCountPolicy, CDSPricer};
 use crate::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::DayCountContext;
 use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
 
@@ -102,47 +102,19 @@ fn signed_lgd_payout(cds: &CreditDefaultSwap) -> f64 {
 
 /// Calculate accrued premium from the last coupon date to the given date.
 ///
-/// Uses the CDS pricer's ISDA schedule generation to ensure consistency
-/// with the pricing engine's coupon dates (IMM dates: 20th of Mar/Jun/Sep/Dec).
+/// Uses the CDS pricer's canonical accrued-fraction helper with the ISDA
+/// jump-to-default convention (plain `year_fraction` for every day-count;
+/// no `Act/360` +1-day inclusivity). Schedule generation matches the pricing
+/// engine's coupon dates (IMM dates: 20th of Mar/Jun/Sep/Dec).
 fn calculate_accrued_premium(
     cds: &CreditDefaultSwap,
     as_of: finstack_core::dates::Date,
 ) -> Result<f64> {
-    let premium_start = cds.premium.start;
-    let premium_end = cds.premium.end;
-
-    if as_of <= premium_start || as_of >= premium_end {
-        return Ok(0.0);
-    }
-
-    // Use the same ISDA schedule the pricer uses to avoid date mismatches
-    let pricer = crate::instruments::credit_derivatives::cds::pricer::CDSPricer::new();
-    let schedule = pricer.generate_schedule(cds, as_of)?;
-    if schedule.is_empty() {
-        return Ok(0.0);
-    }
-
-    // Find the most recent date in schedule <= as_of (should exist since schedule[0] = start)
-    let mut last_coupon = schedule[0];
-    for &d in &schedule {
-        if d <= as_of {
-            last_coupon = d;
-        } else {
-            break;
-        }
-    }
-
-    // Calculate accrual fraction from last_coupon to as_of
-    let accrual_fraction =
-        cds.premium
-            .day_count
-            .year_fraction(last_coupon, as_of, DayCountContext::default())?;
-
-    // Spread in decimal (convert from basis points)
+    let accrual_fraction = CDSPricer::new().coupon_accrued_fraction(
+        cds,
+        as_of,
+        AccrualDayCountPolicy::IsdaStandard,
+    )?;
     let spread = cds.premium.spread_bp.to_f64().unwrap_or_default() / BASIS_POINTS_PER_UNIT;
-
-    // Accrued premium = Notional × Spread × Accrual Fraction
-    let accrued = cds.notional.amount() * spread * accrual_fraction;
-
-    Ok(accrued)
+    Ok(cds.notional.amount() * spread * accrual_fraction)
 }

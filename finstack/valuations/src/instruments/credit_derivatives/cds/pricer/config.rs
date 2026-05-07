@@ -1,7 +1,5 @@
 use crate::constants::time as time_constants;
 use crate::instruments::credit_derivatives::cds::CdsDocClause;
-#[cfg(test)]
-use finstack_core::{Error, Result};
 
 /// Configuration for CDS pricing.
 ///
@@ -63,54 +61,6 @@ impl CDSPricerConfig {
             par_spread_uses_full_premium: cds.uses_full_premium_par_spread_denominator(),
             ..Self::isda_standard()
         }
-    }
-
-    /// Create an ISDA configuration for European markets (UK conventions).
-    #[cfg(test)]
-    #[must_use]
-    pub(crate) fn isda_europe() -> Self {
-        Self {
-            business_days_per_year: time_constants::BUSINESS_DAYS_PER_YEAR_UK,
-            ..Self::isda_standard()
-        }
-    }
-
-    /// Create an ISDA configuration for Asian markets (Japan conventions).
-    #[cfg(test)]
-    #[must_use]
-    pub(crate) fn isda_asia() -> Self {
-        Self {
-            business_days_per_year: time_constants::BUSINESS_DAYS_PER_YEAR_JP,
-            ..Self::isda_standard()
-        }
-    }
-
-    /// Validate configuration parameters.
-    ///
-    /// Returns an error if any parameter is out of valid range. This method provides
-    /// fail-fast validation for catching configuration errors early.
-    ///
-    /// # Errors
-    ///
-    /// Returns a validation error if:
-    /// - `business_days_per_year` is not positive
-    ///
-    /// # Examples
-    ///
-    /// ```rust,ignore
-    /// use finstack_valuations::instruments::credit_derivatives::cds::CDSPricerConfig;
-    ///
-    /// let config = CDSPricerConfig::isda_standard();
-    /// assert!(config.validate().is_ok());
-    /// ```
-    #[cfg(test)]
-    pub(crate) fn validate(&self) -> Result<()> {
-        if self.business_days_per_year <= 0.0 {
-            return Err(Error::Validation(
-                "CDSPricerConfig: business_days_per_year must be positive".into(),
-            ));
-        }
-        Ok(())
     }
 }
 

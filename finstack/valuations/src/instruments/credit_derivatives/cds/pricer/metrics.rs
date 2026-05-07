@@ -6,26 +6,31 @@ use crate::instruments::credit_derivatives::cds::{
     CdsValuationConvention, CreditDefaultSwap, PayReceive,
 };
 use finstack_core::dates::{adjust, next_cds_date, Date};
-#[cfg(test)]
-use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
-use finstack_core::money::Money;
 use finstack_core::{Error, Result};
+use rust_decimal::prelude::ToPrimitive;
+
+/// Day-count policy applied when measuring premium accrual from the most
+/// recent coupon date to `as_of`.
+///
+/// The two variants share the same schedule walk but differ on `Act/360`
+/// in-period accrual:
+///
+/// - [`Self::CdswInclusive`]: Bloomberg CDSW clean-settlement convention,
+///   `Act/360` accrual is inclusive of the upper boundary (one extra day).
+///   Other day-counts use plain `year_fraction`.
+/// - [`Self::IsdaStandard`]: plain `year_fraction` in every day-count;
+///   matches the ISDA default-payment convention used for jump-to-default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AccrualDayCountPolicy {
+    /// Bloomberg CDSW: `Act/360` inclusive of the last day; other day-counts
+    /// use plain `year_fraction`.
+    CdswInclusive,
+    /// Standard ISDA: plain `year_fraction` in every day-count.
+    IsdaStandard,
+}
 
 impl CDSPricer {
-    /// Generate the canonical CDS payment schedule.
-    ///
-    /// CDS pricing uses the ISDA IMM-20 schedule with business-day adjustment
-    /// per the instrument calendar.
-    #[must_use = "schedule generation is pure computation"]
-    pub(crate) fn generate_schedule(
-        &self,
-        cds: &CreditDefaultSwap,
-        _as_of: Date,
-    ) -> Result<Vec<Date>> {
-        self.generate_isda_schedule(cds)
-    }
-
     /// Generate ISDA standard coupon dates (20th of Mar/Jun/Sep/Dec).
     ///
     /// Payment dates are adjusted using the CDS calendar and business day
@@ -209,12 +214,33 @@ impl CDSPricer {
             .collect()
     }
 
-    fn clean_accrued_fraction(&self, cds: &CreditDefaultSwap, as_of: Date) -> Result<f64> {
+    /// Year fraction of premium accrued from the most recent coupon date to
+    /// `as_of`, expressed in the instrument's premium-leg day-count.
+    ///
+    /// CDS desks use two slightly different conventions for the in-period
+    /// accrual:
+    ///
+    /// - [`AccrualDayCountPolicy::CdswInclusive`] — Bloomberg CDSW clean
+    ///   settlement adds one extra calendar day for `Act/360` (so 2026-03-20
+    ///   to 2026-05-02 reads as 44 days). Other day-counts use plain
+    ///   `year_fraction`.
+    /// - [`AccrualDayCountPolicy::IsdaStandard`] — plain `year_fraction` in
+    ///   every day-count. Used for the jump-to-default accrued-premium
+    ///   calculation.
+    ///
+    /// Returns `0.0` when `as_of` is at or outside the premium-leg window
+    /// (`<= start` or `>= end`).
+    pub(crate) fn coupon_accrued_fraction(
+        &self,
+        cds: &CreditDefaultSwap,
+        as_of: Date,
+        policy: AccrualDayCountPolicy,
+    ) -> Result<f64> {
         if as_of <= cds.premium.start || as_of >= cds.premium.end {
             return Ok(0.0);
         }
 
-        let schedule = self.generate_schedule(cds, as_of)?;
+        let schedule = self.generate_isda_schedule(cds)?;
         let mut last_coupon = cds.premium.start;
         for &coupon_date in &schedule {
             if coupon_date <= as_of {
@@ -224,7 +250,9 @@ impl CDSPricer {
             }
         }
 
-        if cds.premium.day_count == finstack_core::dates::DayCount::Act360 {
+        if matches!(policy, AccrualDayCountPolicy::CdswInclusive)
+            && cds.premium.day_count == finstack_core::dates::DayCount::Act360
+        {
             let days = finstack_core::dates::DayCount::calendar_days(last_coupon, as_of) + 1;
             return Ok((days.max(0) as f64) / 360.0);
         }
@@ -240,7 +268,8 @@ impl CDSPricer {
         as_of: Date,
     ) -> Result<f64> {
         let full_premium_per_bp = self.premium_leg_pv_per_bp(cds, disc, surv, as_of)?;
-        let accrued_per_unit_spread = self.clean_accrued_fraction(cds, as_of)?;
+        let accrued_per_unit_spread =
+            self.coupon_accrued_fraction(cds, as_of, AccrualDayCountPolicy::CdswInclusive)?;
         Ok(full_premium_per_bp / ONE_BASIS_POINT - accrued_per_unit_spread)
     }
 
@@ -526,87 +555,73 @@ impl CDSPricer {
         Ok(risky_annuity * cds.notional.amount() / BASIS_POINTS_PER_UNIT)
     }
 
-    /// Instrument NPV from the perspective of the `PayReceive` side.
+    /// Canonical CDS instrument NPV from the perspective of the `PayReceive`
+    /// side, including both upfront-payment forms and the clean-price accrued
+    /// add-back.
     ///
-    /// - **Protection buyer** (PayFixed): NPV = Protection PV − Premium PV
-    /// - **Protection seller** (ReceiveFixed): NPV = Premium PV − Protection PV
-    pub(crate) fn npv(
+    /// Layered components (raw `f64`):
+    ///
+    /// 1. **Leg PV with sign:** Protection PV − Premium PV (for `PayFixed`),
+    ///    Premium PV − Protection PV (for `ReceiveFixed`).
+    /// 2. **Dated upfront** (`cds.upfront: Option<(Date, Money)>`): a specific
+    ///    payment on a specific date, discounted from `as_of`. Positive
+    ///    amount = paid by Buyer (reduces Buyer NPV).
+    /// 3. **PV-adjustment upfront**
+    ///    (`cds.pricing_overrides.market_quotes.upfront_payment: Option<Money>`):
+    ///    already-discounted PV adjustment at `as_of`. Positive = paid by
+    ///    Buyer.
+    /// 4. **Clean-price accrued add-back**: when [`CreditDefaultSwap::uses_clean_price`]
+    ///    is `true`, add (Buyer view) or subtract (Seller view) the
+    ///    Bloomberg CDSW-style accrued premium so the reported NPV matches the
+    ///    "Principal" line. Cash settlement is `Principal + Accrued`.
+    ///
+    /// Both upfront forms can be set simultaneously without double-counting;
+    /// each is applied exactly once.
+    pub(crate) fn npv_full(
         &self,
         cds: &CreditDefaultSwap,
         disc: &DiscountCurve,
         surv: &HazardCurve,
         as_of: Date,
-    ) -> Result<Money> {
-        let protection_pv = self.pv_protection_leg(cds, disc, surv, as_of)?;
-        let premium_pv = self.pv_premium_leg(cds, disc, surv, as_of)?;
-        match cds.side {
-            PayReceive::PayFixed => protection_pv.checked_sub(premium_pv),
-            PayReceive::ReceiveFixed => premium_pv.checked_sub(protection_pv),
-        }
-    }
+    ) -> Result<f64> {
+        let protection_pv = self.pv_protection_leg_raw(cds, disc, surv, as_of)?;
+        let premium_pv = self.pv_premium_leg_raw(cds, disc, surv, as_of)?;
 
-    /// Instrument NPV including both types of upfront payments.
-    ///
-    /// This method applies two types of upfront payments (if present):
-    ///
-    /// 1. **Dated cashflow** (`cds.upfront: Option<(Date, Money)>`):
-    ///    A specific payment on a specific date, discounted from `as_of`.
-    ///    - Positive amount = payment by buyer, negative = receipt by buyer
-    ///    - Applied with sign convention based on trade side
-    ///
-    /// 2. **PV adjustment** (`cds.pricing_overrides.market_quotes.upfront_payment: Option<Money>`):
-    ///    An already-discounted adjustment to the PV at `as_of`.
-    ///    - Applied without further discounting
-    ///    - Positive = paid by buyer (reduces buyer NPV, increases seller NPV)
-    ///    - Sign convention matches the dated upfront and `Instrument::value()`
-    ///
-    /// Both can be set simultaneously without double-counting.
-    #[cfg(test)]
-    pub(crate) fn npv_with_upfront(
-        &self,
-        cds: &CreditDefaultSwap,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
-        as_of: Date,
-    ) -> Result<Money> {
-        let mut pv = self.npv(cds, disc, surv, as_of)?;
+        // Dated upfront PV: positive = paid by Buyer. Past upfronts (dt < as_of)
+        // are dropped — they are not part of the forward-looking NPV.
+        let upfront_pv = match cds.upfront {
+            Some((dt, amount)) if dt >= as_of => amount.amount() * df_asof_to(disc, as_of, dt)?,
+            _ => 0.0,
+        };
 
-        // 1. Handle dated cashflow upfront (discounted and signed)
-        if let Some((dt, amount)) = cds.upfront {
-            if dt >= as_of {
-                let df = df_asof_to(disc, as_of, dt)?;
-                let upfront_pv = Money::new(amount.amount() * df, cds.notional.currency());
-                // Sign convention: positive upfront is paid by buyer
-                pv = match cds.side {
-                    PayReceive::PayFixed => pv.checked_sub(upfront_pv)?,
-                    PayReceive::ReceiveFixed => pv.checked_add(upfront_pv)?,
-                };
+        // PV-adjustment upfront: already-discounted; positive = paid by Buyer.
+        let upfront_adjustment = cds
+            .pricing_overrides
+            .market_quotes
+            .upfront_payment
+            .map(|m| m.amount())
+            .unwrap_or(0.0);
+
+        let mut npv_amount = match cds.side {
+            PayReceive::PayFixed => protection_pv - premium_pv - upfront_pv - upfront_adjustment,
+            PayReceive::ReceiveFixed => {
+                premium_pv - protection_pv + upfront_pv + upfront_adjustment
             }
-        }
+        };
 
-        // 2. Handle PV adjustment upfront (signed per side, no further discounting).
-        //    Positive = paid by protection buyer, matching the dated upfront convention
-        //    and Instrument::value() semantics.
-        if let Some(upfront) = cds.pricing_overrides.market_quotes.upfront_payment {
-            pv = match cds.side {
-                PayReceive::PayFixed => pv.checked_sub(upfront)?,
-                PayReceive::ReceiveFixed => pv.checked_add(upfront)?,
+        if cds.uses_clean_price() {
+            let accrual_fraction =
+                self.coupon_accrued_fraction(cds, as_of, AccrualDayCountPolicy::CdswInclusive)?;
+            let spread = cds.premium.spread_bp.to_f64().ok_or_else(|| {
+                Error::Validation("premium spread_bp cannot be represented as f64".into())
+            })? / BASIS_POINTS_PER_UNIT;
+            let accrued = cds.notional.amount() * spread * accrual_fraction;
+            npv_amount = match cds.side {
+                PayReceive::PayFixed => npv_amount + accrued,
+                PayReceive::ReceiveFixed => npv_amount - accrued,
             };
         }
 
-        Ok(pv)
-    }
-
-    /// Resolve curves from MarketContext and compute NPV with upfront.
-    #[cfg(test)]
-    pub(crate) fn npv_market(
-        &self,
-        cds: &CreditDefaultSwap,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> Result<Money> {
-        let disc = curves.get_discount(&cds.premium.discount_curve_id)?;
-        let surv = curves.get_hazard(&cds.protection.credit_curve_id)?;
-        self.npv_with_upfront(cds, disc.as_ref(), surv.as_ref(), as_of)
+        Ok(npv_amount)
     }
 }

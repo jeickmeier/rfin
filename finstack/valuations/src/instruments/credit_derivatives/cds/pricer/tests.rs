@@ -5,7 +5,7 @@ use super::helpers::{
     sp_cond_to,
 };
 use super::*;
-use crate::constants::{credit, time as time_constants, ONE_BASIS_POINT};
+use crate::constants::{credit, ONE_BASIS_POINT};
 use crate::instruments::credit_derivatives::cds::{
     CdsValuationConvention, CreditDefaultSwap, PayReceive,
 };
@@ -141,15 +141,14 @@ fn test_par_spread_calculation() {
     let mut cds_at_par = cds.clone();
     cds_at_par.premium.spread_bp = Decimal::try_from(par_spread).expect("valid par_spread");
     let npv = pricer
-        .npv(&cds_at_par, &disc, &credit, as_of)
+        .npv_full(&cds_at_par, &disc, &credit, as_of)
         .expect("should succeed");
     // A CDS at par spread should have near-zero NPV. Tolerance of $5000
     // (~5bp on $10M) accounts for accrual-on-default and discrete quarterly
     // premium schedule vs. continuous protection leg.
     assert!(
-        npv.amount().abs() < 5000.0,
-        "CDS at par spread should have near-zero NPV, got {}",
-        npv.amount()
+        npv.abs() < 5000.0,
+        "CDS at par spread should have near-zero NPV, got {npv}"
     );
 }
 
@@ -439,58 +438,6 @@ fn test_doc_clause_serde_deserializes_without_field() {
 }
 
 #[test]
-fn test_pricer_config_factories_helpers_and_validation_paths() {
-    let standard = CDSPricerConfig::isda_standard();
-    assert_eq!(
-        standard.business_days_per_year,
-        time_constants::BUSINESS_DAYS_PER_YEAR_US
-    );
-
-    let europe = CDSPricerConfig::isda_europe();
-    assert_eq!(
-        europe.business_days_per_year,
-        time_constants::BUSINESS_DAYS_PER_YEAR_UK
-    );
-
-    let asia = CDSPricerConfig::isda_asia();
-    assert_eq!(
-        asia.business_days_per_year,
-        time_constants::BUSINESS_DAYS_PER_YEAR_JP
-    );
-
-    let pricer = CDSPricer::try_with_config(standard.clone()).expect("valid config");
-    assert_eq!(
-        pricer.config().business_days_per_year,
-        standard.business_days_per_year
-    );
-
-    let invalid_cases = {
-        let mut cases = Vec::new();
-
-        let mut cfg = standard.clone();
-        cfg.business_days_per_year = 0.0;
-        cases.push((cfg, "business_days_per_year"));
-
-        cases
-    };
-
-    for (cfg, needle) in invalid_cases {
-        let err = cfg.validate().expect_err("config should be rejected");
-        assert!(
-            err.to_string().contains(needle),
-            "expected validation error mentioning {needle}, got {err}"
-        );
-    }
-
-    let mut bad_for_pricer = standard.clone();
-    bad_for_pricer.business_days_per_year = 0.0;
-    assert!(
-        CDSPricer::try_with_config(bad_for_pricer).is_err(),
-        "try_with_config should reject invalid settings"
-    );
-}
-
-#[test]
 fn test_max_deliverable_maturity_covers_remaining_meta_clauses_and_custom() {
     assert_eq!(max_deliverable_maturity(CdsDocClause::Custom), Some(0));
     assert_eq!(max_deliverable_maturity(CdsDocClause::IsdaAs), Some(0));
@@ -600,16 +547,18 @@ fn test_full_premium_par_spread_is_below_risky_annuity_par_spread() {
 }
 
 #[test]
-fn test_npv_with_upfront_combines_dated_and_market_quote_adjustments() {
+fn test_npv_full_combines_dated_and_market_quote_upfronts() {
+    use crate::instruments::common_impl::traits::Instrument;
+
     let (disc, credit) = create_test_curves();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
     let mut cds = create_test_cds("CDS-UPFRONT", as_of, as_of.add_months(60), 100.0, 0.40);
+    cds.valuation_convention = CdsValuationConvention::IsdaDirty;
     let pricer = CDSPricer::new();
 
     let base_npv = pricer
-        .npv(&cds, &disc, &credit, as_of)
-        .expect("base npv")
-        .amount();
+        .npv_full(&cds, &disc, &credit, as_of)
+        .expect("base npv");
 
     let dated_upfront_date = as_of.add_months(6);
     let dated_upfront_amount = 150_000.0;
@@ -625,9 +574,8 @@ fn test_npv_with_upfront_combines_dated_and_market_quote_adjustments() {
         .expect("discount factor");
     let expected = base_npv - dated_upfront_amount * dated_df - quote_adjustment.amount();
     let npv_with_upfront = pricer
-        .npv_with_upfront(&cds, &disc, &credit, as_of)
-        .expect("npv with upfront")
-        .amount();
+        .npv_full(&cds, &disc, &credit, as_of)
+        .expect("npv with upfront");
     assert!(
         (npv_with_upfront - expected).abs() < 1e-8,
         "dated upfront and direct PV adjustment should combine additively"
@@ -636,13 +584,10 @@ fn test_npv_with_upfront_combines_dated_and_market_quote_adjustments() {
     let market = MarketContext::new()
         .insert(disc.clone())
         .insert(credit.clone());
-    let npv_market = pricer
-        .npv_market(&cds, &market, as_of)
-        .expect("market npv")
-        .amount();
+    let npv_via_value_raw = cds.value_raw(&market, as_of).expect("value_raw npv");
     assert!(
-        (npv_market - npv_with_upfront).abs() < 1e-12,
-        "npv_market should match direct-curve npv_with_upfront"
+        (npv_via_value_raw - npv_with_upfront).abs() < 1e-12,
+        "Instrument::value_raw should match the direct-curve pricer.npv_full"
     );
 }
 

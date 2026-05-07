@@ -71,29 +71,6 @@ impl CDSPricer {
         Self { config }
     }
 
-    /// Create pricer with custom config, validating parameters.
-    ///
-    /// Returns an error if the configuration contains invalid parameters.
-    /// Prefer this over [`with_config`](Self::with_config) when configuration
-    /// comes from external sources (user input, config files, etc.).
-    ///
-    /// # Errors
-    ///
-    /// Returns a validation error if the configuration is invalid.
-    /// See [`CDSPricerConfig::validate`] for details.
-    #[cfg(test)]
-    pub(crate) fn try_with_config(config: CDSPricerConfig) -> Result<Self> {
-        config.validate()?;
-        Ok(Self { config })
-    }
-
-    /// Get the configuration for this pricer.
-    #[cfg(test)]
-    #[must_use]
-    pub(crate) fn config(&self) -> &CDSPricerConfig {
-        &self.config
-    }
-
     /// Calculate PV of protection leg using ISDA Standard Model integration.
     ///
     /// The protection leg represents the contingent payment made by the
