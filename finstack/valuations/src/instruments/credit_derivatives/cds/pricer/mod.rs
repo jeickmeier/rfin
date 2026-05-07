@@ -83,8 +83,6 @@ mod metrics;
 #[cfg(test)]
 mod tests;
 
-#[cfg(test)]
-pub(crate) use config::max_deliverable_maturity;
 pub(crate) use config::CDSPricerConfig;
 pub(crate) use engine::CDSPricer;
 pub(crate) use helpers::date_from_hazard_time;

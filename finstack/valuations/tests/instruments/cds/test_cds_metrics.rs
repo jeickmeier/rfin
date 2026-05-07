@@ -861,39 +861,13 @@ fn test_cds_dv01_uses_discount_quote_bump_when_calibration_exists() {
     );
 }
 
-#[test]
-fn test_cdsw_clean_value_excludes_accrued_premium_from_dirty_value() {
-    use finstack_valuations::instruments::credit_derivatives::cds::CdsValuationConvention;
-
-    let as_of = date!(2026 - 05 - 02);
-    let maturity = date!(2031 - 06 - 20);
-    // Hold the premium schedule fixed via the ISDA-dirty convention so the
-    // clean/dirty difference here is only the accrued-premium add-back, not
-    // the CDSW schedule adjustments. Adding `cds_clean_price` flips the
-    // accrued treatment without changing the coupon-period generator.
-    let mut dirty_cds = create_test_cds(date!(2026 - 03 - 20), maturity);
-    dirty_cds.protection_effective_date = Some(as_of);
-    dirty_cds.valuation_convention = CdsValuationConvention::IsdaDirty;
-
-    let mut clean_cds = dirty_cds.clone();
-    clean_cds.pricing_overrides.model_config.cds_clean_price = true;
-
-    let market = MarketContext::new()
-        .insert(build_test_discount(0.035, as_of, "USD_OIS"))
-        .insert(build_test_hazard(0.010, 0.40, as_of, "CORP"));
-
-    let dirty_value = dirty_cds.value_raw(&market, as_of).unwrap();
-    let clean_value = clean_cds.value_raw(&market, as_of).unwrap();
-
-    let accrued = 10_000_000.0 * 0.01 * (44.0 / 360.0);
-    let expected_clean = dirty_value + accrued;
-    let tol = 1e-6_f64.max(1e-10 * expected_clean.abs());
-    assert!(
-        (clean_value - expected_clean).abs() <= tol,
-        "CDSW clean value should add back accrued premium for protection buyers: clean={clean_value}, expected={expected_clean}, diff={}, tol={tol}",
-        (clean_value - expected_clean).abs()
-    );
-}
+// `test_cdsw_clean_value_excludes_accrued_premium_from_dirty_value` was removed
+// when the `cds_clean_price` and `cds_adjust_premium_accrual_dates` override
+// flags were folded into `CdsValuationConvention`. Its purpose was to isolate
+// the accrued-premium add-back from the schedule-adjustment difference by
+// flipping clean/dirty independently — a control surface that no longer exists.
+// `test_cdsw_clean_value_uses_first_class_valuation_convention` (below) and the
+// CDSW convention tests around it cover the end-to-end clean/dirty behaviour.
 
 #[test]
 fn test_cdsw_clean_value_uses_first_class_valuation_convention() {
@@ -957,10 +931,8 @@ fn test_cdsw_par_spread_metric_uses_full_premium_denominator_when_requested() {
     cds.protection_effective_date = Some(as_of);
 
     let mut cdsw_cds = cds.clone();
-    cdsw_cds
-        .pricing_overrides
-        .model_config
-        .cds_par_spread_uses_full_premium = true;
+    cdsw_cds.valuation_convention =
+        finstack_valuations::instruments::credit_derivatives::cds::CdsValuationConvention::BloombergCdswCleanFullPremium;
 
     let market = MarketContext::new()
         .insert(build_test_discount(0.035, as_of, "USD_OIS"))

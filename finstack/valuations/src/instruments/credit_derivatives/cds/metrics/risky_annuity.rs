@@ -1,8 +1,10 @@
 //! CDS risky annuity metric calculator.
 //!
-//! Computes the risky annuity (premium leg PV per 1bp) using the CDS pricer.
+//! Returns the canonical risky annuity `Σ DF(t) × SP(t) × YearFrac` (sum over
+//! coupon periods), independent of the par-spread denominator policy. The par
+//! spread metric handles its own denominator choice via the CDS valuation
+//! convention.
 
-use crate::constants::ONE_BASIS_POINT;
 use crate::instruments::credit_derivatives::cds::pricer::CDSPricer;
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -18,12 +20,6 @@ impl MetricCalculator for RiskyAnnuityCalculator {
             .curves
             .get_discount(&cds.premium.discount_curve_id)?;
         let surv = context.curves.get_hazard(&cds.protection.credit_curve_id)?;
-        let pricer = CDSPricer::new();
-        if cds.uses_full_premium_par_spread_denominator() {
-            return pricer
-                .premium_leg_pv_per_bp(cds, disc.as_ref(), surv.as_ref(), context.as_of)
-                .map(|pv_per_bp| pv_per_bp / ONE_BASIS_POINT);
-        }
-        pricer.risky_annuity(cds, disc.as_ref(), surv.as_ref(), context.as_of)
+        CDSPricer::new().risky_annuity(cds, disc.as_ref(), surv.as_ref(), context.as_of)
     }
 }

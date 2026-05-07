@@ -343,16 +343,26 @@
               ]
             },
             "CdsValuationConvention": {
-              "description": "Valuation presentation and pricing policy for CDS marks.",
+              "description": "Valuation presentation and pricing policy for CDS marks.\n\nEach variant bundles a coherent set of choices (premium-leg accrual schedule,\nclean/dirty NPV, par-spread denominator). Mixing those choices via separate\nboolean overrides is intentionally not supported — the variants here are the\nonly conventions traded in practice.",
               "oneOf": [
                 {
                   "const": "isda_dirty",
-                  "description": "ISDA-style dirty model PV.\n\nPremium-leg cashflows accrue between unadjusted IMM dates, the final\ncoupon excludes the maturity day, and the reported NPV is the dirty\nmodel PV (no add-back of accrued premium). Use only for direct\nreproduction of academic ISDA Standard Model literature.",
+                  "description": "ISDA-style dirty model PV.\n\nPremium-leg cashflows accrue between unadjusted IMM dates, the final\ncoupon excludes the maturity day, and the reported NPV is the dirty\nmodel PV (no add-back of accrued premium). Par spread uses the risky\nannuity denominator. Use only for direct reproduction of academic ISDA\nStandard Model literature.",
                   "type": "string"
                 },
                 {
                   "const": "bloomberg_cdsw_clean",
-                  "description": "Bloomberg CDSW clean principal presentation and premium-leg policy.\n\nThis is the industry-standard convention used by Bloomberg CDSW and\nthe ISDA Standard Upfront Model. It is the default for new\n`CreditDefaultSwap` instances:\n\n- Premium cashflows accrue between business-day-adjusted dates that\n  match the Bloomberg CDSW cashflow schedule.\n- The final coupon period is inclusive of the maturity date (extra\n  day) per CDSW convention.\n- The reported NPV is the clean principal value (Bloomberg\n  \"Principal\" line). Cash settlement is `Principal + Accrued`.\n- Hazard rebootstrap inside risk metrics (CS01, recovery01, etc.)\n  inherits the same CDSW pricer convention so sensitivities are\n  self-consistent with the base PV.",
+                  "description": "Bloomberg CDSW clean principal presentation and premium-leg policy.\n\nThis is the industry-standard convention used by Bloomberg CDSW and\nthe ISDA Standard Upfront Model. It is the default for new\n`CreditDefaultSwap` instances:\n\n- Premium cashflows accrue between business-day-adjusted dates that\n  match the Bloomberg CDSW cashflow schedule.\n- The final coupon period is inclusive of the maturity date (extra\n  day) per CDSW convention.\n- The reported NPV is the clean principal value (Bloomberg\n  \"Principal\" line). Cash settlement is `Principal + Accrued`.\n- Par spread uses the risky annuity denominator (matches the CDSW\n  screen for investment-grade credits).\n- Hazard rebootstrap inside risk metrics (CS01, recovery01, etc.)\n  inherits the same CDSW pricer convention so sensitivities are\n  self-consistent with the base PV.",
+                  "type": "string"
+                },
+                {
+                  "const": "bloomberg_cdsw_clean_full_premium",
+                  "description": "Bloomberg CDSW clean principal with full premium leg in the par-spread\ndenominator (distressed-credit variant).\n\nIdentical to [`Self::BloombergCdswClean`] except the par spread\ndenominator includes accrual-on-default. The difference vs. risky\nannuity is typically < 1bp for investment grade and 2-5bps for\ndistressed credits (hazard rate > 3%).",
+                  "type": "string"
+                },
+                {
+                  "const": "quant_lib_isda_parity",
+                  "description": "QuantLib `IsdaCdsEngine` parity convention.\n\nReproduces QuantLib's CDS output: dirty PV (no clean add-back),\nbusiness-day-adjusted premium accrual periods, and full premium leg in\nthe par-spread denominator. Combine with the QuantLib day-count\npricing overrides (`cds_aod_half_day_bias`,\n`cds_act360_include_last_day`) for full bit-level reproduction.",
                   "type": "string"
                 }
               ]
@@ -1724,27 +1734,12 @@
                 },
                 "cds_act360_include_last_day": {
                   "default": false,
-                  "description": "Add one calendar day to *every* Act/360 premium accrual period.\n\nQuantLib exposes this as `Actual360(true)` on the CDS coupon\nday-count and uses it inside `IsdaCdsEngine`. The Bloomberg CDSW\nconvention only treats the *final* coupon period as inclusive of\nthe maturity date, so this is opt-in for QuantLib parity tests\nrather than the default for production CDS pricing.",
-                  "type": "boolean"
-                },
-                "cds_adjust_premium_accrual_dates": {
-                  "default": false,
-                  "description": "Adjust CDS premium accrual period boundaries by the premium calendar.\n\nWhen true, intermediate IMM coupon dates are business-day adjusted before\ncomputing premium accrual fractions. This matches QuantLib CDS schedules\nbuilt with a business day convention.",
+                  "description": "Add one calendar day to *every* Act/360 premium accrual period.\n\nUsed by the CDS option pricer to model the ISDA pre-Big-Bang\noption underlying convention (and matches QuantLib's\n`Actual360(true)` day-count). The Bloomberg CDSW convention only\ntreats the *final* coupon period as inclusive of the maturity date,\nso this is not the default for production single-name CDS pricing.",
                   "type": "boolean"
                 },
                 "cds_aod_half_day_bias": {
                   "default": false,
-                  "description": "Apply QuantLib ISDA half-day accrual-on-default bias.\n\nQuantLib's `IsdaCdsEngine` defaults to `HalfDayBias`, adding half a\nday of premium accrual in the default-accrual integral.",
-                  "type": "boolean"
-                },
-                "cds_clean_price": {
-                  "default": false,
-                  "description": "CDSW-style clean CDS valuation.\n\nWhen true, CDS base value and bump revaluations exclude accrued premium\nfrom the dirty model PV, matching Bloomberg CDSW's clean Principal field.",
-                  "type": "boolean"
-                },
-                "cds_par_spread_uses_full_premium": {
-                  "default": false,
-                  "description": "CDSW-style par-spread denominator.\n\nWhen true, CDS par spread includes accrual-on-default in the premium\ndenominator instead of using scheduled risky annuity only.",
+                  "description": "Apply ISDA half-day accrual-on-default bias.\n\nAdds half a day of premium accrual in the default-accrual integral.\nUsed by the CDS option pricer to model the Bloomberg CDSO underlying\nconvention (and matches QuantLib's `IsdaCdsEngine::HalfDayBias`).",
                   "type": "boolean"
                 },
                 "cds_quote_bp": {
@@ -2368,10 +2363,7 @@
                 "adaptive_bumps": false,
                 "call_friction_cents": null,
                 "cds_act360_include_last_day": false,
-                "cds_adjust_premium_accrual_dates": false,
                 "cds_aod_half_day_bias": false,
-                "cds_clean_price": false,
-                "cds_par_spread_uses_full_premium": false,
                 "credit_spread_bump_bp": null,
                 "mc_seed_scenario": null,
                 "mean_reversion": null,

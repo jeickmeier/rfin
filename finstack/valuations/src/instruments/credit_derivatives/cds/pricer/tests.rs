@@ -1,9 +1,6 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
-use super::helpers::{
-    date_from_hazard_time, df_asof_to, haz_t, restructuring_adjustment_factor, settlement_date,
-    sp_cond_to,
-};
+use super::helpers::{date_from_hazard_time, df_asof_to, haz_t, settlement_date, sp_cond_to};
 use super::*;
 use crate::constants::{credit, ONE_BASIS_POINT};
 use crate::instruments::credit_derivatives::cds::{
@@ -224,68 +221,11 @@ fn test_xr14_regression_matches_baseline() {
 }
 
 #[test]
-fn test_default_pricer_disables_restructuring_uplift() {
-    let (disc, credit) = create_test_curves();
-    let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
-
-    let mut cds_xr14 = create_test_cds("CDS-XR14", as_of, as_of.add_months(60), 100.0, 0.40);
-    cds_xr14.doc_clause = Some(CdsDocClause::Xr14);
-
-    let mut cds_cr14 = create_test_cds("CDS-CR14", as_of, as_of.add_months(60), 100.0, 0.40);
-    cds_cr14.doc_clause = Some(CdsDocClause::Cr14);
-
-    let pricer = CDSPricer::new();
-
-    let pv_xr14 = pricer
-        .pv_protection_leg_raw(&cds_xr14, &disc, &credit, as_of)
-        .expect("should succeed");
-    let pv_cr14 = pricer
-        .pv_protection_leg_raw(&cds_cr14, &disc, &credit, as_of)
-        .expect("should succeed");
-
-    assert!(
-        (pv_cr14 - pv_xr14).abs() < 1e-10,
-        "Default pricer should not apply restructuring uplift. Cr14={}, Xr14={}",
-        pv_cr14,
-        pv_xr14,
-    );
-}
-
-#[test]
-fn test_cr14_higher_protection_than_xr14_when_approximation_enabled() {
-    let (disc, credit) = create_test_curves();
-    let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
-
-    let mut cds_xr14 = create_test_cds("CDS-XR14", as_of, as_of.add_months(60), 100.0, 0.40);
-    cds_xr14.doc_clause = Some(CdsDocClause::Xr14);
-
-    let mut cds_cr14 = create_test_cds("CDS-CR14", as_of, as_of.add_months(60), 100.0, 0.40);
-    cds_cr14.doc_clause = Some(CdsDocClause::Cr14);
-
-    let pricer = CDSPricer::with_config(CDSPricerConfig {
-        enable_restructuring_approximation: true,
-        ..Default::default()
-    });
-
-    let pv_xr14 = pricer
-        .pv_protection_leg_raw(&cds_xr14, &disc, &credit, as_of)
-        .expect("should succeed");
-    let pv_cr14 = pricer
-        .pv_protection_leg_raw(&cds_cr14, &disc, &credit, as_of)
-        .expect("should succeed");
-
-    assert!(
-        pv_cr14 > pv_xr14,
-        "Cr14 protection should exceed Xr14 when approximation is enabled. Cr14={}, Xr14={}",
-        pv_cr14,
-        pv_xr14,
-    );
-}
-
-#[test]
-fn test_restructuring_ordering_xr14_mr14_mm14_cr14() {
-    // Protection PV should increase with broader restructuring coverage:
-    // Xr14 <= Mr14 <= Mm14 <= Cr14
+fn test_doc_clause_does_not_affect_protection_pv() {
+    // The pricer no longer carries a restructuring-uplift heuristic; protection
+    // PV is identical for all clauses on the same hazard curve. (A future
+    // calibrated restructuring-hazard model would split the hazard curve, not
+    // multiply by a per-clause scalar.)
     let (disc, credit) = create_test_curves();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
 
@@ -296,27 +236,20 @@ fn test_restructuring_ordering_xr14_mr14_mm14_cr14() {
         CdsDocClause::Cr14,
     ];
 
-    let pricer = CDSPricer::with_config(CDSPricerConfig {
-        enable_restructuring_approximation: true,
-        ..Default::default()
-    });
+    let pricer = CDSPricer::new();
     let mut pvs = Vec::new();
-
     for clause in &clauses {
         let mut cds = create_test_cds("CDS-TEST", as_of, as_of.add_months(60), 100.0, 0.40);
         cds.doc_clause = Some(*clause);
-        let pv = pricer
-            .pv_protection_leg_raw(&cds, &disc, &credit, as_of)
-            .expect("should succeed");
-        pvs.push(pv);
+        pvs.push(
+            pricer
+                .pv_protection_leg_raw(&cds, &disc, &credit, as_of)
+                .expect("should succeed"),
+        );
     }
 
-    for i in 0..pvs.len() - 1 {
-        assert!(
-            pvs[i] <= pvs[i + 1],
-            "Protection PV should increase with broader restructuring: {:?}={} should be <= {:?}={}",
-            clauses[i], pvs[i], clauses[i + 1], pvs[i + 1],
-        );
+    for pv in &pvs[1..] {
+        assert!((pv - pvs[0]).abs() < 1e-10);
     }
 }
 
@@ -337,17 +270,6 @@ fn test_doc_clause_effective_defaults() {
     let mut cds_eu = create_test_cds("CDS-EU", as_of, as_of.add_months(60), 100.0, 0.40);
     cds_eu.doc_clause = Some(CdsDocClause::IsdaEu);
     assert_eq!(cds_eu.doc_clause_effective(), CdsDocClause::Mm14);
-}
-
-#[test]
-fn test_max_deliverable_maturity_mapping() {
-    assert_eq!(max_deliverable_maturity(CdsDocClause::Cr14), None);
-    assert_eq!(max_deliverable_maturity(CdsDocClause::Mr14), Some(30));
-    assert_eq!(max_deliverable_maturity(CdsDocClause::Mm14), Some(60));
-    assert_eq!(max_deliverable_maturity(CdsDocClause::Xr14), Some(0));
-    // Meta-clauses delegate
-    assert_eq!(max_deliverable_maturity(CdsDocClause::IsdaNa), Some(0));
-    assert_eq!(max_deliverable_maturity(CdsDocClause::IsdaEu), Some(60));
 }
 
 #[test]
@@ -435,14 +357,6 @@ fn test_doc_clause_serde_deserializes_without_field() {
         serde_json::from_str(&json).expect("Should deserialize old JSON without doc_clause field");
     assert_eq!(deser.doc_clause, None);
     assert_eq!(deser.doc_clause_effective(), CdsDocClause::Xr14);
-}
-
-#[test]
-fn test_max_deliverable_maturity_covers_remaining_meta_clauses_and_custom() {
-    assert_eq!(max_deliverable_maturity(CdsDocClause::Custom), Some(0));
-    assert_eq!(max_deliverable_maturity(CdsDocClause::IsdaAs), Some(0));
-    assert_eq!(max_deliverable_maturity(CdsDocClause::IsdaAu), Some(0));
-    assert_eq!(max_deliverable_maturity(CdsDocClause::IsdaNz), Some(0));
 }
 
 #[test]
@@ -682,47 +596,6 @@ fn test_discount_survival_and_default_density_helpers_cover_boundary_cases() {
         0.0,
         "conditional survival should floor to zero after effective default"
     );
-}
-
-#[test]
-fn test_restructuring_adjustment_factor_scales_with_clause_and_remaining_tenor() {
-    let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
-    let short_cds = create_test_cds("CDS-1Y", as_of, as_of.add_months(12), 100.0, 0.40);
-    let long_cds = create_test_cds("CDS-10Y", as_of, as_of.add_months(120), 100.0, 0.40);
-
-    assert_eq!(
-        restructuring_adjustment_factor(CdsDocClause::Xr14, &short_cds),
-        1.0
-    );
-    assert_eq!(
-        restructuring_adjustment_factor(CdsDocClause::Custom, &short_cds),
-        1.0
-    );
-    assert_eq!(
-        restructuring_adjustment_factor(CdsDocClause::Mr14, &short_cds),
-        1.02
-    );
-    assert_eq!(
-        restructuring_adjustment_factor(CdsDocClause::Mm14, &short_cds),
-        1.03
-    );
-    assert_eq!(
-        restructuring_adjustment_factor(CdsDocClause::Cr14, &short_cds),
-        1.05
-    );
-
-    let mr14_long = restructuring_adjustment_factor(CdsDocClause::Mr14, &long_cds);
-    let mm14_long = restructuring_adjustment_factor(CdsDocClause::Mm14, &long_cds);
-    let cr14_long = restructuring_adjustment_factor(CdsDocClause::Cr14, &long_cds);
-    assert!(
-        mr14_long > 1.0 && mr14_long < 1.02,
-        "modified restructuring should be partially scaled for long tenors"
-    );
-    assert!(
-        mm14_long > mr14_long && mm14_long < 1.03,
-        "modified-modified restructuring should sit between MR14 and its full uplift"
-    );
-    assert_eq!(cr14_long, 1.05);
 }
 
 // ── Forward-starting CDS tests ──────────────────────────────────────

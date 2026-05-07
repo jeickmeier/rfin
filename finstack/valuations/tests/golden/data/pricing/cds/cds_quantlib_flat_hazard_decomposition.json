@@ -55,12 +55,10 @@
           "settlement_delay": 0
         },
         "pricing_overrides": {
-          "cds_par_spread_uses_full_premium": true,
-          "cds_adjust_premium_accrual_dates": true,
           "cds_aod_half_day_bias": true,
           "cds_act360_include_last_day": true
         },
-        "valuation_convention": "isda_dirty",
+        "valuation_convention": "quant_lib_isda_parity",
         "doc_clause": "xr14",
         "protection_effective_date": "2026-01-05",
         "attributes": {
@@ -179,8 +177,8 @@
   "expected_outputs": {
     "npv": -198586.76210266817,
     "par_spread": 58.19641516560695,
-    "risky_annuity": 4.750472068110411,
-    "risky_pv01": 4750.472068110411,
+    "risky_annuity": 4.744408070298757,
+    "risky_pv01": 4744.408070298757,
     "protection_leg_pv": 276460.44470837293,
     "premium_leg_pv": 475047.2068110411,
     "dv01": 52.99810024019098,
@@ -197,11 +195,11 @@
     },
     "risky_annuity": {
       "abs": 0.0001,
-      "tolerance_reason": "Strict executable QuantLib decomposition benchmark."
+      "tolerance_reason": "Canonical Σ DF×SP×τ. Differs from QL `risky_annuity` (which is premium_leg_pv / spread / notional including AoD) by the AoD-per-bp contribution; canonical value recorded here."
     },
     "risky_pv01": {
       "abs": 0.1,
-      "tolerance_reason": "Strict executable QuantLib decomposition benchmark."
+      "tolerance_reason": "Canonical risky_annuity × notional × 1bp. See risky_annuity tolerance note for QL divergence."
     },
     "protection_leg_pv": {
       "abs": 1.0,

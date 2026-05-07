@@ -44,8 +44,6 @@
         "underlying_convention": "isda_na",
         "pricing_overrides": {
           "implied_volatility": 0.5,
-          "cds_par_spread_uses_full_premium": true,
-          "cds_adjust_premium_accrual_dates": true,
           "cds_aod_half_day_bias": true,
           "cds_act360_include_last_day": true
         },

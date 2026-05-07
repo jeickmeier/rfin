@@ -50,9 +50,12 @@ impl CDSPricer {
         while current < cds.premium.end {
             current = next_cds_date(current);
             if current <= cds.premium.end {
-                // Apply business day adjustment if calendar is available
+                // Apply business day adjustment if calendar is available.
+                // Adjustment failure (e.g. unparseable holiday data) propagates
+                // rather than silently using an unadjusted date, which would
+                // produce wrong premium accrual periods.
                 let adjusted = if let Some(cal) = calendar {
-                    adjust(current, cds.premium.bdc, cal).unwrap_or(current)
+                    adjust(current, cds.premium.bdc, cal)?
                 } else {
                     current
                 };
@@ -62,7 +65,7 @@ impl CDSPricer {
 
         // Handle maturity date - ensure it's in the schedule
         let maturity_adjusted = if let Some(cal) = calendar {
-            adjust(cds.premium.end, cds.premium.bdc, cal).unwrap_or(cds.premium.end)
+            adjust(cds.premium.end, cds.premium.bdc, cal)?
         } else {
             cds.premium.end
         };
@@ -130,7 +133,7 @@ impl CDSPricer {
         let mut periods = Vec::with_capacity(accrual_dates.len().saturating_sub(1));
         for (idx, window) in accrual_dates.windows(2).enumerate() {
             let payment_date = if let Some(cal) = calendar {
-                adjust(window[1], cds.premium.bdc, cal).unwrap_or(window[1])
+                adjust(window[1], cds.premium.bdc, cal)?
             } else {
                 window[1]
             };
@@ -342,7 +345,7 @@ impl CDSPricer {
                 ann += unit_spread * accrual * sp * df;
 
                 // AoD part per unit spread in this period.
-                ann += self.accrual_on_default_dispatch(AodInputs {
+                ann += self.accrual_on_default_isda_standard_model_cond(AodInputs {
                     cds,
                     spread: unit_spread,
                     accrual_start_date: if matches!(
@@ -422,7 +425,7 @@ impl CDSPricer {
             per_bp_pv += ONE_BASIS_POINT * accrual * sp * df;
 
             if self.config.include_accrual {
-                per_bp_pv += self.accrual_on_default_dispatch(AodInputs {
+                per_bp_pv += self.accrual_on_default_isda_standard_model_cond(AodInputs {
                     cds,
                     spread: ONE_BASIS_POINT,
                     accrual_start_date: if matches!(
@@ -484,7 +487,7 @@ impl CDSPricer {
             per_bp_pv += ONE_BASIS_POINT * accrual * sp * df;
 
             if self.config.include_accrual {
-                per_bp_pv += self.accrual_on_default_dispatch(AodInputs {
+                per_bp_pv += self.accrual_on_default_isda_standard_model_cond(AodInputs {
                     cds,
                     spread: ONE_BASIS_POINT,
                     accrual_start_date: start_date.max(forward_start),

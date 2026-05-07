@@ -3,16 +3,15 @@
 ## Features
 
 - Single-name CDS with configurable pay/receive leg, coupon, schedule, and accrual-on-default policy.
-- Multiple protection-leg integration methods (midpoint, Gaussian quadrature, adaptive Simpson, breakpoint-based ISDA standard) via `CDSPricerConfig`.
+- Protection leg integrated via the ISDA Standard Model (analytical piecewise-constant integration over the union of hazard- and discount-curve knot points).
 - Computes par spread, risky annuity (RPV01), upfront, PV01/CS01, and protection/premium leg PVs.
 
 ## Methodology & References
 
 - Deterministic hazard-curve valuation following ISDA CDS Standard Model conventions (survival × discount integration).
-- Accrual-on-default uses midpoint default timing with discounting to default settlement timing rather than coupon payment date.
-- The `IsdaStandardModel` path segments the protection leg on hazard and discount breakpoints rather than using arbitrary equal-width steps.
+- Accrual-on-default uses analytical piecewise-constant integration over hazard and discount knots, with discounting to the default settlement date.
+- The protection leg segments on hazard- and discount-curve breakpoints rather than using arbitrary equal-width steps.
 - Par-spread denominator can include or exclude accrual-on-default per configuration, matching CDSW/ISDA styles.
-- Root-finding for par spread and upfront uses Brent solver with tolerances controlled in `CDSPricerConfig`.
 
 ## Usage Example
 
@@ -137,9 +136,9 @@ let mtm = cds.mtm_for_vm(&market, as_of)?;
 ## Pricing Methodology
 
 - Premium/protection legs projected using hazard and discount curves with accrual-on-default handled per config.
-- Accrual-on-default is discounted to default settlement timing for the midpoint-style single-name CDS path.
-- Protection leg integrated via selectable method (midpoint, Gaussian quadrature, adaptive Simpson, ISDA standard); the `IsdaStandardModel` path now uses breakpoint intervals instead of step tuning.
-- Par spread solved with Brent root-finder against risky annuity; upfront priced off clean/dirty relationship.
+- Accrual-on-default integrated analytically per piecewise-constant interval, discounted to default settlement date.
+- Protection leg uses ISDA Standard Model breakpoint integration over the union of hazard and discount curve knots.
+- Par spread computed analytically from `Protection_PV / Risky_Annuity` (or full premium leg per bp when CDSW-style is requested).
 
 ## Metrics
 

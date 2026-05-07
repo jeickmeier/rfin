@@ -1,7 +1,7 @@
 use super::config::CDSPricerConfig;
 use super::helpers::{
-    date_from_hazard_time, df_asof_to, haz_t, isda_standard_model_boundaries,
-    restructuring_adjustment_factor, settlement_date, sp_cond_to,
+    date_from_hazard_time, df_asof_to, haz_t, isda_standard_model_boundaries, settlement_date,
+    sp_cond_to,
 };
 use crate::constants::{credit, numerical, BASIS_POINTS_PER_UNIT};
 use crate::instruments::common_impl::helpers::year_fraction;
@@ -63,9 +63,6 @@ impl CDSPricer {
     }
 
     /// Create pricer with custom config.
-    ///
-    /// Note: This method does not validate the configuration. For fail-fast
-    /// validation, use [`try_with_config`](Self::try_with_config) instead.
     #[must_use]
     pub(crate) fn with_config(config: CDSPricerConfig) -> Self {
         Self { config }
@@ -128,17 +125,6 @@ impl CDSPricer {
             return Ok(0.0);
         }
 
-        // Determine the effective restructuring adjustment policy.
-        // By default the pricer disables restructuring uplift because the current
-        // implementation is only a heuristic approximation. It can be re-enabled
-        // explicitly via `CDSPricerConfig::enable_restructuring_approximation`.
-        let effective_clause = cds.doc_clause_effective();
-        let restructuring_factor = if self.config.enable_restructuring_approximation {
-            restructuring_adjustment_factor(effective_clause, cds)
-        } else {
-            1.0
-        };
-
         // Use hazard curve's day-count for time axis (survival is the dominant factor)
         let t_asof = haz_t(surv, as_of)?;
         let t_start = haz_t(surv, protection_start)?;
@@ -167,10 +153,7 @@ impl CDSPricer {
         };
         let protection_pv = self.protection_leg_isda_standard_model_cond(&inputs)?;
 
-        // Apply the restructuring adjustment. Contracts with restructuring as a
-        // credit event (Cr14, Mr14, Mm14) have protection worth more than Xr14
-        // because they cover an additional class of credit events.
-        Ok(protection_pv * restructuring_factor * cds.notional.amount())
+        Ok(protection_pv * cds.notional.amount())
     }
 
     /// Calculate PV of premium leg with optional accrual-on-default
@@ -236,7 +219,7 @@ impl CDSPricer {
                 // Keep AoD on the same dollar basis as the scheduled coupon leg.
                 premium_pv += spread_sign
                     * cds.notional.amount()
-                    * self.accrual_on_default_dispatch(AodInputs {
+                    * self.accrual_on_default_isda_standard_model_cond(AodInputs {
                         cds,
                         spread: spread.abs(),
                         accrual_start_date: if matches!(
@@ -263,15 +246,9 @@ impl CDSPricer {
 
     // ─── Accrual-on-default integration ───────────────────────────────────
 
-    /// Accrual-on-default using conditional survival and relative discount factors
-    /// from `as_of`, matching the protection-leg conventions.
-    pub(super) fn accrual_on_default_dispatch(&self, inp: AodInputs<'_>) -> Result<f64> {
-        self.accrual_on_default_isda_standard_model_cond(inp)
-    }
-
     /// ISDA Standard Model AoD: analytical integration over piecewise-constant
     /// hazard and interest rate intervals (knot-aligned), using conditional
-    /// survival and relative discount factors.
+    /// survival and relative discount factors from `as_of`.
     pub(super) fn accrual_on_default_isda_standard_model_cond(
         &self,
         inp: AodInputs<'_>,

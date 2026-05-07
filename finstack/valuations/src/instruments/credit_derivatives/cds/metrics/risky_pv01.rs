@@ -1,7 +1,9 @@
 //! CDS risky PV01 metric calculator.
 //!
-//! Computes the change in present value for a one basis point change in
-//! spread.
+//! Returns the canonical Risky PV01 = `Risky Annuity × Notional / 10000`.
+//! When the instrument carries a deal quote (`pricing_overrides.cds_quote_bp`)
+//! and is priced clean, the calculator delegates to the CS01 path so the
+//! reported PV01 is consistent with the deal-quote-based hazard rebootstrap.
 
 use super::cs01::CdsCs01Calculator;
 use crate::instruments::credit_derivatives::cds::pricer::CDSPricer;
@@ -27,12 +29,6 @@ impl MetricCalculator for RiskyPv01Calculator {
             .curves
             .get_discount(&cds.premium.discount_curve_id)?;
         let surv = context.curves.get_hazard(&cds.protection.credit_curve_id)?;
-        let pricer = CDSPricer::new();
-        if cds.uses_full_premium_par_spread_denominator() {
-            return pricer
-                .premium_leg_pv_per_bp(cds, disc.as_ref(), surv.as_ref(), context.as_of)
-                .map(|pv_per_bp| pv_per_bp * cds.notional.amount());
-        }
-        pricer.risky_pv01(cds, disc.as_ref(), surv.as_ref(), context.as_of)
+        CDSPricer::new().risky_pv01(cds, disc.as_ref(), surv.as_ref(), context.as_of)
     }
 }

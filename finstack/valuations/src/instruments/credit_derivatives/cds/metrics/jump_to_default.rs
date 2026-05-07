@@ -115,6 +115,10 @@ fn calculate_accrued_premium(
         as_of,
         AccrualDayCountPolicy::IsdaStandard,
     )?;
-    let spread = cds.premium.spread_bp.to_f64().unwrap_or_default() / BASIS_POINTS_PER_UNIT;
+    let spread = cds.premium.spread_bp.to_f64().ok_or_else(|| {
+        finstack_core::Error::Validation(
+            "premium spread_bp cannot be represented as f64".to_string(),
+        )
+    })? / BASIS_POINTS_PER_UNIT;
     Ok(cds.notional.amount() * spread * accrual_fraction)
 }

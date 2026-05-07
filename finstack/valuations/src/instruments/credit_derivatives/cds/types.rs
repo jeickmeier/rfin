@@ -85,6 +85,11 @@ pub enum CDSConvention {
 }
 
 /// Valuation presentation and pricing policy for CDS marks.
+///
+/// Each variant bundles a coherent set of choices (premium-leg accrual schedule,
+/// clean/dirty NPV, par-spread denominator). Mixing those choices via separate
+/// boolean overrides is intentionally not supported — the variants here are the
+/// only conventions traded in practice.
 #[derive(
     Debug,
     Clone,
@@ -103,8 +108,9 @@ pub enum CdsValuationConvention {
     ///
     /// Premium-leg cashflows accrue between unadjusted IMM dates, the final
     /// coupon excludes the maturity day, and the reported NPV is the dirty
-    /// model PV (no add-back of accrued premium). Use only for direct
-    /// reproduction of academic ISDA Standard Model literature.
+    /// model PV (no add-back of accrued premium). Par spread uses the risky
+    /// annuity denominator. Use only for direct reproduction of academic ISDA
+    /// Standard Model literature.
     IsdaDirty,
     /// Bloomberg CDSW clean principal presentation and premium-leg policy.
     ///
@@ -118,11 +124,60 @@ pub enum CdsValuationConvention {
     ///   day) per CDSW convention.
     /// - The reported NPV is the clean principal value (Bloomberg
     ///   "Principal" line). Cash settlement is `Principal + Accrued`.
+    /// - Par spread uses the risky annuity denominator (matches the CDSW
+    ///   screen for investment-grade credits).
     /// - Hazard rebootstrap inside risk metrics (CS01, recovery01, etc.)
     ///   inherits the same CDSW pricer convention so sensitivities are
     ///   self-consistent with the base PV.
     #[default]
     BloombergCdswClean,
+    /// Bloomberg CDSW clean principal with full premium leg in the par-spread
+    /// denominator (distressed-credit variant).
+    ///
+    /// Identical to [`Self::BloombergCdswClean`] except the par spread
+    /// denominator includes accrual-on-default. The difference vs. risky
+    /// annuity is typically < 1bp for investment grade and 2-5bps for
+    /// distressed credits (hazard rate > 3%).
+    BloombergCdswCleanFullPremium,
+    /// QuantLib `IsdaCdsEngine` parity convention.
+    ///
+    /// Reproduces QuantLib's CDS output: dirty PV (no clean add-back),
+    /// business-day-adjusted premium accrual periods, and full premium leg in
+    /// the par-spread denominator. Combine with the QuantLib day-count
+    /// pricing overrides (`cds_aod_half_day_bias`,
+    /// `cds_act360_include_last_day`) for full bit-level reproduction.
+    QuantLibIsdaParity,
+}
+
+impl CdsValuationConvention {
+    /// Whether the convention reports clean principal (with accrued add-back).
+    #[must_use]
+    pub fn uses_clean_price(self) -> bool {
+        matches!(
+            self,
+            Self::BloombergCdswClean | Self::BloombergCdswCleanFullPremium
+        )
+    }
+
+    /// Whether the convention uses business-day-adjusted premium accrual periods.
+    #[must_use]
+    pub fn uses_adjusted_premium_accrual_dates(self) -> bool {
+        matches!(
+            self,
+            Self::BloombergCdswClean
+                | Self::BloombergCdswCleanFullPremium
+                | Self::QuantLibIsdaParity
+        )
+    }
+
+    /// Whether the par-spread denominator includes accrual-on-default.
+    #[must_use]
+    pub fn par_spread_uses_full_premium(self) -> bool {
+        matches!(
+            self,
+            Self::BloombergCdswCleanFullPremium | Self::QuantLibIsdaParity
+        )
+    }
 }
 
 impl CDSConvention {
@@ -135,19 +190,25 @@ impl CDSConvention {
         }
     }
 
-    /// Look up resolved conventions from registry.
+    /// Look up resolved conventions from the embedded registry.
     ///
-    /// Returns an error if the registry entry is missing (configuration error).
-    fn try_registry(&self) -> finstack_core::Result<&'static CdsConventionResolved> {
-        cds_conventions_registry()
-            .get(self.registry_id())
-            .ok_or_else(|| {
-                finstack_core::Error::Validation(format!(
-                    "Missing CDS conventions registry entry for '{}'. \
-                     This indicates a configuration error in the embedded CDS conventions data.",
-                    self.registry_id()
-                ))
-            })
+    /// # Panics
+    ///
+    /// Panics if the embedded registry is missing the canonical entry for this
+    /// convention. The four enum variants are mirrored 1:1 in
+    /// `cds_conventions.json` (`ANY:isda_na`, `ANY:isda_eu`, `ANY:isda_as`,
+    /// `ANY:custom`); a missing entry indicates a corrupted build artifact and
+    /// must fail loudly rather than silently returning North American defaults.
+    #[allow(clippy::panic)] // Build-artifact corruption is unrecoverable
+    fn registry(&self) -> &'static CdsConventionResolved {
+        let id = self.registry_id();
+        cds_conventions_registry().get(id).unwrap_or_else(|| {
+            panic!(
+                "Missing CDS conventions registry entry for '{id}'. \
+                 The embedded cds_conventions.json file is corrupted; \
+                 this is a build/packaging error and cannot be recovered at runtime."
+            )
+        })
     }
 
     /// Get the standard day count convention.
@@ -155,23 +216,15 @@ impl CDSConvention {
     /// Per ISDA standards:
     /// - North America/Europe: ACT/360
     /// - Asia: ACT/365F
-    ///
-    /// Returns ACT/360 as fallback if registry lookup fails.
     #[must_use]
     pub fn day_count(&self) -> DayCount {
-        self.try_registry()
-            .map(|r| r.day_count)
-            .unwrap_or(DayCount::Act360)
+        self.registry().day_count
     }
 
     /// Get the standard payment frequency (quarterly for all conventions).
-    ///
-    /// Returns quarterly as fallback if registry lookup fails.
     #[must_use]
     pub fn frequency(&self) -> Tenor {
-        self.try_registry()
-            .map(|r| r.frequency)
-            .unwrap_or_else(|_| Tenor::quarterly())
+        self.registry().frequency
     }
 
     /// Get the standard business day convention.
@@ -179,36 +232,24 @@ impl CDSConvention {
     /// Per ISDA 2014 Credit Derivatives Definitions Section 4.12, CDS payment
     /// dates use **Modified Following** to prevent dates from rolling into
     /// the next month.
-    ///
-    /// Returns ModifiedFollowing as fallback if registry lookup fails.
     #[must_use]
     pub fn business_day_convention(&self) -> BusinessDayConvention {
-        self.try_registry()
-            .map(|r| r.bdc)
-            .unwrap_or(BusinessDayConvention::ModifiedFollowing)
+        self.registry().bdc
     }
 
     /// Get the standard stub convention.
-    ///
-    /// Returns ShortFront as fallback if registry lookup fails.
     #[must_use]
     pub fn stub_convention(&self) -> StubKind {
-        self.try_registry()
-            .map(|r| r.stub_convention)
-            .unwrap_or(StubKind::ShortFront)
+        self.registry().stub_convention
     }
 
     /// Get the standard settlement delay in business days.
     ///
     /// Returns the number of business days between trade date and settlement
     /// for standard CDS conventions by region.
-    ///
-    /// Returns 3 (T+3) as fallback if registry lookup fails.
     #[must_use]
     pub fn settlement_delay(&self) -> u16 {
-        self.try_registry()
-            .map(|r| r.settlement_delay_days)
-            .unwrap_or(3)
+        self.registry().settlement_delay_days
     }
 
     /// Get the default holiday calendar identifier for this convention.
@@ -217,13 +258,9 @@ impl CDSConvention {
     /// - North America: `nyse` (New York Stock Exchange)
     /// - Europe: `target2` (TARGET2 / ECB)
     /// - Asia: `jpto` (Tokyo Stock Exchange)
-    ///
-    /// Returns "nyse" as fallback if registry lookup fails.
     #[must_use]
     pub fn default_calendar(&self) -> &'static str {
-        self.try_registry()
-            .map(|r| r.default_calendar_id.as_str())
-            .unwrap_or("nyse")
+        self.registry().default_calendar_id.as_str()
     }
 
     /// Detect the appropriate CDS convention based on currency.
@@ -857,20 +894,6 @@ impl CreditDefaultSwap {
         }
     }
 
-    /// Override the protection leg recovery rate.
-    #[must_use]
-    pub fn with_recovery_rate(mut self, recovery_rate: f64) -> Self {
-        self.protection.recovery_rate = recovery_rate;
-        self
-    }
-
-    /// Override the protection leg settlement delay (in business days).
-    #[must_use]
-    pub fn with_settlement_delay(mut self, settlement_delay: u16) -> Self {
-        self.protection.settlement_delay = settlement_delay;
-        self
-    }
-
     /// Returns the effective protection start date.
     ///
     /// For a forward-starting CDS, this returns the `protection_effective_date`.
@@ -881,32 +904,15 @@ impl CreditDefaultSwap {
     }
 
     pub(crate) fn uses_clean_price(&self) -> bool {
-        matches!(
-            self.valuation_convention,
-            CdsValuationConvention::BloombergCdswClean
-        ) || self.pricing_overrides.model_config.cds_clean_price
+        self.valuation_convention.uses_clean_price()
     }
 
     pub(crate) fn uses_full_premium_par_spread_denominator(&self) -> bool {
-        // The Bloomberg CDSW screen reports the par spread implied by the
-        // bootstrapped credit curve at the deal maturity using the standard
-        // ISDA risky-annuity denominator (excluding accrual-on-default).
-        // Tying the full-premium denominator to the CDSW convention shifts
-        // par spread down by ~AoD/annuity (~2-3% for IG), so it is only
-        // enabled via the explicit pricing override.
-        self.pricing_overrides
-            .model_config
-            .cds_par_spread_uses_full_premium
+        self.valuation_convention.par_spread_uses_full_premium()
     }
 
     pub(crate) fn uses_adjusted_premium_accrual_dates(&self) -> bool {
-        matches!(
-            self.valuation_convention,
-            CdsValuationConvention::BloombergCdswClean
-        ) || self
-            .pricing_overrides
-            .model_config
-            .cds_adjust_premium_accrual_dates
+        self.valuation_convention.uses_adjusted_premium_accrual_dates()
     }
 
     fn build_premium_leg_schedule(
@@ -1154,9 +1160,7 @@ mod tests {
         let conv = resolve_market_conventions(Currency::BRL, None)
             .expect("missing currency default should fall back");
 
-        let isda_na = CDSConvention::IsdaNa
-            .try_registry()
-            .expect("canonical ISDA NA convention");
+        let isda_na = CDSConvention::IsdaNa.registry();
 
         assert_eq!(conv, isda_na);
     }
