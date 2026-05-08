@@ -1,31 +1,36 @@
-//! CDSOption instrument: option on a CDS spread.
+//! `CDSOption` instrument: European option to enter a forward CDS at a fixed
+//! strike spread.
 //!
-//! This module defines the `CDSOption` data structure and integrates with the
-//! common instrument trait via `impl_instrument!`. All pricing math and metrics
-//! are implemented in the `pricing/` and `metrics/` submodules.
+//! Pricing is performed by the Bloomberg CDSO numerical-quadrature model
+//! ([`super::pricer`] / [`super::bloomberg_quadrature`]) per *Pricing Credit
+//! Index Options* (Bloomberg L.P. Quantitative Analytics, DOCS 2055833). The
+//! legacy closed-form Black-on-spreads pricer was removed when the Bloomberg
+//! model became the default; see DOCS 2055833 §1.2 ("the Black model will be
+//! decommissioned").
 //!
 //! # Validation
 //!
 //! `CDSOption::try_new` validates all inputs at construction time:
-//! - Strike spread must be positive (≤0 is invalid)
+//! - Strike spread must be positive
 //! - Option expiry must precede underlying CDS maturity
 //! - Recovery rate must be in (0, 1)
 //! - Index factor must be in (0, 1] when specified
 //! - Implied volatility override must be in (0, 5] when specified
 //! - Only European, cash-settled CDS options are supported
 //!
-//! # Volatility Convention
+//! # Volatility convention
 //!
-//! All volatilities are expressed as **lognormal (Black) volatility** in decimal form.
-//! For example, 30% volatility is represented as 0.30.
+//! Volatilities are lognormal (Black) volatilities in decimal form (e.g. 0.30
+//! for 30%). The Bloomberg CDSO terminal expects the same.
 
 use crate::instruments::common_impl::parameters::CreditParams;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
+use finstack_core::dates::Date;
+#[cfg(test)]
 use finstack_core::dates::{
-    adjust, BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount, DayCountContext,
-    HolidayCalendar,
+    adjust, BusinessDayConvention, CalendarRegistry, DateExt, HolidayCalendar,
 };
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -75,8 +80,6 @@ pub struct CDSOption {
     /// Underlying CDS maturity date
     #[schemars(with = "String")]
     pub cds_maturity: Date,
-    /// Day count convention for time calculations
-    pub day_count: DayCount,
     /// Notional amount
     pub notional: Money,
     /// Settlement type
@@ -125,22 +128,35 @@ pub struct CDSOption {
     #[serde(default)]
     #[builder(default)]
     pub attributes: Attributes,
-    /// If true, the underlying is a CDS index; else single-name CDS
+    /// If true, the underlying is a CDS index; else single-name CDS.
+    ///
+    /// The Bloomberg CDSO model treats the two cases differently in the
+    /// no-knockout calibration `F_0 = E[V_te]` (DOCS 2055833 §1.2): index
+    /// options trade no-knockout and the calibration target includes the
+    /// `(1−R)·(1−q_te)` FEP-equivalent contribution; single-name options
+    /// knock out on default and skip it.
     #[serde(default)]
     pub underlying_is_index: bool,
-    /// Optional index factor scaling for index underlying
+    /// Optional index factor scaling for the index underlying.
     pub index_factor: Option<f64>,
-    /// Forward spread adjustment as a decimal rate (e.g., 0.0025 = 25bp)
-    #[serde(default)]
-    pub forward_spread_adjust: Decimal,
+    /// Realized cumulative index loss from option inception to valuation
+    /// date, expressed per unit of original index notional.
+    ///
+    /// Bloomberg CDSO treats index options as no-knockout. Settled losses
+    /// after option inception are therefore deterministic payoff adjustments
+    /// at exercise (DOCS 2055833 Eq. 2.5 and DOCS 2151513). Single-name
+    /// options knock out instead and must leave this unset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[builder(default)]
+    pub realized_index_loss: Option<f64>,
     /// Contractual coupon `c` of the underlying CDS, expressed as a decimal
     /// rate (e.g., 0.01 for the 100 bp standard CDX coupon, 0.05 for the
-    /// 500 bp standard CDS.HY coupon). When `None`, the synthetic underlying
+    /// 500 bp standard CDX.HY coupon). When `None`, the synthetic underlying
     /// CDS uses `strike` as its running coupon — the appropriate single-name
     /// SNAC default where the trade is struck at the par spread. For CDS
     /// index options where the index has a fixed standard coupon different
-    /// from the option strike, set this explicitly so the Bloomberg CDSO
-    /// strike-adjustment term `H(K) = ξN(c − K)A(K)` is correctly populated.
+    /// from the option strike, set this explicitly so the strike-adjustment
+    /// term `H(K) = ξN(c − K)A(K)` (DOCS 2055833 Eq. 2.4) is populated.
     #[serde(default)]
     pub underlying_cds_coupon: Option<Decimal>,
 }
@@ -232,6 +248,21 @@ impl CDSOption {
             }
         }
 
+        // Realized index loss validation
+        if let Some(loss) = self.realized_index_loss {
+            if !(0.0..=1.0).contains(&loss) {
+                return Err(finstack_core::Error::Validation(format!(
+                    "realized_index_loss must be in [0, 1], got {}",
+                    loss
+                )));
+            }
+            if loss > 0.0 && !self.underlying_is_index {
+                return Err(finstack_core::Error::Validation(
+                    "realized_index_loss is only supported for CDS index options".to_string(),
+                ));
+            }
+        }
+
         // Implied volatility override validation
         if let Some(vol) = self.pricing_overrides.market_quotes.implied_volatility {
             if vol <= MIN_IMPLIED_VOL {
@@ -305,7 +336,6 @@ impl CDSOption {
             exercise_style: ExerciseStyle::European,
             expiry: option_params.expiry,
             cds_maturity: option_params.cds_maturity,
-            day_count: option_params.day_count,
             notional: option_params.notional,
             settlement: SettlementType::Cash,
             cash_settlement_date: None,
@@ -321,7 +351,7 @@ impl CDSOption {
             attributes: Attributes::new(),
             underlying_is_index: option_params.underlying_is_index,
             index_factor: option_params.index_factor,
-            forward_spread_adjust: option_params.forward_spread_adjust,
+            realized_index_loss: None,
             underlying_cds_coupon: option_params.underlying_cds_coupon,
         };
         option.validate()?;
@@ -348,64 +378,17 @@ impl CDSOption {
         Ok(self)
     }
 
-    /// Extract common pricing inputs for Greek calculations.
+    /// Bloomberg CDSO Black time-to-expiry: calendar days from valuation
+    /// date to option expiry, divided by 365.
     ///
-    /// This helper consolidates the repeated logic for computing:
-    /// - Time to expiry (t)
-    /// - Forward spread (fwd_bp)
-    /// - Implied volatility (sigma)
-    /// - Risky annuity
-    ///
-    /// Returns `None` if the option has expired (t <= 0).
-    fn pricing_inputs(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<Option<CDSOptionPricingInputs>> {
-        self.validate_supported_configuration()?;
-        // Time to expiry
-        let t = self.black_time_to_expiry(as_of)?;
-        if t <= 0.0 {
-            return Ok(None);
-        }
-
-        // Forward spread in bp (consistent with pricing engine)
-        let pricer = crate::instruments::credit_derivatives::cds_option::pricer::CDSOptionPricer;
-        let fwd_bp = pricer.forward_spread_bp(self, curves, as_of)?;
-
-        let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
-            &self.pricing_overrides.market_quotes,
-            curves,
-            self.vol_surface_id.as_str(),
-            t,
-            self.strike.to_f64().unwrap_or(0.0),
-        )?;
-
-        // Risky annuity
-        let risky_annuity = pricer.risky_annuity(self, curves, as_of)?;
-
-        Ok(Some(CDSOptionPricingInputs {
-            t,
-            fwd_bp,
-            sigma,
-            risky_annuity,
-        }))
-    }
-
-    /// Black time-to-expiry for the CDS option pricer.
-    ///
-    /// Calendar days from valuation date to option expiry, divided by 365.
-    /// This matches the FinancePy reference implementation
-    /// (`time_to_expiry = (expiry_dt - value_dt) / G_DAYS_IN_YEAR` with
-    /// `G_DAYS_IN_YEAR = 365.0`) and is the standard Black model convention
-    /// for measuring vol accumulation: the day-count rule that governs CDS
-    /// premium-leg accrual (typically Act/360 for USD) does not apply to
-    /// option-pricing time-to-expiry, which is a separate quantity.
-    ///
-    /// `cash_settlement_date` and `exercise_settlement_date` overrides are
-    /// retained on the instrument for downstream date-stamping (FEP cash
-    /// flow, premium settlement) but are not consumed here.
-    pub(crate) fn black_time_to_expiry(
+    /// Matches the convention published in *Pricing Credit Index Options*
+    /// (DOCS 2055833) §2.1 — the lognormal spread process is parameterised
+    /// in years and Bloomberg's reference implementation (and FinancePy's
+    /// open-source port) hard-codes the 365-day denominator. The day-count
+    /// rule that governs the underlying CDS premium-leg accrual (Act/360)
+    /// does not apply to option-pricing time-to-expiry — they are separate
+    /// quantities.
+    pub(crate) fn time_to_expiry(
         &self,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
@@ -416,6 +399,10 @@ impl CDSOption {
         Ok(days / 365.0)
     }
 
+    /// Effective cash-settlement date for the option premium. Defaults to
+    /// the underlying CDS convention's settlement lag from the next
+    /// business day after `as_of`.
+    #[cfg(test)]
     pub(crate) fn effective_cash_settlement_date(
         &self,
         as_of: Date,
@@ -432,16 +419,6 @@ impl CDSOption {
         )
     }
 
-    pub(crate) fn effective_exercise_settlement_date(&self) -> finstack_core::Result<Date> {
-        if let Some(date) = self.exercise_settlement_date {
-            return Ok(date);
-        }
-
-        let calendar = self.standard_calendar()?;
-        let adjusted_expiry = adjust(self.expiry, BusinessDayConvention::Following, calendar)?;
-        adjusted_expiry.add_business_days(-2, calendar)
-    }
-
     /// Effective contractual coupon `c` of the synthetic underlying CDS,
     /// as a decimal rate. Returns the explicitly-set `underlying_cds_coupon`
     /// when present (e.g., the 100 bp standard CDX coupon), otherwise falls
@@ -451,12 +428,17 @@ impl CDSOption {
         self.underlying_cds_coupon.unwrap_or(self.strike)
     }
 
+    /// Effective accrual-start date for the synthetic underlying CDS. When
+    /// the user specifies `underlying_effective_date` explicitly we honour
+    /// it (e.g. Bloomberg CDSW screen value). Otherwise we use the option
+    /// expiry, matching the Bloomberg CDSO convention where the forward
+    /// CDS contract begins accruing premium at exercise (DOCS 2055833
+    /// §2.2).
     pub(crate) fn effective_underlying_effective_date(&self) -> Date {
-        self.underlying_effective_date.unwrap_or_else(|| {
-            previous_cds_roll_on_or_before(self.expiry) + time::Duration::days(1)
-        })
+        self.underlying_effective_date.unwrap_or(self.expiry)
     }
 
+    #[cfg(test)]
     fn standard_calendar(&self) -> finstack_core::Result<&'static dyn HolidayCalendar> {
         let calendar_id = self.underlying_convention.default_calendar();
         CalendarRegistry::global()
@@ -469,112 +451,61 @@ impl CDSOption {
             })
     }
 
-    /// Calculate delta of this CDS option.
+    /// Bloomberg CDSO Δ: ratio of the change in option premium to the
+    /// change in the principal value of the underlying swap when the index
+    /// credit curve is bumped up by one basis point (DOCS 2055833 §2.5).
     ///
-    /// Delta measures the sensitivity of the option value to changes in the forward spread.
-    /// **WARNING**: Returns the dollar value change per *unit* (decimal) spread, i.e., per 100%.
-    /// For a per-basis-point delta, divide by 10,000.
+    /// Bumps the credit curve by `+1 bp` parallel and re-prices both the
+    /// option (via [`super::pricer::CDSOptionPricer::npv`]) and the
+    /// underlying CDS, then takes the ratio. Returned as a unit-less
+    /// number — multiply by 100 for the displayed percentage.
     pub fn delta(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let Some(inputs) = self.pricing_inputs(curves, as_of)? else {
-            return Ok(0.0);
-        };
-
-        let pricer = crate::instruments::credit_derivatives::cds_option::pricer::CDSOptionPricer;
-        let delta = pricer.delta(
-            self,
-            inputs.fwd_bp,
-            inputs.risky_annuity,
-            inputs.sigma,
-            inputs.t,
-        )?;
-        Ok(delta * self.notional.amount())
+        super::pricer::CDSOptionPricer.delta(self, curves, as_of)
     }
 
-    /// Calculate gamma of this CDS option.
-    ///
-    /// Gamma measures the rate of change of delta with respect to the forward spread.
-    /// **WARNING**: Returns sensitivity per *unit* (decimal) spread squared.
-    /// For per-bp² gamma, divide by 10,000².
+    /// Bloomberg CDSO Γ: change in [`Self::delta`] when the credit curve is
+    /// bumped by `+10 bp` rather than `+1 bp` (DOCS 2055833 §2.5). Returned
+    /// as a unit-less number; multiply by 100 for the displayed percentage.
     pub fn gamma(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let Some(inputs) = self.pricing_inputs(curves, as_of)? else {
-            return Ok(0.0);
-        };
-
-        let pricer = crate::instruments::credit_derivatives::cds_option::pricer::CDSOptionPricer;
-        let gamma = pricer.gamma(
-            self,
-            inputs.fwd_bp,
-            inputs.risky_annuity,
-            inputs.sigma,
-            inputs.t,
-        )?;
-        Ok(gamma * self.notional.amount())
+        super::pricer::CDSOptionPricer.gamma(self, curves, as_of)
     }
 
-    /// Calculate vega of this CDS option.
-    ///
-    /// Vega measures the sensitivity of the option value to changes in implied volatility.
-    /// Returns the dollar value change per 1% change in volatility.
+    /// Bloomberg CDSO Vega(1%): change in option premium for a `+1`
+    /// vol-point increase in implied volatility (DOCS 2055833 §2.5). The
+    /// vol surface or `pricing_overrides` override is bumped by `+0.01`
+    /// (one absolute percentage point) and the option is re-priced.
     pub fn vega(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let Some(inputs) = self.pricing_inputs(curves, as_of)? else {
-            return Ok(0.0);
-        };
-
-        let pricer = crate::instruments::credit_derivatives::cds_option::pricer::CDSOptionPricer;
-        let vega = pricer.vega(
-            self,
-            inputs.fwd_bp,
-            inputs.risky_annuity,
-            inputs.sigma,
-            inputs.t,
-        )?;
-        Ok(vega * self.notional.amount())
+        super::pricer::CDSOptionPricer.vega(self, curves, as_of)
     }
 
-    /// Calculate theta of this CDS option using finite differences.
-    ///
-    /// Theta measures the sensitivity of the option value to the passage of time.
-    /// This implementation uses a full finite-difference approach that captures
-    /// both the Black formula time decay and the risky annuity decay.
-    ///
-    /// # Returns
-    ///
-    /// The dollar value change per day (negative for long positions).
+    /// Bloomberg CDSO θ: change in option premium for a one-calendar-day
+    /// decrease in option maturity (DOCS 2055833 §2.5). Implemented by
+    /// shortening the exercise time `t_e` by `1/365.25` and re-pricing
+    /// with the same calibrated forward; the year denominator (365.25)
+    /// is the Bloomberg convention.
     pub fn theta(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let pricer = crate::instruments::credit_derivatives::cds_option::pricer::CDSOptionPricer;
-        pricer.theta_finite_diff(self, curves, as_of)
+        super::pricer::CDSOptionPricer.theta(self, curves, as_of)
     }
 
-    /// Calculate implied volatility of this CDS option.
-    ///
-    /// Solves for the Black volatility σ such that model price(σ) = target_price.
-    ///
-    /// # Arguments
-    ///
-    /// * `curves` - Market context with discount and hazard curves
-    /// * `as_of` - Valuation date
-    /// * `target_price` - The observed market price to match
-    /// * `initial_guess` - Optional starting point for the solver (defaults to surface vol or 20%)
-    ///
-    /// # Returns
-    ///
-    /// The implied lognormal volatility in decimal form (e.g., 0.30 for 30%).
+    /// Solve for the Bloomberg CDSO implied volatility `σ` that reproduces
+    /// the observed `target_price` under the same numerical-quadrature
+    /// pricer used for valuation. Brent root finding in log-σ space.
     pub fn implied_vol(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
@@ -582,32 +513,15 @@ impl CDSOption {
         target_price: f64,
         initial_guess: Option<f64>,
     ) -> finstack_core::Result<f64> {
-        let pricer = crate::instruments::credit_derivatives::cds_option::pricer::CDSOptionPricer;
-        pricer.implied_vol(self, curves, as_of, target_price, initial_guess)
+        super::pricer::CDSOptionPricer.implied_vol(self, curves, as_of, target_price, initial_guess)
     }
-}
-
-/// Common pricing inputs for CDS option Greeks calculations.
-///
-/// This struct consolidates the computed market inputs needed by all Greek methods,
-/// eliminating code duplication while maintaining clear ownership of the computation.
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct CDSOptionPricingInputs {
-    /// Time to expiry in years
-    pub(crate) t: f64,
-    /// Forward CDS spread in basis points
-    pub(crate) fwd_bp: f64,
-    /// Implied volatility (lognormal, decimal)
-    pub(crate) sigma: f64,
-    /// Risky annuity (RPV01) in years
-    pub(crate) risky_annuity: f64,
 }
 
 impl crate::instruments::common_impl::traits::Instrument for CDSOption {
     impl_instrument_base!(crate::pricer::InstrumentType::CDSOption);
 
     fn default_model(&self) -> crate::pricer::ModelKey {
-        crate::pricer::ModelKey::Black76
+        crate::pricer::ModelKey::BloombergCdso
     }
 
     fn base_value(
@@ -615,8 +529,7 @@ impl crate::instruments::common_impl::traits::Instrument for CDSOption {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        let pricer = crate::instruments::credit_derivatives::cds_option::pricer::CDSOptionPricer;
-        pricer.npv(self, curves, as_of)
+        super::pricer::CDSOptionPricer.npv(self, curves, as_of)
     }
 
     fn expiry(&self) -> Option<finstack_core::dates::Date> {
@@ -657,26 +570,6 @@ crate::impl_empty_cashflow_provider!(
     crate::cashflow::builder::CashflowRepresentation::Placeholder
 );
 
-fn previous_cds_roll_on_or_before(date: Date) -> Date {
-    const CDS_ROLL_MONTHS: [time::Month; 4] = [
-        time::Month::March,
-        time::Month::June,
-        time::Month::September,
-        time::Month::December,
-    ];
-
-    for month in CDS_ROLL_MONTHS.iter().rev().copied() {
-        if let Ok(candidate) = Date::from_calendar_date(date.year(), month, 20) {
-            if candidate <= date {
-                return candidate;
-            }
-        }
-    }
-
-    Date::from_calendar_date(date.year().saturating_sub(1), time::Month::December, 20)
-        .unwrap_or(date)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -684,7 +577,7 @@ mod tests {
     use time::macros::date;
 
     #[test]
-    fn standard_dates_match_bloomberg_cds_option_golden() {
+    fn cash_settlement_date_defaults_to_t_plus_settle_lag() {
         let option_params = CDSOptionParams::call(
             Decimal::from_str_exact("0.0058395400").expect("valid strike"),
             date!(2026 - 06 - 26),
@@ -702,23 +595,20 @@ mod tests {
         )
         .expect("valid option");
 
+        // T+3 BD from 2026-05-02 (Sat) is 2026-05-07 (Thu) under the
+        // ISDA-NA weekend calendar.
         let as_of = date!(2026 - 05 - 02);
-
         assert_eq!(
             option
                 .effective_cash_settlement_date(as_of)
                 .expect("cash settlement date"),
             date!(2026 - 05 - 07)
         );
-        assert_eq!(
-            option
-                .effective_exercise_settlement_date()
-                .expect("exercise settlement date"),
-            date!(2026 - 06 - 24)
-        );
+
+        // No explicit underlying_effective_date → default is option expiry.
         assert_eq!(
             option.effective_underlying_effective_date(),
-            date!(2026 - 06 - 21)
+            date!(2026 - 06 - 26)
         );
     }
 }

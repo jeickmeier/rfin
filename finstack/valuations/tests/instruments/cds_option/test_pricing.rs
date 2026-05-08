@@ -1,6 +1,8 @@
 //! Integration tests for CDS Option pricing workflows.
 
 use super::common::*;
+use finstack_core::currency::Currency;
+use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use rust_decimal::prelude::ToPrimitive;
@@ -204,4 +206,70 @@ fn test_price_with_metrics() {
     assert_eq!(result.measures.len(), 2, "Should have 2 metrics");
     assert!(result.measures.contains_key("delta"));
     assert!(result.measures.contains_key("vega"));
+}
+
+#[test]
+fn test_realized_index_loss_changes_payer_and_receiver_values() {
+    let as_of = date!(2025 - 01 - 01);
+    let market = standard_market(as_of);
+    let loss = 0.01;
+
+    let payer_base = CDSOptionBuilder::new()
+        .call()
+        .with_index(1.0)
+        .underlying_cds_coupon_bp(100.0)
+        .build(as_of);
+    let mut payer_loss = payer_base.clone();
+    payer_loss.realized_index_loss = Some(loss);
+
+    let receiver_base = CDSOptionBuilder::new()
+        .put()
+        .with_index(1.0)
+        .underlying_cds_coupon_bp(100.0)
+        .build(as_of);
+    let mut receiver_loss = receiver_base.clone();
+    receiver_loss.realized_index_loss = Some(loss);
+
+    let payer_base_pv = payer_base.value(&market, as_of).unwrap().amount();
+    let payer_loss_pv = payer_loss.value(&market, as_of).unwrap().amount();
+    let receiver_base_pv = receiver_base.value(&market, as_of).unwrap().amount();
+    let receiver_loss_pv = receiver_loss.value(&market, as_of).unwrap().amount();
+
+    assert!(
+        payer_loss_pv > payer_base_pv,
+        "payer no-knockout option should gain from realized index loss: base={payer_base_pv}, loss={payer_loss_pv}",
+    );
+    assert!(
+        receiver_loss_pv < receiver_base_pv,
+        "receiver no-knockout option should lose from realized index loss: base={receiver_base_pv}, loss={receiver_loss_pv}",
+    );
+}
+
+#[test]
+fn test_single_name_option_is_knockout_weighted_by_survival() {
+    let as_of = date!(2025 - 01 - 01);
+    let discount = flat_discount("USD-OIS", as_of, 0.03);
+    let hazard = flat_hazard("HZ-SN", as_of, 0.4, 0.25);
+    let market = MarketContext::new().insert(discount).insert(hazard);
+
+    let single_name = CDSOptionBuilder::new()
+        .call()
+        .strike(100.0)
+        .notional(10_000_000.0, Currency::USD)
+        .build(as_of);
+    let index_no_knockout = CDSOptionBuilder::new()
+        .call()
+        .strike(100.0)
+        .notional(10_000_000.0, Currency::USD)
+        .with_index(1.0)
+        .underlying_cds_coupon_bp(100.0)
+        .build(as_of);
+
+    let single_pv = single_name.value(&market, as_of).unwrap().amount();
+    let index_pv = index_no_knockout.value(&market, as_of).unwrap().amount();
+
+    assert!(
+        single_pv < index_pv,
+        "single-name CDS options knock out on pre-expiry default and should be worth less than the no-knockout index option under material default risk: single={single_pv}, index={index_pv}",
+    );
 }

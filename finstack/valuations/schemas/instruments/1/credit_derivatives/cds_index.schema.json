@@ -229,6 +229,7 @@
               ]
             },
             "CDSIndexConstituent": {
+              "additionalProperties": false,
               "description": "Constituent in a CDS index with weight and credit parameters.",
               "properties": {
                 "credit": {

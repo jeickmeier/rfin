@@ -1177,9 +1177,18 @@ mod tests {
         );
         assert!(
             registry
-                .get_pricer(PricerKey::new(InstrumentType::CDSOption, ModelKey::Black76))
+                .get_pricer(PricerKey::new(
+                    InstrumentType::CDSOption,
+                    ModelKey::BloombergCdso
+                ))
                 .is_some(),
-            "CDSOption Black76 pricer should be registered"
+            "CDSOption BloombergCdso pricer should be registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::CDSOption, ModelKey::Black76))
+                .is_none(),
+            "Black76 pricer for CDSOption was decommissioned (DOCS 2055833 §1.2)"
         );
         assert!(
             registry

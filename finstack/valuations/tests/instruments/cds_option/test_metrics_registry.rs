@@ -167,7 +167,13 @@ fn test_metrics_registry_all_greeks() {
 }
 
 #[test]
-fn test_cds_option_dv01_uses_discount_quote_bump_and_dirty_rebootstrap() {
+fn test_cds_option_dv01_holds_hazard_constant_and_uses_bond_sign_convention() {
+    // Bloomberg DOCS 2057273 §4 IR DV01 convention: "holding all other
+    // inputs constant" — for the option's IR DV01, the hazard rates are
+    // held constant across the rate bump (par spreads are NOT held
+    // constant via re-bootstrap). The reported value uses the bond/CDSO
+    // screen sign convention: positive when the option's NPV INCREASES
+    // for a 1bp DOWNWARD parallel rate move.
     let as_of = date!(2025 - 01 - 01);
     let option = CDSOptionBuilder::new().build(as_of);
     let discount = quote_calibrated_discount(0.03, as_of);
@@ -191,37 +197,30 @@ fn test_cds_option_dv01_uses_discount_quote_bump_and_dirty_rebootstrap() {
         .unwrap();
     let dv01 = *result.measures.get("dv01").unwrap();
 
+    // Reproduce the calculation: bump the discount curve via its quote
+    // calibration, leave the hazard curve untouched, and re-price.
     let bumped_pv = |bump_bp: f64| {
         let base_discount = market.get_discount("USD-OIS").unwrap();
         let calibration = base_discount.rate_calibration().unwrap();
         let bumped_discount =
             bump_quote_calibrated_discount(base_discount.as_ref(), calibration, &market, bump_bp);
         let bumped_market = market.clone().insert(bumped_discount);
-        let base_hazard = market.get_hazard("HZ-SN").unwrap();
-        assert!(
-            base_hazard.par_spread_points().next().is_some(),
-            "test fixture must exercise CDS option hazard rebootstrap"
-        );
-        let recalibrated_hazard = bump_hazard_spreads_with_doc_clause_and_valuation_convention(
-            base_hazard.as_ref(),
-            &bumped_market,
-            &BumpRequest::Parallel(0.0),
-            Some(&option.discount_curve_id),
-            Some(MarketClause::IsdaNa),
-            Some(CdsValuationConvention::IsdaDirty),
-        )
-        .unwrap();
-        option
-            .value_raw(&bumped_market.insert(recalibrated_hazard), as_of)
-            .unwrap()
+        option.value_raw(&bumped_market, as_of).unwrap()
     };
-    let expected = (bumped_pv(1.0) - bumped_pv(-1.0)) / 2.0;
+    // Bond-convention IR DV01: NPV increase per 1bp downward shift.
+    let expected = -(bumped_pv(1.0) - bumped_pv(-1.0)) / 2.0;
 
     let tol = 1e-6_f64.max(1e-8 * expected.abs());
     assert!(
         (dv01 - expected).abs() <= tol,
-        "CDS option DV01 should bump discount quotes and rebootstrap hazard with IsdaDirty valuation convention: metric={dv01}, expected={expected}, diff={}, tol={tol}",
+        "CDS option DV01 should bump the discount curve, hold hazard rates constant, and report bond-convention positive-on-rate-down: metric={dv01}, expected={expected}, diff={}, tol={tol}",
         (dv01 - expected).abs()
+    );
+    let _ = bump_hazard_spreads_with_doc_clause_and_valuation_convention;
+    let _ = (
+        MarketClause::IsdaNa,
+        CdsValuationConvention::IsdaDirty,
+        BumpRequest::Parallel(0.0),
     );
 }
 

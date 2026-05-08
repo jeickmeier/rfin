@@ -147,14 +147,6 @@ fn test_implied_vol_positive() {
 }
 
 #[test]
-#[ignore = "Solver robustness regression after migrating implied-vol to the \
-            Bloomberg CDSO quadrature pricer. The other 8 implied-vol tests \
-            (round-trip, ATM/ITM/OTM convergence, call-vs-put, moneyness, \
-            metric, registry) all pass with the new model; only the \
-            multi-initial-guess loop trips the bracket search at sigma > 1.0 \
-            because the quadrature returns f64::NaN beyond the integration \
-            window. Pending follow-up: harden the bracket search or clamp \
-            the quadrature to a non-NaN fallback at extreme σ."]
 fn test_implied_vol_with_initial_guess() {
     let as_of = date!(2025 - 01 - 01);
     let market = standard_market(as_of);

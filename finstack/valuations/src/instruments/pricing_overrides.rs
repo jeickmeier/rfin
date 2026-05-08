@@ -496,36 +496,6 @@ pub struct ModelConfig {
     /// so this is not the default for production single-name CDS pricing.
     #[serde(default)]
     pub cds_act360_include_last_day: bool,
-    /// Add Front-End Protection (FEP) PV to the option NPV for payer (call)
-    /// options on a CDS index.
-    ///
-    /// FEP is the present value of the protection payout for index constituents
-    /// that default between the valuation date and the option expiry, scaled by
-    /// the index factor and the option notional:
-    ///
-    /// ```text
-    /// FEP = index_factor · notional · (1 − R) · ∫_0^{T_exp} h(s)·S(s)·DF(0,s) ds
-    /// ```
-    ///
-    /// The Pedersen (2003) / O'Kane (2008, Ch. 12) academic convention adds
-    /// FEP to the Black-on-spreads payer PV. The Bloomberg CDSO Market Value
-    /// display convention does **not** include FEP — finstack's default mirrors
-    /// the screen convention so registered NPV reconciles to CDSO.
-    ///
-    /// Set this flag when the academic fair-value (Black + FEP) is required;
-    /// receiver options and single-name underlyings ignore the flag.
-    #[serde(default)]
-    pub cds_option_index_fep_addback: bool,
-    /// Force the deprecated Black-on-spreads CDS-option pricer instead of the
-    /// default Bloomberg CDSO numerical-quadrature pricer.
-    ///
-    /// Bloomberg decommissioned the closed-form Black model on the CDSO
-    /// terminal in 2010 (see *Pricing Credit Index Options*, DOCS 2055833,
-    /// §1.2). This flag is retained only for A/B migration testing during
-    /// the transition; it will be removed once production reconciliation
-    /// is verified. Production code should not set it.
-    #[serde(default)]
-    pub cds_option_use_legacy_black_model: bool,
 }
 
 impl ModelConfig {

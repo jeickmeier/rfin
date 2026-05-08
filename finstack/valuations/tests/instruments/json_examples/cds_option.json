@@ -9,7 +9,6 @@
       "exercise_style": "european",
       "expiry": "2025-06-20",
       "cds_maturity": "2030-06-20",
-      "day_count": "Act360",
       "notional": {
         "amount": "10000000",
         "currency": "USD"
@@ -40,7 +39,7 @@
       },
       "underlying_is_index": false,
       "index_factor": null,
-      "forward_spread_adjust": "0"
+      "realized_index_loss": null
     }
   }
 }

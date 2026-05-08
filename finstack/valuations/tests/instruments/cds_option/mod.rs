@@ -1,42 +1,35 @@
-//! CDS Option comprehensive test suite.
+//! `CDSOption` test suite, organised around the Bloomberg CDSO numerical-
+//! quadrature pricer.
 //!
-//! Test organization follows market-standard practices:
+//! - [`common`]: shared fixtures and a builder for setup-heavy tests.
+//! - [`test_parameters`] / [`test_types`]: construction and validation.
+//! - [`test_pricing`]: end-to-end pricing scenarios.
+//! - [`test_greeks`]: Δ, Γ, Vega, Θ via bump-and-reprice on `npv`.
+//! - [`test_implied_vol`]: σ recovery from the live pricer.
+//! - [`test_option_bounds`]: no-arbitrage value bounds.
+//! - [`test_moneyness`]: ITM/ATM/OTM behaviour.
+//! - [`test_metrics_registry`]: metric-framework wiring.
 //!
-//! - `common`: Shared fixtures and utilities for DRY test setup
-//! - Unit tests: Individual component testing
-//!   - `test_parameters`: Builder and parameter validation
-//!   - `test_types`: CDSOption struct construction and methods
-//! - Integration tests: End-to-end workflows
-//!   - `test_pricing`: Full pricing scenarios
-//!   - `test_greeks`: Greeks calculations and sensitivities
-//!   - `test_implied_vol`: Implied volatility solver
-//! - Market validation: Financial theory compliance
-//!   - `test_black_model_properties`: Black-76 model properties
-//!   - `test_option_bounds`: Value bounds and no-arbitrage conditions
-//!   - `test_moneyness`: ITM/ATM/OTM behavior
-//!   - `test_index_options`: Index-specific features
-//! - Metrics tests:
-//!   - `test_metrics_registry`: Metric framework integration
+//! Tests covering the legacy Black-on-spreads model (decommissioned per
+//! DOCS 2055833 §1.2) — `test_black_model_properties`, `quantlib_parity`,
+//! the FEP-via-flag tests in `test_index_options` — were removed when
+//! the Bloomberg-quadrature model became the default.
 
 mod common;
 
-// Unit tests
 mod test_parameters;
 mod test_types;
 
-// Integration tests
 mod test_greeks;
 mod test_implied_vol;
 mod test_pricing;
 
-// Market validation tests
-mod test_black_model_properties;
-mod test_index_options;
 mod test_moneyness;
 mod test_option_bounds;
 
-// Metrics tests
 mod test_metrics_registry;
 
-// QuantLib parity tests
-mod quantlib_parity;
+// Phase-3 reconciliation: spot 5Y CDX.NA.IG.46 against Bloomberg's
+// CDSW screen values, isolating the CDS-pricer layer from the CDSO
+// option-pricer layer.
+mod test_bloomberg_cdsw_parity;

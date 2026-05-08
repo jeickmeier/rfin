@@ -80,13 +80,25 @@ impl MetricCalculator for CdsOptionDv01Calculator {
             return Ok(0.0);
         }
 
-        let hazard = context.curves.get_hazard(option.credit_curve_id.as_str())?;
-        let rebootstrap_hazard = hazard.par_spread_points().next().is_some();
+        // Bloomberg DOCS 2057273 §4 IR DV01 convention: "holding all other
+        // inputs constant" — for the option's IR DV01, the "other input" held
+        // constant is the *hazard rate curve* (not the par spreads). This is
+        // the convention used on the CDSO screen: the option NPV's exposure
+        // to rate moves is measured through the discount curve directly,
+        // without re-deriving hazard rates from par spreads after the bump.
+        // (For Spread DV01, the convention is reversed — hazard rates are
+        // re-bootstrapped from bumped par spreads, holding the IR curve
+        // constant; that lives in the CS01 path, not here.)
+        let pv_up = Self::price_at_rate_bump(option, context, bump_bp, false)?;
+        let pv_down = Self::price_at_rate_bump(option, context, -bump_bp, false)?;
 
-        let pv_up = Self::price_at_rate_bump(option, context, bump_bp, rebootstrap_hazard)?;
-        let pv_down = Self::price_at_rate_bump(option, context, -bump_bp, rebootstrap_hazard)?;
-
-        Ok((pv_up - pv_down) / (2.0 * bump_bp))
+        // Sign convention: Bloomberg reports IR DV01 as the value INCREASE
+        // for a 1bp DOWNWARD parallel rate shift. For an option (or any
+        // instrument that gains value when rates decrease), this is
+        // POSITIVE. Our central difference `(pv_up - pv_down) / (2 × bp)`
+        // is the slope ∂V/∂r per +1bp; multiplying by −1 gives the
+        // Bloomberg-displayed bond-convention DV01.
+        Ok(-(pv_up - pv_down) / (2.0 * bump_bp))
     }
 }
 

@@ -40,8 +40,7 @@ fn create_cds_option(
         notional: Money::new(10_000_000.0, Currency::USD),
         underlying_is_index: false,
         index_factor: None,
-        forward_spread_adjust: Decimal::ZERO,
-        day_count: finstack_core::dates::DayCount::Act360,
+        underlying_cds_coupon: None,
     };
 
     let credit_params = CreditParams {

@@ -39,11 +39,14 @@ pub fn register_credit_pricers(registry: &mut PricerRegistry) {
         crate::instruments::credit_derivatives::cds_tranche::pricer::SimpleCDSTrancheHazardPricer::default(),
     );
 
-    // CDS Option
+    // CDS Option — Bloomberg CDSO numerical-quadrature model.
+    // The legacy closed-form Black-on-spreads pricer was decommissioned in
+    // 2010 (DOCS 2055833 §1.2) and removed from finstack alongside the
+    // Bloomberg-quadrature default.
     registry.register(
         InstrumentType::CDSOption,
-        ModelKey::Black76,
-        crate::instruments::credit_derivatives::cds_option::pricer::SimpleCDSOptionBlackPricer,
+        ModelKey::BloombergCdso,
+        crate::instruments::credit_derivatives::cds_option::pricer::BloombergCdsoPricer,
     );
 
     // Structured Credit - unified pricer for ABS, CLO, CMBS, RMBS

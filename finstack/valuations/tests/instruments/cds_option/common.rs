@@ -60,9 +60,8 @@ fn bp_to_decimal(bp: f64) -> Decimal {
     Decimal::try_from(bp / 10000.0).expect("valid decimal from bp")
 }
 
-/// Builder for single-name CDS option with standard defaults.
-/// Strike and forward adjustment are accepted in bp for test ergonomics
-/// and converted to decimal internally.
+/// Test builder for `CDSOption`. Strikes are accepted in basis points for
+/// readability and converted to decimal internally.
 pub struct CDSOptionBuilder {
     id: String,
     strike_bp: f64,
@@ -73,7 +72,7 @@ pub struct CDSOptionBuilder {
     implied_vol: Option<f64>,
     is_index: bool,
     index_factor: Option<f64>,
-    forward_adjust_bp: f64,
+    underlying_cds_coupon_bp: Option<f64>,
 }
 
 impl CDSOptionBuilder {
@@ -88,7 +87,7 @@ impl CDSOptionBuilder {
             implied_vol: Some(0.30),
             is_index: false,
             index_factor: None,
-            forward_adjust_bp: 0.0,
+            underlying_cds_coupon_bp: None,
         }
     }
 
@@ -145,8 +144,12 @@ impl CDSOptionBuilder {
         self
     }
 
-    pub fn forward_adjust(mut self, bp: f64) -> Self {
-        self.forward_adjust_bp = bp;
+    /// Set the contractual coupon `c` of the underlying CDS in basis
+    /// points. Required for CDX-style index options (e.g. 100 bp) where
+    /// the running coupon differs from the option strike.
+    #[allow(dead_code)]
+    pub fn underlying_cds_coupon_bp(mut self, bp: f64) -> Self {
+        self.underlying_cds_coupon_bp = Some(bp);
         self
     }
 
@@ -165,11 +168,12 @@ impl CDSOptionBuilder {
         .expect("valid option params");
 
         if self.is_index {
-            let adjust = bp_to_decimal(self.forward_adjust_bp);
             option_params = option_params
                 .as_index(self.index_factor.unwrap_or(1.0))
-                .expect("valid index factor")
-                .with_forward_spread_adjust(adjust);
+                .expect("valid index factor");
+        }
+        if let Some(bp) = self.underlying_cds_coupon_bp {
+            option_params = option_params.with_underlying_cds_coupon(bp_to_decimal(bp));
         }
 
         let credit_params = CreditParams::corporate_standard("SN", "HZ-SN");

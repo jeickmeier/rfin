@@ -65,6 +65,20 @@ pub(super) fn settlement_date(
     Ok(default_date + Duration::days(delay_days))
 }
 
+/// Bloomberg DOCS 2057273 §3 protection-leg integration spec: "the
+/// timeline from T to TM is discretized into segments that are
+/// sufficiently small to justify constant forward discounting rates and
+/// constant hazard rate on each segment (and in no case longer than any
+/// accrual period of the premium leg)."
+///
+/// We use ~25 sub-steps per year (matching FinancePy's
+/// `GLOB_NUM_STEPS_PER_YEAR`), giving ~14-day resolution. This is finer
+/// than any coupon period (~91 days) and finer than typical
+/// discount-curve knot spacings, so within each segment both `r` and `λ`
+/// are effectively constant under any reasonable interpolation. Curve
+/// knots remain as boundaries so piecewise-constant hazard is honoured.
+const PROTECTION_LEG_SUB_STEPS_PER_YEAR: f64 = 25.0;
+
 pub(super) fn isda_standard_model_boundaries(
     t_start: f64,
     t_end: f64,
@@ -85,6 +99,17 @@ pub(super) fn isda_standard_model_boundaries(
             .copied()
             .filter(|&t| t > t_start && t < t_end),
     );
+    // Sub-step subdivision per DOCS 2057273 §3.
+    let dt = 1.0 / PROTECTION_LEG_SUB_STEPS_PER_YEAR;
+    let n_steps = ((t_end - t_start) * PROTECTION_LEG_SUB_STEPS_PER_YEAR).ceil() as usize;
+    if n_steps > 0 {
+        for i in 1..n_steps {
+            let t = t_start + (i as f64) * dt;
+            if t > t_start && t < t_end {
+                boundaries.push(t);
+            }
+        }
+    }
     // Times come from finite year-fractions on the curve day-counts; NaN here
     // would indicate a corrupt curve and produce silently-wrong PV. Fail fast.
     #[allow(clippy::expect_used)]

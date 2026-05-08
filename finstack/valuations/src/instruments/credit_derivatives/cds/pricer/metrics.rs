@@ -449,61 +449,6 @@ impl CDSPricer {
         Ok(per_bp_pv)
     }
 
-    /// Forward premium leg PV per 1 bp of spread.
-    ///
-    /// For a forward-starting CDS, scheduled premium cashflows use the standard
-    /// CDS coupon schedule, including the full first coupon accrual when the
-    /// forward start falls inside a coupon period. Accrual-on-default, however,
-    /// only starts once forward protection is live; defaults before
-    /// `forward_start` cancel the forward CDS rather than accruing premium.
-    #[must_use = "premium leg calculation is pure computation"]
-    pub(crate) fn forward_premium_leg_pv_per_bp(
-        &self,
-        cds: &CreditDefaultSwap,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
-        as_of: Date,
-        forward_start: Date,
-    ) -> Result<f64> {
-        let periods = self.coupon_periods(cds, as_of)?;
-        let calendar = cds
-            .premium
-            .calendar_id
-            .as_deref()
-            .and_then(finstack_core::dates::calendar::calendar_by_id);
-        let mut per_bp_pv = 0.0;
-        for period in periods {
-            let start_date = period.accrual_start;
-            let end_date = period.accrual_end;
-            let payment_date = period.payment_date;
-
-            if end_date <= as_of || end_date <= forward_start {
-                continue;
-            }
-
-            let accrual = self.coupon_accrual(cds, &period)?;
-            let df = df_asof_to(disc, as_of, payment_date)?;
-            let sp = sp_cond_to(surv, as_of, end_date)?;
-            per_bp_pv += ONE_BASIS_POINT * accrual * sp * df;
-
-            if self.config.include_accrual {
-                per_bp_pv += self.accrual_on_default_isda_standard_model_cond(AodInputs {
-                    cds,
-                    spread: ONE_BASIS_POINT,
-                    accrual_start_date: start_date.max(forward_start),
-                    start_date: start_date.max(as_of).max(forward_start),
-                    end_date,
-                    settlement_delay: cds.protection.settlement_delay,
-                    calendar,
-                    as_of,
-                    disc,
-                    surv,
-                })?;
-            }
-        }
-        Ok(per_bp_pv)
-    }
-
     /// Risky annuity: survival-weighted duration of premium payments.
     ///
     /// This is the sum of `DF(t) × SP(t) × YearFrac` across all coupon periods.

@@ -26,7 +26,7 @@ fn test_call_constructor() {
     assert!(matches!(params.option_type, OptionType::Call));
     assert!(!params.underlying_is_index);
     assert_eq!(params.index_factor, None);
-    assert_eq!(params.forward_spread_adjust, Decimal::ZERO);
+    assert_eq!(params.underlying_cds_coupon, None);
 }
 
 #[test]
@@ -59,18 +59,22 @@ fn test_index_option_builder() {
 }
 
 #[test]
-fn test_forward_spread_adjustment() {
+fn test_underlying_cds_coupon_for_index() {
+    // CDX/iTraxx index options have a contractual coupon distinct from
+    // the option strike (e.g. 100 bp standard CDX). The Bloomberg CDSO
+    // strike-adjustment term H(K) = ξN(c − K)A(K) is non-zero only when
+    // c ≠ K, so this is the field index fixtures must populate.
     let expiry = date!(2025 - 12 - 31);
     let maturity = date!(2030 - 12 - 31);
     let notional = Money::new(10_000_000.0, Currency::USD);
 
-    let params = CDSOptionParams::call(Decimal::new(1, 2), expiry, maturity, notional)
+    let params = CDSOptionParams::call(Decimal::new(55, 4), expiry, maturity, notional) // 0.0055 = 55bp
         .expect("valid call params")
-        .as_index(0.90)
+        .as_index(1.0)
         .expect("valid index factor")
-        .with_forward_spread_adjust(Decimal::new(25, 4)); // 0.0025 = 25bp
+        .with_underlying_cds_coupon(Decimal::new(1, 2)); // 0.01 = 100 bp standard CDX
 
-    assert_eq!(params.forward_spread_adjust, Decimal::new(25, 4));
+    assert_eq!(params.underlying_cds_coupon, Some(Decimal::new(1, 2)));
     assert!(params.underlying_is_index);
 }
 
@@ -84,13 +88,13 @@ fn test_chained_builders() {
         .expect("valid put params")
         .as_index(0.75)
         .expect("valid index factor")
-        .with_forward_spread_adjust(Decimal::new(-10, 4)); // -0.001 = -10bp
+        .with_underlying_cds_coupon(Decimal::new(1, 2));
 
     assert!(matches!(params.option_type, OptionType::Put));
     assert_eq!(params.strike, Decimal::new(2, 2));
     assert!(params.underlying_is_index);
     assert_eq!(params.index_factor, Some(0.75));
-    assert_eq!(params.forward_spread_adjust, Decimal::new(-10, 4));
+    assert_eq!(params.underlying_cds_coupon, Some(Decimal::new(1, 2)));
 }
 
 #[test]

@@ -540,6 +540,22 @@ pub enum ModelKey {
     /// and other 2D pricing problems. Splits the 2D PDE into
     /// directional tridiagonal sweeps with explicit cross-derivative.
     PdeAdi2D = 51,
+    /// Bloomberg CDSO numerical-quadrature model for credit-default-swap
+    /// options.
+    ///
+    /// Reference: Bloomberg L.P. Quantitative Analytics, *Pricing Credit
+    /// Index Options*, March 2012 (DOCS 2055833 ⟨GO⟩). The model
+    /// preserves the lognormal-spread assumption of the original
+    /// Black-on-spreads model but solves `O = P(t_e) · E[(V_te + H(K) +
+    /// D)+]` by numerical integration over the lognormal density. The
+    /// lognormal mean `m` is calibrated by Brent root finding so that
+    /// `F_0 = E[V_te]` (the no-knockout clean forward value); `H(K)` is
+    /// the strike-adjustment term `ξN(c − K)A(K)`; `D` is the realized
+    /// loss settlement. The closed-form Black-on-spreads model was
+    /// decommissioned on the Bloomberg CDSO terminal in 2010.
+    ///
+    /// Used for: CDS options (`InstrumentType::CDSOption`).
+    BloombergCdso = 52,
 }
 
 impl ModelKey {
@@ -594,6 +610,7 @@ impl std::fmt::Display for ModelKey {
             ModelKey::MonteCarloCheyetteRoughVol => "monte_carlo_cheyette_rough_vol",
             ModelKey::PdeCrankNicolson1D => "pde_crank_nicolson_1d",
             ModelKey::PdeAdi2D => "pde_adi_2d",
+            ModelKey::BloombergCdso => "bloomberg_cdso",
         };
         write!(f, "{}", label)
     }
@@ -669,6 +686,9 @@ impl std::str::FromStr for ModelKey {
             }
             "pde_adi_2d" | "adi" | "adi_2d" | "craig_sneyd" | "heston_pde" => {
                 Ok(ModelKey::PdeAdi2D)
+            }
+            "bloomberg_cdso" | "bbg_cdso" | "cdso" | "bloomberg_cdsoption" => {
+                Ok(ModelKey::BloombergCdso)
             }
             other => Err(format!("Unknown model key: {}", other)),
         }
