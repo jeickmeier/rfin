@@ -133,6 +133,16 @@ pub struct CDSOption {
     /// Forward spread adjustment as a decimal rate (e.g., 0.0025 = 25bp)
     #[serde(default)]
     pub forward_spread_adjust: Decimal,
+    /// Contractual coupon `c` of the underlying CDS, expressed as a decimal
+    /// rate (e.g., 0.01 for the 100 bp standard CDX coupon, 0.05 for the
+    /// 500 bp standard CDS.HY coupon). When `None`, the synthetic underlying
+    /// CDS uses `strike` as its running coupon — the appropriate single-name
+    /// SNAC default where the trade is struck at the par spread. For CDS
+    /// index options where the index has a fixed standard coupon different
+    /// from the option strike, set this explicitly so the Bloomberg CDSO
+    /// strike-adjustment term `H(K) = ξN(c − K)A(K)` is correctly populated.
+    #[serde(default)]
+    pub underlying_cds_coupon: Option<Decimal>,
 }
 
 impl CDSOption {
@@ -312,6 +322,7 @@ impl CDSOption {
             underlying_is_index: option_params.underlying_is_index,
             index_factor: option_params.index_factor,
             forward_spread_adjust: option_params.forward_spread_adjust,
+            underlying_cds_coupon: option_params.underlying_cds_coupon,
         };
         option.validate()?;
         Ok(option)
@@ -381,33 +392,28 @@ impl CDSOption {
         }))
     }
 
-    /// Black time-to-expiry under the Bloomberg CDSO convention.
+    /// Black time-to-expiry for the CDS option pricer.
     ///
-    /// Counts calendar days **inclusive of the end date** (one extra day
-    /// beyond `end - start`) and divides by `day_count`'s denominator for
-    /// Act/360 Bloomberg-style option timing. Other day-count conventions use
-    /// their standard exclusive end date.
+    /// Calendar days from valuation date to option expiry, divided by 365.
+    /// This matches the FinancePy reference implementation
+    /// (`time_to_expiry = (expiry_dt - value_dt) / G_DAYS_IN_YEAR` with
+    /// `G_DAYS_IN_YEAR = 365.0`) and is the standard Black model convention
+    /// for measuring vol accumulation: the day-count rule that governs CDS
+    /// premium-leg accrual (typically Act/360 for USD) does not apply to
+    /// option-pricing time-to-expiry, which is a separate quantity.
     ///
-    /// `start = cash_settlement_date`, `end = exercise_settlement_date` when
-    /// supplied; otherwise both dates are derived from standard CDS option
-    /// offsets.
+    /// `cash_settlement_date` and `exercise_settlement_date` overrides are
+    /// retained on the instrument for downstream date-stamping (FEP cash
+    /// flow, premium settlement) but are not consumed here.
     pub(crate) fn black_time_to_expiry(
         &self,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let start = self.effective_cash_settlement_date(as_of)?;
-        let end = self.effective_exercise_settlement_date()?;
-        if end <= start {
+        if self.expiry <= as_of {
             return Ok(0.0);
         }
-
-        let accrual_end = if self.day_count == finstack_core::dates::DayCount::Act360 {
-            end + time::Duration::days(1)
-        } else {
-            end
-        };
-        self.day_count
-            .year_fraction(start, accrual_end, DayCountContext::default())
+        let days = (self.expiry - as_of).whole_days() as f64;
+        Ok(days / 365.0)
     }
 
     pub(crate) fn effective_cash_settlement_date(
@@ -434,6 +440,15 @@ impl CDSOption {
         let calendar = self.standard_calendar()?;
         let adjusted_expiry = adjust(self.expiry, BusinessDayConvention::Following, calendar)?;
         adjusted_expiry.add_business_days(-2, calendar)
+    }
+
+    /// Effective contractual coupon `c` of the synthetic underlying CDS,
+    /// as a decimal rate. Returns the explicitly-set `underlying_cds_coupon`
+    /// when present (e.g., the 100 bp standard CDX coupon), otherwise falls
+    /// back to `strike` for single-name SNAC trades where the option is
+    /// struck at the underlying CDS coupon.
+    pub(crate) fn effective_underlying_cds_coupon(&self) -> Decimal {
+        self.underlying_cds_coupon.unwrap_or(self.strike)
     }
 
     pub(crate) fn effective_underlying_effective_date(&self) -> Date {

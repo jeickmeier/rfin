@@ -35,6 +35,7 @@
 //! - [`CDSOption`] for instrument struct
 //! - [`crate::instruments::credit_derivatives::cds`] for underlying CDS pricing
 
+pub(crate) mod bloomberg_quadrature;
 pub(crate) mod metrics;
 pub(crate) mod parameters;
 pub(crate) mod pricer;

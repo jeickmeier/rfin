@@ -49,7 +49,16 @@ fn decimal_to_f64(value: Decimal, field: &str) -> Result<f64> {
 pub(crate) struct CDSOptionPricer;
 
 impl CDSOptionPricer {
-    /// Price the CDS option and return its present value as of the discount curve base date.
+    /// Price the CDS option and return its present value as of the discount
+    /// curve base date.
+    ///
+    /// Routes to the Bloomberg CDSO numerical-quadrature pricer
+    /// ([`bloomberg_quadrature::npv`]) by default — this is the live model on
+    /// the Bloomberg terminal as of 2010 (the legacy Black-on-spreads model
+    /// described in the original module documentation has been
+    /// decommissioned in production CDSO and is retained here only for
+    /// migration testing under the `cds_option_use_legacy_black_model`
+    /// override flag).
     pub(crate) fn npv(
         &self,
         option: &CDSOption,
@@ -57,26 +66,8 @@ impl CDSOptionPricer {
         as_of: finstack_core::dates::Date,
     ) -> Result<Money> {
         option.validate_supported_configuration()?;
+
         let t = option.black_time_to_expiry(as_of)?;
-
-        // Note: t <= 0 (expired) is handled downstream in credit_option_price
-        // which computes the intrinsic payoff.
-
-        // Market curves
-        let disc = curves.get_discount(&option.discount_curve_id)?;
-        let hazard = curves.get_hazard(&option.credit_curve_id)?;
-
-        // Forward spread at CDS maturity (bp)
-        let forward_spread_bp =
-            self.forward_spread_from_pricer(option, disc.as_ref(), hazard.as_ref(), as_of)?;
-
-        // Risky annuity (RPV01) from option expiry to CDS maturity via CDS pricer
-        let risky_annuity =
-            self.risky_annuity_from_pricer(option, disc.as_ref(), hazard.as_ref(), as_of)?;
-
-        // Discount factor to option expiry (NOT used in pricing as risky_annuity is already PV)
-        // let df_expiry = disc.df(t);
-
         let strike_f64 = decimal_to_f64(option.strike, "strike")?;
         let sigma = crate::instruments::common_impl::vol_resolution::resolve_sigma_at(
             &option.pricing_overrides.market_quotes,
@@ -86,25 +77,64 @@ impl CDSOptionPricer {
             strike_f64,
         )?;
 
-        // Price using Black-style on spreads
-        // Note: risky_annuity is already PV'd to as_of, so we pass df=1.0 (or remove it from formula)
+        if option
+            .pricing_overrides
+            .model_config
+            .cds_option_use_legacy_black_model
+        {
+            #[allow(deprecated)]
+            return self.npv_legacy_black(option, curves, sigma, t, as_of);
+        }
+
+        let cds = synthetic_underlying_cds(option)?;
+        super::bloomberg_quadrature::npv(option, &cds, curves, sigma, as_of)
+    }
+
+    /// Legacy Black-on-spreads CDS-option pricer.
+    ///
+    /// **Deprecated**: kept only as an A/B comparison target during the
+    /// migration to the Bloomberg CDSO numerical-quadrature model. The
+    /// Black model was decommissioned on the Bloomberg terminal around
+    /// mid-2010 (see DOCS 2055833 ⟨GO⟩ §1.2: *"the Black model will be
+    /// decommissioned. Clients should migrate to the new Bloomberg
+    /// model"*) — it does not handle strike adjustment for c ≠ K, loss
+    /// settlement, or price-based options correctly. Use only with the
+    /// `cds_option_use_legacy_black_model` override flag set; this path
+    /// will be removed once the migration is verified.
+    #[deprecated(
+        since = "0.4.1",
+        note = "Bloomberg decommissioned the Black CDSO model in 2010; \
+                the Bloomberg quadrature model is now the default. This \
+                code path is retained only for A/B migration testing and \
+                will be removed in a future release."
+    )]
+    fn npv_legacy_black(
+        &self,
+        option: &CDSOption,
+        curves: &MarketContext,
+        sigma: f64,
+        t: f64,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<Money> {
+        let disc = curves.get_discount(&option.discount_curve_id)?;
+        let hazard = curves.get_hazard(&option.credit_curve_id)?;
+
+        let forward_spread_bp =
+            self.forward_spread_from_pricer(option, disc.as_ref(), hazard.as_ref(), as_of)?;
+        let risky_annuity =
+            self.risky_annuity_from_pricer(option, disc.as_ref(), hazard.as_ref(), as_of)?;
+
         let black_pv =
             self.credit_option_price(option, forward_spread_bp, risky_annuity, sigma, t)?;
 
-        // Front-End Protection (FEP) adjustment for index payer options.
-        //
-        // Standard market convention per Pedersen (2003) and O'Kane (2008)
-        // Ch. 12: payer options on a defaultable CDS index receive a cash
-        // benefit equal to the protection payout for names that default
-        // between `as_of` and the option expiry. Receiver options knock
-        // out on defaulted names so do not receive FEP.
-        //
-        // FEP_PV = ∫_0^{T_exp} (1 − R) · h(s) · S(s) · DF(0, s) ds
-        //
-        // Scaled by the option notional and the index factor. This PV is
-        // added to the Black-on-spreads value for payer (Call) index
-        // options only — see `front_end_protection_pv` for numerics.
-        let fep_pv = if option.underlying_is_index
+        // Optional Front-End Protection add-back, only applies to the
+        // legacy Black model. The Bloomberg quadrature model accounts for
+        // the no-knockout calibration directly via `F_0 = E[V_te]`.
+        let fep_pv = if option
+            .pricing_overrides
+            .model_config
+            .cds_option_index_fep_addback
+            && option.underlying_is_index
             && matches!(option.option_type, OptionType::Call)
             && t > 0.0
         {
@@ -565,22 +595,56 @@ impl CDSOptionPricer {
             return Ok(0.0);
         }
 
-        let disc = curves.get_discount(&option.discount_curve_id)?;
-        let hazard = curves.get_hazard(&option.credit_curve_id)?;
+        // Implied-vol solver routes through the live model (Bloomberg
+        // quadrature by default, legacy Black under override flag) so that
+        // the round trip `price(σ) → implied_vol(price) → σ` is consistent
+        // with the registered NPV path.
+        let cds_for_iv = synthetic_underlying_cds(option)?;
 
-        // Forward spread at CDS maturity (bp)
-        let fwd_bp =
-            self.forward_spread_from_pricer(option, disc.as_ref(), hazard.as_ref(), as_of)?;
-
-        // Risky annuity from expiry to maturity
-        let ra = self.risky_annuity_from_pricer(option, disc.as_ref(), hazard.as_ref(), as_of)?;
-        // df_expiry not needed as ra is already PV
-
-        // Objective in log-σ space to keep σ>0
         let price_for_sigma = |sigma: f64| -> f64 {
-            match self.credit_option_price(option, fwd_bp, ra, sigma, t) {
-                Ok(m) => m.amount(),
-                Err(_) => f64::NAN,
+            // Use the live Bloomberg model unless the legacy flag is set.
+            if option
+                .pricing_overrides
+                .model_config
+                .cds_option_use_legacy_black_model
+            {
+                let disc = match curves.get_discount(&option.discount_curve_id) {
+                    Ok(d) => d,
+                    Err(_) => return f64::NAN,
+                };
+                let hazard = match curves.get_hazard(&option.credit_curve_id) {
+                    Ok(h) => h,
+                    Err(_) => return f64::NAN,
+                };
+                let fwd_bp = match self.forward_spread_from_pricer(
+                    option,
+                    disc.as_ref(),
+                    hazard.as_ref(),
+                    as_of,
+                ) {
+                    Ok(v) => v,
+                    Err(_) => return f64::NAN,
+                };
+                let ra = match self.risky_annuity_from_pricer(
+                    option,
+                    disc.as_ref(),
+                    hazard.as_ref(),
+                    as_of,
+                ) {
+                    Ok(v) => v,
+                    Err(_) => return f64::NAN,
+                };
+                match self.credit_option_price(option, fwd_bp, ra, sigma, t) {
+                    Ok(m) => m.amount(),
+                    Err(_) => f64::NAN,
+                }
+            } else {
+                match super::bloomberg_quadrature::npv(
+                    option, &cds_for_iv, curves, sigma, as_of,
+                ) {
+                    Ok(m) => m.amount(),
+                    Err(_) => f64::NAN,
+                }
             }
         };
 
@@ -755,6 +819,279 @@ mod tests {
 
         assert_eq!(cds.premium.start, effective);
         assert_eq!(cds.protection_effective_date, Some(option.expiry));
+    }
+
+    /// Diagnostic: prints the forward Black-on-spreads inputs (forward
+    /// protection PV, forward risky annuity, forward spread) for the
+    /// `cdx_ig_46_payer_atm_jun26` golden, to triangulate which input drifts
+    /// vs the Bloomberg CDSO screen value. Run with:
+    /// `cargo test -p finstack-valuations diag_cdx_ig_46_payer_atm_jun26 -- --include-ignored --nocapture`.
+    #[test]
+    #[ignore = "diagnostic only; prints intermediate Black inputs for the cdx_ig_46 CDSO golden"]
+    #[allow(clippy::excessive_precision)]
+    fn diag_cdx_ig_46_payer_atm_jun26() {
+        use crate::instruments::common_impl::parameters::CreditParams;
+        use crate::instruments::credit_derivatives::cds_option::parameters::CDSOptionParams;
+        use crate::instruments::credit_derivatives::cds_option::CDSOption;
+        use finstack_core::currency::Currency;
+        use finstack_core::dates::Date;
+        use finstack_core::market_data::context::MarketContext;
+        use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+        use finstack_core::math::interp::InterpStyle;
+        use finstack_core::money::Money;
+        use rust_decimal::Decimal;
+
+        let as_of = Date::from_calendar_date(2026, time::Month::May, 7).unwrap();
+
+        let disc_knots: Vec<(f64, f64)> = vec![
+            (0.0, 1.0),
+            (0.08333333333333333, 0.9969743366),
+            (0.16666666666666666, 0.9939454034),
+            (0.25, 0.9909194792),
+            (0.5, 0.9818575915),
+            (1.0, 0.9634448808),
+            (2.0, 0.9284766933),
+            (3.0, 0.8953952841),
+            (4.0, 0.8628279245),
+            (5.0, 0.8303981454),
+            (6.0, 0.7980611942),
+            (7.0, 0.7661709207),
+            (8.0, 0.7349447152),
+            (9.0, 0.7043640077),
+            (10.0, 0.6744889405),
+        ];
+        let disc = DiscountCurve::builder("USD-S531-SWAP-20260507")
+            .base_date(as_of)
+            .knots(disc_knots)
+            .interp(InterpStyle::LogLinear)
+            .build()
+            .expect("disc curve");
+
+        let haz_knots: Vec<(f64, f64)> = vec![
+            (0.0, 0.00269),
+            (0.5, 0.00269),
+            (1.0, 0.00269),
+            (2.0, 0.004023333333333333),
+            (3.0, 0.005393333333333333),
+            (4.0, 0.007165533333333333),
+            (5.0, 0.008937733333333333),
+            (7.0, 0.012106666666666666),
+            (10.0, 0.015391666666666667),
+        ];
+        let par_knots: Vec<(f64, f64)> = vec![
+            (0.5, 16.14),
+            (1.0, 16.14),
+            (2.0, 24.14),
+            (3.0, 32.36),
+            (4.0, 42.9932),
+            (5.0, 53.6264),
+            (7.0, 72.64),
+            (10.0, 92.35),
+        ];
+        let hazard = HazardCurve::builder("CDX-NA-IG-46-CBBT")
+            .base_date(as_of)
+            .recovery_rate(0.4)
+            .knots(haz_knots)
+            .par_spreads(par_knots)
+            .build()
+            .expect("hazard curve");
+
+        let market = MarketContext::new().insert(disc).insert(hazard);
+
+        let params = CDSOptionParams::call(
+            Decimal::from_str_exact("0.00552848").unwrap(),
+            Date::from_calendar_date(2026, time::Month::June, 17).unwrap(),
+            Date::from_calendar_date(2031, time::Month::June, 20).unwrap(),
+            Money::new(100_000_000.0, Currency::USD),
+        )
+        .unwrap()
+        .as_index(1.0)
+        .unwrap()
+        .with_forward_spread_adjust(
+            Decimal::from_str_exact("0.0028882376223847").unwrap(),
+        );
+        let credit = CreditParams::corporate_standard("CDX-NA-IG-46", "CDX-NA-IG-46-CBBT");
+        let mut option = CDSOption::new(
+            "DIAG-CDX",
+            &params,
+            &credit,
+            "USD-S531-SWAP-20260507",
+            "DIAG-VOL",
+        )
+        .unwrap();
+        option.pricing_overrides.market_quotes.implied_volatility = Some(0.3603);
+        option.cash_settlement_date =
+            Some(Date::from_calendar_date(2026, time::Month::May, 12).unwrap());
+        option.exercise_settlement_date =
+            Some(Date::from_calendar_date(2026, time::Month::June, 23).unwrap());
+        option.underlying_effective_date =
+            Some(Date::from_calendar_date(2026, time::Month::June, 22).unwrap());
+
+        let pricer = CDSOptionPricer;
+        let disc_arc = market.get_discount(&option.discount_curve_id).unwrap();
+        let hazard_arc = market.get_hazard(&option.credit_curve_id).unwrap();
+
+        let inputs = pricer
+            .forward_cds_black_inputs(
+                &option,
+                disc_arc.as_ref(),
+                hazard_arc.as_ref(),
+                as_of,
+            )
+            .expect("forward inputs");
+
+        let cds = synthetic_underlying_cds(&option).expect("synthetic CDS");
+        let cds_pricer = CDSPricer::new();
+        let protection_pv = cds_pricer
+            .pv_protection_leg(&cds, disc_arc.as_ref(), hazard_arc.as_ref(), as_of)
+            .unwrap()
+            .amount();
+        let premium_per_bp = cds_pricer
+            .forward_premium_leg_pv_per_bp(
+                &cds,
+                disc_arc.as_ref(),
+                hazard_arc.as_ref(),
+                as_of,
+                option.expiry,
+            )
+            .unwrap();
+
+        let t = option.black_time_to_expiry(as_of).unwrap();
+        let strike = 0.00552848_f64;
+        let sigma = 0.3603_f64;
+        let forward_dec = inputs.forward_spread_bp / BASIS_POINTS_PER_UNIT;
+        let sqrt_t = t.sqrt();
+        let sigma_sqrt_t = sigma * sqrt_t;
+        let d1 = ((forward_dec / strike).ln() + 0.5 * sigma_sqrt_t * sigma_sqrt_t)
+            / sigma_sqrt_t;
+        let d2 = d1 - sigma_sqrt_t;
+        let nd1 = norm_cdf(d1);
+        let nd2 = norm_cdf(d2);
+
+        eprintln!("\n=== CDX_IG_46 PAYER ATM Jun26 — Forward CDS inputs ===");
+        eprintln!("  as_of={}  expiry={}  cds_maturity={}", as_of, option.expiry, option.cds_maturity);
+        eprintln!("  premium.start = {} (synthetic underlying premium accrual start)", cds.premium.start);
+        eprintln!("  protection_effective_date = {:?}", cds.protection_effective_date);
+        eprintln!("  T (Black) = {:.10} ({:.0} days / 365)", t, t * 365.0);
+        eprintln!("  forward_spread_bp = {:.6} bp (with adjust)", inputs.forward_spread_bp);
+        eprintln!("  natural forward_bp = {:.6} bp", inputs.forward_spread_bp - 28.882376223847);
+        eprintln!("  forward_protection_pv = {:.4} USD ({} per unit notional)", protection_pv, protection_pv / cds.notional.amount());
+        eprintln!("  premium_per_bp = {:.10} USD-per-bp ({} per unit notional)", premium_per_bp, premium_per_bp / cds.notional.amount());
+        eprintln!("  risky_annuity (RPV01) = {:.6}  Bloomberg-implied = 4.4390", inputs.risky_annuity);
+        eprintln!("  d1={:.6}  d2={:.6}  N(d1)={:.6}  N(d2)={:.6}", d1, d2, nd1, nd2);
+        let black_pv = inputs.risky_annuity
+            * cds.notional.amount()
+            * (forward_dec * nd1 - strike * nd2);
+        eprintln!("  Black PV (no FEP)     = {:.4} USD", black_pv);
+        eprintln!("  Bloomberg Market Value = 118781.76 USD");
+        eprintln!("  drift = {:.4} USD ({:.4}%)", black_pv - 118781.76, (black_pv - 118781.76) / 118781.76 * 100.0);
+
+        eprintln!("\n=== RPV01 decomposition: scheduled coupons vs AOD ===");
+        let mut scheduled_only_per_bp = 0.0_f64;
+        let cashflows = cds_pricer
+            .premium_cashflow_accruals(&cds, as_of)
+            .expect("cashflows");
+        let surv = hazard_arc.as_ref();
+        let disc = disc_arc.as_ref();
+        for (i, (pay_date, accrual)) in cashflows.iter().enumerate() {
+            if *pay_date <= as_of || *pay_date <= option.expiry {
+                continue;
+            }
+            let sp_pay = surv.sp_on_date(*pay_date).unwrap_or(0.0);
+            let df_pay = finstack_core::market_data::term_structures::DiscountCurve::df_between_dates(
+                disc, as_of, *pay_date,
+            )
+            .unwrap_or(0.0);
+            let contrib = ONE_BASIS_POINT * accrual * sp_pay * df_pay;
+            scheduled_only_per_bp += contrib;
+            if i < 6 || i + 4 >= cashflows.len() {
+                eprintln!(
+                    "  [{:2}] pay={}  accrual={:.6}  sp={:.6}  df={:.6}  contrib_to_RPV01={:.6}",
+                    i, pay_date, accrual, sp_pay, df_pay, contrib / ONE_BASIS_POINT
+                );
+            }
+        }
+        let scheduled_rpv01 = scheduled_only_per_bp / ONE_BASIS_POINT;
+        let total_rpv01 = inputs.risky_annuity;
+        let aod_rpv01 = total_rpv01 - scheduled_rpv01;
+        eprintln!("  ─────────");
+        eprintln!("  Scheduled-only RPV01 (no AOD)    = {:.6}", scheduled_rpv01);
+        eprintln!("  AOD contribution (ISDA std model) = {:.6}", aod_rpv01);
+        eprintln!("  Total RPV01 (finstack)           = {:.6}", total_rpv01);
+
+        // Compute FinancePy-style midpoint AOD for comparison.
+        // AOD per period = 0.5 * (q_prev - q_curr) * z_curr * accrual
+        // For forward CDS, q_prev for first post-forward period = q at forward_start.
+        let mut fp_aod_per_bp = 0.0_f64;
+        let mut q_prev = surv
+            .sp_on_date(option.expiry)
+            .unwrap_or(1.0);
+        for (pay_date, accrual) in cashflows.iter() {
+            if *pay_date <= as_of || *pay_date <= option.expiry {
+                continue;
+            }
+            let q_curr = surv.sp_on_date(*pay_date).unwrap_or(0.0);
+            let z_curr = finstack_core::market_data::term_structures::DiscountCurve::df_between_dates(
+                disc, as_of, *pay_date,
+            )
+            .unwrap_or(0.0);
+            let aod_contrib = 0.5 * (q_prev - q_curr) * z_curr * accrual * ONE_BASIS_POINT;
+            fp_aod_per_bp += aod_contrib;
+            q_prev = q_curr;
+        }
+        let fp_aod_rpv01 = fp_aod_per_bp / ONE_BASIS_POINT;
+        eprintln!("\n  FinancePy-style midpoint AOD     = {:.6}", fp_aod_rpv01);
+        eprintln!(
+            "  → Total RPV01 with midpoint AOD  = {:.6} (delta vs ISDA: {:+.6})",
+            scheduled_rpv01 + fp_aod_rpv01,
+            (scheduled_rpv01 + fp_aod_rpv01) - total_rpv01
+        );
+
+        eprintln!("\n=== Re-bootstrap hazard from par_spreads (Brent per-pillar) ===");
+        let bootstrapped = crate::calibration::bumps::bump_hazard_spreads(
+            hazard_arc.as_ref(),
+            &market,
+            &crate::calibration::bumps::BumpRequest::Parallel(0.0),
+            Some(&option.discount_curve_id),
+        )
+        .expect("bootstrap");
+        eprintln!("Knots after re-bootstrap (Bloomberg-equivalent ISDA Standard Model):");
+        for (t, lam) in bootstrapped.knot_points() {
+            eprintln!("  t={:.6}  lambda={:.10}  (par/(1-R) approx was {:.10})", t, lam, hazard_arc.as_ref().hazard_rate(t));
+        }
+
+        let market_boot = MarketContext::new()
+            .insert(
+                <finstack_core::market_data::term_structures::DiscountCurve as Clone>::clone(
+                    disc_arc.as_ref(),
+                ),
+            )
+            .insert(bootstrapped);
+        let disc_b = market_boot.get_discount(&option.discount_curve_id).unwrap();
+        let haz_b = market_boot.get_hazard(&option.credit_curve_id).unwrap();
+
+        let inputs_b = pricer
+            .forward_cds_black_inputs(&option, disc_b.as_ref(), haz_b.as_ref(), as_of)
+            .expect("forward inputs (bootstrapped)");
+        let prot_b = cds_pricer
+            .pv_protection_leg(&cds, disc_b.as_ref(), haz_b.as_ref(), as_of)
+            .unwrap()
+            .amount();
+        let prem_b = cds_pricer
+            .forward_premium_leg_pv_per_bp(
+                &cds,
+                disc_b.as_ref(),
+                haz_b.as_ref(),
+                as_of,
+                option.expiry,
+            )
+            .unwrap();
+        eprintln!("\n=== With bootstrapped hazard ===");
+        eprintln!("  forward_spread_bp (with adjust) = {:.6} bp", inputs_b.forward_spread_bp);
+        eprintln!("  natural forward_bp              = {:.6} bp", inputs_b.forward_spread_bp - 28.882376223847);
+        eprintln!("  forward_protection_pv           = {:.4} USD", prot_b);
+        eprintln!("  forward_RPV01                   = {:.6}", prem_b / ONE_BASIS_POINT);
+        eprintln!("  Bloomberg-implied protection_pv ≈ 2,450,000  RPV01 ≈ 4.439");
     }
 
     #[test]

@@ -57,6 +57,13 @@ pub struct CDSOptionParams {
     /// Forward spread adjustment as a decimal rate (e.g., 0.0025 = 25bp)
     #[serde(default)]
     pub forward_spread_adjust: Decimal,
+    /// Contractual coupon `c` of the underlying CDS, expressed as a decimal
+    /// rate (e.g., 0.01 for 100 bp standard CDX). When `None`, the synthetic
+    /// underlying CDS uses `strike` as its running coupon (single-name SNAC
+    /// default). Required for CDS index options where the index has a fixed
+    /// standard coupon different from the option strike.
+    #[serde(default)]
+    pub underlying_cds_coupon: Option<Decimal>,
     /// Day count for the option's Black time-to-expiry. Defaults to
     /// `Act/360` per ISDA SNAC; the inclusive-end +1d rule that aligns with
     /// the Bloomberg CDSO display lives in
@@ -130,6 +137,7 @@ impl CDSOptionParams {
             underlying_is_index: false,
             index_factor: None,
             forward_spread_adjust: Decimal::ZERO,
+            underlying_cds_coupon: None,
             day_count: DayCount::Act360,
         };
         params.validate()?;
@@ -176,6 +184,15 @@ impl CDSOptionParams {
     #[must_use]
     pub fn with_forward_spread_adjust(mut self, adjust: Decimal) -> Self {
         self.forward_spread_adjust = adjust;
+        self
+    }
+
+    /// Set the contractual coupon `c` of the underlying CDS as a decimal rate
+    /// (e.g., 0.01 for 100 bp standard CDX). Required for CDX/iTraxx index
+    /// options where the standard coupon differs from the option strike.
+    #[must_use]
+    pub fn with_underlying_cds_coupon(mut self, coupon: Decimal) -> Self {
+        self.underlying_cds_coupon = Some(coupon);
         self
     }
 }
