@@ -43,7 +43,7 @@ pub fn register_credit_pricers(registry: &mut PricerRegistry) {
     registry.register(
         InstrumentType::CDSOption,
         ModelKey::Black76,
-        crate::instruments::credit_derivatives::cds_option::pricer::SimpleCDSOptionBlackPricer::default(),
+        crate::instruments::credit_derivatives::cds_option::pricer::SimpleCDSOptionBlackPricer,
     );
 
     // Structured Credit - unified pricer for ABS, CLO, CMBS, RMBS

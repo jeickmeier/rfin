@@ -46,7 +46,6 @@ fn decimal_to_f64(value: Decimal, field: &str) -> Result<f64> {
 /// only convention this engine supports) and reads scalar conventions
 /// (`BASIS_POINTS_PER_UNIT`, `THETA_DAYS_PER_YEAR`, `IV_INITIAL_GUESS`)
 /// from module-level constants.
-#[derive(Default)]
 pub(crate) struct CDSOptionPricer;
 
 impl CDSOptionPricer {
@@ -574,8 +573,7 @@ impl CDSOptionPricer {
             self.forward_spread_from_pricer(option, disc.as_ref(), hazard.as_ref(), as_of)?;
 
         // Risky annuity from expiry to maturity
-        let ra =
-            self.risky_annuity_from_pricer(option, disc.as_ref(), hazard.as_ref(), as_of)?;
+        let ra = self.risky_annuity_from_pricer(option, disc.as_ref(), hazard.as_ref(), as_of)?;
         // df_expiry not needed as ra is already PV
 
         // Objective in log-σ space to keep σ>0
@@ -672,7 +670,6 @@ fn synthetic_underlying_cds(option: &CDSOption) -> Result<CreditDefaultSwap> {
 /// CDS options have a single supported model in this engine (Black76 on
 /// forward CDS spreads); the registry adapter is therefore a unit struct
 /// that hard-codes `ModelKey::Black76`.
-#[derive(Default)]
 pub(crate) struct SimpleCDSOptionBlackPricer;
 
 impl crate::pricer::Pricer for SimpleCDSOptionBlackPricer {
@@ -704,7 +701,7 @@ impl crate::pricer::Pricer for SimpleCDSOptionBlackPricer {
 
         // Use the provided as_of date for valuation
         // Compute present value using the engine
-        let pv = CDSOptionPricer::default()
+        let pv = CDSOptionPricer
             .npv(cds_option, market, as_of)
             .map_err(|e| {
                 crate::pricer::PricingError::model_failure_with_context(
@@ -799,7 +796,7 @@ mod tests {
             .expect("front-loaded hazard curve");
         let market = MarketContext::new().insert(discount).insert(hazard);
 
-        let pricer = CDSOptionPricer::default();
+        let pricer = CDSOptionPricer;
         let actual = pricer
             .risky_annuity(&option, &market, as_of)
             .expect("risky annuity");

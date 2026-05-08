@@ -645,12 +645,20 @@
         },
         "finstack_reconciliation": {
           "pricing_path": "black76 pricer with cap_floor vol_type=normal (Bachelier)",
-          "npv": 238915.04797859202,
-          "npv_minus_bloomberg": -19412.892021407984,
-          "vega_per_1pct_normal_vol": 260778.85201164076,
-          "vega_per_1pct_minus_100x_bloomberg_vega_1bp": -5167.147988359269,
-          "dv01": 2249.02678298387,
-          "dv01_note": "Bloomberg screen reports -2158.57; finstack's generic cap/floor DV01 is a signed parallel combined curve-bump measure and uses the transcribed curve/projection inputs."
+          "npv": 258327.302870,
+          "npv_minus_bloomberg": -0.637130,
+          "npv_relative_difference": 2.466e-06,
+          "npv_note": "Finstack NPV reconciles to Bloomberg SWPM screen within $1 on $10MM notional (~2.5e-6 relative). Residual is at-or-below screen rounding precision.",
+          "vega_per_1pct_normal_vol": 265953.839136,
+          "bloomberg_vega_per_1pct_normal_vol": 265946.0,
+          "vega_per_1pct_minus_100x_bloomberg_vega_1bp": 7.839136,
+          "vega_relative_difference": 2.948e-05,
+          "vega_note": "Bloomberg displays Vega(1bp)=2,659.46; expected_outputs stores per-1pct normal-vol value 265,946.0. Finstack matches within ~$8 (3e-5 relative).",
+          "dv01_unsigned": 2136.424312,
+          "bloomberg_dv01_unsigned": 2158.57,
+          "dv01_minus_bloomberg_unsigned": -22.145688,
+          "dv01_relative_difference": 0.01026,
+          "dv01_note": "Bloomberg screen reports DV01=-2158.57 (signed); expected_outputs stores the positive magnitude 2158.57 per the long-cap rate-up convention. Finstack's quote-basis DV01 is 2136.42 (signed combined-curve parallel bump). Residual ~1% reflects the remaining quote-basis vs Bloomberg-published-DV01 convention gap; see the dv01 tolerance_reason for the open investigation."
         },
         "curve_points": [
           {

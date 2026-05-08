@@ -11,6 +11,6 @@ pub(crate) struct ParSpreadCalculator;
 impl MetricCalculator for ParSpreadCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &CDSOption = context.instrument_as()?;
-        CDSOptionPricer::default().forward_spread_bp(option, &context.curves, context.as_of)
+        CDSOptionPricer.forward_spread_bp(option, &context.curves, context.as_of)
     }
 }
