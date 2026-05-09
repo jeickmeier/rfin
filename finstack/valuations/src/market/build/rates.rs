@@ -337,11 +337,18 @@ fn build_swap(
         Decimal::try_from(*rate).map_err(|_| finstack_core::InputError::ConversionOverflow)?;
     let compounding = match conv.kind {
         RateIndexKind::Term => crate::instruments::rates::irs::FloatingLegCompounding::Simple,
-        RateIndexKind::OvernightRfr => conv.ois_compounding.clone().ok_or_else(|| {
-            Error::Validation(
-                "Overnight RFR index conventions must specify `ois_compounding`".to_string(),
-            )
-        })?,
+        RateIndexKind::OvernightRfr => match ctx.ois_compounding_override() {
+            // Step-level override takes precedence over the per-index registry
+            // default. This lets a calibration step match a vendor-specific
+            // convention (e.g. Bloomberg SWPM SOFR uses CompoundedWithRateCutoff)
+            // without changing the global registry.
+            Some(override_compounding) => override_compounding.clone(),
+            None => conv.ois_compounding.clone().ok_or_else(|| {
+                Error::Validation(
+                    "Overnight RFR index conventions must specify `ois_compounding`".to_string(),
+                )
+            })?,
+        },
     };
 
     if matches!(conv.kind, RateIndexKind::OvernightRfr)

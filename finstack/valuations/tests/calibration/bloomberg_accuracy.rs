@@ -373,6 +373,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         pricing_discount_id: None,
         pricing_forward_id: None,
         conventions: finstack_valuations::calibration::RatesStepConventions {
+            ois_compounding: None,
             curve_day_count: Some(DayCount::Act365F),
         },
     };

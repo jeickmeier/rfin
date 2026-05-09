@@ -127,6 +127,7 @@ pub(crate) fn bump_discount_curve_from_rate_calibration(
         pricing_discount_id: None,
         pricing_forward_id: None,
         conventions: RatesStepConventions {
+            ois_compounding: None,
             curve_day_count: Some(curve.day_count()),
         },
     };
@@ -264,6 +265,7 @@ pub fn bump_discount_curve_synthetic(
         pricing_discount_id: None,
         pricing_forward_id: None,
         conventions: RatesStepConventions {
+            ois_compounding: None,
             curve_day_count: Some(DayCount::Act365F),
         },
     };

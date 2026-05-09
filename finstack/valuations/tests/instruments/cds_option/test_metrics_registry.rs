@@ -91,6 +91,7 @@ fn bump_quote_calibrated_discount(
         pricing_discount_id: None,
         pricing_forward_id: None,
         conventions: RatesStepConventions {
+            ois_compounding: None,
             curve_day_count: Some(curve.day_count()),
         },
     };

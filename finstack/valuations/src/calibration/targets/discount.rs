@@ -396,8 +396,11 @@ Global solve requires strictly increasing times.",
         curve_ids.insert("forward".to_string(), forward_id.to_string());
 
         // Use a realistic notional to avoid Money rounding noise in coupon construction.
+        // Apply step-level OIS compounding override if set; bootstrap-internal swaps for
+        // OvernightRfr indices will use this compounding instead of the registry default.
         let build_ctx =
-            crate::market::build::context::BuildCtx::new(params.base_date, 1_000_000.0, curve_ids);
+            crate::market::build::context::BuildCtx::new(params.base_date, 1_000_000.0, curve_ids)
+                .with_ois_compounding_override(params.conventions.ois_compounding.clone());
 
         let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(rates_quotes.len());
 

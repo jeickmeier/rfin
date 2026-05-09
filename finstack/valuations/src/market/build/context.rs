@@ -4,6 +4,7 @@ use finstack_core::dates::Date;
 use finstack_core::{Error, HashMap, InputError, Result};
 
 use crate::instruments::credit_derivatives::cds::CdsValuationConvention;
+use crate::instruments::rates::irs::FloatingLegCompounding;
 
 /// Context for building instruments from market quotes.
 ///
@@ -91,6 +92,16 @@ pub struct BuildCtx {
     curve_ids: HashMap<String, String>,
     /// Optional CDS valuation convention for instruments built from CDS quotes.
     cds_valuation_convention: Option<CdsValuationConvention>,
+    /// Optional override for the OIS floating-leg compounding mode used when
+    /// building swap instruments from `RateQuote::Swap` quotes whose index is
+    /// classified as `OvernightRfr`.
+    ///
+    /// When `None`, [`crate::market::build::rates::build_swap`] uses the
+    /// per-index registry default (e.g. `CompoundedInArrears { lookback_days: 2 }`
+    /// for SOFR per ARRC convention). Set this from a calibration step to
+    /// match a different vendor convention (e.g. Bloomberg SWPM SOFR uses
+    /// `CompoundedWithRateCutoff { cutoff_days: 1 }`).
+    ois_compounding_override: Option<FloatingLegCompounding>,
 }
 
 impl BuildCtx {
@@ -125,6 +136,7 @@ impl BuildCtx {
             notional,
             curve_ids,
             cds_valuation_convention: None,
+            ois_compounding_override: None,
         }
     }
 
@@ -141,6 +153,26 @@ impl BuildCtx {
     /// Optional CDS valuation convention for CDS quote-built instruments.
     pub(crate) fn cds_valuation_convention(&self) -> Option<CdsValuationConvention> {
         self.cds_valuation_convention
+    }
+
+    /// Return a copy with an OIS compounding override for swap quote builds.
+    ///
+    /// When set, [`crate::market::build::rates::build_swap`] uses this
+    /// compounding mode for `OvernightRfr`-classified indices instead of
+    /// the per-index registry default. Pass-through (`None`) preserves
+    /// existing behavior.
+    #[must_use]
+    pub(crate) fn with_ois_compounding_override(
+        mut self,
+        override_compounding: Option<FloatingLegCompounding>,
+    ) -> Self {
+        self.ois_compounding_override = override_compounding;
+        self
+    }
+
+    /// Optional OIS compounding override for swap-quote instrument construction.
+    pub(crate) fn ois_compounding_override(&self) -> Option<&FloatingLegCompounding> {
+        self.ois_compounding_override.as_ref()
     }
 
     /// Valuation date for instruments built with this context.

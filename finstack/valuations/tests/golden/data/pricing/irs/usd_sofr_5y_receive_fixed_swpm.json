@@ -130,7 +130,7 @@
       "schema": "finstack.calibration",
       "plan": {
         "id": "usd_sofr_5y_swpm_calibrated",
-        "description": "USD-SOFR discount curve calibrated from Bloomberg SWPM Curve 490 Market Rates (transcribed 2026-04-30). 26 quotes total: 3 short-end deposits (1W-3W) and 23 OIS swaps (1M-12Y). Pillars use Tenor form against base date 2026-04-30 (the trade date). The resulting curve differs slightly from the original snapshot because Bloomberg SWPM bootstraps from spot (2026-05-04, T+2) with Mod-Following BDC + USNY calendar, while Finstack's calibration uses Tenor-from-base conventions; this introduces ~1bp drift in the 5Y zone visible in the pricing metrics.",
+        "description": "USD-SOFR discount curve calibrated from Bloomberg SWPM Curve 490 Market Rates (transcribed 2026-04-30). 26 quotes total: 3 short-end deposits (1W-3W) and 23 OIS swaps (1M-12Y). The step's `conventions.ois_compounding` override sets the bootstrap-internal float-leg compounding to `CompoundedWithRateCutoff{cutoff_days: 1}` to match Bloomberg SWPM's convention (which differs from ARRC's `CompoundedInArrears{lookback_days: 2}` default). Without this override, calibrated DFs at the 5Y zone drift by ~3-4e-4 from Bloomberg's screen values.",
         "quote_sets": {
           "swpm_490_rates": [
             {
@@ -487,7 +487,12 @@
             "pricing_discount_id": null,
             "pricing_forward_id": null,
             "conventions": {
-              "curve_day_count": "Act365F"
+              "curve_day_count": "Act365F",
+              "ois_compounding": {
+                "CompoundedWithRateCutoff": {
+                  "cutoff_days": 1
+                }
+              }
             }
           }
         ],
@@ -767,16 +772,16 @@
   },
   "tolerances": {
     "npv": {
-      "abs": 110.0,
-      "tolerance_reason": "Bloomberg SWPM screen value remains the assertion target. Phase-2 envelope migration (2026-05-09): the discount curve is now calibrated from SWPM Market Rates (deposits + OIS swaps) rather than supplied as the rounded curve-grid snapshot. Finstack's calibration uses Tenor-from-base conventions while Bloomberg uses spot+tenor with USNY MFC, producing ~1bp drift in the 5Y zone. The looser tolerance accommodates this convention gap."
+      "abs": 70.0,
+      "tolerance_reason": "Bloomberg SWPM screen value remains the assertion target. The calibration's `conventions.ois_compounding = CompoundedWithRateCutoff{cutoff_days: 1}` override aligns the bootstrap-internal float-leg compounding with Bloomberg's SWPM convention, eliminating ~40 NPV of drift vs the registry's ARRC `CompoundedInArrears{lookback_days: 2}` default. Residual ~62 NPV comes from finer-grained schedule/day-count differences (sub-period day counts, stub handling, etc.) that aren't reproducible without internal access to Bloomberg's pricing kernel."
     },
     "par_rate": {
-      "abs": 3e-06,
-      "tolerance_reason": "Bloomberg par coupon to six decimals (percent). Phase-2 envelope migration (2026-05-09): tolerance loosened from 5e-07 to 3e-06 to accommodate Finstack's Tenor-from-base bootstrap conventions vs Bloomberg's spot+tenor schedule generation. The ~0.025 bp drift dominates this metric on a calibrated curve."
+      "abs": 1.5e-06,
+      "tolerance_reason": "Bloomberg par coupon to six decimals (percent). With the OIS compounding override matching Bloomberg's SWPM convention, par_rate drift is ~0.014 bp (was ~0.025 bp without override). Residual is from the same higher-order schedule conventions as NPV."
     },
     "dv01": {
-      "abs": 0.5,
-      "tolerance_reason": "Executable DV01 from Finstack's signed receive-fixed convention against the calibrated curve. Phase-2 envelope migration: loosened from 0.3 to 0.5 to absorb the same convention drift as NPV/par_rate. Bloomberg's screen-positive 4523.48 is retained in inputs.source_reference.screen_outputs for provenance."
+      "abs": 0.65,
+      "tolerance_reason": "Executable DV01 from Finstack's signed receive-fixed convention against the calibrated curve. The OIS compounding override slightly shifts the bootstrap-implied curve, producing a small (~0.6) DV01 delta vs Bloomberg's screen value. Bloomberg's screen-positive 4523.48 is retained in inputs.source_reference.screen_outputs for provenance."
     },
     "fixed_leg_payment_count": {
       "abs": 1e-12

@@ -803,6 +803,21 @@ pub struct RatesStepConventions {
     #[serde(default)]
     #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub curve_day_count: Option<finstack_core::dates::DayCount>,
+
+    /// Optional override for the OIS floating-leg compounding mode used by
+    /// the calibration's bootstrap-internal swaps.
+    ///
+    /// When unset, the bootstrap uses the registered per-index default
+    /// (e.g. SOFR → `CompoundedInArrears { lookback_days: 2 }` per ARRC).
+    /// Set this to match a vendor convention that differs from the registry
+    /// default — e.g. Bloomberg SWPM SOFR uses
+    /// `CompoundedWithRateCutoff { cutoff_days: 1 }` for the daily-compounded
+    /// float leg, and a curve calibrated against SWPM screen rates needs to
+    /// price its bootstrap swaps with the same compounding to bit-match
+    /// Bloomberg's resulting DFs.
+    #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "unknown | null"))]
+    pub ois_compounding: Option<crate::instruments::rates::irs::FloatingLegCompounding>,
 }
 
 // =============================================================================
