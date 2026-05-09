@@ -1,0 +1,35 @@
+{
+  "schema": "finstack.calibration",
+  "plan": {
+    "id": "fx_snapshot",
+    "description": "Snapshot-only example: FX matrix supplied via initial_market.fx, with no calibration steps. Demonstrates Track B — non-bootstrapped market data (FX cross rates) carried directly through initial_market. Three direct quotes (EUR/USD, USD/JPY, GBP/USD) are supplied; EUR/JPY is not quoted directly but is available via triangulation through the USD pivot. Shows both direct lookup and triangulated cross-rate retrieval.",
+    "quote_sets": {},
+    "steps": [],
+    "settings": {}
+  },
+  "initial_market": {
+    "version": 2,
+    "curves": [],
+    "fx": {
+      "config": {
+        "pivot_currency": "USD",
+        "enable_triangulation": true,
+        "cache_capacity": 256
+      },
+      "quotes": [
+        ["EUR", "USD", 1.085],
+        ["USD", "JPY", 152.40],
+        ["GBP", "USD", 1.266]
+      ]
+    },
+    "surfaces": [],
+    "prices": {},
+    "series": [],
+    "inflation_indices": [],
+    "dividends": [],
+    "credit_indices": [],
+    "fx_delta_vol_surfaces": [],
+    "vol_cubes": [],
+    "collateral": {}
+  }
+}

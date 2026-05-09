@@ -81,3 +81,60 @@ fn example_03_single_name_hazard_composes_on_initial_market() {
         "sp(1y) should be in (0, 1), got {survival_one_year}"
     );
 }
+
+#[test]
+fn example_09_fx_matrix_supports_cross_rate_lookup() {
+    use finstack_core::currency::Currency;
+    use finstack_core::money::fx::FxQuery;
+    use time::macros::date;
+
+    let envelope = load_envelope("09_fx_matrix.json");
+    let market = execute(&envelope);
+
+    let fx = market
+        .fx()
+        .expect("FX matrix must be present in the snapshot-only market");
+
+    let as_of = date!(2025 - 03 - 20);
+
+    // --- Direct quote: EUR/USD ---
+    let eur_usd = fx
+        .rate(FxQuery::new(Currency::EUR, Currency::USD, as_of))
+        .expect("EUR/USD direct quote must be retrievable");
+    assert!(
+        !eur_usd.triangulated,
+        "EUR/USD is a direct quote and should not be marked as triangulated"
+    );
+    assert!(
+        eur_usd.rate > 0.5 && eur_usd.rate < 2.0,
+        "EUR/USD rate should be in a sane range (0.5, 2.0), got {}",
+        eur_usd.rate
+    );
+
+    // --- Triangulated cross: EUR/JPY via USD pivot ---
+    // EUR/JPY is not a direct quote; it must be computed as EUR→USD→JPY.
+    let eur_jpy = fx
+        .rate(FxQuery::new(Currency::EUR, Currency::JPY, as_of))
+        .expect("EUR/JPY cross rate must be computable via USD triangulation");
+    assert!(
+        eur_jpy.triangulated,
+        "EUR/JPY should be marked as triangulated (no direct quote supplied)"
+    );
+    assert!(
+        eur_jpy.rate > 0.0,
+        "EUR/JPY triangulated rate must be positive, got {}",
+        eur_jpy.rate
+    );
+
+    // Sanity: EUR/JPY ≈ EUR/USD × USD/JPY = 1.085 × 152.40 ≈ 165.35
+    let expected_approx = eur_usd.rate
+        * fx.rate(FxQuery::new(Currency::USD, Currency::JPY, as_of))
+            .expect("USD/JPY direct quote must be retrievable")
+            .rate;
+    assert!(
+        (eur_jpy.rate - expected_approx).abs() < 1e-6,
+        "EUR/JPY cross rate {:.6} should match EUR/USD × USD/JPY {:.6}",
+        eur_jpy.rate,
+        expected_approx
+    );
+}
