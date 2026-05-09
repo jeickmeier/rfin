@@ -297,4 +297,3 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
     let index = ctx.get_credit_index("CDX").expect("credit index");
     assert_eq!(index.base_correlation_curve.id().as_str(), "CDX_CORR");
 }
-
