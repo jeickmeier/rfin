@@ -1,0 +1,170 @@
+{
+  "schema": "finstack.calibration",
+  "plan": {
+    "id": "cdx_ig_46_base_correlation",
+    "description": "CDX.NA.IG.46 base correlation curve calibrated from 4–5 standard CDX tranche quotes (3/7%, 7/10%, 10/15%, 15/30% detachment points) against the index hazard curve in initial_market. Demonstrates layered Track A composition: discount + hazard in initial_market, base correlation as the calibrated step. The base_correlation step accepts use_imm_dates: true to align tranche payment dates to IMM convention. Used by 12 (full credit desk composite).",
+    "quote_sets": {
+      "cdx_ig_46_tranche_quotes": [
+        {
+          "class": "cds_tranche",
+          "type": "cds_tranche",
+          "id": "CDX-IG-46-0-3",
+          "index": "CDX-NA-IG-46",
+          "attachment": 0.0,
+          "detachment": 0.03,
+          "maturity": "2031-06-20",
+          "upfront_pct": 4.62694533,
+          "running_spread_bp": 100.0,
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          }
+        },
+        {
+          "class": "cds_tranche",
+          "type": "cds_tranche",
+          "id": "CDX-IG-46-3-7",
+          "index": "CDX-NA-IG-46",
+          "attachment": 0.03,
+          "detachment": 0.07,
+          "maturity": "2031-06-20",
+          "upfront_pct": -4.77313875,
+          "running_spread_bp": 100.0,
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          }
+        },
+        {
+          "class": "cds_tranche",
+          "type": "cds_tranche",
+          "id": "CDX-IG-46-7-10",
+          "index": "CDX-NA-IG-46",
+          "attachment": 0.07,
+          "detachment": 0.10,
+          "maturity": "2031-06-20",
+          "upfront_pct": -4.79328900,
+          "running_spread_bp": 100.0,
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          }
+        },
+        {
+          "class": "cds_tranche",
+          "type": "cds_tranche",
+          "id": "CDX-IG-46-10-15",
+          "index": "CDX-NA-IG-46",
+          "attachment": 0.10,
+          "detachment": 0.15,
+          "maturity": "2031-06-20",
+          "upfront_pct": -4.79328900,
+          "running_spread_bp": 100.0,
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          }
+        },
+        {
+          "class": "cds_tranche",
+          "type": "cds_tranche",
+          "id": "CDX-IG-46-15-30",
+          "index": "CDX-NA-IG-46",
+          "attachment": 0.15,
+          "detachment": 0.30,
+          "maturity": "2031-06-20",
+          "upfront_pct": -4.78617213,
+          "running_spread_bp": 100.0,
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          }
+        }
+      ]
+    },
+    "steps": [
+      {
+        "id": "CDX-NA-IG-46-BASE-CORR-STEP",
+        "quote_set": "cdx_ig_46_tranche_quotes",
+        "kind": "base_correlation",
+        "index_id": "CDX-NA-IG-46",
+        "series": 46,
+        "maturity_years": 5.1,
+        "base_date": "2026-05-08",
+        "discount_curve_id": "USD-OIS",
+        "currency": "USD",
+        "detachment_points": [0.03, 0.07, 0.10, 0.15, 0.30],
+        "use_imm_dates": true
+      }
+    ],
+    "settings": {}
+  },
+  "initial_market": {
+    "version": 2,
+    "curves": [
+      {
+        "type": "discount",
+        "id": "USD-OIS",
+        "base": "2026-05-08",
+        "day_count": "Act365F",
+        "knot_points": [
+          [0.0, 1.0],
+          [1.0, 0.96],
+          [3.0, 0.88],
+          [5.0, 0.82],
+          [10.0, 0.68]
+        ],
+        "interp_style": "log_linear",
+        "extrapolation": "flat_forward",
+        "min_forward_rate": null,
+        "allow_non_monotonic": false,
+        "min_forward_tenor": 1e-6,
+        "rate_calibration": null
+      },
+      {
+        "type": "hazard",
+        "id": "CDX-NA-IG-46",
+        "base": "2026-05-08",
+        "knot_points": [
+          [0.0, 0.0010],
+          [5.0, 0.0012],
+          [10.0, 0.0015]
+        ],
+        "recovery_rate": 0.40,
+        "issuer": null,
+        "seniority": null,
+        "currency": null,
+        "day_count": "Act365F",
+        "par_points": [],
+        "par_interp": "Linear"
+      },
+      {
+        "type": "base_correlation",
+        "id": "CDX-NA-IG-46_CORR",
+        "detachment_points": [3.0, 7.0, 10.0, 15.0, 30.0],
+        "correlations": [0.10, 0.20, 0.30, 0.40, 0.55]
+      }
+    ],
+    "fx": null,
+    "surfaces": [],
+    "prices": {},
+    "series": [],
+    "inflation_indices": [],
+    "dividends": [],
+    "credit_indices": [
+      {
+        "id": "CDX-NA-IG-46",
+        "num_constituents": 125,
+        "recovery_rate": 0.40,
+        "index_credit_curve_id": "CDX-NA-IG-46",
+        "base_correlation_curve_id": "CDX-NA-IG-46_CORR",
+        "issuer_credit_curve_ids": null,
+        "issuer_recovery_rates": null,
+        "issuer_weights": null
+      }
+    ],
+    "fx_delta_vol_surfaces": [],
+    "vol_cubes": [],
+    "collateral": {}
+  }
+}

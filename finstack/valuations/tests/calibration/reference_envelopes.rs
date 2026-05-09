@@ -181,3 +181,27 @@ fn example_04_cdx_ig_hazard_builds_queryable_curve() {
         "5y survival should be in (0, 1), got {survival_5y}"
     );
 }
+
+#[test]
+fn example_05_cdx_base_correlation_builds_queryable_curve() {
+    let envelope = load_envelope("05_cdx_base_correlation.json");
+    let market = execute(&envelope);
+
+    market
+        .get_discount("USD-OIS")
+        .expect("discount carried through from initial_market");
+    market
+        .get_hazard("CDX-NA-IG-46")
+        .expect("CDX index hazard carried through from initial_market");
+
+    let bc = market
+        .get_base_correlation("CDX-NA-IG-46_CORR")
+        .expect("base correlation curve present after calibration");
+
+    // detachment_pct is in percentage units: 7.0 means the 7% detachment point.
+    let corr_7pct = bc.correlation(7.0);
+    assert!(
+        (0.0..=1.0).contains(&corr_7pct),
+        "base correlation at 7% detachment should be in [0, 1], got {corr_7pct}"
+    );
+}
