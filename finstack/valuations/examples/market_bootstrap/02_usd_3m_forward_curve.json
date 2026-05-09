@@ -2,7 +2,7 @@
   "schema": "finstack.calibration",
   "plan": {
     "id": "usd_sofr_3m_forward",
-    "description": "USD 3M SOFR forward curve calibrated from a small set of futures and FRA quotes against an initial_market USD-OIS discount curve. Demonstrates the standard rates pattern of bootstrapping a forward curve while holding a discount-curve assumption fixed.",
+    "description": "USD 3M SOFR forward curve calibrated from a strip of FRA quotes against an initial_market USD-OIS discount curve. Demonstrates the standard rates pattern of bootstrapping a forward curve while holding a discount-curve assumption fixed. FRAs were chosen over futures to keep the example free of the convexity-adjustment magic number futures calibration requires.",
     "quote_sets": {
       "sofr_3m_quotes": [
         {
