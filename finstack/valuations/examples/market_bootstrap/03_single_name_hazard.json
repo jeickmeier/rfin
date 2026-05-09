@@ -2,7 +2,7 @@
   "schema": "finstack.calibration",
   "plan": {
     "id": "issuer_a_hazard",
-    "description": "Single-name hazard curve for Issuer-A, bootstrapped from CDS par spreads against a USD-OIS discount curve provided via initial_market. Demonstrates Track B — composing a credit step on top of an existing rates environment.",
+    "description": "Single-name hazard curve for Issuer-A, bootstrapped from CDS par spreads against a USD-OIS discount curve provided via initial_market. Demonstrates Track A step-on-snapshot composition: a hazard calibration step runs against a discount curve carried through unchanged from initial_market. Recovery rate 0.4 follows the ISDA CDS standard model convention for senior unsecured single-name CDS.",
     "quote_sets": {
       "issuer_a_cds_quotes": [
         {
@@ -127,12 +127,12 @@
         "day_count": "Act360",
         "knot_points": [
           [0.0, 1.0],
-          [0.25, 0.9987],
-          [0.5, 0.9974],
-          [1.0, 0.9948],
-          [2.0, 0.9896],
-          [5.0, 0.9740],
-          [10.0, 0.9480]
+          [0.25, 0.98758],
+          [0.5, 0.97531],
+          [1.0, 0.95123],
+          [2.0, 0.90484],
+          [5.0, 0.77880],
+          [10.0, 0.60653]
         ],
         "interp_style": "log_linear",
         "extrapolation": "flat_forward",
