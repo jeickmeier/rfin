@@ -1,13 +1,22 @@
-//! Revolving-credit-specific CS01 calculators with graceful handling for missing
-//! credit curves.
+//! Revolving-credit-specific CS01 calculators with graceful handling for
+//! missing credit curves.
 //!
-//! When a facility has a credit (hazard) curve, CS01 is computed by bumping the
-//! hazard curve par spreads via [`GenericParallelCs01`] / [`GenericBucketedCs01`],
-//! and hazard-rate variants via [`GenericParallelCs01Hazard`] /
+//! When a facility has an associated credit (hazard) curve, CS01 follows the
+//! [canonical CS01 convention][canonical] — a parallel 1 bp shock to par CDS
+//! spreads with a symmetric (central) finite difference — by delegating to
+//! [`GenericParallelCs01`] / [`GenericBucketedCs01`]. Direct hazard-rate
+//! bump variants (same canonical sign convention, hazard-rate shift instead
+//! of par-spread shock) are exposed via [`GenericParallelCs01Hazard`] /
 //! [`GenericBucketedCs01Hazard`].
 //!
-//! When no credit curve is configured, all CS01 variants return zero — the
+//! When no credit curve is configured, all CS01 variants return `0.0`: the
 //! facility has no credit-model dependency to be sensitive to.
+//!
+//! Sign convention is identical to the canonical reference:
+//! - Long facility (drawn) → CS01 negative.
+//! - Short facility → CS01 positive.
+//!
+//! [canonical]: crate::metrics::sensitivities::cs01
 
 use crate::instruments::common_impl::traits::CurveDependencies;
 use crate::instruments::RevolvingCredit;

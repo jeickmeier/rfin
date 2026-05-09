@@ -1,21 +1,34 @@
 //! Bond-specific CS01 calculators with z-spread fallback.
 //!
-//! When a bond has a credit (hazard) curve, CS01 is computed by bumping the
-//! hazard curve par spreads (standard credit-model approach via
-//! [`GenericParallelCs01`] / [`GenericBucketedCs01`]).
+//! When a bond has an associated credit (hazard) curve, CS01 follows the
+//! [canonical CS01 convention][canonical] — a parallel 1 bp shock to par CDS
+//! spreads with a symmetric (central) finite difference — by delegating to
+//! [`GenericParallelCs01`] / [`GenericBucketedCs01`].
 //!
-//! When no credit curve is configured, CS01 is computed by bumping the bond's
-//! z-spread by 1 bp and measuring the PV change:
+//! When **no credit curve is configured**, no par CDS curve is available to
+//! bump, so CS01 falls back to the market-standard z-spread bump for vanilla
+//! bonds:
 //!
 //! ```text
-//! CS01 = PV(z + 1bp) - PV(z)
+//! CS01_fallback = PV(z + 1bp) - PV(z)        (forward difference)
 //! ```
 //!
-//! where `PV(z) = Σ CF_i · DF_i · exp(-z · t_i)`. This is the market-standard
-//! approach for vanilla bonds without an explicit credit model.
+//! where `PV(z) = Σ CF_i · DF_i · exp(-z · t_i)`. This is a deliberate
+//! deviation from the canonical methodology in two respects, called out here
+//! so consumers can audit the regime:
 //!
-//! The result is typically negative for a long bond position since increasing
-//! the z-spread reduces present value.
+//! 1. The shock is applied to the bond's z-spread rather than to par CDS
+//!    spreads (no hazard curve exists to re-bootstrap).
+//! 2. A forward difference is used in place of the canonical central
+//!    difference `(PV(z+1bp) − PV(z−1bp)) / 2`. The two agree to
+//!    `O(bump²) ≈ 10⁻⁸` of CS01 magnitude for a 1 bp shock; the forward
+//!    form is preserved for deterministic golden parity.
+//!
+//! Sign convention is identical to the canonical reference:
+//! - Long bond → CS01 negative (wider spreads reduce PV).
+//! - Short bond → CS01 positive.
+//!
+//! [canonical]: crate::metrics::sensitivities::cs01
 
 use crate::constants::ONE_BASIS_POINT;
 use crate::instruments::common_impl::traits::{CurveDependencies, Instrument};

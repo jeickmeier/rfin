@@ -153,24 +153,41 @@ impl MetricCalculator for ZSpreadCalculator {
 
 /// Calculates CS01 (credit spread DV01) for structured credit.
 ///
-/// CS01 measures the dollar change in value for a 1 basis point parallel shift
-/// in the credit spread. This is **THE PRIMARY RISK METRIC** for structured credit.
+/// CS01 measures the dollar change in tranche value for a 1 basis point
+/// parallel widening of the credit spread; for structured credit this is
+/// **the primary risk metric**.
 ///
-/// # Formula
+/// # Methodology
 ///
+/// Structured-credit tranches are not priced off a par CDS curve, so this
+/// calculator deviates from the workspace's canonical CS01 convention
+/// (parallel 1 bp shock to par CDS curve, central difference — see
+/// `metrics::sensitivities::cs01`). Instead it shocks the tranche's
+/// **z-spread** by 1 bp and uses a forward finite difference:
+///
+/// ```text
 /// CS01 = PV(z + 1bp) - PV(z)
+///       = Σ CF_i · DF_i · (exp(-(z + 1bp) · t_i) − exp(-z · t_i))
+/// ```
 ///
-/// # Market Conventions
+/// The forward form is preserved for deterministic golden parity; it agrees
+/// with the canonical central form to `O(bump²) ≈ 10⁻⁸` of CS01 magnitude
+/// for a 1 bp shock.
+///
+/// # Sign Convention
+///
+/// Identical to the workspace canonical reference:
+/// - Long tranche → CS01 negative (wider spreads reduce PV).
+/// - Short tranche → CS01 positive.
+///
+/// # Market Conventions (magnitudes for orientation)
 ///
 /// - **CLO AAA**: $0.30-$0.50 per $100 face (30-50 DV01)
 /// - **ABS AAA**: $2-$6 per $100 face
 /// - **RMBS AAA**: $3-$8 per $100 face
 /// - **CMBS AAA**: $4-$8 per $100 face
 ///
-/// # Key Insight
-///
-/// For **floating-rate CLO**: CS01 >> DV01 (spread risk dominates IR risk)
-///
+/// For **floating-rate CLO**, `|CS01| >> |DV01|` (spread risk dominates IR risk).
 pub struct Cs01Calculator;
 
 impl MetricCalculator for Cs01Calculator {
@@ -240,15 +257,20 @@ impl MetricCalculator for Cs01Calculator {
 
 /// Calculates spread duration for structured credit.
 ///
-/// Spread duration measures the percentage change in price for a 1% change in spread,
-/// expressed in years. This converts CS01 into a duration-like metric.
+/// Spread duration measures the percentage change in price for a 1 % change
+/// in spread, expressed in years; it converts CS01 into a duration-like
+/// metric.
 ///
 /// # Formula
 ///
+/// ```text
 /// Spread Duration = -CS01 / (Price × 0.0001)
+/// ```
 ///
-/// The negation keeps spread duration positive (like modified duration),
-/// since CS01 is negative for a long position.
+/// Per the workspace canonical CS01 sign convention (see
+/// `metrics::sensitivities::cs01`), CS01 is negative for a long tranche /
+/// sell protection position; the leading minus sign therefore keeps spread
+/// duration positive (in line with modified duration).
 ///
 /// # Interpretation
 ///
@@ -352,8 +374,19 @@ pub fn calculate_tranche_z_spread(
 
 /// Calculate tranche-specific CS01 (credit spread sensitivity).
 ///
-/// CS01 measures the dollar change in value for a 1 basis point parallel shift
-/// in the credit spread.
+/// CS01 measures the dollar change in tranche value for a 1 basis point
+/// parallel widening of the credit spread.
+///
+/// # Methodology
+///
+/// Structured-credit tranches are not priced off a par CDS curve, so this
+/// helper deviates from the workspace's canonical CS01 convention
+/// (parallel 1 bp shock to par CDS curve, central difference — see
+/// `metrics::sensitivities::cs01`). It shocks the supplied `z_spread` by
+/// 1 bp and uses a forward finite difference
+/// `CS01 = PV(z + 1bp) − PV(z)`. The forward form is preserved for
+/// deterministic golden parity; it agrees with the canonical central form to
+/// `O(bump²) ≈ 10⁻⁸` of CS01 magnitude for a 1 bp shock.
 ///
 /// # Arguments
 ///
@@ -364,8 +397,9 @@ pub fn calculate_tranche_z_spread(
 ///
 /// # Returns
 ///
-/// CS01 in currency units (dollar value change per 1bp spread increase).
-/// Typically negative for a long position since wider spreads reduce PV.
+/// CS01 in currency units (dollar value change per 1 bp spread increase).
+/// Sign convention follows the workspace canonical reference: long tranche /
+/// sell protection → negative; short tranche / buy protection → positive.
 pub fn calculate_tranche_cs01(
     cashflows: &DatedFlows,
     discount_curve: &DiscountCurve,

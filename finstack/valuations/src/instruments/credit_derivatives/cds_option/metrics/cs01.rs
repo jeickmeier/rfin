@@ -1,9 +1,21 @@
-//! CDS Option CS01 metric calculators.
+//! CDS Option CS01 metric calculator.
 //!
-//! CDS option spread DV01 is defined as quoted CDS spread risk: bump CDS quotes,
-//! re-bootstrap the hazard curve, and reprice the option. Direct hazard-rate CS01
-//! is intentionally not exposed for CDS options, so callers cannot accidentally
-//! mix quote-spread and hazard-rate conventions.
+//! Implements the [canonical CS01 convention][canonical]: a parallel 1 bp shock
+//! to the par CDS quotes underlying the option, re-bootstrapped under the
+//! synthetic underlying CDS's doc clause and valuation convention, with a
+//! symmetric (central) finite difference `(PV(s + 1bp) − PV(s − 1bp)) / 2`.
+//!
+//! Direct hazard-rate CS01 is intentionally **not** exposed for CDS options,
+//! so callers cannot accidentally mix quote-spread and hazard-rate
+//! conventions; CDS option CS01 always means "quote-spread risk".
+//!
+//! Sign convention (per canonical reference):
+//! - Payer option / receiver of credit risk: signs follow the underlying
+//!   delta — typically positive when long protection exposure, negative when
+//!   short. Long bond / sell protection equivalents are negative; short bond
+//!   / buy protection equivalents are positive.
+//!
+//! [canonical]: crate::metrics::sensitivities::cs01
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds::metrics::market_doc_clause;

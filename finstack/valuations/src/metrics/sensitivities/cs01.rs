@@ -1,16 +1,51 @@
-//! Reusable helpers for bucketed CS01 (credit spread sensitivity) using key-rate bumps.
+//! Reusable helpers for parallel and bucketed CS01 (credit spread sensitivity).
 //!
-//! Provides generic functions to compute bucketed CS01 for instruments that
-//! depend on hazard curves. Results are stored into `MetricContext` via structured
-//! series using stable composite keys.
+//! This module is the **canonical CS01 reference for the workspace.** All
+//! credit-bearing instruments (CDS, CDS Index, CDS Option, CDS Tranche, Bond,
+//! Term Loan, Revolving Credit, Structured Credit, Convertible) report CS01
+//! against this convention; any per-instrument calculator that deviates must
+//! call out the deviation explicitly in its module documentation.
+//!
+//! # Canonical Methodology
+//!
+//! Where the instrument has an associated par CDS / hazard curve, CS01 is a
+//! **parallel 1 bp shock to the par CDS curve, re-bootstrapped, with a
+//! symmetric (central) finite difference**:
+//!
+//! ```text
+//! CS01 = (PV(s + 1bp) - PV(s - 1bp)) / 2
+//! ```
+//!
+//! where `s` is the par-spread term structure used to bootstrap the hazard
+//! curve. The bumped curve is re-bootstrapped under the same CDS conventions
+//! (doc clause, valuation convention, discount curve) as the base curve so
+//! that CS01 measures market par-spread sensitivity rather than incidental
+//! curve-construction artefacts. The bucketed variant applies the same shock
+//! one tenor at a time and reports a per-bucket series whose sum reconciles
+//! to the parallel value.
+//!
+//! When par-spread points are unavailable (e.g. directly-specified hazard
+//! curves), the helpers fall back to a parallel 1 bp **hazard-rate** shift
+//! using the same symmetric central difference; this is exposed separately as
+//! `cs01_hazard` / `bucketed_cs01_hazard` to keep the two regimes auditable.
 //!
 //! # Units and Sign Convention
 //!
-//! - **CS01 is expressed in currency units per basis point (1bp = 0.0001)**
-//! - A CS01 of -50 means the instrument loses $50 when credit spreads widen by 1bp
-//! - For protection buyers (long CDS): CS01 is typically positive (gain when spreads widen)
-//! - For protection sellers (short CDS): CS01 is typically negative (lose when spreads widen)
-//! - For corporate bonds: CS01 is typically negative (lose value when spreads widen)
+//! - CS01 is expressed in **currency units per basis point** (`1 bp = 0.0001`).
+//! - A CS01 of `-50` means the position loses $50 of PV when par credit
+//!   spreads widen by 1 bp.
+//! - Sign convention (consistent across **all** CS01 calculators in the
+//!   workspace, regardless of which methodology they use):
+//!
+//!   | Position                         | Expected CS01 sign |
+//!   |----------------------------------|--------------------|
+//!   | Long bond / sell protection      | Negative           |
+//!   | Short bond / buy protection      | Positive           |
+//!
+//!   In words: a long credit-risk holder (long bond, sell protection) loses
+//!   when spreads widen, so CS01 is negative; a short credit-risk holder
+//!   (short bond, buy protection) gains when spreads widen, so CS01 is
+//!   positive.
 
 use crate::calibration::bumps::hazard::{
     bump_hazard_shift, bump_hazard_spreads_with_doc_clause_and_valuation_convention,

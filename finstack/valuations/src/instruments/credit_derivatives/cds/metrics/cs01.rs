@@ -1,4 +1,16 @@
-//! CDS-specific CS01 calculator.
+//! CDS-specific CS01 calculators.
+//!
+//! Implements the [canonical CS01 convention][canonical]: parallel 1 bp shock
+//! to the par CDS curve, re-bootstrapped under the deal's doc clause and
+//! valuation convention, with a symmetric (central) finite difference
+//! `(PV(s + 1bp) − PV(s − 1bp)) / 2`. The bucketed variant applies the same
+//! shock one tenor at a time and reports a per-bucket series.
+//!
+//! Sign convention (per canonical reference):
+//! - Sell protection (long credit risk) → CS01 negative.
+//! - Buy protection (short credit risk) → CS01 positive.
+//!
+//! [canonical]: crate::metrics::sensitivities::cs01
 
 use super::{hazard_with_deal_quote, market_doc_clause};
 use crate::instruments::common_impl::traits::CurveDependencies;

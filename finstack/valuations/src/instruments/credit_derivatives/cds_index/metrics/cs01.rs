@@ -1,12 +1,27 @@
 //! CDS Index CS01 metric calculators.
 //!
-//! - `Cs01Calculator`: parallel CS01 from per-name finite-difference, summed
-//!   over surviving constituents (or computed on the synthetic CDS in
-//!   `SingleCurve` mode). Routed through `CDSIndexPricer::cs01`.
-//! - `Cs01HazardCalculator`: parallel hazard-shift CS01 that correctly bumps
-//!   ALL credit curves used by the index and reprices. Replaces the generic
-//!   `GenericParallelCs01Hazard`, which would only bump the (unused) index-
-//!   level curve in `Constituents` mode.
+//! Both calculators report CS01 against the [canonical convention][canonical]:
+//! a parallel 1 bp shock to credit spreads with a symmetric (central) finite
+//! difference `(PV(s + 1bp) − PV(s − 1bp)) / 2`. They differ only in *which*
+//! spread is shocked and how the index aggregates per-name sensitivity:
+//!
+//! - [`Cs01Calculator`]: parallel CS01 derived from per-name finite differences
+//!   summed over surviving constituents (or computed on the synthetic CDS in
+//!   `SingleCurve` mode). Routed through [`CDSIndex::cs01`]; treats each
+//!   constituent's bump as a parallel par-spread shock.
+//! - [`Cs01HazardCalculator`]: parallel hazard-shift CS01 that bumps **every**
+//!   credit curve declared as a dependency by the index (one synthetic curve
+//!   in `SingleCurve` mode, N constituent curves in `Constituents` mode) and
+//!   reprices end-to-end. Replaces the generic `GenericParallelCs01Hazard`,
+//!   which would only bump the (unused) index-level curve in `Constituents`
+//!   mode.
+//!
+//! Sign convention (per canonical reference):
+//! - Long index protection (sell protection) → CS01 negative.
+//! - Short index protection (buy protection) → CS01 positive.
+//!
+//! [canonical]: crate::metrics::sensitivities::cs01
+//! [`CDSIndex::cs01`]: crate::instruments::credit_derivatives::cds_index::CDSIndex::cs01
 
 use crate::calibration::bumps::hazard::bump_hazard_shift;
 use crate::calibration::bumps::BumpRequest;

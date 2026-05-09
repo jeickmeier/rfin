@@ -1,14 +1,26 @@
 //! CDS tranche–specific CS01 calculators.
 //!
-//! The generic CS01 calculator assumes `CurveDependencies::credit_curves`
-//! contains direct hazard curve IDs.  For CDS tranches, however, the credit
-//! dependency is a **credit index ID** (e.g. `"CDX.NA.IG.HAZARD"`), and the
-//! actual hazard curve sits inside the `CreditIndexData` under a different ID
-//! (e.g. `"CDX-HAZ"`).
+//! Implements the [canonical CS01 convention][canonical]: a parallel 1 bp
+//! shock to the par CDS curve underlying the credit index, re-bootstrapped,
+//! with a symmetric (central) finite difference
+//! `(PV(s + 1bp) − PV(s − 1bp)) / 2`. The bucketed variant applies the same
+//! shock one tenor at a time.
 //!
-//! These calculators resolve the index → hazard mapping before delegating to
-//! the shared CS01 bump helpers. This applies to both par-spread and
-//! direct hazard-rate bump variants.
+//! These calculators differ from the workspace generics only in how they
+//! resolve the credit curve. The generic CS01 calculator assumes
+//! `CurveDependencies::credit_curves` contains direct hazard curve IDs;
+//! for CDS tranches, however, the credit dependency is a **credit index ID**
+//! (e.g. `"CDX.NA.IG.HAZARD"`), and the actual hazard curve sits inside the
+//! `CreditIndexData` under a different ID (e.g. `"CDX-HAZ"`). These
+//! calculators resolve the index → hazard mapping before delegating to the
+//! shared CS01 bump helpers. The same resolution applies to both par-spread
+//! and direct hazard-rate bump variants.
+//!
+//! Sign convention (per canonical reference):
+//! - Long tranche / sell tranche protection → CS01 negative.
+//! - Short tranche / buy tranche protection → CS01 positive.
+//!
+//! [canonical]: crate::metrics::sensitivities::cs01
 
 use crate::calibration::bumps::hazard::bump_hazard_shift;
 use crate::calibration::bumps::BumpRequest;

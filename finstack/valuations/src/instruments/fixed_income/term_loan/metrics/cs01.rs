@@ -1,11 +1,19 @@
-//! Term-loan-specific CS01 calculators with graceful handling for missing credit curves.
+//! Term-loan-specific CS01 calculators with graceful handling for missing
+//! credit curves.
 //!
-//! When a term loan has a credit (hazard) curve, CS01 is computed by bumping the
-//! hazard curve par spreads (standard credit-model approach via
-//! [`GenericParallelCs01`] / [`GenericBucketedCs01`]).
+//! When a term loan has an associated credit (hazard) curve, CS01 follows the
+//! [canonical CS01 convention][canonical] — a parallel 1 bp shock to par CDS
+//! spreads with a symmetric (central) finite difference — by delegating to
+//! [`GenericParallelCs01`] / [`GenericBucketedCs01`].
 //!
-//! When no credit curve is configured, CS01 is zero — the loan has no
-//! credit-model dependency to be sensitive to.
+//! When no credit curve is configured, CS01 is reported as `0.0`: the loan
+//! has no credit-model dependency to be sensitive to.
+//!
+//! Sign convention is identical to the canonical reference:
+//! - Long term loan → CS01 negative.
+//! - Short term loan → CS01 positive.
+//!
+//! [canonical]: crate::metrics::sensitivities::cs01
 
 use crate::instruments::common_impl::traits::CurveDependencies;
 use crate::instruments::TermLoan;

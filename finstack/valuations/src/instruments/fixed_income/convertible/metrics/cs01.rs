@@ -1,17 +1,26 @@
 //! CS01 calculator for convertible bonds.
 //!
-//! Computes CS01 (credit spread sensitivity) using finite differences.
-//! For convertible bonds, credit spread sensitivity can be measured by
-//! bumping the discount curve (which may include credit spread) or a
-//! separate credit curve if available.
+//! Convertible bonds are hybrid instruments with both debt and equity
+//! components and are typically priced without a separate hazard curve, so
+//! this calculator deviates from the [canonical CS01 convention][canonical]
+//! (par CDS curve bump). It instead applies a parallel 1 bp shock to the
+//! configured **credit curve ID** (resolved against the discount-curve
+//! container, which may already embed the credit spread) and uses the same
+//! symmetric (central) finite difference as the canonical helpers:
 //!
-//! # Note
+//! ```text
+//! CS01 = (PV(s + 1bp) - PV(s - 1bp)) / 2
+//! ```
 //!
-//! Convertible bonds are hybrid instruments with both debt and equity components.
-//! Credit spread sensitivity affects the bond component more than the equity
-//! conversion option. If the discount curve includes credit spread, bumping
-//! it directly captures CS01. If a separate credit curve exists, it should
-//! be used instead.
+//! When `credit_curve_id` is `None`, credit risk is not modelled
+//! independently and CS01 is reported as `0.0` (bumping a generic discount
+//! curve would produce rho, not CS01).
+//!
+//! Sign convention is identical to the canonical reference:
+//! - Long convertible → CS01 negative (wider spreads reduce PV).
+//! - Short convertible → CS01 positive.
+//!
+//! [canonical]: crate::metrics::sensitivities::cs01
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::convertible::ConvertibleBond;
@@ -32,25 +41,19 @@ impl MetricCalculator for Cs01Calculator {
             return Ok(0.0);
         }
 
-        // CS01 measures credit spread sensitivity. This requires a separate credit
-        // curve; if none is provided, credit risk is not modeled independently and
-        // CS01 is zero (bumping the discount curve would give Rho, not CS01).
-        let bump_bp = 1.0; // 1bp in bp-count units (BumpSpec::parallel_bp convention)
+        let bump_bp = 1.0;
 
         let curve_to_bump = match &bond.credit_curve_id {
             Some(id) => id,
             None => return Ok(0.0),
         };
 
-        // Central finite difference: bump both up and down for O(h^2) accuracy,
-        // consistent with the rho and dividend01 calculators.
         let curves_up = bump_discount_curve_parallel(&context.curves, curve_to_bump, bump_bp)?;
         let curves_down = bump_discount_curve_parallel(&context.curves, curve_to_bump, -bump_bp)?;
 
         let pv_up = bond.value(&curves_up, as_of)?.amount();
         let pv_down = bond.value(&curves_down, as_of)?.amount();
 
-        // CS01 = (PV_up - PV_down) / 2 per 1bp credit spread move
         let cs01 = (pv_up - pv_down) / 2.0;
 
         Ok(cs01)

@@ -251,10 +251,10 @@ CDS/credit analytics and credit-specific sensitivities.
 
 | Metric | Formula | Units | Instrument | Description |
 |--------|---------|-------|------------|-------------|
-| `cs01` | (PV(s+1bp) - PV(s-1bp)) / 2 | Currency/bp | CDS, Bond, Tranche | Credit spread sensitivity (parallel par-spread bump) |
-| `bucketed_cs01` | Per-tenor key-rate CS01 | Currency/bp | CDS, Bond, Tranche | Credit spread risk by tenor bucket |
-| `cs01_hazard` | (PV(h+1bp) - PV(h-1bp)) / 2 | Currency/bp | CDS, Bond, Tranche | CS01 via direct hazard-rate bump |
-| `bucketed_cs01_hazard` | Per-tenor hazard-rate CS01 | Currency/bp | CDS, Bond, Tranche | Bucketed CS01 via hazard-rate bumps |
+| `cs01` | (PV(s+1bp) - PV(s-1bp)) / 2 | Currency/bp | CDS, Bond, Tranche | Credit spread sensitivity (parallel 1bp shock to par CDS curve, central diff). Sign: long bond / sell protection negative, short bond / buy protection positive. See `metrics::sensitivities::cs01` for the canonical definition and per-instrument deviations. |
+| `bucketed_cs01` | Per-tenor key-rate CS01 | Currency/bp | CDS, Bond, Tranche | Tenor-bucketed `cs01`; sum reconciles to parallel value. Same convention as `cs01`. |
+| `cs01_hazard` | (PV(h+1bp) - PV(h-1bp)) / 2 | Currency/bp | CDS, Bond, Tranche | Alternative CS01 via direct parallel hazard-rate shift (central diff). Same sign convention as `cs01`. |
+| `bucketed_cs01_hazard` | Per-tenor hazard-rate CS01 | Currency/bp | CDS, Bond, Tranche | Tenor-bucketed `cs01_hazard`. Same sign convention as `cs01`. |
 | `par_spread` | Protection PV / Risky Annuity | bps | CDS, CDS Index, Tranche | Par spread (coupon setting NPV to zero) |
 | `risky_pv01` | Risky Annuity x Notional / 10000 | Currency/bp | CDS, CDS Index | PV change per 1bp premium spread |
 | `risky_annuity` | Sum(DF(t) x SP(t) x YearFrac) | Years | CDS, CDS Index | Survival-weighted premium leg annuity |
