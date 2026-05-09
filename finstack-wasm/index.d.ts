@@ -4,13 +4,13 @@
 // Building a MarketContext from quotes (canonical path):
 //
 //   import { valuations } from 'finstack-wasm/exports/valuations.js';
-//   const envelopeJson = JSON.stringify({
+//   import type { CalibrationEnvelope } from 'finstack-wasm';
+//   const envelope: CalibrationEnvelope = {
 //     schema: 'finstack.calibration',
 //     plan: { id: 'usd_curves', quote_sets: {...}, steps: [...], settings: {} },
 //     initial_market: null,
-//   });
-//   const resultJson = valuations.calibrate(envelopeJson);
-//   const result = JSON.parse(resultJson);  // CalibrationResultEnvelope
+//   };
+//   const result = valuations.calibrate(envelope);  // CalibrationResultEnvelope
 //   const marketJson = JSON.stringify(result.result.final_market);
 //
 // `result.result.final_market` is the materialized MarketContextState ready
@@ -24,6 +24,15 @@
 // the envelope without solving — use it to surface schema errors early.
 
 export { default } from './pkg/finstack_wasm';
+
+// --- Calibration envelope types (generated from Rust via ts-rs) ---
+export type { CalibrationEnvelope } from './types/generated/CalibrationEnvelope';
+export type { CalibrationPlan } from './types/generated/CalibrationPlan';
+export type { CalibrationStep } from './types/generated/CalibrationStep';
+export type { StepParams } from './types/generated/StepParams';
+export type { CalibrationResultEnvelope } from './types/generated/CalibrationResultEnvelope';
+export type { CalibrationResult } from './types/generated/CalibrationResult';
+export type { CalibrationReport } from './types/generated/CalibrationReport';
 
 // --- core -----------------------------------------------------------------
 
@@ -1430,17 +1439,19 @@ export interface ValuationsNamespace {
   decomposePeriod(fromLevels: LevelsAtDate, toLevels: LevelsAtDate): PeriodDecomposition;
   validateValuationResultJson(json: string): string;
   /**
-   * Validate a `CalibrationEnvelope` JSON string and return the canonical pretty-printed form.
+   * Validate a `CalibrationEnvelope` and return the canonical pretty-printed JSON string.
+   * Accepts either a typed object or a pre-serialized JSON string.
    * Use as a pre-flight check before passing an envelope to `calibrate`.
    */
-  validateCalibrationJson(json: string): string;
+  validateCalibrationJson(envelope: CalibrationEnvelope | string): string;
   /**
-   * Execute a `CalibrationEnvelope` and return the full `CalibrationResultEnvelope` JSON.
+   * Execute a `CalibrationEnvelope` and return the full `CalibrationResultEnvelope`.
+   * Accepts either a typed object or a pre-serialized JSON string.
    * The canonical path for building a `MarketContext` from quotes — the resulting
    * `result.final_market` is a materialized state ready for `MarketContext::try_from`
    * (Rust) or `result.market` (Python).
    */
-  calibrate(envelopeJson: string): string;
+  calibrate(envelope: CalibrationEnvelope | string): CalibrationResultEnvelope;
   validateInstrumentJson(json: string): string;
   priceInstrument(instrumentJson: string, marketJson: string, asOf: string, model: string): string;
   priceInstrumentWithMetrics(
