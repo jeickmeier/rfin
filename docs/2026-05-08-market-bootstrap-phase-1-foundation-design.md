@@ -97,7 +97,7 @@ Three minimum examples, under a new directory [finstack/valuations/examples/mark
 
 (Numbering leaves gaps for Phase 2 examples to fit between.)
 
-Each example includes a top-level `description` field explaining what the envelope builds and what dependencies it expects. Phase 3 adds `$schema` to all examples.
+Each example includes a `plan.description` field explaining what the envelope builds and what dependencies it expects. (`CalibrationEnvelope` uses `#[serde(deny_unknown_fields)]`, so the description must live inside `plan`, not at the top level.) Phase 3 adds `$schema` to all examples.
 
 [finstack/valuations/tests/calibration/reference_envelopes.rs](../finstack/valuations/tests/calibration/reference_envelopes.rs) — new file with three integration tests, one per example. Each test:
 1. Reads the JSON file from disk via `include_str!` or runtime `std::fs::read_to_string`.

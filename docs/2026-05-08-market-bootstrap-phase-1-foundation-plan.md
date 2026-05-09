@@ -237,7 +237,7 @@ The envelope must:
 2. Define a single `quote_set` (e.g., `"usd_quotes"`) containing a small mix of deposit + IRS `RateQuote` entries. 4–6 quotes is enough to anchor short and long ends.
 3. Define one `discount` step in `plan.steps` referencing the quote set, with `id` set to a curve identifier such as `"USD-OIS"` and the step's discount-curve construction params (interpolation, day_count, base date) set to project defaults.
 4. Omit `initial_market` (or set it to `null`).
-5. Include a top-level `"description"` field summarizing what the envelope builds.
+5. Include a `plan.description` field summarizing what the envelope builds. (`CalibrationEnvelope` uses `deny_unknown_fields`, so the description must be inside `plan`, not at the top level.)
 
 Concrete shape to mirror — look at how an existing in-tree calibration test (e.g., `finstack/valuations/tests/calibration/bootstrap.rs`) constructs a `CalibrationEnvelope` programmatically, then serialize to JSON via `serde_json::to_string_pretty(&envelope)` and use that as the file body. This guarantees the JSON matches the exact schema.
 
@@ -316,7 +316,7 @@ Expected: FAIL (file does not exist).
 Create `finstack/valuations/examples/market_bootstrap/03_single_name_hazard.json`. Required shape:
 
 1. `"schema": "finstack.calibration"`.
-2. Top-level `"description"` explaining the envelope.
+2. `plan.description` explaining the envelope. (Top-level `"description"` is rejected by `CalibrationEnvelope`'s `deny_unknown_fields`.)
 3. `plan.quote_sets` contains one set (e.g., `"issuer_a_cds_quotes"`) with 3–5 `CdsQuote` entries spanning short to long maturities (1Y, 3Y, 5Y, 7Y, 10Y is conventional).
 4. `plan.steps` contains one `hazard` step referencing the CDS quote set, with `id` set to `"ISSUER-A-CDS"`, `discount_curve_id` set to `"USD-OIS"`, and `recovery_rate` set to `0.4` (or whatever the schema requires for single-name).
 5. `initial_market` carries a small materialized `MarketContextState` containing exactly one curve (the `USD-OIS` discount curve, with a few knot points sufficient for hazard pricing).
@@ -398,10 +398,9 @@ Create `finstack/valuations/examples/market_bootstrap/09_fx_matrix.json` with sh
 ```json
 {
   "schema": "finstack.calibration",
-  "description": "Snapshot-only example: FX matrix supplied via initial_market.fx, with no calibration steps. Demonstrates how to express FX cross rates today and how to triangulate via the pivot currency.",
   "plan": {
     "id": "fx_snapshot",
-    "description": "No-op plan; everything lives in initial_market.",
+    "description": "Snapshot-only example: FX matrix supplied via initial_market.fx, with no calibration steps. Demonstrates how to express FX cross rates today and how to triangulate via the pivot currency.",
     "quote_sets": {},
     "steps": [],
     "settings": {}
