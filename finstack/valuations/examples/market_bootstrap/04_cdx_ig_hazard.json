@@ -2,7 +2,7 @@
   "schema": "finstack.calibration",
   "plan": {
     "id": "cdx_ig_46_hazard",
-    "description": "CDX.NA.IG.46 index hazard curve calibrated from index par-spread quotes at IMM tenors against an initial_market USD-OIS discount curve. Differs from 03_single_name_hazard.json by using index conventions (IMM dates, doc clause, currency) instead of single-name issuer terms. Used as initial_market input by 05 (base correlation) and 06 (CDX index vol).",
+    "description": "CDX.NA.IG.46 index hazard curve calibrated from index par-spread quotes against an initial_market USD-OIS discount curve. Differs from 03_single_name_hazard.json by switching the entity from a single-name issuer to the index name, with index-shaped spreads (50/75/100/110/120 bp). The HazardCurveParams schema does not currently expose an IMM-date convention flag (that flag exists only on BaseCorrelationParams); pillars are tenor-based for both single-name and index calibrations, and the IMM rolling shows up only inside the synthetic CDS schedule generation controlled by doc_clause. doc_clause `isda_na` is the USD default and applies to both single-name and index NA conventions. Used as initial_market input by 05 (base correlation) and 06 (CDX index vol).",
     "quote_sets": {
       "cdx_ig_46_cds": [
         {
@@ -112,8 +112,7 @@
         "notional": 1.0,
         "method": "Bootstrap",
         "interpolation": "linear",
-        "par_interp": "Linear",
-        "doc_clause": "isda_na"
+        "par_interp": "Linear"
       }
     ],
     "settings": {}
