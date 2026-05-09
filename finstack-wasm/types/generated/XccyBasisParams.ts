@@ -8,43 +8,43 @@ import type { RatesStepConventions } from "./RatesStepConventions";
  * Derives a foreign-currency discount curve from a domestic OIS curve,
  * FX spot rate, and cross-currency basis swap or FX forward quotes.
  */
-export type XccyBasisParams = { 
+export type XccyBasisParams = {
 /**
  * Identifier for the foreign discount curve being built.
  */
-curve_id: string, 
+curve_id: string,
 /**
  * Foreign currency being calibrated.
  */
-currency: string, 
+currency: string,
 /**
  * Base date for the curve.
  */
-base_date: string, 
+base_date: string,
 /**
  * FX spot rate (domestic per foreign).
  */
-fx_spot: number, 
+fx_spot: number,
 /**
  * Identifier for the pre-calibrated domestic discount curve.
  */
-domestic_discount_id: string, 
+domestic_discount_id: string,
 /**
  * Calibration method to use.
  */
-method: CalibrationMethod, 
+method: CalibrationMethod,
 /**
  * Interpolation style for the foreign curve.
  */
-interpolation: string, 
+interpolation: string,
 /**
  * Extrapolation policy for the foreign curve.
  */
-extrapolation: string, 
+extrapolation: string,
 /**
  * Step-level conventions for pricing and curve time axis.
  */
-conventions: RatesStepConventions, 
+conventions: RatesStepConventions,
 /**
  * Optional ID for the byproduct basis spread curve.
  */

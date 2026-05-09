@@ -6,23 +6,23 @@
  * Fits a Nelson-Siegel or Nelson-Siegel-Svensson yield curve model to
  * rate instrument quotes using global (Levenberg-Marquardt) optimization.
  */
-export type ParametricCurveParams = { 
+export type ParametricCurveParams = {
 /**
  * Identifier for the parametric curve being built.
  */
-curve_id: string, 
+curve_id: string,
 /**
  * Base date for the curve.
  */
-base_date: string, 
+base_date: string,
 /**
  * Nelson-Siegel variant (NS or NSS).
  */
-model: string, 
+model: string,
 /**
  * Optional separate discount curve ID for multi-curve instrument pricing.
  */
-discount_curve_id: string | null, 
+discount_curve_id: string | null,
 /**
  * Optional initial parameter guesses.
  */

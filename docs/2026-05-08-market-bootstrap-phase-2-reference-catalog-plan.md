@@ -999,6 +999,7 @@ If a cell errors due to an accessor name mismatch (e.g., `market.fx_rate` not th
 - [ ] **Step 4: Sanity check structure**
 
 Run:
+
 ```bash
 python -c "
 import nbformat

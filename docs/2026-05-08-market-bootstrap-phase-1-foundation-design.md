@@ -69,7 +69,7 @@ Two-track structure of reference envelopes (carried through Phases 1 and 2):
 - Document the two-track structure (steps for bootstrapped data, `initial_market` for snapshot data).
 - Cross-reference the materialized-snapshot deserialization path (`serde_json::from_str::<MarketContextState>(...)` followed by `MarketContext::try_from(state)`) as a different use case: rehydrating a previously-saved context, not building one from quotes.
 
-[finstack-py/finstack/valuations/__init__.pyi](../finstack-py/finstack/valuations/__init__.pyi):
+[finstack-py/finstack/valuations/**init**.pyi](../finstack-py/finstack/valuations/__init__.pyi):
 - Module docstring leads with "Build a `MarketContext` from quotes via `calibrate(envelope_json).market`."
 - `calibrate` docstring expanded with a minimal envelope skeleton and the step-vs-snapshot distinction.
 
@@ -140,7 +140,7 @@ Phase 2 expands this notebook into a fuller walkthrough.
 
 - [ ] `calibrate` and `validateCalibrationJson` callable from JavaScript via the public WASM exports.
 - [ ] [finstack/valuations/src/calibration/mod.rs](../finstack/valuations/src/calibration/mod.rs) crate doc opens with the canonical-path narrative.
-- [ ] [finstack-py/finstack/valuations/__init__.pyi](../finstack-py/finstack/valuations/__init__.pyi) module docstring leads with `calibrate(envelope).market`.
+- [ ] [finstack-py/finstack/valuations/**init**.pyi](../finstack-py/finstack/valuations/__init__.pyi) module docstring leads with `calibrate(envelope).market`.
 - [ ] Three example envelope JSON files exist and parse as `CalibrationEnvelope`.
 - [ ] Three Rust integration tests pass: each demonstrates the produced `MarketContext` answers a typical accessor query.
 - [ ] Pricing golden runners (Rust + Python) accept `market_envelope`. Both-keys-present is rejected with the documented error message.

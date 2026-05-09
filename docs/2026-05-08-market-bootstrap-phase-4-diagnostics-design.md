@@ -165,7 +165,7 @@ def dependency_graph_json(envelope_json: str) -> str: ...
 
 `calibrate` and `validate_calibration_json` raise `CalibrationEnvelopeError` (still inheriting `RuntimeError`, so existing `except RuntimeError` callers continue to work).
 
-[finstack-py/finstack/valuations/__init__.pyi](../finstack-py/finstack/valuations/__init__.pyi):
+[finstack-py/finstack/valuations/**init**.pyi](../finstack-py/finstack/valuations/__init__.pyi):
 - Add `CalibrationEnvelopeError`, `dry_run`, `dependency_graph_json` to `__all__` with stubs.
 
 ### 5.6 WASM binding

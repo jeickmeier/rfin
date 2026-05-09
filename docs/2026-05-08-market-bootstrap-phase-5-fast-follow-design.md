@@ -91,7 +91,7 @@ class CalibrationEnvelope(TypedDict):
 
 (The actual TypedDict tree handles tagged-union dispatch as cleanly as Python's type system allows. `Literal` field types help editors narrow on the discriminator. For the stubbornly-untyped union arms, `dict` is honest about the gap; users still get top-level autocomplete on field names.)
 
-[finstack-py/finstack/valuations/__init__.pyi](../finstack-py/finstack/valuations/__init__.pyi):
+[finstack-py/finstack/valuations/**init**.pyi](../finstack-py/finstack/valuations/__init__.pyi):
 - Re-export `CalibrationEnvelope` and the related TypedDict types from the `envelope` module.
 
 [finstack-py/tests/test_envelope_typeddict.py](../finstack-py/tests/test_envelope_typeddict.py):
