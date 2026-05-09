@@ -205,3 +205,22 @@ fn example_05_cdx_base_correlation_builds_queryable_curve() {
         "base correlation at 7% detachment should be in [0, 1], got {corr_7pct}"
     );
 }
+
+#[test]
+fn example_06_cdx_index_vol_builds_queryable_surface() {
+    let envelope = load_envelope("06_cdx_index_vol.json");
+    let market = execute(&envelope);
+
+    market
+        .get_discount("USD-OIS")
+        .expect("discount carried through from initial_market");
+    market
+        .get_hazard("CDX-NA-IG-46")
+        .expect("CDX index hazard carried through from initial_market");
+
+    let surface = market
+        .get_surface("CDX-NA-IG-46-CDSO-VOL")
+        .expect("CDX index vol surface present after calibration");
+
+    let _ = surface;
+}
