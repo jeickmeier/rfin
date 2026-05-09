@@ -370,3 +370,31 @@ fn example_11_equity_spots_and_dividends_support_lookup() {
         "AAPL dividend schedule should be non-empty"
     );
 }
+
+#[test]
+fn example_12_full_credit_desk_market_chains_steps() {
+    let envelope = load_envelope("12_full_credit_desk_market.json");
+    let market = execute(&envelope);
+
+    // All three calibrated curves should be present.
+    market
+        .get_discount("USD-OIS")
+        .expect("discount curve produced by step");
+    let hazard = market
+        .get_hazard("CDX-NA-IG-46")
+        .expect("hazard curve produced by step");
+    market
+        .get_base_correlation("CDX-NA-IG-46_CORR")
+        .expect("base correlation curve produced by step");
+
+    // FX matrix from initial_market must survive.
+    let fx = market.fx().expect("fx matrix from initial_market");
+    let _ = fx;
+
+    // Sanity: hazard at 5y is in (0, 1).
+    let sp_5y = hazard.sp(5.0);
+    assert!(
+        sp_5y > 0.0 && sp_5y < 1.0,
+        "5y survival should be in (0, 1), got {sp_5y}"
+    );
+}
