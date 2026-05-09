@@ -10,13 +10,12 @@
           "attributes": {},
           "cds_maturity": "2030-06-20",
           "credit_curve_id": "CORP-HAZARD",
-          "day_count": "Act360",
           "discount_curve_id": "USD-OIS",
           "exercise_style": "european",
           "expiry": "2025-06-20",
-          "forward_spread_adjust": "0",
           "id": "CDSOPT-CALL-CORP-5Y",
           "index_factor": null,
+          "knockout": false,
           "notional": {
             "amount": "10000000",
             "currency": "USD"
@@ -25,27 +24,29 @@
           "pricing_overrides": {
             "adaptive_bumps": false,
             "call_friction_cents": null,
-            "cds_quote_bp": null,
+            "cds_act360_include_last_day": false,
+            "cds_aod_half_day_bias": false,
             "credit_spread_bump_bp": null,
-            "implied_volatility": null,
             "mc_seed_scenario": null,
             "mean_reversion": null,
-            "quoted_clean_price": null,
+            "oas_price_basis": "settlement_dirty",
+            "oas_quote_compounding": "continuous",
             "rate_bump_bp": null,
             "rho_bump_decimal": null,
             "spot_bump_pct": null,
             "theta_period": null,
             "tree_steps": null,
-            "upfront_payment": null,
             "use_gobet_miri": false,
             "vega_bump_decimal": null,
             "vol_bump_pct": null,
             "vol_surface_extrapolation": "error",
             "ytm_bump_decimal": null
           },
+          "protection_start_convention": "spot",
           "recovery_rate": 0.4,
           "settlement": "cash",
           "strike": "0.01",
+          "underlying_cds_coupon": null,
           "underlying_convention": "isda_na",
           "underlying_is_index": false,
           "vol_surface_id": "CDSOPT-VOL"
@@ -1407,6 +1408,21 @@
               },
               "type": "object"
             },
+            "ProtectionStartConvention": {
+              "description": "Accrual-start convention for the synthetic underlying CDS used by CDSO.",
+              "oneOf": [
+                {
+                  "const": "spot",
+                  "description": "Spot-protection CDS: standard prior CDS roll relative to valuation date.",
+                  "type": "string"
+                },
+                {
+                  "const": "forward",
+                  "description": "Forward-protection CDS: accrual starts at option expiry.",
+                  "type": "string"
+                }
+              ]
+            },
             "SABRParameters": {
               "description": "SABR model parameters",
               "properties": {
@@ -1622,6 +1638,11 @@
                 "null"
               ]
             },
+            "knockout": {
+              "default": false,
+              "description": "Whether the option knocks out if the underlying defaults before\nexercise. This is contract-specific; new instruments default to\nno-knockout and legacy single-name books can opt in explicitly.",
+              "type": "boolean"
+            },
             "notional": {
               "$ref": "#/$defs/Money",
               "description": "Notional amount"
@@ -1655,19 +1676,23 @@
               },
               "description": "Pricing overrides (including implied volatility)"
             },
-            "recovery_rate": {
-              "description": "Recovery rate assumption",
-              "format": "double",
-              "type": "number"
+            "protection_start_convention": {
+              "$ref": "#/$defs/ProtectionStartConvention",
+              "default": "spot",
+              "description": "Convention used to select the synthetic underlying CDS accrual start\nwhen `underlying_effective_date` is not explicitly supplied."
             },
             "realized_index_loss": {
-              "default": null,
-              "description": "Realized cumulative index loss from option inception to valuation date, expressed per unit of original index notional. Applies only to no-knockout CDS index options.",
+              "description": "Realized cumulative index loss from option inception to valuation\ndate, expressed per unit of original index notional.\n\nBloomberg CDSO treats index options as no-knockout. Settled losses\nafter option inception are therefore deterministic payoff adjustments\nat exercise (DOCS 2055833 Eq. 2.5 and DOCS 2151513). Single-name\noptions knock out instead and must leave this unset.",
               "format": "double",
               "type": [
                 "number",
                 "null"
               ]
+            },
+            "recovery_rate": {
+              "description": "Recovery rate assumption",
+              "format": "double",
+              "type": "number"
             },
             "settlement": {
               "$ref": "#/$defs/SettlementType",

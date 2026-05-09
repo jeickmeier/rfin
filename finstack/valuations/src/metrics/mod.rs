@@ -610,12 +610,6 @@ fn register_credit_cs01_metrics(registry: &mut MetricRegistry) {
         &[crate::pricer::InstrumentType::CDSIndex],
     );
     // BucketedCs01Hazard for CDSTranche and RevolvingCredit are registered
-    // locally by their respective metrics modules with custom wrappers.
-    registry.register_metric(
-        MetricId::BucketedCs01Hazard,
-        std::sync::Arc::new(GenericBucketedCs01Hazard::<
-            crate::instruments::credit_derivatives::cds_option::CDSOption,
-        >::default()),
-        &[crate::pricer::InstrumentType::CDSOption],
-    );
+    // locally by their respective metrics modules with custom wrappers. CDS
+    // options intentionally expose only quoted-spread CS01, not hazard-rate CS01.
 }

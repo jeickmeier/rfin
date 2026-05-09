@@ -3109,6 +3109,11 @@
                     "null"
                   ]
                 },
+                "knockout": {
+                  "default": false,
+                  "description": "Whether the option knocks out if the underlying defaults before\nexercise. This is contract-specific; new instruments default to\nno-knockout and legacy single-name books can opt in explicitly.",
+                  "type": "boolean"
+                },
                 "notional": {
                   "$ref": "#/$defs/Money",
                   "description": "Notional amount"
@@ -3141,6 +3146,19 @@
                     "ytm_bump_decimal": null
                   },
                   "description": "Pricing overrides (including implied volatility)"
+                },
+                "protection_start_convention": {
+                  "$ref": "#/$defs/ProtectionStartConvention",
+                  "default": "spot",
+                  "description": "Convention used to select the synthetic underlying CDS accrual start\nwhen `underlying_effective_date` is not explicitly supplied."
+                },
+                "realized_index_loss": {
+                  "description": "Realized cumulative index loss from option inception to valuation\ndate, expressed per unit of original index notional.\n\nBloomberg CDSO treats index options as no-knockout. Settled losses\nafter option inception are therefore deterministic payoff adjustments\nat exercise (DOCS 2055833 Eq. 2.5 and DOCS 2151513). Single-name\noptions knock out instead and must leave this unset.",
+                  "format": "double",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "recovery_rate": {
                   "description": "Recovery rate assumption",
@@ -15692,6 +15710,21 @@
                 "settlement_delay"
               ],
               "type": "object"
+            },
+            "ProtectionStartConvention": {
+              "description": "Accrual-start convention for the synthetic underlying CDS used by CDSO.",
+              "oneOf": [
+                {
+                  "const": "spot",
+                  "description": "Spot-protection CDS: standard prior CDS roll relative to valuation date.",
+                  "type": "string"
+                },
+                {
+                  "const": "forward",
+                  "description": "Forward-protection CDS: accrual starts at option expiry.",
+                  "type": "string"
+                }
+              ]
             },
             "QuantoOption": {
               "additionalProperties": false,

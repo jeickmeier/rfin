@@ -15,8 +15,9 @@ use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve, Seniority};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOption;
-use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOptionParams;
+use finstack_valuations::instruments::credit_derivatives::cds_option::{
+    CDSOption, CDSOptionParams, ProtectionStartConvention,
+};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{CreditParams, OptionType};
 use rust_decimal::Decimal;
@@ -41,6 +42,7 @@ fn create_cds_option(
         underlying_is_index: false,
         index_factor: None,
         underlying_cds_coupon: None,
+        protection_start_convention: ProtectionStartConvention::Forward,
     };
 
     let credit_params = CreditParams {
@@ -57,6 +59,16 @@ fn create_cds_option(
         "CDS-VOL",
     )
     .expect("valid CDS option setup")
+}
+
+fn create_index_cds_option() -> CDSOption {
+    let mut option = create_cds_option(OptionType::Call, 1, 5);
+    option.underlying_is_index = true;
+    option.index_factor = Some(1.0);
+    option.underlying_cds_coupon = Some(Decimal::new(1, 2));
+    option.protection_start_convention = ProtectionStartConvention::Spot;
+    option.knockout = false;
+    option
 }
 
 fn create_market() -> MarketContext {
@@ -216,11 +228,25 @@ fn bench_cds_option_implied_vol(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_cds_index_option_npv(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cds_index_option_npv");
+    let market = create_market();
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let option = create_index_cds_option();
+
+    group.bench_function("index_payer_1M_5Y", |b| {
+        b.iter(|| option.value(black_box(&market), black_box(as_of)));
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_cds_option_npv,
     bench_cds_option_greeks,
     bench_cds_option_all_greeks,
-    bench_cds_option_implied_vol
+    bench_cds_option_implied_vol,
+    bench_cds_index_option_npv
 );
 criterion_main!(benches);

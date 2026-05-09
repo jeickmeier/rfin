@@ -11,13 +11,9 @@ use finstack_core::market_data::term_structures::{
 };
 use finstack_core::types::IndexId;
 use finstack_valuations::calibration::api::schema::DiscountCurveParams;
-use finstack_valuations::calibration::bumps::{
-    bump_discount_curve, bump_hazard_spreads_with_doc_clause_and_valuation_convention, BumpRequest,
-};
+use finstack_valuations::calibration::bumps::{bump_discount_curve, BumpRequest};
 use finstack_valuations::calibration::{CalibrationMethod, RatesStepConventions};
-use finstack_valuations::instruments::credit_derivatives::cds::CdsValuationConvention;
 use finstack_valuations::instruments::Instrument;
-use finstack_valuations::market::conventions::ids::CdsDocClause as MarketClause;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::rates::RateQuote;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
@@ -167,13 +163,9 @@ fn test_metrics_registry_all_greeks() {
 }
 
 #[test]
-fn test_cds_option_dv01_holds_hazard_constant_and_uses_bond_sign_convention() {
-    // Bloomberg DOCS 2057273 §4 IR DV01 convention: "holding all other
-    // inputs constant" — for the option's IR DV01, the hazard rates are
-    // held constant across the rate bump (par spreads are NOT held
-    // constant via re-bootstrap). The reported value uses the bond/CDSO
-    // screen sign convention: positive when the option's NPV INCREASES
-    // for a 1bp DOWNWARD parallel rate move.
+fn test_cds_option_dv01_bumps_swap_curve_quotes_and_uses_bloomberg_screen_convention() {
+    // CDSO IR DV01 is a swap-curve quote sensitivity. The Bloomberg screen
+    // reports the symmetric +/-1bp quote-shock PV change in bond sign.
     let as_of = date!(2025 - 01 - 01);
     let option = CDSOptionBuilder::new().build(as_of);
     let discount = quote_calibrated_discount(0.03, as_of);
@@ -207,20 +199,40 @@ fn test_cds_option_dv01_holds_hazard_constant_and_uses_bond_sign_convention() {
         let bumped_market = market.clone().insert(bumped_discount);
         option.value_raw(&bumped_market, as_of).unwrap()
     };
-    // Bond-convention IR DV01: NPV increase per 1bp downward shift.
-    let expected = -(bumped_pv(1.0) - bumped_pv(-1.0)) / 2.0;
+    let expected = -(bumped_pv(1.0) - bumped_pv(-1.0));
 
     let tol = 1e-6_f64.max(1e-8 * expected.abs());
     assert!(
         (dv01 - expected).abs() <= tol,
-        "CDS option DV01 should bump the discount curve, hold hazard rates constant, and report bond-convention positive-on-rate-down: metric={dv01}, expected={expected}, diff={}, tol={tol}",
+        "CDS option DV01 should bump swap-curve quotes and report the Bloomberg CDSO symmetric quote-shock amount: metric={dv01}, expected={expected}, diff={}, tol={tol}",
         (dv01 - expected).abs()
     );
-    let _ = bump_hazard_spreads_with_doc_clause_and_valuation_convention;
-    let _ = (
-        MarketClause::IsdaNa,
-        CdsValuationConvention::IsdaDirty,
-        BumpRequest::Parallel(0.0),
+}
+
+#[test]
+fn test_cds_option_dv01_requires_swap_curve_quote_calibration() {
+    let as_of = date!(2025 - 01 - 01);
+    let discount = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .knots([(0.0, 1.0), (1.0, 0.97), (5.0, 0.86), (10.0, 0.74)])
+        .build()
+        .unwrap();
+    let hazard = flat_hazard("HZ-SN", as_of, 0.4, 0.02);
+    let market = MarketContext::new().insert(discount).insert(hazard);
+    let option = CDSOptionBuilder::new().build(as_of);
+
+    let err = option
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .expect_err("CDS option DV01 should reject direct discount-factor bumps");
+    let message = err.to_string();
+    assert!(
+        message.contains("swap-curve quote calibration"),
+        "unexpected error: {message}"
     );
 }
 
@@ -277,6 +289,72 @@ fn test_cs01_uses_delta_dependency() {
     assert_finite(delta, "Delta");
     assert_finite(cs01, "CS01");
     assert_positive(cs01, "CS01 for call");
+}
+
+#[test]
+fn test_cds_option_rejects_hazard_rate_cs01_metrics() {
+    let as_of = date!(2025 - 01 - 01);
+    let market = standard_market(as_of);
+    let option = CDSOptionBuilder::new().build(as_of);
+
+    let pv = option.value(&market, as_of).unwrap();
+    let mut ctx = MetricContext::new(
+        std::sync::Arc::new(option),
+        std::sync::Arc::new(market),
+        as_of,
+        pv,
+        MetricContext::default_config(),
+    );
+
+    let registry = standard_registry();
+    let err = registry
+        .compute(&[MetricId::Cs01Hazard], &mut ctx)
+        .expect_err("CDS option should not expose hazard-rate CS01");
+    assert!(matches!(
+        err,
+        finstack_core::Error::MetricNotApplicable { .. }
+    ));
+
+    let err = registry
+        .compute(&[MetricId::BucketedCs01Hazard], &mut ctx)
+        .expect_err("CDS option should not expose bucketed hazard-rate CS01");
+    assert!(matches!(
+        err,
+        finstack_core::Error::MetricNotApplicable { .. }
+    ));
+}
+
+#[test]
+fn test_cds_option_cs01_requires_cds_quote_points() {
+    let as_of = date!(2025 - 01 - 01);
+    let discount = flat_discount("USD-OIS", as_of, 0.03);
+    let hazard = HazardCurve::builder("HZ-SN")
+        .base_date(as_of)
+        .recovery_rate(0.4)
+        .knots([(1.0, 0.02), (5.0, 0.02), (10.0, 0.02)])
+        .build()
+        .unwrap();
+    let market = MarketContext::new().insert(discount).insert(hazard);
+    let option = CDSOptionBuilder::new().build(as_of);
+
+    let pv = option.value(&market, as_of).unwrap();
+    let mut ctx = MetricContext::new(
+        std::sync::Arc::new(option),
+        std::sync::Arc::new(market),
+        as_of,
+        pv,
+        MetricContext::default_config(),
+    );
+
+    let registry = standard_registry();
+    let err = registry
+        .compute(&[MetricId::Cs01], &mut ctx)
+        .expect_err("CDS option CS01 should require CDS quote/par-spread bumps");
+    let message = err.to_string();
+    assert!(
+        message.contains("CDS quote") || message.contains("par-spread"),
+        "unexpected error: {message}"
+    );
 }
 
 #[test]

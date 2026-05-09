@@ -6,7 +6,7 @@
 //!
 //! Exposed metrics:
 //! - Delta, Gamma, Vega, Theta, Rho
-//! - CS01 (credit spread sensitivity)
+//! - CS01 (quoted CDS spread sensitivity)
 //! - ParSpread (Black forward CDS spread in bp)
 //! - Implied Volatility (placeholder)
 
@@ -44,8 +44,7 @@ pub(crate) fn register_cds_option_metrics(registry: &mut MetricRegistry) {
             (Delta, delta::DeltaCalculator),
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
-            (Cs01, cs01::Cs01Calculator::default()),
-            (Cs01Hazard, cs01::Cs01HazardCalculator),
+            (Cs01, cs01::Cs01Calculator),
             (Dv01, dv01::CdsOptionDv01Calculator),
             (Theta, theta::ThetaCalculator),
             (Rho, rho::RhoCalculator),

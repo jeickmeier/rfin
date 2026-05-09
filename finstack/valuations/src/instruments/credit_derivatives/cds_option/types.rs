@@ -28,7 +28,6 @@ use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::dates::Date;
-#[cfg(test)]
 use finstack_core::dates::{
     adjust, BusinessDayConvention, CalendarRegistry, DateExt, HolidayCalendar,
 };
@@ -36,6 +35,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use time::Month;
 
 use super::parameters::CDSOptionParams;
 use crate::impl_instrument_base;
@@ -49,6 +49,27 @@ pub(crate) const MIN_IMPLIED_VOL: f64 = 0.0;
 /// Maximum valid implied volatility (inclusive upper bound).
 /// 500% lognormal vol is extremely high but theoretically valid.
 pub(crate) const MAX_IMPLIED_VOL: f64 = 5.0;
+
+/// Accrual-start convention for the synthetic underlying CDS used by CDSO.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    PartialEq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum ProtectionStartConvention {
+    /// Spot-protection CDS: standard prior CDS roll relative to valuation date.
+    #[default]
+    Spot,
+    /// Forward-protection CDS: accrual starts at option expiry.
+    Forward,
+}
 
 /// Credit option instrument (option on CDS spread)
 ///
@@ -104,6 +125,17 @@ pub struct CDSOption {
     #[schemars(with = "Option<String>")]
     #[builder(default)]
     pub underlying_effective_date: Option<Date>,
+    /// Convention used to select the synthetic underlying CDS accrual start
+    /// when `underlying_effective_date` is not explicitly supplied.
+    #[serde(default)]
+    #[builder(default)]
+    pub protection_start_convention: ProtectionStartConvention,
+    /// Whether the option knocks out if the underlying defaults before
+    /// exercise. This is contract-specific; new instruments default to
+    /// no-knockout and legacy single-name books can opt in explicitly.
+    #[serde(default)]
+    #[builder(default)]
+    pub knockout: bool,
     /// Recovery rate assumption
     pub recovery_rate: f64,
     /// Discount curve identifier
@@ -214,10 +246,10 @@ impl CDSOption {
                     exercise_settlement, cash_settlement
                 )));
             }
-            if exercise_settlement > self.expiry {
+            if exercise_settlement >= self.cds_maturity {
                 return Err(finstack_core::Error::Validation(format!(
-                    "exercise_settlement_date ({}) must be on or before option expiry ({})",
-                    exercise_settlement, self.expiry
+                    "exercise_settlement_date ({}) must be before CDS maturity ({})",
+                    exercise_settlement, self.cds_maturity
                 )));
             }
         }
@@ -272,13 +304,10 @@ impl CDSOption {
                 )));
             }
             if vol > MAX_IMPLIED_VOL {
-                tracing::warn!(
-                    implied_vol = vol,
-                    max_vol = MAX_IMPLIED_VOL,
-                    "Implied volatility {} exceeds typical maximum {}. This may indicate a data error.",
-                    vol,
-                    MAX_IMPLIED_VOL
-                );
+                return Err(finstack_core::Error::Validation(format!(
+                    "implied_volatility {} exceeds maximum {}",
+                    vol, MAX_IMPLIED_VOL
+                )));
             }
         }
 
@@ -341,6 +370,8 @@ impl CDSOption {
             cash_settlement_date: None,
             exercise_settlement_date: None,
             underlying_effective_date: None,
+            protection_start_convention: option_params.protection_start_convention,
+            knockout: false,
             recovery_rate: credit_params.recovery_rate,
             discount_curve_id: discount_curve_id.into(),
             credit_curve_id: credit_params.credit_curve_id.to_owned(),
@@ -374,12 +405,18 @@ impl CDSOption {
                 vol
             )));
         }
+        if vol > MAX_IMPLIED_VOL {
+            return Err(finstack_core::Error::Validation(format!(
+                "implied_volatility {} exceeds maximum {}",
+                vol, MAX_IMPLIED_VOL
+            )));
+        }
         self.pricing_overrides.market_quotes.implied_volatility = Some(vol);
         Ok(self)
     }
 
-    /// Bloomberg CDSO Black time-to-expiry: calendar days from valuation
-    /// date to option expiry, divided by 365.
+    /// Bloomberg CDSO Black time-to-expiry: calendar days across the option
+    /// premium/exercise settlement window, divided by 365.
     ///
     /// Matches the convention published in *Pricing Credit Index Options*
     /// (DOCS 2055833) §2.1 — the lognormal spread process is parameterised
@@ -392,17 +429,18 @@ impl CDSOption {
         &self,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        if self.expiry <= as_of {
+        let start = self.effective_cash_settlement_date(as_of)?;
+        let end = self.exercise_settlement_date.unwrap_or(self.expiry);
+        if end <= start {
             return Ok(0.0);
         }
-        let days = (self.expiry - as_of).whole_days() as f64;
+        let days = (end - start).whole_days() as f64;
         Ok(days / 365.0)
     }
 
     /// Effective cash-settlement date for the option premium. Defaults to
     /// the underlying CDS convention's settlement lag from the next
     /// business day after `as_of`.
-    #[cfg(test)]
     pub(crate) fn effective_cash_settlement_date(
         &self,
         as_of: Date,
@@ -430,15 +468,22 @@ impl CDSOption {
 
     /// Effective accrual-start date for the synthetic underlying CDS. When
     /// the user specifies `underlying_effective_date` explicitly we honour
-    /// it (e.g. Bloomberg CDSW screen value). Otherwise we use the option
-    /// expiry, matching the Bloomberg CDSO convention where the forward
-    /// CDS contract begins accruing premium at exercise (DOCS 2055833
-    /// §2.2).
-    pub(crate) fn effective_underlying_effective_date(&self) -> Date {
-        self.underlying_effective_date.unwrap_or(self.expiry)
+    /// it (e.g. Bloomberg CDSW screen value). Otherwise the typed protection
+    /// convention selects either standard spot-protection accrual from the
+    /// prior CDS roll relative to valuation date, or forward accrual from
+    /// legal option expiry.
+    pub(crate) fn effective_underlying_effective_date(&self, as_of: Date) -> Date {
+        if let Some(date) = self.underlying_effective_date {
+            return date;
+        }
+        match self.protection_start_convention {
+            ProtectionStartConvention::Spot => prior_cds_roll_on_or_before(as_of)
+                .saturating_add(time::Duration::days(1))
+                .min(as_of),
+            ProtectionStartConvention::Forward => self.expiry,
+        }
     }
 
-    #[cfg(test)]
     fn standard_calendar(&self) -> finstack_core::Result<&'static dyn HolidayCalendar> {
         let calendar_id = self.underlying_convention.default_calendar();
         CalendarRegistry::global()
@@ -515,6 +560,21 @@ impl CDSOption {
     ) -> finstack_core::Result<f64> {
         super::pricer::CDSOptionPricer.implied_vol(self, curves, as_of, target_price, initial_guess)
     }
+}
+
+fn prior_cds_roll_on_or_before(date: Date) -> Date {
+    const CDS_ROLL_MONTHS: [Month; 4] =
+        [Month::March, Month::June, Month::September, Month::December];
+
+    for month in CDS_ROLL_MONTHS.iter().rev().copied() {
+        if let Ok(candidate) = Date::from_calendar_date(date.year(), month, 20) {
+            if candidate <= date {
+                return candidate;
+            }
+        }
+    }
+
+    Date::from_calendar_date(date.year().saturating_sub(1), Month::December, 20).unwrap_or(date)
 }
 
 impl crate::instruments::common_impl::traits::Instrument for CDSOption {
@@ -605,10 +665,11 @@ mod tests {
             date!(2026 - 05 - 07)
         );
 
-        // No explicit underlying_effective_date → default is option expiry.
+        // No explicit underlying_effective_date → default Spot convention uses
+        // the standard prior CDS roll relative to valuation date.
         assert_eq!(
-            option.effective_underlying_effective_date(),
-            date!(2026 - 06 - 26)
+            option.effective_underlying_effective_date(as_of),
+            date!(2026 - 03 - 21)
         );
     }
 }

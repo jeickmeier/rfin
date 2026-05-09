@@ -4,6 +4,7 @@
 //! guaranteed to satisfy the Bloomberg CDSO model's preconditions.
 
 use crate::instruments::common_impl::parameters::OptionType;
+use crate::instruments::credit_derivatives::cds_option::ProtectionStartConvention;
 use finstack_core::{dates::Date, money::Money};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
@@ -44,6 +45,10 @@ pub struct CDSOptionParams {
     /// SNAC default). Required for CDX/iTraxx index options.
     #[serde(default)]
     pub underlying_cds_coupon: Option<Decimal>,
+    /// Convention for selecting the synthetic underlying CDS accrual start
+    /// when the option does not provide an explicit effective date.
+    #[serde(default)]
+    pub protection_start_convention: ProtectionStartConvention,
 }
 
 impl CDSOptionParams {
@@ -95,6 +100,7 @@ impl CDSOptionParams {
             underlying_is_index: false,
             index_factor: None,
             underlying_cds_coupon: None,
+            protection_start_convention: ProtectionStartConvention::default(),
         };
         params.validate()?;
         Ok(params)
@@ -133,6 +139,16 @@ impl CDSOptionParams {
     #[must_use]
     pub fn with_underlying_cds_coupon(mut self, coupon: Decimal) -> Self {
         self.underlying_cds_coupon = Some(coupon);
+        self
+    }
+
+    /// Set the accrual-start convention for the synthetic underlying CDS.
+    #[must_use]
+    pub fn with_protection_start_convention(
+        mut self,
+        convention: ProtectionStartConvention,
+    ) -> Self {
+        self.protection_start_convention = convention;
         self
     }
 }

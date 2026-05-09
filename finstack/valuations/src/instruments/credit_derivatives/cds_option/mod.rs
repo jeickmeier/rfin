@@ -42,4 +42,4 @@ pub(crate) mod pricer;
 mod types;
 
 pub use parameters::CDSOptionParams;
-pub use types::CDSOption;
+pub use types::{CDSOption, ProtectionStartConvention};

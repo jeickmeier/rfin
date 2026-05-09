@@ -9,13 +9,17 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::dates::DateExt;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+use finstack_core::market_data::term_structures::{
+    DiscountCurve, DiscountCurveRateCalibration, DiscountCurveRateQuote,
+    DiscountCurveRateQuoteType, HazardCurve,
+};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds::{
     CreditDefaultSwap, RECOVERY_SENIOR_UNSECURED,
 };
-use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOption;
-use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOptionParams;
+use finstack_valuations::instruments::credit_derivatives::cds_option::{
+    CDSOption, CDSOptionParams, ProtectionStartConvention,
+};
 use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::instruments::OptionType;
 use rust_decimal::Decimal;
@@ -30,6 +34,27 @@ pub fn flat_discount(id: &str, base: Date, rate: f64) -> DiscountCurve {
     DiscountCurve::builder(id)
         .base_date(base)
         .knots([(0.0, 1.0), (1.0, df1), (5.0, df5), (10.0, df10)])
+        .rate_calibration(DiscountCurveRateCalibration {
+            index_id: "USD-SOFR-OIS".to_string(),
+            currency: Currency::USD,
+            quotes: vec![
+                DiscountCurveRateQuote {
+                    quote_type: DiscountCurveRateQuoteType::Deposit,
+                    tenor: "1Y".to_string(),
+                    rate,
+                },
+                DiscountCurveRateQuote {
+                    quote_type: DiscountCurveRateQuoteType::Swap,
+                    tenor: "5Y".to_string(),
+                    rate,
+                },
+                DiscountCurveRateQuote {
+                    quote_type: DiscountCurveRateQuoteType::Swap,
+                    tenor: "10Y".to_string(),
+                    rate,
+                },
+            ],
+        })
         .build()
         .unwrap()
 }
@@ -73,6 +98,8 @@ pub struct CDSOptionBuilder {
     is_index: bool,
     index_factor: Option<f64>,
     underlying_cds_coupon_bp: Option<f64>,
+    protection_start_convention: ProtectionStartConvention,
+    knockout: Option<bool>,
 }
 
 impl CDSOptionBuilder {
@@ -88,6 +115,8 @@ impl CDSOptionBuilder {
             is_index: false,
             index_factor: None,
             underlying_cds_coupon_bp: None,
+            protection_start_convention: ProtectionStartConvention::Forward,
+            knockout: None,
         }
     }
 
@@ -141,6 +170,7 @@ impl CDSOptionBuilder {
     pub fn with_index(mut self, factor: f64) -> Self {
         self.is_index = true;
         self.index_factor = Some(factor);
+        self.knockout = Some(false);
         self
     }
 
@@ -150,6 +180,17 @@ impl CDSOptionBuilder {
     #[allow(dead_code)]
     pub fn underlying_cds_coupon_bp(mut self, bp: f64) -> Self {
         self.underlying_cds_coupon_bp = Some(bp);
+        self
+    }
+
+    #[allow(dead_code)]
+    pub fn protection_start_convention(mut self, convention: ProtectionStartConvention) -> Self {
+        self.protection_start_convention = convention;
+        self
+    }
+
+    pub fn knockout(mut self, knockout: bool) -> Self {
+        self.knockout = Some(knockout);
         self
     }
 
@@ -166,6 +207,8 @@ impl CDSOptionBuilder {
             self.option_type,
         )
         .expect("valid option params");
+        option_params =
+            option_params.with_protection_start_convention(self.protection_start_convention);
 
         if self.is_index {
             option_params = option_params
@@ -189,6 +232,7 @@ impl CDSOptionBuilder {
         if let Some(vol) = self.implied_vol {
             option.pricing_overrides.market_quotes.implied_volatility = Some(vol);
         }
+        option.knockout = self.knockout.unwrap_or(!self.is_index);
 
         option
     }

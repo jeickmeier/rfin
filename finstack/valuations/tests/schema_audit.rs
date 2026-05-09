@@ -40,6 +40,8 @@ macro_rules! test_roundtrip {
 mod schema_roundtrip {
     use super::*;
     use finstack_valuations::instruments::*;
+    use serde_json::Value;
+    use std::path::Path;
 
     // Fixed Income
     test_roundtrip!(plain: bond, Bond, Bond::example().expect("bond"));
@@ -80,6 +82,39 @@ mod schema_roundtrip {
     test_roundtrip!(plain: cds_index, CDSIndex, CDSIndex::example());
     test_roundtrip!(plain: cds_tranche, CDSTranche, CDSTranche::example());
     test_roundtrip!(plain: cds_option, CDSOption, CDSOption::example().expect("cdso"));
+
+    #[test]
+    #[allow(clippy::expect_used)]
+    fn cds_option_schema_example_matches_canonical_json() {
+        let envelope = InstrumentEnvelope {
+            schema: "finstack.instrument/1".to_string(),
+            instrument: InstrumentJson::CDSOption(CDSOption::example().expect("cdso")),
+        };
+        let canonical = serde_json::to_value(envelope).expect("serialize cds option example");
+
+        let schema_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("schemas")
+            .join("instruments")
+            .join("1")
+            .join("credit_derivatives")
+            .join("cds_option.schema.json");
+        let schema_text = std::fs::read_to_string(&schema_path)
+            .unwrap_or_else(|err| panic!("read {}: {err}", schema_path.display()));
+        let schema: Value = serde_json::from_str(&schema_text)
+            .unwrap_or_else(|err| panic!("parse {}: {err}", schema_path.display()));
+        let checked_in = schema
+            .get("examples")
+            .and_then(Value::as_array)
+            .and_then(|examples| examples.first())
+            .unwrap_or_else(|| panic!("{} missing examples[0]", schema_path.display()));
+
+        assert_eq!(
+            checked_in,
+            &canonical,
+            "cds_option schema example is stale; expected canonical JSON:\n{}",
+            serde_json::to_string_pretty(&canonical).expect("pretty canonical json")
+        );
+    }
 
     // Equity
     test_roundtrip!(plain: equity, Equity, Equity::example());

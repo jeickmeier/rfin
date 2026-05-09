@@ -22,7 +22,10 @@ mod test_types;
 
 mod test_greeks;
 mod test_implied_vol;
+mod test_knockout_convention;
 mod test_pricing;
+mod test_public_properties;
+mod test_recovery01_par_invariance;
 
 mod test_moneyness;
 mod test_option_bounds;

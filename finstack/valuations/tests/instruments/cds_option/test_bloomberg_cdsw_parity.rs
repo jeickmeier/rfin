@@ -130,11 +130,6 @@ fn build_spot_cds(_as_of: Date) -> CreditDefaultSwap {
 }
 
 #[test]
-#[ignore = "Bloomberg CDSW parity diagnostic — run with `--include-ignored \
-            --nocapture` to see the per-metric residuals against the \
-            published CDSW screen values for cdx_ig_46. Used as the \
-            instrumentation backbone of Phase 3 (CDS-pricer reconciliation \
-            to DOCS 2057273) and Phase 4 (CDSO NPV match to 1e-6)."]
 fn diag_cdx_ig_46_spot_cds_reconciliation() {
     let as_of = date!(2026 - 05 - 07);
     let market = cdx_ig_46_curves(as_of);

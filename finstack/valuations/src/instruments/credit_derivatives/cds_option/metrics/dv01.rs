@@ -1,23 +1,15 @@
 //! CDS-Option-specific DV01 calculator.
 //!
-//! Like single-name CDS, CDS-option rate risk is a cross-curve sensitivity:
-//! after a rate-curve bump, the hazard curve must be re-bootstrapped from the
-//! unchanged CDS par spreads so that the underlying CDS quotes are held fixed.
-//! This matches Bloomberg-style IR DV01 on the CDSO screen — the convention
-//! used by single-name CDS option desks.
-//!
-//! Falls back to a hazard-held-constant rate bump when the hazard curve does
-//! not carry par-spread points (uncalibratable curve).
+//! CDS-option IR DV01 is a swap-curve quote sensitivity: bump the stored swap
+//! curve market quotes, rebuild the discount curve, and reprice. Direct
+//! discount-factor bumps are intentionally rejected so the reported value has a
+//! single market convention.
 
-use crate::calibration::bumps::hazard::bump_hazard_spreads_with_doc_clause_and_valuation_convention;
 use crate::calibration::bumps::rates::bump_discount_curve_from_rate_calibration;
 use crate::calibration::bumps::BumpRequest;
-use crate::instruments::credit_derivatives::cds::{CDSConvention, CdsValuationConvention};
 use crate::instruments::credit_derivatives::cds_option::CDSOption;
-use crate::market::conventions::ids::CdsDocClause as MarketClause;
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
 
@@ -32,39 +24,25 @@ impl CdsOptionDv01Calculator {
         option: &CDSOption,
         context: &MetricContext,
         bump_bp: f64,
-        rebootstrap_hazard: bool,
     ) -> Result<f64> {
         let mut bumped_market: MarketContext = context.curves.as_ref().clone();
         let base_discount = context
             .curves
             .get_discount(option.discount_curve_id.as_str())?;
-        if let Some(calibration) = base_discount.rate_calibration() {
-            let bumped_discount = bump_discount_curve_from_rate_calibration(
-                base_discount.as_ref(),
-                calibration,
-                context.curves.as_ref(),
-                &BumpRequest::Parallel(bump_bp),
-            )?;
-            bumped_market = bumped_market.insert(bumped_discount);
-        } else {
-            bumped_market.apply_curve_bump_in_place(
-                &option.discount_curve_id,
-                BumpSpec::parallel_bp(bump_bp),
-            )?;
-        }
-
-        if rebootstrap_hazard {
-            let base_hazard = context.curves.get_hazard(option.credit_curve_id.as_str())?;
-            let recalibrated = bump_hazard_spreads_with_doc_clause_and_valuation_convention(
-                base_hazard.as_ref(),
-                &bumped_market,
-                &BumpRequest::Parallel(0.0),
-                Some(&option.discount_curve_id),
-                Some(option_market_doc_clause(option)),
-                Some(CdsValuationConvention::IsdaDirty),
-            )?;
-            bumped_market = bumped_market.insert(recalibrated);
-        }
+        let calibration = base_discount.rate_calibration().ok_or_else(|| {
+            finstack_core::Error::Validation(format!(
+                "CDS option '{}' IR DV01 requires swap-curve quote calibration metadata for discount curve '{}'",
+                option.id,
+                option.discount_curve_id.as_str()
+            ))
+        })?;
+        let bumped_discount = bump_discount_curve_from_rate_calibration(
+            base_discount.as_ref(),
+            calibration,
+            context.curves.as_ref(),
+            &BumpRequest::Parallel(bump_bp),
+        )?;
+        bumped_market = bumped_market.insert(bumped_discount);
 
         context.reprice_raw(&bumped_market, context.as_of)
     }
@@ -80,17 +58,12 @@ impl MetricCalculator for CdsOptionDv01Calculator {
             return Ok(0.0);
         }
 
-        // Bloomberg DOCS 2057273 §4 IR DV01 convention: "holding all other
-        // inputs constant" — for the option's IR DV01, the "other input" held
-        // constant is the *hazard rate curve* (not the par spreads). This is
-        // the convention used on the CDSO screen: the option NPV's exposure
-        // to rate moves is measured through the discount curve directly,
-        // without re-deriving hazard rates from par spreads after the bump.
-        // (For Spread DV01, the convention is reversed — hazard rates are
-        // re-bootstrapped from bumped par spreads, holding the IR curve
-        // constant; that lives in the CS01 path, not here.)
-        let pv_up = Self::price_at_rate_bump(option, context, bump_bp, false)?;
-        let pv_down = Self::price_at_rate_bump(option, context, -bump_bp, false)?;
+        // Bloomberg CDSO IR DV01 is a swap-curve quote sensitivity with the
+        // hazard curve held fixed. The screen convention reports the symmetric
+        // ±1bp quote-shock PV change in bond sign, rather than the half-width
+        // central-difference slope used by generic DV01 helpers.
+        let pv_up = Self::price_at_rate_bump(option, context, bump_bp)?;
+        let pv_down = Self::price_at_rate_bump(option, context, -bump_bp)?;
 
         // Sign convention: Bloomberg reports IR DV01 as the value INCREASE
         // for a 1bp DOWNWARD parallel rate shift. For an option (or any
@@ -98,17 +71,6 @@ impl MetricCalculator for CdsOptionDv01Calculator {
         // POSITIVE. Our central difference `(pv_up - pv_down) / (2 × bp)`
         // is the slope ∂V/∂r per +1bp; multiplying by −1 gives the
         // Bloomberg-displayed bond-convention DV01.
-        Ok(-(pv_up - pv_down) / (2.0 * bump_bp))
-    }
-}
-
-/// Map the option's underlying CDS convention to the bootstrap doc-clause
-/// identifier expected by `bump_hazard_spreads_with_doc_clause_and_valuation_convention`.
-fn option_market_doc_clause(option: &CDSOption) -> MarketClause {
-    match option.underlying_convention {
-        CDSConvention::IsdaNa => MarketClause::IsdaNa,
-        CDSConvention::IsdaEu => MarketClause::IsdaEu,
-        CDSConvention::IsdaAs => MarketClause::IsdaAs,
-        CDSConvention::Custom => MarketClause::Custom,
+        Ok(-(pv_up - pv_down) / bump_bp)
     }
 }

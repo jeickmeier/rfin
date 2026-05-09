@@ -1,6 +1,7 @@
 //! Integration tests for implied volatility solver.
 
 use super::common::*;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CDSOption;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
@@ -162,13 +163,49 @@ fn test_implied_vol_with_initial_guess() {
         .implied_volatility = None;
 
     // Try with different initial guesses
-    for guess in [0.10, 0.25, 0.50, 0.75] {
+    for guess in [0.02, 0.10, 0.25, 0.50, 0.75, 4.0] {
         let iv = option_solve
             .implied_vol(&market, as_of, pv, Some(guess))
             .unwrap();
 
         assert_approx_eq(iv, true_vol, 1e-6, &format!("IV with guess {}", guess));
     }
+}
+
+#[test]
+fn test_implied_vol_distressed_credit() {
+    let as_of = date!(2025 - 01 - 01);
+    let market = standard_market(as_of);
+    let true_vol = 1.50;
+    let option = CDSOptionBuilder::new().implied_vol(true_vol).build(as_of);
+    let pv = option.value(&market, as_of).unwrap().amount();
+    let mut option_solve = option.clone();
+    option_solve
+        .pricing_overrides
+        .market_quotes
+        .implied_volatility = None;
+
+    let iv = option_solve
+        .implied_vol(&market, as_of, pv, Some(0.30))
+        .unwrap();
+
+    assert_approx_eq(iv, true_vol, 1e-6, "distressed-credit IV");
+}
+
+#[test]
+fn test_max_implied_vol_hard_error() {
+    let as_of = date!(2025 - 01 - 01);
+    let market = standard_market(as_of);
+
+    let err = CDSOption::example()
+        .unwrap()
+        .with_implied_vol(5.5)
+        .unwrap_err();
+    assert!(err.to_string().contains("exceeds maximum"));
+
+    let invalid_option = CDSOptionBuilder::new().implied_vol(5.5).build(as_of);
+    let pricing_err = invalid_option.value(&market, as_of).unwrap_err();
+    assert!(pricing_err.to_string().contains("exceeds maximum"));
 }
 
 #[test]

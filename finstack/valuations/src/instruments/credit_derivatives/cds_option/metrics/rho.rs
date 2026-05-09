@@ -36,25 +36,17 @@ impl MetricCalculator for RhoCalculator {
             return Ok(0.0);
         }
 
-        // Base PV
-        let base_pv = context.base_value.amount();
-
-        // Get the discount curve and bump it
         let disc = context.curves.get_discount(&cds_option.discount_curve_id)?;
 
-        // Bump discount curve by 1bp (parallel shift)
-        let bumped_disc = disc.with_parallel_bump(RHO_BUMP_BP)?;
+        let bumped_up = disc.with_parallel_bump(RHO_BUMP_BP)?;
+        let bumped_down = disc.with_parallel_bump(-RHO_BUMP_BP)?;
 
-        // Create bumped market context
-        let bumped_curves = context.curves.as_ref().clone().insert(bumped_disc);
+        let curves_up = context.curves.as_ref().clone().insert(bumped_up);
+        let curves_down = context.curves.as_ref().clone().insert(bumped_down);
 
-        // Reprice with bumped curve
-        let pv_bumped = cds_option.value(&bumped_curves, as_of)?.amount();
+        let pv_up = cds_option.value(&curves_up, as_of)?.amount();
+        let pv_down = cds_option.value(&curves_down, as_of)?.amount();
 
-        // Rho = (PV_bumped - PV_base) / bump_size
-        // Report per 1bp change
-        let rho = (pv_bumped - base_pv) / RHO_BUMP_BP;
-
-        Ok(rho)
+        Ok((pv_up - pv_down) / (2.0 * RHO_BUMP_BP))
     }
 }
