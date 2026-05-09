@@ -494,3 +494,65 @@ The next migration that *actually* covers the `forward` step kind will need eith
 - A new fixture authored from scratch with real-date forward quotes (e.g., a SOFR 3M-tenor IRS curve calibration).
 
 Recommend file a follow-up to author such a fixture, since none of the existing 33 pricing goldens have a calibratable forward curve.
+
+---
+
+## 16. POC #4 (2026-05-09): `irs/usd_5y_term_irs_self_test.json` — first forward-step coverage
+
+### Motivation
+
+Production forward curves serve floating-rate bonds, term loans, and structured products with multi-year (5-30y) coupon projection. None of the 33 existing pricing goldens had a calibratable forward curve, so the `forward` step kind had no test coverage.
+
+### What was authored
+
+A new `pricing/irs/usd_5y_term_irs_self_test.json` golden fixture:
+
+- **Instrument**: 5Y USD interest rate swap, receive-fixed at 4.25% against 3M-Term-SOFR floating (10M USD notional).
+- **Two-step calibration plan** in `market_envelope`:
+  - Step 1 (`discount`): USD-OIS bootstrapped from 12 SOFR OIS quotes (1W/2W/3W deposits, 1M-10Y annual swaps, ~4-4.5% rising). Uses the new `ois_compounding: CompoundedWithRateCutoff{cutoff_days: 1}` override.
+  - Step 2 (`forward`): USD-SOFR-3M bootstrapped from 8 term-rate IRS quotes (3M-10Y, ~4.05-4.55%) against the just-calibrated discount curve, with `tenor_years: 0.25`.
+- **Self-test contract**: Expected outputs (NPV, par_rate, DV01) are captured from Finstack itself, not from a vendor screen. The contract is round-trip stability — re-running calibration and pricing must reproduce the recorded values within the solver's `1e-12` tolerance.
+
+### Why a self-test fixture rather than vendor parity
+
+The fixtures we surveyed for forward calibration had two patterns:
+
+1. **Synthetic formula fixtures** (term_loan, structured_credit, convertible) with clean integer-year pillars [0.25, 0.5, 1, 2, 5, 10] — not reachable from real calendar dates under any standard day count.
+2. **Bloomberg fixtures** (cap_floor, bond) where the "forward curve" is actually an OIS forward curve derived from the discount curve, not a separate term-rate calibration.
+
+Neither pattern lets us test `forward`-step calibration *as it is meant to be used*. A self-test fixture sidesteps the vendor-parity question and provides a clean target whose contract is "re-running Finstack's pipeline gives bit-identical outputs."
+
+### Coverage now
+
+| Step kind | Covered? |
+|---|---|
+| `discount` | ✓ (cdx_ig_46, irs SWPM, fra, irs self_test) |
+| `hazard` | ✓ (cdx_ig_46) |
+| `base_correlation` | ✓ (cdx_ig_46, indirect) |
+| **`forward`** | **✓ NEW (irs self_test, with sequential dependency on discount step)** |
+| `inflation` | ✗ (next gap) |
+| Surface kinds (`vol_surface`, `swaption_vol`, `svi_surface`) | ✗ (snapshots stay in `initial_market`) |
+
+### Verification
+
+- **Bootstrap convergence**: 1378 iterations, max residual 9.90e-13 (deep convergence on both curves).
+- **Curves produced**: 13-knot discount + 9-knot forward, both spanning ~10y horizon (matching real-world FRN/term-loan tenors).
+- **Tests**: 2/2 IRS golden tests pass (existing SWPM + new self_test). Full Rust suite: 31/31. Python suite (env-tests subset): clean.
+- **Tolerances**: NPV abs `1e-6`, par_rate abs `1e-12`, dv01 abs `1e-6`. Tight because there's no vendor-mismatch source of drift.
+
+### Pattern reference for future migrations
+
+This fixture is the canonical pattern for:
+
+- **Floating-rate bond migrations**: when an FRB needs forward-curve projection across the bond's coupon dates, calibrate the forward curve from term-rate IRS quotes the same way as Step 2 here.
+- **Term loan migrations**: same — calibrate USD-SOFR-3M (or applicable tenor) from quotes, then price the floating-rate facility.
+- **Structured product migrations**: CLO/ABS pools that project assets via SOFR-3M can use the same calibration recipe; the forward curve serves all assets in the pool.
+- **Multi-step calibration**: any future fixture needing more than one calibration step (e.g., discount + forward + hazard for a term loan with credit risk) can follow the sequential-dependency pattern here.
+
+### Recommended follow-up migrations using this pattern
+
+- `term_loan/term_loan_b_5y_floating.json` (5Y FRN with hazard) — replace synthetic curves with two-step cal (USD-OIS + USD-SOFR-3M) plus a hazard step. Keep the synthetic spread as expected.
+- `structured_credit/abs_credit_card_senior.json` and `clo_mezzanine_base_case.json` — same two-step rates calibration; pool-level expected outputs come from Finstack as in this self-test fixture.
+- `convertible/conv_bond_*` — discount + forward + hazard. Same recipe.
+
+For each: the rates curves (discount + forward) come from the canonical SWPM Curve 490 / Curve 559-style quotes (real Bloomberg or self-consistent synthetic). The instrument-specific curves (hazard, equity, etc.) layer on top.
