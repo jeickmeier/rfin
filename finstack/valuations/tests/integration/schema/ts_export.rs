@@ -1,5 +1,14 @@
+use finstack_valuations::calibration::api::schema::{
+    AtmStrikeConvention, BaseCorrelationParams, CalibrationEnvelope, CalibrationPlan,
+    CalibrationResult, CalibrationResultEnvelope, CalibrationStep, CapFloorHullWhiteStepParams,
+    DiscountCurveParams, ForwardCurveParams, HazardCurveParams, HullWhiteStepParams,
+    InflationCurveParams, ParametricCurveParams, SabrInterpolationMethod, SeasonalFactors,
+    StepParams, StudentTParams, SurfaceExtrapolationPolicy, SviSurfaceParams,
+    SwaptionVolConvention, SwaptionVolParams, VolSurfaceParams, XccyBasisParams,
+};
 use finstack_valuations::calibration::{
-    CalibrationConfig, RateBounds, SolverConfig, ValidationMode,
+    CalibrationConfig, CalibrationDiagnostics, CalibrationReport, QuoteQuality, RateBounds,
+    SolverConfig, ValidationMode,
 };
 use finstack_valuations::market::quotes::bond::BondQuote;
 use finstack_valuations::market::quotes::cds::CdsQuote;
@@ -45,4 +54,46 @@ fn export_calibration_types() {
     InflationQuote::export(cfg).expect("export InflationQuote");
     XccyQuote::export(cfg).expect("export XccyQuote");
     MarketQuote::export(cfg).expect("export MarketQuote");
+}
+
+#[test]
+fn export_calibration_envelope_types() {
+    let cfg = config();
+
+    // Envelope and plan types
+    CalibrationEnvelope::export(cfg).expect("export CalibrationEnvelope");
+    CalibrationPlan::export(cfg).expect("export CalibrationPlan");
+    CalibrationStep::export(cfg).expect("export CalibrationStep");
+
+    // StepParams tagged union and all variant Params
+    StepParams::export(cfg).expect("export StepParams");
+    DiscountCurveParams::export(cfg).expect("export DiscountCurveParams");
+    ForwardCurveParams::export(cfg).expect("export ForwardCurveParams");
+    HazardCurveParams::export(cfg).expect("export HazardCurveParams");
+    InflationCurveParams::export(cfg).expect("export InflationCurveParams");
+    SeasonalFactors::export(cfg).expect("export SeasonalFactors");
+    VolSurfaceParams::export(cfg).expect("export VolSurfaceParams");
+    SwaptionVolParams::export(cfg).expect("export SwaptionVolParams");
+    BaseCorrelationParams::export(cfg).expect("export BaseCorrelationParams");
+    StudentTParams::export(cfg).expect("export StudentTParams");
+    HullWhiteStepParams::export(cfg).expect("export HullWhiteStepParams");
+    CapFloorHullWhiteStepParams::export(cfg).expect("export CapFloorHullWhiteStepParams");
+    SviSurfaceParams::export(cfg).expect("export SviSurfaceParams");
+    XccyBasisParams::export(cfg).expect("export XccyBasisParams");
+    ParametricCurveParams::export(cfg).expect("export ParametricCurveParams");
+
+    // Supporting enums
+    SurfaceExtrapolationPolicy::export(cfg).expect("export SurfaceExtrapolationPolicy");
+    SwaptionVolConvention::export(cfg).expect("export SwaptionVolConvention");
+    AtmStrikeConvention::export(cfg).expect("export AtmStrikeConvention");
+    SabrInterpolationMethod::export(cfg).expect("export SabrInterpolationMethod");
+
+    // Result envelope types
+    CalibrationResultEnvelope::export(cfg).expect("export CalibrationResultEnvelope");
+    CalibrationResult::export(cfg).expect("export CalibrationResult");
+
+    // Report types
+    CalibrationReport::export(cfg).expect("export CalibrationReport");
+    CalibrationDiagnostics::export(cfg).expect("export CalibrationDiagnostics");
+    QuoteQuality::export(cfg).expect("export QuoteQuality");
 }

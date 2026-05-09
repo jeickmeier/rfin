@@ -20,28 +20,40 @@ use finstack_core::types::{CurveId, IndexId};
 use finstack_core::HashMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "ts_export")]
+use ts_rs::TS;
 
 /// Schema version identifier for calibration API.
 pub const CALIBRATION_SCHEMA: &str = "finstack.calibration";
 
 /// Complete calibration result with market snapshot and diagnostics.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationResult {
     /// Final calibrated market context (all curves, surfaces, scalars, etc.)
+    // MarketContextState is from finstack-core which does not carry ts_export yet.
+    // Using `unknown` as a placeholder until finstack-core adds TS support.
     #[schemars(with = "serde_json::Value")]
+    #[cfg_attr(feature = "ts_export", ts(type = "unknown"))]
     pub final_market: MarketContextState,
     /// Merged plan-level calibration report.
     #[schemars(with = "serde_json::Value")]
+    #[cfg_attr(feature = "ts_export", ts(type = "unknown"))]
     pub report: CalibrationReport,
     /// Per-step calibration reports keyed by step id.
     #[schemars(with = "std::collections::BTreeMap<String, serde_json::Value>")]
+    #[cfg_attr(feature = "ts_export", ts(type = "Record<string, unknown>"))]
     pub step_reports: std::collections::BTreeMap<String, CalibrationReport>,
     /// Results metadata (timestamp, version, rounding context, etc.).
+    #[cfg_attr(feature = "ts_export", ts(type = "unknown"))]
     pub results_meta: ResultsMeta,
 }
 
 /// Top-level envelope for calibration results.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationResultEnvelope {
@@ -66,6 +78,8 @@ impl CalibrationResultEnvelope {
 /// This is the outer-most structure for a calibration request. It includes
 /// the schema version, the plan to execute, and an optional initial market state
 /// to build upon.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationEnvelope {
@@ -74,8 +88,11 @@ pub struct CalibrationEnvelope {
     /// The calibration plan containing steps and quote data.
     pub plan: CalibrationPlan,
     /// Optional initial market context (e.g., existing curves) to use as a baseline.
+    // MarketContextState is from finstack-core which does not carry ts_export yet.
+    // Using `unknown` as a placeholder until finstack-core adds TS support.
     #[serde(default)]
     #[schemars(with = "Option<serde_json::Value>")]
+    #[cfg_attr(feature = "ts_export", ts(type = "unknown | null"))]
     pub initial_market: Option<MarketContextState>,
 }
 
@@ -83,6 +100,8 @@ pub struct CalibrationEnvelope {
 ///
 /// A plan organizes market data into named sets and defines a sequence of
 /// [`CalibrationStep`] to be executed.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationPlan {
@@ -93,6 +112,7 @@ pub struct CalibrationPlan {
     pub description: Option<String>,
     /// Market data organized by set name (referenced by steps).
     #[schemars(with = "HashMap<String, Vec<serde_json::Value>>")]
+    #[cfg_attr(feature = "ts_export", ts(type = "Record<string, Array<unknown>>"))]
     pub quote_sets: HashMap<String, Vec<MarketQuote>>,
     /// Sequence of calibration steps to execute.
     pub steps: Vec<CalibrationStep>,
@@ -105,6 +125,8 @@ pub struct CalibrationPlan {
 ///
 /// Each step targets the construction or update of a specific market object
 /// (e.g., a yield curve) using a specified set of quotes.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct CalibrationStep {
     /// Unique identifier for the object being calibrated in this step.
@@ -117,6 +139,9 @@ pub struct CalibrationStep {
 }
 
 /// Polymorphic parameters for different calibration step types.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum StepParams {
@@ -165,30 +190,39 @@ pub enum StepParams {
 // =============================================================================
 
 /// Parameters for discount curve calibration step.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DiscountCurveParams {
     /// Identifier for the discount curve being built.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub curve_id: CurveId,
     /// Currency of the curve.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub currency: Currency,
     /// Base date for the curve.
     #[schemars(with = "String")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub base_date: Date,
     /// Calibration method to use.
     #[serde(default)]
     pub method: CalibrationMethod,
     /// Interpolation style for the curve.
     #[serde(default = "default_interp_linear")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub interpolation: InterpStyle,
     /// Extrapolation policy for the curve.
     #[serde(default = "default_extrap_flat")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub extrapolation: ExtrapolationPolicy,
     /// Optional separate ID for pricing logic (defaults to curve_id).
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub pricing_discount_id: Option<CurveId>,
     /// Optional forward curve ID for pricing (if needed).
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub pricing_forward_id: Option<CurveId>,
 
     /// Step-level conventions for pricing and curve time axis.
@@ -197,25 +231,32 @@ pub struct DiscountCurveParams {
 }
 
 /// Parameters for forward curve calibration step.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ForwardCurveParams {
     /// Identifier for the forward curve being built.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub curve_id: CurveId,
     /// Currency of the curve.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub currency: Currency,
     /// Base date for the curve.
     #[schemars(with = "String")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub base_date: Date,
     /// Tenor in years for the forward curve.
     pub tenor_years: f64,
     /// Identifier for the discount curve to use.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub discount_curve_id: CurveId,
     /// Calibration method to use.
     #[serde(default)]
     pub method: CalibrationMethod,
     /// Interpolation style for the curve.
     #[serde(default = "default_interp_linear")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub interpolation: InterpStyle,
 
     /// Step-level conventions for pricing and curve time axis.
@@ -224,21 +265,28 @@ pub struct ForwardCurveParams {
 }
 
 /// Parameters for hazard curve calibration step.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct HazardCurveParams {
     /// Identifier for the hazard curve being built.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub curve_id: CurveId,
     /// Entity name.
     pub entity: String,
     /// Seniority of the debt.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub seniority: Seniority,
     /// Currency of the curve.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub currency: Currency,
     /// Base date for the curve.
     #[schemars(with = "String")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub base_date: Date,
     /// Identifier for the discount curve to use.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub discount_curve_id: CurveId,
     /// Recovery rate assumption (defaults to 0.4).
     #[serde(default = "default_recovery_04")]
@@ -254,6 +302,7 @@ pub struct HazardCurveParams {
     pub method: CalibrationMethod,
     /// Interpolation style for the curve.
     #[serde(default = "default_interp_linear")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub interpolation: InterpStyle,
 
     /// Interpolation method for par spreads reported by the calibrated curve.
@@ -262,6 +311,7 @@ pub struct HazardCurveParams {
     /// survival no-arbitrage, which is enforced via non-negative hazards and the curve's
     /// internal log-linear survival interpolation.
     #[serde(default = "default_par_interp_linear")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub par_interp: ParInterp,
 
     /// Optional CDS doc clause / market convention identifier.
@@ -278,21 +328,28 @@ pub struct HazardCurveParams {
     /// Optional CDS valuation convention used by synthetic CDS instruments
     /// during hazard calibration and rebootstrap.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub cds_valuation_convention: Option<CdsValuationConvention>,
 }
 
 /// Parameters for inflation curve calibration step.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct InflationCurveParams {
     /// Identifier for the inflation curve being built.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub curve_id: CurveId,
     /// Currency of the curve.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub currency: Currency,
     /// Base date for the curve.
     #[schemars(with = "String")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub base_date: Date,
     /// Identifier for the discount curve to use.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub discount_curve_id: CurveId,
     /// Reference index (e.g. "USA-CPI-U").
     pub index: String,
@@ -317,6 +374,7 @@ pub struct InflationCurveParams {
     pub method: CalibrationMethod,
     /// Interpolation style for the curve.
     #[serde(default = "default_interp_linear")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub interpolation: InterpStyle,
 
     /// Optional seasonal adjustment factors for deseasonalizing CPI observations.
@@ -337,6 +395,8 @@ pub struct InflationCurveParams {
 /// Used to deseasonalize CPI observations before fitting a smooth
 /// zero-coupon inflation curve, then reseasonalize the output.
 /// Monthly adjustments should approximately sum to zero.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SeasonalFactors {
@@ -346,6 +406,8 @@ pub struct SeasonalFactors {
 }
 
 /// Parameters for volatility surface calibration step.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct VolSurfaceParams {
@@ -353,6 +415,7 @@ pub struct VolSurfaceParams {
     pub surface_id: String,
     /// Base date for the surface.
     #[schemars(with = "String")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub base_date: Date,
     /// Identifier for the underlying instrument.
     pub underlying_ticker: String,
@@ -362,6 +425,7 @@ pub struct VolSurfaceParams {
     pub model: String,
     /// Discount curve ID.
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub discount_curve_id: Option<CurveId>,
     /// SABR Beta parameter.
     #[serde(default = "default_sabr_beta")]
@@ -390,6 +454,8 @@ pub struct VolSurfaceParams {
 ///
 /// Defines the structure and conventions for building a volatility surface
 /// from swaption quotes using the SABR model.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SwaptionVolParams {
@@ -397,13 +463,16 @@ pub struct SwaptionVolParams {
     pub surface_id: String,
     /// Base date for the calibration.
     #[schemars(with = "String")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub base_date: Date,
     /// Discount curve identifier for pricing.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub discount_curve_id: CurveId,
     /// Optional forward curve identifier (if different from discount curve).
     #[serde(default)]
     pub forward_id: Option<String>,
     /// Currency for the swaption surface.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub currency: Currency,
     /// Volatility quoting convention (normal or lognormal).
     #[serde(default)]
@@ -428,6 +497,7 @@ pub struct SwaptionVolParams {
     pub calendar_id: Option<String>,
     /// Optional day count convention for fixed leg calculations.
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub fixed_day_count: Option<DayCount>,
 
     /// Optional floating index identifier used to resolve market swap conventions.
@@ -437,6 +507,7 @@ pub struct SwaptionVolParams {
     ///
     /// If omitted, individual swaption quotes must provide `float_leg_conventions.index`.
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub swap_index: Option<IndexId>,
     /// Reporting tolerance used to determine calibration success.
     ///
@@ -467,6 +538,9 @@ pub struct SwaptionVolParams {
 }
 
 /// Extrapolation policy for volatility surface construction.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SurfaceExtrapolationPolicy {
@@ -481,6 +555,8 @@ pub enum SurfaceExtrapolationPolicy {
 ///
 /// Defines the structure for building a base correlation curve from
 /// CDS tranche quotes with different detachment points.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BaseCorrelationParams {
@@ -492,10 +568,13 @@ pub struct BaseCorrelationParams {
     pub maturity_years: f64,
     /// Base date for the calibration.
     #[schemars(with = "String")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub base_date: Date,
     /// Discount curve identifier for pricing.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub discount_curve_id: CurveId,
     /// Currency used for synthetic tranche pricing.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub currency: Currency,
     /// Notional used to price synthetic tranches during calibration.
     ///
@@ -505,12 +584,15 @@ pub struct BaseCorrelationParams {
     pub notional: f64,
     /// Payment frequency for synthetic tranches (e.g., quarterly).
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub frequency: Option<Tenor>,
     /// Day count convention for synthetic tranche premium accrual.
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub day_count: Option<DayCount>,
     /// Business day convention for synthetic tranche schedule adjustments.
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub bdc: Option<BusinessDayConvention>,
     /// Optional calendar identifier for schedule generation and date adjustments.
     #[serde(default)]
@@ -538,6 +620,8 @@ pub struct BaseCorrelationParams {
 /// - `initial_df`: Starting guess for the degrees of freedom (e.g., 5.0).
 /// - `df_bounds`: Feasible domain for `df` as `(lo, hi)`, e.g., `(2.1, 50.0)`.
 /// - `correlation`: Market-implied flat correlation for the tranche.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudentTParams {
@@ -550,6 +634,7 @@ pub struct StudentTParams {
     /// When omitted, calibration falls back to the only discount curve present
     /// in the market context as a convenience default.
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub discount_curve_id: Option<CurveId>,
     /// Starting guess for degrees of freedom (typically 4-10).
     #[serde(default = "default_student_t_initial_df")]
@@ -580,15 +665,20 @@ fn default_student_t_correlation() -> f64 {
 ///
 /// Calibrates κ (mean reversion) and σ (short rate volatility) by fitting
 /// European swaption market prices using Jamshidian decomposition.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct HullWhiteStepParams {
     /// Discount curve ID (must already exist in market context).
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub curve_id: CurveId,
     /// Currency for conventions.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub currency: Currency,
     /// Base date for the calibration.
     #[schemars(with = "String")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub base_date: Date,
     /// Optional initial guess for mean reversion κ.
     #[serde(default)]
@@ -599,18 +689,24 @@ pub struct HullWhiteStepParams {
 }
 
 /// Parameters for Hull-White 1-factor calibration to cap/floor volatility quotes.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CapFloorHullWhiteStepParams {
     /// Discount curve ID (must already exist in market context).
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub discount_curve_id: CurveId,
     /// Forward/projection curve ID. If equal to `discount_curve_id`, the
     /// discount curve is used as the single-curve projection proxy.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub forward_curve_id: CurveId,
     /// Currency for conventions.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub currency: Currency,
     /// Base date for the calibration.
     #[schemars(with = "String")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub base_date: Date,
     /// Optional source mean reversion κ. Required for one-quote calibration.
     #[serde(default)]
@@ -623,6 +719,7 @@ pub struct CapFloorHullWhiteStepParams {
     pub initial_sigma: Option<f64>,
     /// Payment frequency used to decompose quoted caps/floors into caplets.
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub payment_frequency: SwapFrequency,
 }
 
@@ -630,6 +727,8 @@ pub struct CapFloorHullWhiteStepParams {
 ///
 /// Fits a Stochastic Volatility Inspired (SVI) parameterization per-expiry
 /// to market-implied volatilities.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SviSurfaceParams {
@@ -637,11 +736,13 @@ pub struct SviSurfaceParams {
     pub surface_id: String,
     /// Base date for the surface.
     #[schemars(with = "String")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub base_date: Date,
     /// Underlying instrument ticker.
     pub underlying_ticker: String,
     /// Discount curve ID (optional).
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub discount_curve_id: Option<CurveId>,
     /// Target expiries for calibration.
     #[serde(default)]
@@ -655,6 +756,9 @@ pub struct SviSurfaceParams {
 }
 
 /// Volatility quoting convention for swaptions.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SwaptionVolConvention {
@@ -677,6 +781,9 @@ pub enum SwaptionVolConvention {
 }
 
 /// ATM strike convention for swaptions.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AtmStrikeConvention {
@@ -688,6 +795,9 @@ pub enum AtmStrikeConvention {
 }
 
 /// Interpolation method for SABR parameters across the expiry–tenor grid.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SabrInterpolationMethod {
@@ -729,34 +839,43 @@ fn default_sabr_beta() -> f64 {
 ///
 /// Derives a foreign-currency discount curve from a domestic OIS curve,
 /// FX spot rate, and cross-currency basis swap or FX forward quotes.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct XccyBasisParams {
     /// Identifier for the foreign discount curve being built.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub curve_id: CurveId,
     /// Foreign currency being calibrated.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub currency: Currency,
     /// Base date for the curve.
     #[schemars(with = "String")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub base_date: Date,
     /// FX spot rate (domestic per foreign).
     pub fx_spot: f64,
     /// Identifier for the pre-calibrated domestic discount curve.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub domestic_discount_id: CurveId,
     /// Calibration method to use.
     #[serde(default)]
     pub method: CalibrationMethod,
     /// Interpolation style for the foreign curve.
     #[serde(default = "default_interp_linear")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub interpolation: InterpStyle,
     /// Extrapolation policy for the foreign curve.
     #[serde(default = "default_extrap_flat")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub extrapolation: ExtrapolationPolicy,
     /// Step-level conventions for pricing and curve time axis.
     #[serde(default)]
     pub conventions: RatesStepConventions,
     /// Optional ID for the byproduct basis spread curve.
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub basis_spread_curve_id: Option<CurveId>,
 }
 
@@ -768,20 +887,27 @@ pub struct XccyBasisParams {
 ///
 /// Fits a Nelson-Siegel or Nelson-Siegel-Svensson yield curve model to
 /// rate instrument quotes using global (Levenberg-Marquardt) optimization.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ParametricCurveParams {
     /// Identifier for the parametric curve being built.
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub curve_id: CurveId,
     /// Base date for the curve.
     #[schemars(with = "String")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub base_date: Date,
     /// Nelson-Siegel variant (NS or NSS).
+    #[cfg_attr(feature = "ts_export", ts(type = "string"))]
     pub model: NsVariant,
     /// Optional separate discount curve ID for multi-curve instrument pricing.
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub discount_curve_id: Option<CurveId>,
     /// Optional initial parameter guesses.
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "unknown | null"))]
     pub initial_params: Option<NelsonSiegelModel>,
 }

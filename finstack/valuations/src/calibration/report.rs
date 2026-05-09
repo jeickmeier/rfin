@@ -6,6 +6,8 @@ use finstack_core::config::ResultsMeta;
 use finstack_core::explain::ExplanationTrace;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+#[cfg(feature = "ts_export")]
+use ts_rs::TS;
 
 fn default_true() -> bool {
     true
@@ -15,6 +17,8 @@ fn default_true() -> bool {
 ///
 /// Captures the fitted vs target values for a single market quote,
 /// along with the residual and a local sensitivity measure.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuoteQuality {
     /// Human-readable label identifying this quote (e.g., "USD-1Y-SWAP").
@@ -35,6 +39,8 @@ pub struct QuoteQuality {
 /// is set to `true`. They are relatively expensive to compute (requiring Jacobian
 /// analysis) and are intended for calibration debugging, auditing, and quality
 /// monitoring rather than production hot paths.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CalibrationDiagnostics {
     /// Per-quote quality metrics for each calibration instrument.
@@ -187,6 +193,8 @@ fn compute_residual_diagnostics(residuals: &BTreeMap<String, f64>) -> ResidualDi
 /// assert!(report.success);
 /// assert!(report.max_residual <= 1e-12);
 /// ```
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CalibrationReport {
     /// User-facing success flag. True only if both fitting and validation passed.
@@ -215,10 +223,14 @@ pub struct CalibrationReport {
     #[serde(default)]
     pub solver_config: SolverConfig,
     /// Results metadata (timestamp, software version, etc.).
+    // ResultsMeta is from finstack-core which does not carry ts_export yet.
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "unknown"))]
     pub results_meta: ResultsMeta,
     /// Optional detailed trace of the calibration steps (enabled via config).
+    // ExplanationTrace is from finstack-core which does not carry ts_export yet.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts_export", ts(type = "unknown | null"))]
     pub explanation: Option<ExplanationTrace>,
     /// Optional model/methodology version used for this calibration.
     ///
