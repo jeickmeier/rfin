@@ -415,9 +415,9 @@ Create `finstack/valuations/examples/market_bootstrap/09_fx_matrix.json` with sh
         "cache_capacity": 256
       },
       "quotes": [
-        { "base": "EUR", "quote": "USD", "rate": 1.0850 },
-        { "base": "USD", "quote": "JPY", "rate": 152.40 },
-        { "base": "GBP", "quote": "USD", "rate": 1.2660 }
+        ["EUR", "USD", 1.0850],
+        ["USD", "JPY", 152.40],
+        ["GBP", "USD", 1.2660]
       ]
     },
     "surfaces": [],
@@ -433,7 +433,7 @@ Create `finstack/valuations/examples/market_bootstrap/09_fx_matrix.json` with sh
 }
 ```
 
-The `quotes` array shape (`{base, quote, rate}`) must match the exact `FxMatrixState` serde representation. The implementer should verify against `finstack/core/src/market_data/context/state_serde.rs:200-220` (the `FxMatrixState` struct) and adjust field names if needed. The reference fixture `finstack/valuations/tests/golden/data/pricing/deposit/usd_deposit_3m.json:93-100` shows the exact serde shape with `quotes: []` — populate accordingly.
+The `quotes` array shape is `Vec<(Currency, Currency, f64)>` and serializes as JSON tuples-as-arrays (`["EUR", "USD", 1.0850]`), not object form. Verify against `finstack/core/src/money/fx/types.rs` (the `FxMatrixState` struct). The reference fixture `finstack/valuations/tests/golden/data/pricing/deposit/usd_deposit_3m.json:93-100` shows the empty form (`quotes: []`).
 
 - [ ] **Step 4: Run the test to confirm it passes**
 
