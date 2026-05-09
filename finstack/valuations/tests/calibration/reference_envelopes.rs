@@ -336,3 +336,37 @@ fn example_10_bond_prices_supports_lookup() {
     assert!(p1 > 0.0, "treasury price should be positive, got {p1}");
     assert!(p2 > 0.0, "IBM bond price should be positive, got {p2}");
 }
+
+#[test]
+fn example_11_equity_spots_and_dividends_support_lookup() {
+    use finstack_core::market_data::scalars::MarketScalar;
+
+    let envelope = load_envelope("11_equity_spots_dividends.json");
+    let market = execute(&envelope);
+
+    let scalar_aapl = market
+        .get_price("AAPL")
+        .expect("AAPL spot present in initial_market.prices");
+    let aapl_spot = match scalar_aapl {
+        MarketScalar::Price(m) => m.amount(),
+        MarketScalar::Unitless(v) => *v,
+    };
+    assert!(aapl_spot > 0.0, "AAPL spot should be positive");
+
+    let scalar_msft = market.get_price("MSFT").expect("MSFT spot present");
+    let msft_spot = match scalar_msft {
+        MarketScalar::Price(m) => m.amount(),
+        MarketScalar::Unitless(v) => *v,
+    };
+    assert!(msft_spot > 0.0, "MSFT spot should be positive");
+
+    // Dividend schedule for AAPL must be retrievable by schedule ID.
+    let aapl_divs = market
+        .get_dividend_schedule("AAPL-DIVS")
+        .expect("AAPL dividend schedule present in initial_market.dividends");
+    // The schedule should have at least one dividend entry.
+    assert!(
+        !aapl_divs.events.is_empty(),
+        "AAPL dividend schedule should be non-empty"
+    );
+}
