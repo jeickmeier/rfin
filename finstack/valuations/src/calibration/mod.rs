@@ -1,11 +1,60 @@
-//! Calibration framework (plan-driven API).
+//! Calibration framework — the canonical path to build a `MarketContext` from
+//! raw market quotes.
 //!
-//! Provides market-standard calibration methodologies for:
-//! - Interest rate curves (discount/forward)
-//! - Credit curves (survival/hazard)
-//! - Inflation curves
-//! - Volatility surfaces
-//! - Base correlation curves
+//! # Building a MarketContext from quotes
+//!
+//! The supported workflow is JSON-in / `MarketContext`-out:
+//!
+//! ```rust
+//! use finstack_valuations::calibration::api::{engine, schema::CalibrationEnvelope};
+//! use finstack_core::market_data::context::MarketContext;
+//!
+//! # let envelope_json = r#"{"schema":"finstack.calibration","plan":{"id":"empty","description":null,"quote_sets":{},"steps":[],"settings":{}},"initial_market":null}"#;
+//! let envelope: CalibrationEnvelope =
+//!     serde_json::from_str(envelope_json).expect("parse envelope");
+//! let result = engine::execute(&envelope).expect("calibration succeeded");
+//! let market = MarketContext::try_from(result.result.final_market)
+//!     .expect("rehydrate market");
+//! // `market` is now ready for valuations, attribution, scenarios, portfolio analysis.
+//! # let _ = market;
+//! ```
+//!
+//! Python and JavaScript users get the same surface: `finstack.valuations.calibrate(json).market`
+//! returns a `MarketContext`; the `CalibrationResult` wrapper additionally exposes per-step
+//! residuals and a plan-level report next to the context, so users can verify their curves
+//! actually fit.
+//!
+//! See `finstack/valuations/examples/market_bootstrap/` for canonical envelope JSON examples
+//! covering discount curves, hazard curves layered on `initial_market`, and FX matrices
+//! supplied as snapshot data.
+//!
+//! # Two-track envelope structure
+//!
+//! A `CalibrationEnvelope` carries quotes in two complementary places:
+//!
+//! - **Track A — bootstrapping (`plan.quote_sets` + `plan.steps`).** Quotes that drive a
+//!   solver — rates, CDS, swaptions, vols, tranche spreads, etc. Each `step` reads its
+//!   `quote_set` and produces a curve or surface added to the in-progress context.
+//!   Step kinds: `discount`, `forward`, `hazard`, `inflation`, `vol_surface`,
+//!   `swaption_vol`, `base_correlation`, `student_t`, `hull_white`, `cap_floor_hull_white`,
+//!   `svi_surface`, `xccy_basis`, `parametric`.
+//! - **Track B — snapshot data (`initial_market`).** FX matrices, bond prices, equity
+//!   spot prices, and dividend schedules are not bootstrapped today — they are supplied
+//!   as materialized state. The `MarketQuote` enum has `Fx` and `Bond` variants for
+//!   documentation/persistence purposes, but no calibration step consumes them; pass
+//!   them via `initial_market.fx`, `initial_market.prices`, and `initial_market.dividends`.
+//!
+//! Both tracks are valid in the same envelope; the engine merges `initial_market`
+//! into the working context before running steps.
+//!
+//! # When to use `MarketContext::try_from(MarketContextState)` directly
+//!
+//! `MarketContext::try_from(state)` (paired with `serde_json::from_str::<MarketContextState>`)
+//! is the materialized-snapshot deserializer — it rehydrates a *previously-saved*
+//! `MarketContext`. It does **not** build one from quotes. Use the calibration path
+//! (above) for quote-driven construction; reserve direct deserialization for replaying
+//! an already-calibrated context (e.g., from a saved snapshot, a downstream consumer,
+//! or a regression-test fixture).
 //!
 //! # Documentation Rules For Calibration APIs
 //!
@@ -24,42 +73,6 @@
 //! - **Flexible Solvers**: Supports both sequential bootstrapping and global optimization (Newton/LM).
 //! - **Market Standards**: Implements post-2008 multi-curve frameworks and strict pricing conventions.
 //! - **Extensible Architecture**: Easy to add new instrument types and calibration targets.
-//!
-//! # Quick Example
-//!
-//! ```rust
-//! use finstack_valuations::calibration::api::engine;
-//! use finstack_valuations::calibration::api::schema::{
-//!     CalibrationEnvelope, CalibrationPlan, CalibrationStep, StepParams,
-//!     DiscountCurveParams, CALIBRATION_SCHEMA,
-//! };
-//! use finstack_valuations::calibration::CalibrationMethod;
-//! use finstack_valuations::market::quotes::rates::RateQuote;
-//! use finstack_valuations::market::quotes::market_quote::MarketQuote;
-//! use finstack_core::HashMap;
-//!
-//! # fn example() -> finstack_core::Result<()> {
-//! let quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-//! let steps: Vec<CalibrationStep> = Vec::new();
-//!
-//! let plan = CalibrationPlan {
-//!     id: "plan".to_string(),
-//!     description: None,
-//!     quote_sets,
-//!     steps,
-//!     settings: Default::default(),
-//! };
-//! let envelope = CalibrationEnvelope {
-//!     schema: CALIBRATION_SCHEMA.to_string(),
-//!     plan,
-//!     initial_market: None,
-//! };
-//!
-//! // Execute the calibration plan
-//! let result = engine::execute(&envelope)?;
-//! # Ok(())
-//! # }
-//! ```
 //!
 //! # See Also
 //! - `api` for the plan schema and engine.
