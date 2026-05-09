@@ -6,10 +6,45 @@ import json
 
 from finstack.core.market_data import MarketContext
 
-from finstack.valuations import ValuationResult, price_instrument_with_metrics
+from finstack.valuations import (
+    ValuationResult,
+    calibrate,
+    price_instrument_with_metrics,
+)
 from tests.golden.pricing_validation import validated_instrument_json
 from tests.golden.runners import validate_source_validation_fixture
 from tests.golden.schema import GoldenFixture
+
+
+def _resolve_market(inputs: dict) -> MarketContext:
+    """Return a MarketContext from either the 'market' or 'market_envelope' key.
+
+    Mutually exclusive: the fixture must provide exactly one. 'market' is the
+    materialized MarketContext JSON (snapshot); 'market_envelope' is a
+    CalibrationEnvelope routed through the calibration engine.
+    """
+    has_market = "market" in inputs
+    has_envelope = "market_envelope" in inputs
+    if has_market and has_envelope:
+        raise ValueError(
+            "pricing fixture supplied both 'market' and 'market_envelope'; "
+            "specify exactly one"
+        )
+    if has_market:
+        return MarketContext.from_json(json.dumps(inputs["market"]))
+    if has_envelope:
+        envelope_json = json.dumps(inputs["market_envelope"])
+        plan_id = inputs["market_envelope"].get("plan", {}).get("id", "?")
+        try:
+            result = calibrate(envelope_json)
+        except Exception as exc:
+            raise ValueError(
+                f"calibrate market_envelope for plan '{plan_id}': {exc}"
+            ) from exc
+        return result.market
+    raise ValueError(
+        "pricing fixture must supply either 'market' or 'market_envelope'"
+    )
 
 
 def run_pricing_fixture(fixture: GoldenFixture) -> dict[str, float]:
@@ -17,7 +52,7 @@ def run_pricing_fixture(fixture: GoldenFixture) -> dict[str, float]:
     validate_source_validation_fixture("pricing runner", fixture)
 
     inputs = fixture.inputs
-    market = MarketContext.from_json(json.dumps(inputs["market"]))
+    market = _resolve_market(inputs)
     instrument_json = validated_instrument_json(inputs["instrument_json"])
     result_json = price_instrument_with_metrics(
         instrument_json,

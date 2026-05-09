@@ -72,10 +72,9 @@ PRICING_INPUT_KEYS = {
     "model",
     "metrics",
     "instrument_json",
-    "market",
     "source_reference",
 }
-PRICING_OPTIONAL_INPUT_KEYS = {"source_validation"}
+PRICING_OPTIONAL_INPUT_KEYS = {"source_validation", "market", "market_envelope"}
 
 _DOMAIN_RUNNERS = {
     "analytics.benchmark": "analytics_common",
@@ -216,10 +215,21 @@ def _validate_pricing_input_schema(path: Path, fixture: GoldenFixture) -> None:
     inputs = fixture.inputs
     assert isinstance(inputs, dict), "pricing fixture inputs must be an object"
     _validate_object_keys("inputs", inputs, PRICING_INPUT_KEYS, PRICING_OPTIONAL_INPUT_KEYS)
-    try:
-        MarketContext.from_json(json.dumps(inputs["market"]))
-    except Exception as exc:
-        raise AssertionError(f"pricing fixture inputs.market is not a valid MarketContext: {exc}") from exc
+
+    has_market = "market" in inputs
+    has_envelope = "market_envelope" in inputs
+    assert not (has_market and has_envelope), (
+        "pricing fixture must not supply both 'market' and 'market_envelope'; specify exactly one"
+    )
+    assert has_market or has_envelope, (
+        "pricing fixture must supply either 'market' or 'market_envelope'"
+    )
+
+    if has_market:
+        try:
+            MarketContext.from_json(json.dumps(inputs["market"]))
+        except Exception as exc:
+            raise AssertionError(f"pricing fixture inputs.market is not a valid MarketContext: {exc}") from exc
     try:
         validated_instrument_json(inputs["instrument_json"])
     except Exception as exc:
