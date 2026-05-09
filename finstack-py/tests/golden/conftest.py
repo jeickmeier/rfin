@@ -15,6 +15,7 @@ import time
 from types import ModuleType
 
 from finstack.core.market_data import MarketContext
+from finstack.valuations import validate_calibration_json
 
 from .pricing_validation import validate_requested_metrics, validated_instrument_json
 from .runners import validate_source_validation_fixture
@@ -228,6 +229,13 @@ def _validate_pricing_input_schema(path: Path, fixture: GoldenFixture) -> None:
             MarketContext.from_json(json.dumps(inputs["market"]))
         except Exception as exc:
             raise AssertionError(f"pricing fixture inputs.market is not a valid MarketContext: {exc}") from exc
+    if has_envelope:
+        try:
+            validate_calibration_json(json.dumps(inputs["market_envelope"]))
+        except Exception as exc:
+            raise AssertionError(
+                f"pricing fixture inputs.market_envelope is not a valid CalibrationEnvelope: {exc}"
+            ) from exc
     try:
         validated_instrument_json(inputs["instrument_json"])
     except Exception as exc:

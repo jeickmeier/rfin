@@ -62,7 +62,7 @@
         "kind": "discount",
         "curve_id": "USD-OIS",
         "currency": "USD",
-        "base_date": "2025-01-15",
+        "base_date": "2026-05-08",
         "method": "Bootstrap",
         "interpolation": "linear",
         "extrapolation": "flat_forward",

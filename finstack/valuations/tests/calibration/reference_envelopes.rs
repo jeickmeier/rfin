@@ -95,7 +95,7 @@ fn example_09_fx_matrix_supports_cross_rate_lookup() {
         .fx()
         .expect("FX matrix must be present in the snapshot-only market");
 
-    let as_of = date!(2025 - 03 - 20);
+    let as_of = date!(2026 - 05 - 08);
 
     // --- Direct quote: EUR/USD ---
     let eur_usd = fx

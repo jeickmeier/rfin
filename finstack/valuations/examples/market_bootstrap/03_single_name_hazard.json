@@ -106,7 +106,7 @@
         "entity": "Issuer-A",
         "seniority": "senior",
         "currency": "USD",
-        "base_date": "2025-03-20",
+        "base_date": "2026-05-08",
         "discount_curve_id": "USD-OIS",
         "recovery_rate": 0.4,
         "notional": 1.0,
@@ -123,7 +123,7 @@
       {
         "type": "discount",
         "id": "USD-OIS",
-        "base": "2025-03-20",
+        "base": "2026-05-08",
         "day_count": "Act360",
         "knot_points": [
           [0.0, 1.0],
