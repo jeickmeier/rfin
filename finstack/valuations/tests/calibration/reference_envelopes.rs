@@ -161,3 +161,23 @@ fn example_02_usd_3m_forward_builds_queryable_curve() {
         "forward rate at t=1y should be in (0, 0.20), got {rate_one_year}"
     );
 }
+
+#[test]
+fn example_04_cdx_ig_hazard_builds_queryable_curve() {
+    let envelope = load_envelope("04_cdx_ig_hazard.json");
+    let market = execute(&envelope);
+
+    market
+        .get_discount("USD-OIS")
+        .expect("discount carried through from initial_market");
+
+    let hazard = market
+        .get_hazard("CDX-NA-IG-46")
+        .expect("CDX hazard curve present after calibration");
+
+    let survival_5y = hazard.sp(5.0);
+    assert!(
+        survival_5y > 0.0 && survival_5y < 1.0,
+        "5y survival should be in (0, 1), got {survival_5y}"
+    );
+}
