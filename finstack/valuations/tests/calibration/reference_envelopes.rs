@@ -20,8 +20,12 @@ pub(crate) fn load_envelope(file_name: &str) -> CalibrationEnvelope {
     let path = examples_dir().join(file_name);
     let json = std::fs::read_to_string(&path)
         .unwrap_or_else(|err| panic!("read {}: {err}", path.display()));
-    serde_json::from_str(&json)
-        .unwrap_or_else(|err| panic!("deserialize {} as CalibrationEnvelope: {err}", path.display()))
+    serde_json::from_str(&json).unwrap_or_else(|err| {
+        panic!(
+            "deserialize {} as CalibrationEnvelope: {err}",
+            path.display()
+        )
+    })
 }
 
 pub(crate) fn execute(envelope: &CalibrationEnvelope) -> MarketContext {
