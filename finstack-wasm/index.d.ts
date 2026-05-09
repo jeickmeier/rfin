@@ -1,5 +1,27 @@
 // Type declarations for the finstack-wasm namespaced facade.
 // Shapes follow `wasm-bindgen` JS names in `src/api/**` (see Rust `js_name`).
+//
+// Building a MarketContext from quotes (canonical path):
+//
+//   import { valuations } from 'finstack-wasm/exports/valuations.js';
+//   const envelopeJson = JSON.stringify({
+//     schema: 'finstack.calibration',
+//     plan: { id: 'usd_curves', quote_sets: {...}, steps: [...], settings: {} },
+//     initial_market: null,
+//   });
+//   const resultJson = valuations.calibrate(envelopeJson);
+//   const result = JSON.parse(resultJson);  // CalibrationResultEnvelope
+//   const marketJson = JSON.stringify(result.result.final_market);
+//
+// `result.result.final_market` is the materialized MarketContextState ready
+// for any downstream pricing / scenario / attribution call that takes a
+// market_json argument. Always check the per-step report
+// (`result.result.step_reports`) and the plan summary
+// (`result.result.report`) to confirm the curves actually fit before using
+// the market downstream.
+//
+// `validateCalibrationJson` is a fast pre-flight check that canonicalizes
+// the envelope without solving — use it to surface schema errors early.
 
 export { default } from './pkg/finstack_wasm';
 
