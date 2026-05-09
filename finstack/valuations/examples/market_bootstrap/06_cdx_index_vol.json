@@ -2,7 +2,7 @@
   "schema": "finstack.calibration",
   "plan": {
     "id": "cdx_ig_46_cdso_vol",
-    "description": "CDX.NA.IG.46 CDS index option (CDSO) volatility surface calibrated from a 3×3 (expiry × strike) grid of lognormal spread-vol quotes against the index hazard curve in initial_market. Demonstrates how analysts build a credit-derivative vol surface alongside the underlying credit curve. The vol_surface step uses OptionVol quotes where underlying='CDX-NA-IG-46' and strikes are CDS spread levels in decimal (e.g., 0.0040 = 40bp). The SABR model is calibrated per-expiry with β=1.0 (lognormal) and spot_override set to the current 5Y index spread (~55bp). The produced VolSurface is keyed as 'CDX-NA-IG-46-CDSO-VOL' and is retrievable via MarketContext::get_surface(). Used as a prerequisite for 12 (full credit desk composite).",
+    "description": "CDX.NA.IG.46 CDS index option (CDSO) volatility surface calibrated from a 3×3 (expiry × strike) grid of lognormal spread-vol quotes against the index hazard curve in initial_market. Demonstrates how analysts build a credit-derivative vol surface alongside the underlying credit curve. The vol_surface step uses OptionVol quotes where underlying='CDX-NA-IG-46' and strikes are CDS spread levels in decimal (e.g., 0.0040 = 40bp). The SABR model is calibrated per-expiry with β=1.0 (lognormal) and spot_override = 0.00552848 (~55.28 bp), matching the 5y par spread implied by the initial_market hazard curve (λ ≈ 92bp × (1−R) ≈ 55 bp). The produced VolSurface is keyed as 'CDX-NA-IG-46-CDSO-VOL' and is retrievable via MarketContext::get_surface(). Note: settings.fail_on_bad_fit is set to false because the input grid is flat in the strike dimension; SABR (β=1) cannot pin a near-flat smile to engine tolerance (1e-12) when ν is bounded away from zero. The produced surface is queryable but does not pin to the input quotes at solver tolerance — replace with a non-flat smile (e.g., +/- 50bps of vol on the 40 / 75 bp wings) to exercise SABR with strict fit. Used as a prerequisite for 12 (full credit desk composite).",
     "quote_sets": {
       "cdx_ig_46_cdso_vol_quotes": [
         {
@@ -155,9 +155,9 @@
         "id": "CDX-NA-IG-46",
         "base": "2026-05-08",
         "knot_points": [
-          [0.0, 0.0010],
-          [5.0, 0.0012],
-          [10.0, 0.0015]
+          [0.0, 0.0090],
+          [5.0, 0.0092],
+          [10.0, 0.0095]
         ],
         "recovery_rate": 0.40,
         "issuer": null,

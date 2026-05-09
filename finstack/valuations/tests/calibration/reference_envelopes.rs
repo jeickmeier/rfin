@@ -8,6 +8,7 @@
 //! workflow.
 
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::traits::VolProvider;
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::CalibrationEnvelope;
 use std::path::PathBuf;
@@ -222,5 +223,15 @@ fn example_06_cdx_index_vol_builds_queryable_surface() {
         .get_surface("CDX-NA-IG-46-CDSO-VOL")
         .expect("CDX index vol surface present after calibration");
 
-    let _ = surface;
+    // Sanity-query the SABR surface at the ATM forward (~55 bp) and 40-day
+    // expiry (June 2026 from base 2026-05-08 ≈ 0.10959y on Act365F). With
+    // fail_on_bad_fit relaxed the fit is approximate, but the queried vol
+    // must still be a positive number in a sane lognormal range.
+    let vol = surface
+        .vol(0.10958904, 5.0, 0.00552848)
+        .expect("vol query at ATM forward should succeed");
+    assert!(
+        vol > 0.0 && vol < 5.0,
+        "ATM vol should be in (0, 5), got {vol}"
+    );
 }
