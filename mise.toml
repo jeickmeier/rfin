@@ -55,7 +55,7 @@ depends = ["rust-fmt", "python-fmt", "wasm-fmt"]
 
 [tasks.all-lint]
 description = "Lint Rust + Python + WASM (check-only, non-mutating)"
-depends = ["rust-lint", "python-lint", "wasm-lint"]
+depends = ["rust-lint", "python-lint", "wasm-lint", "gen-check"]
 
 [tasks.all-audit]
 description = "Run security audits on Rust + Python"
@@ -286,6 +286,15 @@ run = [
 [tasks.rust-sync-schemas]
 description = "Apply local schema override sync"
 run = "uv run python scripts/sync_instrument_schema_overrides.py"
+
+[tasks.gen-check]
+description = "Regenerate JSON Schema + ts-rs bindings; fail on diff"
+run = """
+cargo run --quiet -p finstack-valuations --bin gen_schemas
+cargo test --quiet -p finstack-valuations --test integration --features ts_export -- --test-threads=1 schema::ts_export
+git diff --quiet finstack/valuations/schemas/ finstack-wasm/types/generated/ \
+  || (echo 'Generated artifacts out of date. Run: mise run rust-gen-schemas && mise run wasm-gen-bindings'; exit 1)
+"""
 
 # ─────────────────────────────────────────────────────────────────
 # Pre-commit

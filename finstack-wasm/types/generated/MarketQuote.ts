@@ -36,25 +36,5 @@ import type { XccyQuote } from "./XccyQuote";
  * # }
  * ```
  *
- * Bumping a quote:
- * ```rust
- * use finstack_valuations::market::quotes::market_quote::MarketQuote;
- * use finstack_valuations::market::quotes::rates::RateQuote;
- * use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
- * use finstack_valuations::market::conventions::ids::IndexId;
- *
- * # fn example() -> finstack_core::Result<()> {
- * let quote = MarketQuote::Rates(RateQuote::Deposit {
- *     id: QuoteId::new("USD-SOFR-DEP-1M"),
- *     index: IndexId::new("USD-SOFR-1M"),
- *     pillar: Pillar::Tenor("1M".parse()?),
- *     rate: 0.0525,
- * });
- *
- * // Bump by 1 basis point (0.0001 in decimal)
- * let bumped = quote.bump_rate_decimal(0.0001)?;
- * # Ok(())
- * # }
- * ```
  */
 export type MarketQuote = { "class": "bond" } & BondQuote | { "class": "rates" } & RateQuote | { "class": "cds" } & CdsQuote | { "class": "cds_tranche" } & CDSTrancheQuote | { "class": "fx" } & FxQuote | { "class": "inflation" } & InflationQuote | { "class": "vol" } & VolQuote | { "class": "xccy" } & XccyQuote;
