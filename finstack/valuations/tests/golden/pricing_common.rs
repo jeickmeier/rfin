@@ -31,10 +31,16 @@ impl PricingInputs {
             ),
             (Some(m), None) => Ok(m.clone()),
             (None, Some(env)) => {
-                let result = engine::execute(env)
-                    .map_err(|err| format!("calibrate market_envelope: {err}"))?;
-                MarketContext::try_from(result.result.final_market.clone())
-                    .map_err(|err| format!("rehydrate calibrated market: {err}"))
+                let result = engine::execute(env).map_err(|err| {
+                    format!(
+                        "calibrate market_envelope for plan '{}': {err}",
+                        env.plan.id
+                    )
+                })?;
+                let plan_id = env.plan.id.clone();
+                MarketContext::try_from(result.result.final_market).map_err(|err| {
+                    format!("rehydrate calibrated market for plan '{plan_id}': {err}")
+                })
             }
             (None, None) => {
                 Err("pricing fixture must supply either 'market' or 'market_envelope'".to_string())
@@ -142,15 +148,60 @@ mod market_envelope_input_tests {
                 );
             }
             Ok(parsed) => {
-                let err = parsed
-                    .resolve_market()
-                    .err()
-                    .expect("must reject fixtures that supply both 'market' and 'market_envelope'");
+                let err = parsed.resolve_market().expect_err(
+                    "must reject fixtures that supply both 'market' and 'market_envelope'",
+                );
                 assert!(
                     err.contains("market") && err.contains("market_envelope"),
                     "resolve_market error should name both fields, got: {err}"
                 );
             }
         }
+    }
+
+    #[test]
+    fn pricing_inputs_reject_when_neither_market_nor_market_envelope_supplied() {
+        let inputs = json!({
+            "valuation_date": "2026-04-30",
+            "model": "discounting",
+            "metrics": [],
+            "instrument_json": {},
+        });
+        let parsed: PricingInputs = serde_json::from_value(inputs).expect("parse");
+        let err = parsed
+            .resolve_market()
+            .expect_err("must reject fixtures that supply neither input");
+        assert!(
+            err.contains("market") && err.contains("market_envelope"),
+            "error should name both fields, got: {err}"
+        );
+    }
+
+    #[test]
+    fn pricing_inputs_resolve_market_only() {
+        let inputs = json!({
+            "valuation_date": "2026-04-30",
+            "model": "discounting",
+            "metrics": [],
+            "instrument_json": {},
+            "market": minimal_market(),
+        });
+        let parsed: PricingInputs = serde_json::from_value(inputs).expect("parse");
+        parsed.resolve_market().expect("market-only resolves");
+    }
+
+    #[test]
+    fn pricing_inputs_resolve_market_envelope_only() {
+        let inputs = json!({
+            "valuation_date": "2026-04-30",
+            "model": "discounting",
+            "metrics": [],
+            "instrument_json": {},
+            "market_envelope": minimal_envelope(),
+        });
+        let parsed: PricingInputs = serde_json::from_value(inputs).expect("parse");
+        parsed
+            .resolve_market()
+            .expect("market_envelope-only resolves through engine::execute");
     }
 }
