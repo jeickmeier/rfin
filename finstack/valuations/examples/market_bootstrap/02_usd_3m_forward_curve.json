@@ -1,4 +1,5 @@
 {
+  "$schema": "../../schemas/calibration/2/calibration.schema.json",
   "schema": "finstack.calibration",
   "plan": {
     "id": "usd_sofr_3m_forward",

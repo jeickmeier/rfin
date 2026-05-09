@@ -153,6 +153,7 @@ fn rebootstrap_market(
     )?;
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
         schema: CALIBRATION_SCHEMA.to_string(),
         plan,
         initial_market: Some(MarketContextState::from(&initial_market)),

@@ -83,6 +83,11 @@ impl CalibrationResultEnvelope {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CalibrationEnvelope {
+    /// Optional `$schema` URL/path for editor-side JSON Schema discovery.
+    /// Ignored at runtime; serialized when present.
+    #[serde(rename = "$schema", default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
+    pub schema_url: Option<String>,
     /// Schema version identifier (must be [`CALIBRATION_SCHEMA`]).
     pub schema: String,
     /// The calibration plan containing steps and quote data.

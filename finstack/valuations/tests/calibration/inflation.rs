@@ -108,6 +108,8 @@ fn inflation_quote_time_uses_lagged_fixing_date() {
 
     let initial_market = MarketContext::new().insert(create_discount_curve(base_date));
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&initial_market).into()),
@@ -170,6 +172,8 @@ fn inflation_preflight_rejects_base_cpi_mismatch_with_fixings() {
         .insert_inflation_index("USD-CPI", create_us_cpi_fixings_with_seasonality());
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&initial_market).into()),

@@ -44,6 +44,8 @@ fn missing_quote_set_fails_fast() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&MarketContext::new()).into()),
@@ -92,6 +94,8 @@ fn plan_and_envelope_serde_roundtrip() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: None,

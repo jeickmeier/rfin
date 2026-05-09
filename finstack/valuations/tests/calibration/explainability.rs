@@ -85,6 +85,8 @@ fn explanation_not_computed_by_default() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&ctx).into()),
@@ -131,6 +133,8 @@ fn explanation_is_present_when_enabled() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&ctx).into()),

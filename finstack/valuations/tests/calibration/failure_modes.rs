@@ -53,6 +53,8 @@ fn envelope_for_step(
     };
 
     CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&initial_market).into()),

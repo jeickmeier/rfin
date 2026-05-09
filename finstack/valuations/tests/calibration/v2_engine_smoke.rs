@@ -117,6 +117,8 @@ fn test_v2_simple_usd_calibration() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some(MarketContextState::from(&MarketContext::new())),

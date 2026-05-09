@@ -10,6 +10,11 @@ import type { CalibrationPlan } from "./CalibrationPlan";
  */
 export type CalibrationEnvelope = { 
 /**
+ * Optional `$schema` URL/path for editor-side JSON Schema discovery.
+ * Ignored at runtime; serialized when present.
+ */
+$schema?: string | null, 
+/**
  * Schema version identifier (must be [`CALIBRATION_SCHEMA`]).
  */
 schema: string, 

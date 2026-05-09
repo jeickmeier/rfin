@@ -83,6 +83,8 @@ fn envelope_v2_roundtrips() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: None,

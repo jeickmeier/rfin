@@ -2614,6 +2614,13 @@
     }
   ],
   "properties": {
+    "$schema": {
+      "description": "Optional `$schema` URL/path for editor-side JSON Schema discovery.\nIgnored at runtime; serialized when present.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "initial_market": {
       "default": null,
       "description": "Optional initial market context (e.g., existing curves) to use as a baseline."

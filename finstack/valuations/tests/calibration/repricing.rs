@@ -119,6 +119,8 @@ fn discount_curve_deposit_repricing() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: None,
@@ -232,6 +234,8 @@ fn discount_curve_swap_repricing() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: None,
@@ -368,6 +372,8 @@ fn forward_curve_fra_repricing() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: None,
@@ -523,6 +529,8 @@ fn hazard_curve_cds_repricing() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: None,
@@ -634,6 +642,8 @@ fn hazard_curve_step_report_matches_market_built_cds_repricing() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: None,
@@ -782,6 +792,8 @@ fn hazard_curve_standard_upfront_cds_repricing() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: None,
@@ -902,6 +914,8 @@ fn inflation_curve_swap_repricing() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: None,

@@ -124,6 +124,8 @@ fn run_discount_plan(base_date: Date, quotes: Vec<MarketQuote>) -> DiscountCurve
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: None,
@@ -175,6 +177,8 @@ fn run_hazard_plan(
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&initial_market).into()),
@@ -293,6 +297,8 @@ fn discount_curve_global_solve_smoke() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: None,

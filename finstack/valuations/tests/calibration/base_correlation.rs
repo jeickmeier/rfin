@@ -264,6 +264,8 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&initial_market).into()),

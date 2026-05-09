@@ -139,6 +139,8 @@ fn hazard_calibration_positive_rates() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&initial_market).into()),
@@ -208,6 +210,8 @@ fn hazard_calibration_rejects_zero_spread() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&initial_market).into()),
@@ -275,6 +279,8 @@ fn hazard_calibration_rejects_negative_spread() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&initial_market).into()),
@@ -340,6 +346,8 @@ fn hazard_calibration_rejects_non_standard_upfront_running_coupon() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&initial_market).into()),
@@ -442,6 +450,8 @@ fn hazard_calibration_handles_extreme_high_spread() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&initial_market).into()),
@@ -562,6 +572,8 @@ fn hazard_calibration_global_solve_sqrt_time_is_not_rougher_than_bootstrap() {
     };
 
     let bootstrap_env = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan: bootstrap_plan,
         initial_market: Some((&initial_market).into()),
@@ -616,6 +628,8 @@ fn hazard_calibration_global_solve_sqrt_time_is_not_rougher_than_bootstrap() {
     };
 
     let global_env = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan: global_plan,
         initial_market: Some((&initial_market).into()),
@@ -710,6 +724,8 @@ fn hazard_calibration_reprices_par_spread() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&initial_market).into()),

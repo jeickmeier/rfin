@@ -179,6 +179,8 @@ fn swaption_vol_step_builds_and_inserts_surface() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&initial_market).into()),
@@ -254,6 +256,8 @@ fn calibrated_swaption_surface_is_not_silently_reused_as_strike_surface() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&initial_market).into()),
@@ -344,6 +348,8 @@ fn swaption_vol_out_of_bounds_targets_error_by_default() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&initial_market).into()),
@@ -397,6 +403,8 @@ fn swaption_vol_out_of_bounds_targets_can_clamp_when_configured() {
     };
 
     let envelope = CalibrationEnvelope {
+        schema_url: None,
+
         schema: "finstack.calibration/2".to_string(),
         plan,
         initial_market: Some((&initial_market).into()),
