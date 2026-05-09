@@ -1,0 +1,128 @@
+{
+  "schema": "finstack.calibration",
+  "plan": {
+    "id": "usd_sofr_3m_forward",
+    "description": "USD 3M SOFR forward curve calibrated from a small set of futures and FRA quotes against an initial_market USD-OIS discount curve. Demonstrates the standard rates pattern of bootstrapping a forward curve while holding a discount-curve assumption fixed.",
+    "quote_sets": {
+      "sofr_3m_quotes": [
+        {
+          "class": "rates",
+          "type": "fra",
+          "id": "FRA-SOFR-3M-0X3",
+          "index": "USD-SOFR-3M",
+          "start": {
+            "date": "2026-05-08"
+          },
+          "end": {
+            "date": "2026-08-08"
+          },
+          "rate": 0.0495
+        },
+        {
+          "class": "rates",
+          "type": "fra",
+          "id": "FRA-SOFR-3M-3X6",
+          "index": "USD-SOFR-3M",
+          "start": {
+            "date": "2026-08-08"
+          },
+          "end": {
+            "date": "2026-11-08"
+          },
+          "rate": 0.0500
+        },
+        {
+          "class": "rates",
+          "type": "fra",
+          "id": "FRA-SOFR-3M-6X9",
+          "index": "USD-SOFR-3M",
+          "start": {
+            "date": "2026-11-08"
+          },
+          "end": {
+            "date": "2027-02-08"
+          },
+          "rate": 0.0510
+        },
+        {
+          "class": "rates",
+          "type": "fra",
+          "id": "FRA-SOFR-3M-9X12",
+          "index": "USD-SOFR-3M",
+          "start": {
+            "date": "2027-02-08"
+          },
+          "end": {
+            "date": "2027-05-08"
+          },
+          "rate": 0.0515
+        },
+        {
+          "class": "rates",
+          "type": "fra",
+          "id": "FRA-SOFR-3M-12X18",
+          "index": "USD-SOFR-3M",
+          "start": {
+            "date": "2027-05-08"
+          },
+          "end": {
+            "date": "2027-11-08"
+          },
+          "rate": 0.0520
+        }
+      ]
+    },
+    "steps": [
+      {
+        "id": "USD-SOFR-3M",
+        "quote_set": "sofr_3m_quotes",
+        "kind": "forward",
+        "curve_id": "USD-SOFR-3M",
+        "currency": "USD",
+        "base_date": "2026-05-08",
+        "tenor_years": 0.25,
+        "discount_curve_id": "USD-OIS",
+        "method": "Bootstrap",
+        "interpolation": "linear",
+        "conventions": {}
+      }
+    ],
+    "settings": {}
+  },
+  "initial_market": {
+    "version": 2,
+    "curves": [
+      {
+        "type": "discount",
+        "id": "USD-OIS",
+        "base": "2026-05-08",
+        "day_count": "Act365F",
+        "knot_points": [
+          [0.0, 1.0],
+          [0.25, 0.98758],
+          [0.5, 0.97531],
+          [1.0, 0.95123],
+          [2.0, 0.90484],
+          [5.0, 0.77880],
+          [10.0, 0.60653]
+        ],
+        "interp_style": "log_linear",
+        "extrapolation": "flat_forward",
+        "min_forward_rate": null,
+        "allow_non_monotonic": false,
+        "min_forward_tenor": 1e-06,
+        "rate_calibration": null
+      }
+    ],
+    "fx": null,
+    "surfaces": [],
+    "prices": {},
+    "series": [],
+    "inflation_indices": [],
+    "dividends": [],
+    "credit_indices": [],
+    "fx_delta_vol_surfaces": [],
+    "vol_cubes": [],
+    "collateral": {}
+  }
+}

@@ -138,3 +138,26 @@ fn example_09_fx_matrix_supports_cross_rate_lookup() {
         expected_approx
     );
 }
+
+#[test]
+fn example_02_usd_3m_forward_builds_queryable_curve() {
+    let envelope = load_envelope("02_usd_3m_forward_curve.json");
+    let market = execute(&envelope);
+
+    // Discount curve passes through unchanged from initial_market.
+    market
+        .get_discount("USD-OIS")
+        .expect("discount curve carried through from initial_market");
+
+    // Forward curve must be produced by the calibration step.
+    let forward = market
+        .get_forward("USD-SOFR-3M")
+        .expect("forward curve present after forward step");
+
+    // Forward rate at t=1y should be a sane positive rate.
+    let rate_one_year = forward.rate(1.0);
+    assert!(
+        rate_one_year > 0.0 && rate_one_year < 0.20,
+        "forward rate at t=1y should be in (0, 0.20), got {rate_one_year}"
+    );
+}
