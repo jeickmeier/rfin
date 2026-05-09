@@ -9,4 +9,6 @@
 //! - `engine`: Execution logic for processing calibration plans.
 
 pub mod engine;
+pub mod errors;
 pub mod schema;
+pub mod validate;

@@ -1,0 +1,487 @@
+//! Static envelope validator and dependency-graph utilities.
+//!
+//! [`validate`] runs all structural checks (missing dependencies, undefined
+//! `quote_set`s, cycles) and returns a [`ValidationReport`] listing every
+//! error found plus the dependency graph of the steps. No solver is invoked
+//! — the validator runs in microseconds.
+//!
+//! [`dry_run`] and [`dependency_graph_json`] are JSON-string wrappers for
+//! cross-binding consumption (Python / WASM).
+
+// `EnvelopeError` is intentionally large (carries available-IDs lists, etc.)
+// because the cross-binding consumers want all the diagnostic context in
+// one shot. Boxing the error would harm ergonomics on a cold error path.
+#![allow(clippy::result_large_err)]
+
+use serde::Serialize;
+use std::collections::{BTreeSet, HashSet};
+
+use crate::calibration::api::errors::EnvelopeError;
+use crate::calibration::api::schema::{CalibrationEnvelope, CalibrationStep, StepParams};
+use finstack_core::market_data::context::{CurveState, MarketContextState};
+
+/// Result of [`validate`]. Always contains the dependency graph; `errors` is
+/// empty when the envelope is structurally valid.
+#[derive(Debug, Clone, Serialize)]
+pub struct ValidationReport {
+    /// All errors found in a single pass; empty if the envelope is valid.
+    pub errors: Vec<EnvelopeError>,
+    /// Topological view of the steps' inputs and outputs.
+    pub dependency_graph: DependencyGraph,
+}
+
+/// Static dependency graph derived from a [`CalibrationEnvelope`].
+#[derive(Debug, Clone, Serialize)]
+pub struct DependencyGraph {
+    /// Curve / surface IDs available at the start of execution, contributed
+    /// by `initial_market`.
+    pub initial_ids: Vec<String>,
+    /// Per-step inputs and outputs in declared order.
+    pub nodes: Vec<DependencyNode>,
+}
+
+/// A single step's view of the dependency graph.
+#[derive(Debug, Clone, Serialize)]
+pub struct DependencyNode {
+    /// Zero-based index in `plan.steps`.
+    pub step_index: usize,
+    /// Step identifier.
+    pub step_id: String,
+    /// Step kind (`"discount"`, `"forward"`, ...).
+    pub kind: String,
+    /// Curve / surface IDs the step depends on. Each must be either in
+    /// `initial_ids` or produced by an earlier step.
+    pub reads: Vec<String>,
+    /// Curve / surface ID(s) the step produces.
+    pub writes: Vec<String>,
+}
+
+/// Run all static validation checks.
+///
+/// Always returns a [`ValidationReport`]; inspect `errors` to see what failed.
+/// The validator is solver-free — runs in microseconds, suitable as a
+/// pre-flight check before invoking [`engine::execute`](super::engine::execute).
+pub fn validate(envelope: &CalibrationEnvelope) -> ValidationReport {
+    let mut errors = Vec::new();
+    let initial_ids = collect_initial_ids(envelope.initial_market.as_ref());
+    let nodes = build_nodes(&envelope.plan.steps);
+
+    check_quote_sets(envelope, &mut errors);
+    check_dependencies(&initial_ids, &nodes, &mut errors);
+
+    let mut sorted_initial: Vec<String> = initial_ids.into_iter().collect();
+    sorted_initial.sort();
+
+    ValidationReport {
+        errors,
+        dependency_graph: DependencyGraph {
+            initial_ids: sorted_initial,
+            nodes,
+        },
+    }
+}
+
+/// Wrap [`validate`] to take a JSON string.
+///
+/// Returns the report serialized as pretty-printed JSON. Returns an
+/// [`EnvelopeError::JsonParse`] if the envelope is malformed.
+pub fn dry_run(envelope_json: &str) -> Result<String, EnvelopeError> {
+    let envelope = parse_envelope(envelope_json)?;
+    let report = validate(&envelope);
+    Ok(serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".to_string()))
+}
+
+/// JSON-friendly wrapper that returns just the dependency graph.
+pub fn dependency_graph_json(envelope_json: &str) -> Result<String, EnvelopeError> {
+    let envelope = parse_envelope(envelope_json)?;
+    let nodes = build_nodes(&envelope.plan.steps);
+    let mut sorted_initial: Vec<String> = collect_initial_ids(envelope.initial_market.as_ref())
+        .into_iter()
+        .collect();
+    sorted_initial.sort();
+    let graph = DependencyGraph {
+        initial_ids: sorted_initial,
+        nodes,
+    };
+    Ok(serde_json::to_string_pretty(&graph).unwrap_or_else(|_| "{}".to_string()))
+}
+
+// =============================================================================
+// Internal helpers
+// =============================================================================
+
+fn parse_envelope(json: &str) -> Result<CalibrationEnvelope, EnvelopeError> {
+    serde_json::from_str(json).map_err(|e| EnvelopeError::JsonParse {
+        message: e.to_string(),
+        line: Some(e.line() as u32),
+        col: Some(e.column() as u32),
+    })
+}
+
+fn collect_initial_ids(state: Option<&MarketContextState>) -> HashSet<String> {
+    let mut ids = HashSet::new();
+    let Some(state) = state else { return ids };
+
+    for curve in &state.curves {
+        ids.insert(curve_state_id(curve));
+    }
+    for surface in &state.surfaces {
+        ids.insert(surface.id().to_string());
+    }
+    ids
+}
+
+fn curve_state_id(state: &CurveState) -> String {
+    // `CurveState` is a generated enum (see finstack_core::market_data::
+    // context::state_serde) with one variant per curve type. Each variant's
+    // inner type implements `id() -> &CurveId`. We can serialize and pull
+    // the `id` out, but a direct match keeps this hot helper allocation-free.
+    //
+    // Until a public `CurveState::id()` accessor lands in finstack-core, fall
+    // back to JSON inspection: every variant serializes with an `id` field.
+    serde_json::to_value(state)
+        .ok()
+        .as_ref()
+        .and_then(|v| v.get("id"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .unwrap_or_default()
+}
+
+fn build_nodes(steps: &[CalibrationStep]) -> Vec<DependencyNode> {
+    steps
+        .iter()
+        .enumerate()
+        .map(|(idx, step)| {
+            let (kind, reads, writes) = step_io(&step.params);
+            DependencyNode {
+                step_index: idx,
+                step_id: step.id.clone(),
+                kind,
+                reads,
+                writes,
+            }
+        })
+        .collect()
+}
+
+/// `(kind, reads, writes)` triple for each step variant.
+///
+/// Mirrors `step_runtime::output_key` for the write side; reads are sourced
+/// from the step's parameter struct (typically `*_curve_id` fields).
+fn step_io(params: &StepParams) -> (String, Vec<String>, Vec<String>) {
+    match params {
+        StepParams::Discount(p) => (
+            "discount".to_string(),
+            Vec::new(),
+            vec![p.curve_id.to_string()],
+        ),
+        StepParams::Forward(p) => (
+            "forward".to_string(),
+            vec![p.discount_curve_id.to_string()],
+            vec![p.curve_id.to_string()],
+        ),
+        StepParams::Hazard(p) => (
+            "hazard".to_string(),
+            vec![p.discount_curve_id.to_string()],
+            vec![p.curve_id.to_string()],
+        ),
+        StepParams::Inflation(p) => (
+            "inflation".to_string(),
+            vec![p.discount_curve_id.to_string()],
+            vec![p.curve_id.to_string()],
+        ),
+        StepParams::VolSurface(p) => {
+            let reads = p
+                .discount_curve_id
+                .as_ref()
+                .map(|c| vec![c.to_string()])
+                .unwrap_or_default();
+            ("vol_surface".to_string(), reads, vec![p.surface_id.clone()])
+        }
+        StepParams::SwaptionVol(p) => (
+            "swaption_vol".to_string(),
+            vec![p.discount_curve_id.to_string()],
+            vec![p.surface_id.clone()],
+        ),
+        StepParams::BaseCorrelation(p) => (
+            "base_correlation".to_string(),
+            vec![p.discount_curve_id.to_string()],
+            // Mirror step_runtime::output_key: writes "{index_id}_CORR".
+            vec![format!("{}_CORR", p.index_id)],
+        ),
+        StepParams::StudentT(p) => {
+            let mut reads = vec![p.base_correlation_curve_id.clone()];
+            if let Some(d) = &p.discount_curve_id {
+                reads.push(d.to_string());
+            }
+            (
+                "student_t".to_string(),
+                reads,
+                vec![format!("{}_STUDENT_T_DF", p.tranche_instrument_id)],
+            )
+        }
+        StepParams::HullWhite(p) => (
+            "hull_white".to_string(),
+            vec![p.curve_id.to_string()],
+            vec![format!("{}_HW1F", p.curve_id.as_str())],
+        ),
+        StepParams::CapFloorHullWhite(p) => {
+            let mut reads = vec![p.discount_curve_id.to_string()];
+            if p.forward_curve_id != p.discount_curve_id {
+                reads.push(p.forward_curve_id.to_string());
+            }
+            (
+                "cap_floor_hull_white".to_string(),
+                reads,
+                vec![format!("{}_CAPFLOOR_HW1F", p.discount_curve_id.as_str())],
+            )
+        }
+        StepParams::SviSurface(p) => {
+            let reads = p
+                .discount_curve_id
+                .as_ref()
+                .map(|c| vec![c.to_string()])
+                .unwrap_or_default();
+            ("svi_surface".to_string(), reads, vec![p.surface_id.clone()])
+        }
+        StepParams::XccyBasis(p) => {
+            let mut writes = vec![p.curve_id.to_string()];
+            if let Some(b) = &p.basis_spread_curve_id {
+                writes.push(b.to_string());
+            }
+            (
+                "xccy_basis".to_string(),
+                vec![p.domestic_discount_id.to_string()],
+                writes,
+            )
+        }
+        StepParams::Parametric(p) => {
+            let reads = p
+                .discount_curve_id
+                .as_ref()
+                .map(|c| vec![c.to_string()])
+                .unwrap_or_default();
+            (
+                "parametric".to_string(),
+                reads,
+                vec![p.curve_id.to_string()],
+            )
+        }
+    }
+}
+
+fn check_quote_sets(envelope: &CalibrationEnvelope, errors: &mut Vec<EnvelopeError>) {
+    let mut available: Vec<String> = envelope.plan.quote_sets.keys().cloned().collect();
+    available.sort();
+    for (idx, step) in envelope.plan.steps.iter().enumerate() {
+        if !envelope.plan.quote_sets.contains_key(&step.quote_set) {
+            errors.push(EnvelopeError::UndefinedQuoteSet {
+                step_index: idx,
+                step_id: step.id.clone(),
+                ref_name: step.quote_set.clone(),
+                available: available.clone(),
+                suggestion: closest_match(&step.quote_set, &available),
+            });
+        }
+    }
+}
+
+fn check_dependencies(
+    initial_ids: &HashSet<String>,
+    nodes: &[DependencyNode],
+    errors: &mut Vec<EnvelopeError>,
+) {
+    let mut available: BTreeSet<String> = initial_ids.iter().cloned().collect();
+    for node in nodes {
+        for read_id in &node.reads {
+            if !available.contains(read_id) {
+                errors.push(EnvelopeError::MissingDependency {
+                    step_index: node.step_index,
+                    step_id: node.step_id.clone(),
+                    step_kind: node.kind.clone(),
+                    missing_id: read_id.clone(),
+                    missing_kind: "curve".to_string(),
+                    available: available.iter().cloned().collect(),
+                });
+            }
+        }
+        for write_id in &node.writes {
+            available.insert(write_id.clone());
+        }
+    }
+}
+
+/// Closest-match suggestion for a misspelled identifier (Levenshtein ≤ 3).
+fn closest_match(target: &str, candidates: &[String]) -> Option<String> {
+    candidates
+        .iter()
+        .map(|c| (c, levenshtein(target, c)))
+        .filter(|(_, d)| *d > 0 && *d <= 3)
+        .min_by_key(|(_, d)| *d)
+        .map(|(c, _)| c.clone())
+}
+
+fn levenshtein(a: &str, b: &str) -> usize {
+    let a: Vec<char> = a.chars().collect();
+    let b: Vec<char> = b.chars().collect();
+    let (m, n) = (a.len(), b.len());
+    if m == 0 {
+        return n;
+    }
+    if n == 0 {
+        return m;
+    }
+    let mut prev: Vec<usize> = (0..=n).collect();
+    let mut curr = vec![0usize; n + 1];
+    for i in 1..=m {
+        curr[0] = i;
+        for j in 1..=n {
+            let cost = if a[i - 1] == b[j - 1] { 0 } else { 1 };
+            curr[j] = (prev[j] + 1).min(curr[j - 1] + 1).min(prev[j - 1] + cost);
+        }
+        std::mem::swap(&mut prev, &mut curr);
+    }
+    prev[n]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::calibration::api::schema::{
+        CalibrationPlan, CalibrationStep, DiscountCurveParams, StepParams, CALIBRATION_SCHEMA,
+    };
+    use finstack_core::HashMap;
+
+    fn empty_envelope(id: &str) -> CalibrationEnvelope {
+        CalibrationEnvelope {
+            schema_url: None,
+            schema: CALIBRATION_SCHEMA.to_string(),
+            plan: CalibrationPlan {
+                id: id.to_string(),
+                description: None,
+                quote_sets: HashMap::default(),
+                steps: Vec::new(),
+                settings: Default::default(),
+            },
+            initial_market: None,
+        }
+    }
+
+    fn discount_step(id: &str, quote_set: &str, curve_id: &str) -> CalibrationStep {
+        // Use serde to construct DiscountCurveParams since several fields rely
+        // on serde defaults (interpolation, conventions, etc.).
+        let params: DiscountCurveParams = serde_json::from_value(serde_json::json!({
+            "curve_id": curve_id,
+            "currency": "USD",
+            "base_date": "2026-05-08",
+        }))
+        .expect("default discount params deserialize");
+        CalibrationStep {
+            id: id.to_string(),
+            quote_set: quote_set.to_string(),
+            params: StepParams::Discount(params),
+        }
+    }
+
+    #[test]
+    fn empty_envelope_validates_clean() {
+        let env = empty_envelope("smoke");
+        let report = validate(&env);
+        assert!(report.errors.is_empty());
+        assert!(report.dependency_graph.nodes.is_empty());
+    }
+
+    #[test]
+    fn undefined_quote_set_is_caught_with_suggestion() {
+        let mut env = empty_envelope("test");
+        env.plan
+            .quote_sets
+            .insert("usd_quotes".to_string(), Vec::new());
+        env.plan
+            .steps
+            .push(discount_step("d", "usd_quotess", "USD-OIS"));
+
+        let report = validate(&env);
+        let err = report
+            .errors
+            .iter()
+            .find(|e| matches!(e, EnvelopeError::UndefinedQuoteSet { .. }))
+            .expect("undefined quote_set error");
+        match err {
+            EnvelopeError::UndefinedQuoteSet {
+                ref_name,
+                suggestion,
+                ..
+            } => {
+                assert_eq!(ref_name, "usd_quotess");
+                assert_eq!(suggestion.as_deref(), Some("usd_quotes"));
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn dry_run_returns_pretty_json() {
+        let env = empty_envelope("smoke");
+        let json = serde_json::to_string(&env).expect("serialize");
+        let report_json = dry_run(&json).expect("dry_run");
+        assert!(report_json.contains("\"errors\""));
+        assert!(report_json.contains("\"dependency_graph\""));
+    }
+
+    #[test]
+    fn dependency_graph_json_is_well_formed() {
+        let env = empty_envelope("smoke");
+        let json = serde_json::to_string(&env).expect("serialize");
+        let graph_json = dependency_graph_json(&json).expect("dep graph");
+        assert!(graph_json.contains("\"initial_ids\""));
+        assert!(graph_json.contains("\"nodes\""));
+    }
+
+    #[test]
+    fn missing_dependency_for_forward_step_without_discount() {
+        // Build a forward step that reads "USD-OIS" without a producing step
+        // and without initial_market — should surface MissingDependency.
+        let mut env = empty_envelope("missing");
+        env.plan
+            .quote_sets
+            .insert("fwd_quotes".to_string(), Vec::new());
+        let params: crate::calibration::api::schema::ForwardCurveParams =
+            serde_json::from_value(serde_json::json!({
+                "curve_id": "USD-3M-LIBOR",
+                "currency": "USD",
+                "base_date": "2026-05-08",
+                "tenor_years": 0.25,
+                "discount_curve_id": "USD-OIS",
+            }))
+            .expect("forward params");
+        env.plan.steps.push(CalibrationStep {
+            id: "fwd".to_string(),
+            quote_set: "fwd_quotes".to_string(),
+            params: StepParams::Forward(params),
+        });
+
+        let report = validate(&env);
+        let missing = report
+            .errors
+            .iter()
+            .find(|e| matches!(e, EnvelopeError::MissingDependency { .. }))
+            .expect("missing dependency error");
+        if let EnvelopeError::MissingDependency { missing_id, .. } = missing {
+            assert_eq!(missing_id, "USD-OIS");
+        }
+    }
+
+    #[test]
+    fn json_parse_error_surfaces_line_and_col() {
+        let err = dry_run("not json").unwrap_err();
+        match err {
+            EnvelopeError::JsonParse { line, col, .. } => {
+                assert!(line.is_some());
+                assert!(col.is_some());
+            }
+            _ => panic!("expected JsonParse"),
+        }
+    }
+}

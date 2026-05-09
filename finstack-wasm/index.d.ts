@@ -22,6 +22,12 @@
 //
 // `validateCalibrationJson` is a fast pre-flight check that canonicalizes
 // the envelope without solving — use it to surface schema errors early.
+//
+// Phase 4 diagnostics: errors thrown by `calibrate`,
+// `validateCalibrationJson`, `dryRun`, and `dependencyGraphJson` have:
+//   - name: 'CalibrationEnvelopeError'
+//   - cause: structured EnvelopeError payload (object with `kind` etc.)
+// Standard try/catch exposes both via `e.name` and `e.cause`.
 
 export { default } from './pkg/finstack_wasm';
 
@@ -1450,8 +1456,25 @@ export interface ValuationsNamespace {
    * The canonical path for building a `MarketContext` from quotes — the resulting
    * `result.final_market` is a materialized state ready for `MarketContext::try_from`
    * (Rust) or `result.market` (Python).
+   *
+   * @throws Error with `name = "CalibrationEnvelopeError"` and structured `cause`
+   *   (e.g. `e.cause.kind === "solver_not_converged"`) on calibration failure.
    */
   calibrate(envelope: CalibrationEnvelope | string): CalibrationResultEnvelope;
+  /**
+   * Pre-flight envelope validation without invoking the solver.
+   * Returns a JSON-serialized `ValidationReport` listing every error found
+   * plus the dependency graph. Microseconds.
+   *
+   * @throws Error with `name = "CalibrationEnvelopeError"` if the envelope JSON is malformed.
+   */
+  dryRun(envelope: CalibrationEnvelope | string): string;
+  /**
+   * Returns the static dependency graph of a calibration plan as JSON.
+   *
+   * @throws Error with `name = "CalibrationEnvelopeError"` if the envelope JSON is malformed.
+   */
+  dependencyGraphJson(envelope: CalibrationEnvelope | string): string;
   validateInstrumentJson(json: string): string;
   priceInstrument(instrumentJson: string, marketJson: string, asOf: string, model: string): string;
   priceInstrumentWithMetrics(

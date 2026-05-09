@@ -90,8 +90,11 @@ __all__ = [
     "RiskDecomposition",
     "decompose_factor_risk",
     "CalibrationResult",
+    "CalibrationEnvelopeError",
     "validate_calibration_json",
     "calibrate",
+    "dry_run",
+    "dependency_graph_json",
     "bs_cos_price",
     "vg_cos_price",
     "merton_jump_cos_price",
@@ -1173,6 +1176,28 @@ class CalibrationResult:
 
     def __repr__(self) -> str: ...
 
+class CalibrationEnvelopeError(RuntimeError):
+    """Raised when a calibration envelope fails validation or solving.
+
+    Inherits from :class:`RuntimeError`, so existing ``except RuntimeError``
+    callers continue to catch it (backward-compatible with pre-Phase-4 code).
+
+    Attributes:
+        kind: Snake-case discriminator for the failure category. One of
+            ``"json_parse"``, ``"unknown_step_kind"``, ``"missing_dependency"``,
+            ``"undefined_quote_set"``, ``"quote_class_mismatch"``,
+            ``"solver_not_converged"``, ``"quote_data_invalid"``,
+            ``"step_cycle"``.
+        step_id: Identifier of the offending step, when applicable. ``None``
+            for ``"json_parse"`` and ``"step_cycle"``.
+        details: JSON-serialized structured payload (see ``EnvelopeError``
+            in the Rust crate for the schema).
+    """
+
+    kind: str
+    step_id: str | None
+    details: str
+
 def validate_calibration_json(json: str) -> str:
     """Validate a calibration plan JSON and return canonical pretty-printed form.
 
@@ -1183,12 +1208,58 @@ def validate_calibration_json(json: str) -> str:
         Canonical pretty-printed JSON.
 
     Raises:
-        ValueError: If the JSON is not a valid calibration envelope.
+        CalibrationEnvelopeError: If the JSON is not a valid calibration
+            envelope. Inherits from :class:`RuntimeError`.
 
     Example:
         >>> from finstack.valuations import validate_calibration_json
         >>> validate_calibration_json(plan_json)  # doctest: +SKIP
         ''
+    """
+    ...
+
+def dry_run(json: str) -> str:
+    """Pre-flight envelope validation without invoking the solver.
+
+    Runs all structural checks (missing dependencies, undefined ``quote_set``s,
+    cycles) in a single pass and returns a JSON-serialized
+    ``ValidationReport`` listing every error found plus the dependency graph.
+    Microseconds — suitable as a fast pre-flight check before invoking
+    :func:`calibrate`.
+
+    Args:
+        json: JSON-serialized ``CalibrationEnvelope``.
+
+    Returns:
+        Pretty-printed JSON ``ValidationReport``. Inspect ``report["errors"]``
+        for any structural problems and ``report["dependency_graph"]`` for the
+        step DAG.
+
+    Raises:
+        CalibrationEnvelopeError: If the envelope JSON is malformed.
+
+    Example:
+        >>> import json as _json
+        >>> from finstack.valuations import dry_run
+        >>> report = _json.loads(dry_run(_json.dumps(envelope)))  # doctest: +SKIP
+        >>> for err in report["errors"]:  # doctest: +SKIP
+        ...     print(err["kind"], err.get("step_id"))
+    """
+    ...
+
+def dependency_graph_json(json: str) -> str:
+    """Dump the static dependency graph of a calibration plan as JSON.
+
+    Args:
+        json: JSON-serialized ``CalibrationEnvelope``.
+
+    Returns:
+        Pretty-printed JSON ``DependencyGraph`` with ``initial_ids`` (curve
+        IDs available at execution start, sourced from ``initial_market``)
+        and ``nodes`` (per-step ``reads``/``writes`` in declared order).
+
+    Raises:
+        CalibrationEnvelopeError: If the envelope JSON is malformed.
     """
     ...
 
@@ -1223,8 +1294,12 @@ def calibrate(json: str) -> CalibrationResult:
             - ``.iterations``, ``.max_residual``, ``.step_ids`` — summary stats.
 
     Raises:
-        ValueError: If the JSON is not a valid envelope, or if calibration
-            fails (e.g., missing dependency, solver non-convergence).
+        CalibrationEnvelopeError: If the JSON is malformed or calibration
+            fails (e.g., missing dependency, solver non-convergence). The
+            exception carries ``kind``, ``step_id``, and ``details``
+            attributes for programmatic handling. Inherits from
+            :class:`RuntimeError` so legacy ``except RuntimeError`` handlers
+            continue to catch it.
 
     Example:
         >>> import json as _json

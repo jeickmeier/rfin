@@ -91,4 +91,16 @@ model_version?: string | null,
  * Provides detailed information about the quality and stability of the
  * calibration for debugging, auditing, and monitoring purposes.
  */
-diagnostics?: CalibrationDiagnostics | null, };
+diagnostics?: CalibrationDiagnostics | null, 
+/**
+ * Identifier of the quote with the largest absolute residual.
+ *
+ * Derived from `residuals`. `None` only when `residuals` is empty. This
+ * is the quote a user should look at first when a step fails to
+ * converge — the input most likely to fix.
+ */
+worst_quote_id?: string | null, 
+/**
+ * Signed residual of [`Self::worst_quote_id`].
+ */
+worst_quote_residual?: number | null, };

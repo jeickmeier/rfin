@@ -108,6 +108,30 @@ struct ResidualDiagnostics {
     has_penalty: bool,
 }
 
+/// Identifier and signed residual of the worst-fitting quote in a residual map.
+///
+/// "Worst" is the largest absolute value; penalty sentinels are preferred
+/// over normal residuals so that a step that drove a single quote to a
+/// penalty (e.g. a CDS leg that returned NaN) surfaces *that* quote as the
+/// worst-fitter rather than the next-largest finite residual.
+fn worst_quote(residuals: &BTreeMap<String, f64>) -> Option<(String, f64)> {
+    residuals
+        .iter()
+        .max_by(|(_, a), (_, b)| {
+            let ord = |v: f64| {
+                if !v.is_finite() {
+                    f64::INFINITY
+                } else {
+                    v.abs()
+                }
+            };
+            ord(**a)
+                .partial_cmp(&ord(**b))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|(id, r)| (id.clone(), *r))
+}
+
 /// Filter out penalty sentinel values and compute common diagnostics.
 ///
 /// Penalties (INFINITY or values >= [`PENALTY`](crate::calibration::PENALTY) * 0.5) are
@@ -247,6 +271,18 @@ pub struct CalibrationReport {
     /// calibration for debugging, auditing, and monitoring purposes.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub diagnostics: Option<CalibrationDiagnostics>,
+
+    /// Identifier of the quote with the largest absolute residual.
+    ///
+    /// Derived from `residuals`. `None` only when `residuals` is empty. This
+    /// is the quote a user should look at first when a step fails to
+    /// converge — the input most likely to fix.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub worst_quote_id: Option<String>,
+
+    /// Signed residual of [`Self::worst_quote_id`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub worst_quote_residual: Option<f64>,
 }
 
 impl CalibrationReport {
@@ -258,6 +294,10 @@ impl CalibrationReport {
         convergence_reason: impl Into<String>,
     ) -> Self {
         let diag = compute_residual_diagnostics(&residuals);
+        let (worst_quote_id, worst_quote_residual) = match worst_quote(&residuals) {
+            Some((id, r)) => (Some(id), Some(r)),
+            None => (None, None),
+        };
 
         // Create default results metadata with stamping
         let results_meta =
@@ -283,6 +323,8 @@ impl CalibrationReport {
             explanation: None,
             model_version: None,
             diagnostics: None,
+            worst_quote_id,
+            worst_quote_residual,
         }
     }
 
@@ -507,6 +549,8 @@ impl Default for CalibrationReport {
             explanation: None,
             model_version: None,
             diagnostics: None,
+            worst_quote_id: None,
+            worst_quote_residual: None,
         }
     }
 }

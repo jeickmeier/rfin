@@ -9,12 +9,55 @@ use crate::bindings::pandas_utils::dict_to_dataframe;
 use crate::errors::display_to_py;
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::calibration::api::engine;
+use finstack_valuations::calibration::api::errors::EnvelopeError;
 use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelope, CalibrationResultEnvelope,
 };
-use pyo3::exceptions::PyValueError;
+use finstack_valuations::calibration::api::validate as validate_api;
+use pyo3::create_exception;
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
+
+create_exception!(
+    finstack.valuations,
+    CalibrationEnvelopeError,
+    PyRuntimeError,
+    "Raised when a calibration envelope fails validation or solving.\n\n\
+     Inherits from RuntimeError, so existing `except RuntimeError` callers \
+     continue to catch it. Carries `kind`, `step_id`, and `details` \
+     attributes for programmatic handling."
+);
+
+/// Build a `CalibrationEnvelopeError` from a structured `EnvelopeError`,
+/// attaching `kind`, `step_id`, and pretty-printed `details` attributes.
+fn envelope_error_to_py(py: Python<'_>, err: &EnvelopeError) -> PyErr {
+    let exc = CalibrationEnvelopeError::new_err(err.to_string());
+    let value = exc.value(py);
+    let _ = value.setattr("kind", err.kind_str());
+    let _ = value.setattr("details", err.to_json());
+    let _ = value.setattr("step_id", err.step_id().map(|s| s.to_string()));
+    exc
+}
+
+/// Map a finstack_core::Error back into a CalibrationEnvelopeError when it
+/// originated from an EnvelopeError, otherwise fall through to display_to_py.
+///
+/// `From<EnvelopeError> for finstack_core::Error` produces an
+/// `Error::Calibration` whose `category` matches the EnvelopeError's
+/// `kind_str`. We surface those fields back to Python so callers can pattern-
+/// match on `exc.kind`.
+fn calibration_error_to_py(py: Python<'_>, err: finstack_core::Error) -> PyErr {
+    if let finstack_core::Error::Calibration { message, category } = &err {
+        let exc = CalibrationEnvelopeError::new_err(message.clone());
+        let value = exc.value(py);
+        let _ = value.setattr("kind", category.as_str());
+        let _ = value.setattr("details", message.clone());
+        let _ = value.setattr("step_id", Option::<String>::None);
+        return exc;
+    }
+    display_to_py(err)
+}
 
 // ---------------------------------------------------------------------------
 // CalibrationResult
@@ -188,10 +231,62 @@ impl PyCalibrationResult {
 /// ValueError
 ///     If the JSON is not a valid calibration envelope.
 #[pyfunction]
-fn validate_calibration_json(json: &str) -> PyResult<String> {
-    let parsed: CalibrationEnvelope = serde_json::from_str(json)
-        .map_err(|e| PyValueError::new_err(format!("invalid calibration JSON: {e}")))?;
+fn validate_calibration_json(py: Python<'_>, json: &str) -> PyResult<String> {
+    let parsed: CalibrationEnvelope = serde_json::from_str(json).map_err(|e| {
+        envelope_error_to_py(
+            py,
+            &EnvelopeError::JsonParse {
+                message: e.to_string(),
+                line: Some(e.line() as u32),
+                col: Some(e.column() as u32),
+            },
+        )
+    })?;
     serde_json::to_string_pretty(&parsed).map_err(display_to_py)
+}
+
+/// Pre-flight envelope validation without invoking the solver.
+///
+/// Parameters
+/// ----------
+/// json : str
+///     JSON-serialized ``CalibrationEnvelope``.
+///
+/// Returns
+/// -------
+/// str
+///     Pretty-printed JSON ``ValidationReport`` with all errors found in a
+///     single pass plus the dependency graph.
+///
+/// Raises
+/// ------
+/// CalibrationEnvelopeError
+///     If the envelope JSON is malformed.
+#[pyfunction]
+fn dry_run(py: Python<'_>, json: &str) -> PyResult<String> {
+    validate_api::dry_run(json).map_err(|e| envelope_error_to_py(py, &e))
+}
+
+/// Dump the static dependency graph of a calibration plan.
+///
+/// Parameters
+/// ----------
+/// json : str
+///     JSON-serialized ``CalibrationEnvelope``.
+///
+/// Returns
+/// -------
+/// str
+///     Pretty-printed JSON ``DependencyGraph`` with ``initial_ids`` and
+///     ``nodes`` (per-step reads/writes in declared order).
+///
+/// Raises
+/// ------
+/// CalibrationEnvelopeError
+///     If the envelope JSON is malformed.
+#[pyfunction]
+fn dependency_graph_json(py: Python<'_>, json: &str) -> PyResult<String> {
+    validate_api::dependency_graph_json(json).map_err(|e| envelope_error_to_py(py, &e))
 }
 
 /// Execute a calibration plan and return the full result.
@@ -213,12 +308,20 @@ fn validate_calibration_json(json: &str) -> PyResult<String> {
 ///     If the JSON is invalid or calibration fails.
 #[pyfunction]
 fn calibrate(py: Python<'_>, json: &str) -> PyResult<PyCalibrationResult> {
-    let envelope: CalibrationEnvelope = serde_json::from_str(json)
-        .map_err(|e| PyValueError::new_err(format!("invalid calibration JSON: {e}")))?;
+    let envelope: CalibrationEnvelope = serde_json::from_str(json).map_err(|e| {
+        envelope_error_to_py(
+            py,
+            &EnvelopeError::JsonParse {
+                message: e.to_string(),
+                line: Some(e.line() as u32),
+                col: Some(e.column() as u32),
+            },
+        )
+    })?;
     // Release the GIL for the duration of the solver: calibration can run for seconds.
     let result = py
         .detach(|| engine::execute(&envelope))
-        .map_err(display_to_py)?;
+        .map_err(|e| calibration_error_to_py(py, e))?;
     Ok(PyCalibrationResult { inner: result })
 }
 
@@ -227,9 +330,15 @@ fn calibrate(py: Python<'_>, json: &str) -> PyResult<PyCalibrationResult> {
 // ---------------------------------------------------------------------------
 
 /// Register calibration functions and types on the valuations submodule.
-pub fn register(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn register(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyCalibrationResult>()?;
+    m.add(
+        "CalibrationEnvelopeError",
+        py.get_type::<CalibrationEnvelopeError>(),
+    )?;
     m.add_function(pyo3::wrap_pyfunction!(validate_calibration_json, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(calibrate, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(dry_run, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(dependency_graph_json, m)?)?;
     Ok(())
 }

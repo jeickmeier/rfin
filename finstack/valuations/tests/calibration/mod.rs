@@ -27,6 +27,7 @@ mod bloomberg_accuracy;
 mod bootstrap;
 mod builder;
 mod config;
+mod diagnostics;
 mod explainability;
 mod failure_modes;
 mod finstack_config;

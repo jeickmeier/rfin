@@ -362,19 +362,23 @@ fn execute_sequential(
 
 /// Build a `Calibration` error describing a step that failed to converge.
 ///
-/// The error captures the step identifier and the residual diagnostics so
-/// that downstream code can programmatically inspect which step poisoned
-/// the plan without having to re-parse the logs.
+/// Surfaces the structured [`EnvelopeError::SolverNotConverged`] variant —
+/// including the worst-fitting quote derived from `report.residuals` — so
+/// downstream code can pattern-match on the error category and pull out the
+/// failing quote without re-parsing the message.
 fn bad_fit_error(step_id: &str, report: &CalibrationReport) -> finstack_core::Error {
-    finstack_core::Error::Calibration {
-        message: format!(
-            "calibration step '{step_id}' did not converge: \
-             max_residual={:.6e}, rmse={:.6e}, iterations={}, reason={}. \
-             Output was not installed into the market context (fail_on_bad_fit=true).",
-            report.max_residual, report.rmse, report.iterations, report.convergence_reason,
-        ),
-        category: "convergence".to_string(),
+    use crate::calibration::api::errors::EnvelopeError;
+
+    let tolerance = report.solver_config.tolerance();
+    EnvelopeError::SolverNotConverged {
+        step_id: step_id.to_string(),
+        max_residual: report.max_residual,
+        tolerance,
+        iterations: report.iterations.try_into().unwrap_or(u32::MAX),
+        worst_quote_id: report.worst_quote_id.clone(),
+        worst_quote_residual: report.worst_quote_residual,
     }
+    .into()
 }
 
 // =============================================================================

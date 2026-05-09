@@ -49,6 +49,14 @@ export const valuations = {
     const json = typeof envelope === 'string' ? envelope : JSON.stringify(envelope);
     return wasm.validateCalibrationJson(json);
   },
+  dryRun(envelope) {
+    const json = typeof envelope === 'string' ? envelope : JSON.stringify(envelope);
+    return wasm.dryRun(json);
+  },
+  dependencyGraphJson(envelope) {
+    const json = typeof envelope === 'string' ? envelope : JSON.stringify(envelope);
+    return wasm.dependencyGraphJson(json);
+  },
   validateInstrumentJson: wasm.validateInstrumentJson,
   priceInstrument: wasm.priceInstrument,
   priceInstrumentWithMetrics: wasm.priceInstrumentWithMetrics,

@@ -40,8 +40,11 @@ compute_pnl_profiles = _valuations.compute_pnl_profiles
 RiskDecomposition = _valuations.RiskDecomposition
 decompose_factor_risk = _valuations.decompose_factor_risk
 CalibrationResult = _valuations.CalibrationResult
+CalibrationEnvelopeError = _valuations.CalibrationEnvelopeError
 validate_calibration_json = _valuations.validate_calibration_json
 calibrate = _valuations.calibrate
+dry_run = _valuations.dry_run
+dependency_graph_json = _valuations.dependency_graph_json
 tarn_coupon_profile = _valuations.tarn_coupon_profile
 snowball_coupon_profile = _valuations.snowball_coupon_profile
 cms_spread_option_intrinsic = _valuations.cms_spread_option_intrinsic
@@ -114,6 +117,7 @@ def instrument_cashflows(
 
 
 __all__: list[str] = [
+    "CalibrationEnvelopeError",
     "CalibrationResult",
     "CreditCalibrator",
     "CreditFactorModel",
@@ -151,6 +155,8 @@ __all__: list[str] = [
     "decompose_period",
     "default_attribution_metrics",
     "default_waterfall_order",
+    "dependency_graph_json",
+    "dry_run",
     "exotics",
     "fx",
     "instrument_cashflows",
