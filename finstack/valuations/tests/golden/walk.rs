@@ -2,6 +2,7 @@
 
 use crate::golden::schema::{GoldenFixture, SCHEMA_VERSION};
 use finstack_core::market_data::context::MarketContext;
+use finstack_valuations::calibration::api::schema::CalibrationEnvelope;
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::parse_boxed_instrument_json;
 use std::collections::BTreeSet;
@@ -24,10 +25,9 @@ const PRICING_INPUT_KEYS: &[&str] = &[
     "model",
     "metrics",
     "instrument_json",
-    "market",
     "source_reference",
 ];
-const PRICING_OPTIONAL_INPUT_KEYS: &[&str] = &["source_validation"];
+const PRICING_OPTIONAL_INPUT_KEYS: &[&str] = &["source_validation", "market", "market_envelope"];
 const ZERO_RISK_METRICS_REQUIRING_REASON: &[&str] = &[
     "bucketed_dv01",
     "convexity",
@@ -224,12 +224,33 @@ fn validate_pricing_input_schema(path: &Path, fixture: &GoldenFixture) -> Result
         PRICING_OPTIONAL_INPUT_KEYS,
     )?;
 
-    let market = inputs
-        .get("market")
-        .ok_or("pricing fixture inputs.market is required")?;
-    serde_json::from_value::<MarketContext>(market.clone()).map_err(|err| {
-        format!("pricing fixture inputs.market is not a valid MarketContext: {err}")
-    })?;
+    // Exactly one of `market` or `market_envelope` must be present.
+    match (inputs.get("market"), inputs.get("market_envelope")) {
+        (Some(_), Some(_)) => {
+            return Err(
+                "pricing fixture inputs must not supply both 'market' and 'market_envelope'"
+                    .to_string(),
+            );
+        }
+        (None, None) => {
+            return Err(
+                "pricing fixture inputs must supply either 'market' or 'market_envelope'"
+                    .to_string(),
+            );
+        }
+        (Some(market), None) => {
+            serde_json::from_value::<MarketContext>(market.clone()).map_err(|err| {
+                format!("pricing fixture inputs.market is not a valid MarketContext: {err}")
+            })?;
+        }
+        (None, Some(envelope)) => {
+            serde_json::from_value::<CalibrationEnvelope>(envelope.clone()).map_err(|err| {
+                format!(
+                    "pricing fixture inputs.market_envelope is not a valid CalibrationEnvelope: {err}"
+                )
+            })?;
+        }
+    };
 
     let instrument_json = inputs
         .get("instrument_json")
