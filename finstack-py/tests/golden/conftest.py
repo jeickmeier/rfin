@@ -15,6 +15,7 @@ import time
 from types import ModuleType
 
 from finstack.core.market_data import MarketContext
+
 from finstack.valuations import validate_calibration_json
 
 from .pricing_validation import validate_requested_metrics, validated_instrument_json
