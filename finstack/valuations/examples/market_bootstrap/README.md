@@ -1,0 +1,63 @@
+# Market Bootstrap Reference Envelopes
+
+A canonical catalog of `CalibrationEnvelope` JSON examples covering every
+commonly-needed curve, surface, and snapshot type. Each envelope is
+self-bootstrapping: every curve the envelope's calibration steps depend on
+is itself produced by an upstream step in the same plan (no hand-entered
+snapshot knots that would drift from quote-shocked risk calculations).
+
+## Editor autocomplete and validation
+
+Each file declares `$schema` pointing at
+[`schemas/calibration/2/calibration.schema.json`](../../schemas/calibration/2/calibration.schema.json).
+Modern editors (VS Code, JetBrains, Vim+coc, anything with JSON LSP) pick
+this up automatically and provide:
+
+- Autocomplete on every field, every step `kind`, every quote `class`.
+- Inline validation of bad fields before the envelope hits the calibrator.
+
+For project-wide editor coverage of `*.calibration.json` files outside this
+directory, copy [`.vscode/settings.json.example`](../../../../.vscode/settings.json.example)
+to `.vscode/settings.json`.
+
+## The catalog
+
+Each envelope is loaded and exercised by integration tests in
+[`tests/calibration/reference_envelopes.rs`](../../tests/calibration/reference_envelopes.rs).
+
+| File | Track | Purpose |
+|---|---|---|
+| `01_usd_discount.json` | A | USD-OIS discount from deposit + IRS quotes (foundational). |
+| `02_usd_3m_forward_curve.json` | A | USD-SOFR-3M forward layered on a chained USD-OIS step. |
+| `03_single_name_hazard.json` | A | Single-name CDS hazard layered on chained USD-OIS. |
+| `04_cdx_ig_hazard.json` | A | CDX.NA.IG.46 index hazard with realistic par spreads. |
+| `05_cdx_base_correlation.json` | A | CDX tranche base correlation chained on discount + hazard. |
+| `06_cdx_index_vol.json` | A | CDX index option (CDSO) SABR vol surface. |
+| `07_swaption_vol_surface.json` | A | USD swaption normal-vol cube on chained discount + forward. |
+| `08_equity_vol_surface.json` | A | AAPL equity SABR vol; chained discount + spot/dividends in `initial_market`. |
+| `09_fx_matrix.json` | B | FX cross rates supplied via `initial_market.fx`. |
+| `10_bond_prices.json` | B | Bond clean prices via `initial_market.prices`. |
+| `11_equity_spots_dividends.json` | B | Equity spots + dividends via `initial_market`. |
+| `12_full_credit_desk_market.json` | A composite | Chained discount → hazard → base correlation, FX in `initial_market`. |
+
+**Track A** envelopes carry quotes in `plan.quote_sets` and bootstrap curves
+via `plan.steps`. **Track B** envelopes carry snapshot-only data in
+`initial_market` (FX matrices, bond prices, equity spot prices, dividend
+schedules — none of which are bootstrapped by a calibration step today).
+
+## How to use one
+
+```rust
+use finstack_valuations::calibration::api::{engine, schema::CalibrationEnvelope};
+use finstack_core::market_data::context::MarketContext;
+
+let envelope_json = std::fs::read_to_string("01_usd_discount.json")?;
+let envelope: CalibrationEnvelope = serde_json::from_str(&envelope_json)?;
+let result = engine::execute(&envelope)?;
+let market = MarketContext::try_from(result.result.final_market)?;
+let curve = market.get_discount("USD-OIS").expect("USD-OIS calibrated");
+println!("DF(1y) = {}", curve.df(1.0));
+```
+
+Same pattern in Python (`finstack.valuations.calibrate(json).market`) and
+JavaScript (`valuations.calibrate(envelope).result.final_market`).

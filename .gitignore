@@ -40,7 +40,8 @@ venv.bak/
 .uv/
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/settings.json.example
 .idea/
 *.swp
 *.swo
