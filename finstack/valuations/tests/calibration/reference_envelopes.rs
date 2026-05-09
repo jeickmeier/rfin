@@ -235,3 +235,34 @@ fn example_06_cdx_index_vol_builds_queryable_surface() {
         "ATM vol should be in (0, 5), got {vol}"
     );
 }
+
+#[test]
+fn example_07_swaption_vol_surface_builds_queryable_surface() {
+    let envelope = load_envelope("07_swaption_vol_surface.json");
+    let market = execute(&envelope);
+
+    market
+        .get_discount("USD-OIS")
+        .expect("discount carried through from initial_market");
+    market
+        .get_forward("USD-SOFR-3M")
+        .expect("forward carried through from initial_market");
+
+    // swaption_vol calibration produces a VolCube (SABR params on expiry x tenor
+    // grid). Retrieve via get_vol_provider, which resolves cubes before surfaces.
+    let surface = market
+        .get_vol_provider("USD-SWAPTION-NORMAL-VOL")
+        .expect("swaption vol cube present after calibration");
+
+    // Sanity-query the produced surface at a representative (expiry, tenor, strike).
+    // Use a 1y expiry × 5y swap × ATM-ish strike. With normal vols, ATM-ish for
+    // a 5% rate environment is around 0.05; SABR will pin closely if non-flat,
+    // approximately if flat (see 06_cdx_index_vol.json for the flat-grid issue).
+    let vol = surface
+        .vol(1.0, 5.0, 0.05)
+        .expect("vol query at 1y × 5y × ATM should succeed");
+    assert!(
+        vol > 0.0 && vol < 5.0,
+        "swaption vol should be in (0, 5), got {vol}"
+    );
+}
