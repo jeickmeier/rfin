@@ -300,20 +300,30 @@ impl CDSPricer {
     /// # Returns
     ///
     /// Par spread in basis points (bps).
-    #[must_use = "par spread calculation is pure computation"]
-    pub(crate) fn par_spread(
+    /// Per-unit-notional, per-unit-spread denominator used by [`Self::par_spread`].
+    ///
+    /// Selects the right convention based on `config.par_spread_uses_full_premium`
+    /// and the instrument's `valuation_convention`:
+    ///
+    /// * `par_spread_uses_full_premium = true` → full premium leg PV per unit
+    ///   spread including accrual-on-default (Bloomberg CDSW
+    ///   `BloombergCdswCleanFullPremium` and QuantLib parity behaviour).
+    /// * `cds.uses_clean_price()` → clean-price denominator (premium leg per unit
+    ///   spread minus accrued fraction; Bloomberg CDSW default).
+    /// * Otherwise → ISDA standard risky annuity (`Σ DF·SP·τ`).
+    ///
+    /// All branches return values in the same units (per unit notional, per
+    /// unit spread), so callers can reuse the result for index aggregation
+    /// or other consistent par-spread calculations.
+    #[must_use = "denominator computation is pure"]
+    pub(crate) fn par_spread_denominator(
         &self,
         cds: &CreditDefaultSwap,
         disc: &DiscountCurve,
         surv: &HazardCurve,
         as_of: Date,
     ) -> Result<f64> {
-        let protection_pv = self.pv_protection_leg(cds, disc, surv, as_of)?;
-
-        // Default behavior (par_spread_uses_full_premium = false) uses Risky Annuity only.
-        // This excludes accrual-on-default from the denominator per ISDA convention.
-        let denom = if self.config.par_spread_uses_full_premium {
-            // Opt-in: Compute full premium PV per 1bp including AoD
+        if self.config.par_spread_uses_full_premium {
             let periods = self.coupon_periods(cds, as_of)?;
             let calendar = cds
                 .premium
@@ -325,26 +335,14 @@ impl CDSPricer {
                 let start_date = period.accrual_start;
                 let end_date = period.accrual_end;
                 let payment_date = period.payment_date;
-
-                // Skip periods that have already ended before as_of
                 if end_date <= as_of {
                     continue;
                 }
-
-                // Accrual uses instrument day-count
                 let accrual = self.coupon_accrual(cds, &period)?;
-
-                // Discounting uses discount curve's day-count and relative DF from as_of
                 let df = df_asof_to(disc, as_of, payment_date)?;
-
-                // Survival uses hazard curve's day-count and conditional probability
                 let sp = sp_cond_to(surv, as_of, end_date)?;
-
                 let unit_spread = 1.0;
-                // coupon part per unit spread
                 ann += unit_spread * accrual * sp * df;
-
-                // AoD part per unit spread in this period.
                 ann += self.accrual_on_default_isda_standard_model_cond(AodInputs {
                     cds,
                     spread: unit_spread,
@@ -365,13 +363,24 @@ impl CDSPricer {
                     surv,
                 })?;
             }
-            ann
+            Ok(ann)
         } else if cds.uses_clean_price() {
-            self.clean_par_spread_denominator(cds, disc, surv, as_of)?
+            self.clean_par_spread_denominator(cds, disc, surv, as_of)
         } else {
-            // ISDA Standard: Risky Annuity (sum of DF * SP * YearFrac)
-            self.risky_annuity(cds, disc, surv, as_of)?
-        };
+            self.risky_annuity(cds, disc, surv, as_of)
+        }
+    }
+
+    #[must_use = "par spread calculation is pure computation"]
+    pub(crate) fn par_spread(
+        &self,
+        cds: &CreditDefaultSwap,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
+        as_of: Date,
+    ) -> Result<f64> {
+        let protection_pv = self.pv_protection_leg(cds, disc, surv, as_of)?;
+        let denom = self.par_spread_denominator(cds, disc, surv, as_of)?;
 
         if denom.abs() < numerical::RATE_COMPARISON_TOLERANCE {
             return Err(Error::Validation(
@@ -381,7 +390,6 @@ impl CDSPricer {
             ));
         }
 
-        // Result in Basis Points
         Ok(protection_pv.amount() / (denom * cds.notional.amount()) * BASIS_POINTS_PER_UNIT)
     }
 

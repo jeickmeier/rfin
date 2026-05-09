@@ -14,10 +14,9 @@
 //!   DOCS 2057273 ⟨GO⟩, August 2024.
 
 use super::bloomberg_quadrature;
-use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds::{
-    CDSConvention, CdsValuationConvention, CreditDefaultSwap, PayReceive,
+    CdsValuationConvention, CreditDefaultSwap, PayReceive,
 };
 use crate::instruments::credit_derivatives::cds_option::CDSOption;
 use finstack_core::market_data::context::MarketContext;
@@ -138,15 +137,18 @@ impl CDSOptionPricer {
     }
 
     /// Bloomberg CDSO θ: change in option premium for a one-day decrease
-    /// in option maturity. DOCS 2055833 §2.5 describes this as "shortening
-    /// the exercise time t_e by 1/365.25" — the idealised pure-T-shift
-    /// formulation. In practice the CDSO screen also propagates the
-    /// valuation-date advance through the curves (df_te and sp_te shift
-    /// alongside t_e), and we mirror that by shifting `as_of` forward by
-    /// one calendar day rather than only shortening `t_e`. The empirical
-    /// match against the CDSO screen on cdx_ig_46 is materially closer
-    /// under as-of-shift (-$1,718) than under pure-T-shift (-$2,448) vs
-    /// Bloomberg's -$1,500.
+    /// in option maturity.
+    ///
+    /// Implements DOCS 2055833 §2.5 verbatim — "shorten the exercise time
+    /// `t_e` by `1/365.25`" — while retaining the same calibrated forward
+    /// price and lognormal mean. `df_te` and `sp_te` are NOT advanced; the
+    /// shift is purely on the integrand's `t_expiry` argument.
+    ///
+    /// Empirical match against the CDSO screen on `cdx_ig_46_payer_atm_jun26`
+    /// is materially closer under pure-T-shift (~−$1,479 / −$1,461 after the
+    /// Phase 2 bootstrap migration) than under the alternative as-of-shift
+    /// formulation (~−$1,705) vs Bloomberg's −$1,499.93. The pure-T-shift
+    /// path is the one tested by that golden's $40 absolute tolerance.
     #[tracing::instrument(skip(self, option, curves), fields(instrument_id = %option.id, as_of = %as_of))]
     pub(crate) fn theta(
         &self,
@@ -408,9 +410,6 @@ impl crate::pricer::Pricer for BloombergCdsoPricer {
                 crate::pricer::PricingErrorContext::default(),
             )
         })?;
-
-        let _ = OptionType::Call; // silence unused-import lint when Greeks aren't called
-        let _ = CDSConvention::default();
 
         Ok(
             crate::results::ValuationResult::stamped(option.id(), as_of, pv).with_details(

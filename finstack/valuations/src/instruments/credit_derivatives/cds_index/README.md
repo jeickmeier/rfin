@@ -65,9 +65,14 @@ let par = idx.par_spread(&market_context, as_of)?;
   `Constituents` mode, results are aggregated across surviving names with
   per-name weights renormalized over the live constituents.
 - The index `index_factor` scales the synthetic / per-constituent notional
-  (after defaults). Validation rejects an `index_factor` that exceeds
-  `1 - sum_defaulted_weights`, ensuring the surviving notional is consistent
-  with declared defaults.
+  (after defaults). Validation always rejects an `index_factor` that
+  exceeds `1 - sum_defaulted_weights` (over-statement: would double-count
+  recoveries). When the constituent list declares any defaults
+  (`sum_defaulted_weights > 0`), the check is symmetric and also rejects
+  `index_factor < 1 - sum_defaulted_weights` (under-statement: silently
+  shrinks the surviving notional). With no declared defaults, an
+  `index_factor < 1` is permitted as a way to model externally-tracked
+  defaults (e.g. SingleCurve mode where there is no constituent list).
 - Par spread denominator is the risky annuity (`RiskyAnnuity` method); the
   Bloomberg-CDSW alternative (`FullPremiumAoD`) is exposed via
   `CDSPricerConfig` plumbed through `CDSIndexPricer::with_config` (test-only).

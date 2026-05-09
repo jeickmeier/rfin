@@ -192,28 +192,66 @@ impl HazardCurveTarget {
         let mut report = report;
         report.update_solver_config(config.solver.clone());
 
-        // Attach par spread points from the calibration quotes to the bootstrapped curve
-        // so that downstream quote-bump CS01 metrics can re-bootstrap from par spreads.
-        // The pillar_time values come from the prepared quotes and reflect the actual
-        // IMM-rolled maturity dates used during calibration.
-        let par_points: Vec<(f64, f64)> = prepared_quotes
-            .iter()
-            .filter_map(|q| {
+        // Attach par spread points from the calibration quotes to the bootstrapped
+        // curve so that downstream quote-bump CS01 metrics can re-bootstrap from
+        // par spreads. The pillar_time values come from the prepared quotes and
+        // reflect the actual IMM-rolled maturity dates used during calibration.
+        //
+        // Quote-type handling:
+        //   * `CdsParSpread` — `spread_bp` is already the par spread by definition.
+        //   * `CdsUpfront`  — `running_spread_bp` is the *fixed coupon* (e.g.
+        //     100bp for CDX IG), NOT the implied par spread. Storing the
+        //     coupon would corrupt downstream par-spread CS01 because a
+        //     1bp shock to a coupon is not the same as a 1bp shock to the
+        //     par spread. We therefore reprice each upfront pillar against
+        //     the freshly bootstrapped hazard curve and back out the implied
+        //     par spread via `CDSPricer::par_spread()`. If the implied solve
+        //     fails for any reason (e.g. zero risky annuity), we drop that
+        //     pillar from the sidecar rather than persisting a misleading
+        //     value.
+        let par_points: Vec<(f64, f64)> = {
+            // The hazard curve we just bootstrapped lives under `params.curve_id`;
+            // the discount curve was already provided in `context`. Insert by
+            // id-overwrite so par_spread sees the new hazard knots.
+            let bumped_ctx = context.clone().insert(curve.clone());
+            let mut points: Vec<(f64, f64)> = Vec::with_capacity(prepared_quotes.len());
+            for q in prepared_quotes.iter() {
                 let pq = match q {
                     CalibrationQuote::Cds(pq) => pq,
-                    _ => return None,
+                    _ => continue,
                 };
                 let spread_bp = match pq.quote.as_ref() {
                     crate::market::quotes::cds::CdsQuote::CdsParSpread { spread_bp, .. } => {
                         *spread_bp
                     }
-                    crate::market::quotes::cds::CdsQuote::CdsUpfront {
-                        running_spread_bp, ..
-                    } => *running_spread_bp,
+                    crate::market::quotes::cds::CdsQuote::CdsUpfront { .. } => {
+                        let Some(cds) = pq.instrument.as_any().downcast_ref::<
+                            crate::instruments::credit_derivatives::cds::CreditDefaultSwap,
+                        >() else {
+                            continue;
+                        };
+                        let Ok(disc) = bumped_ctx.get_discount(&cds.premium.discount_curve_id)
+                        else {
+                            continue;
+                        };
+                        let Ok(surv) = bumped_ctx.get_hazard(&cds.protection.credit_curve_id)
+                        else {
+                            continue;
+                        };
+                        let pricer = crate::instruments::credit_derivatives::cds::pricer::CDSPricer::with_config(
+                            crate::instruments::credit_derivatives::cds::pricer::CDSPricerConfig::from_cds(cds),
+                        );
+                        match pricer.par_spread(cds, disc.as_ref(), surv.as_ref(), params.base_date)
+                        {
+                            Ok(s) => s,
+                            Err(_) => continue,
+                        }
+                    }
                 };
-                Some((pq.pillar_time, spread_bp))
-            })
-            .collect();
+                points.push((pq.pillar_time, spread_bp));
+            }
+            points
+        };
 
         let curve = if !par_points.is_empty() {
             let id = curve.id().to_string();

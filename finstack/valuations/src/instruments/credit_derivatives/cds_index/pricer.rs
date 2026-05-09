@@ -226,6 +226,13 @@ impl CDSIndexPricer {
     }
 
     /// Par spread in basis points with optional per-constituent breakdown.
+    ///
+    /// Honours `self.cds_config.par_spread_uses_full_premium`: when set,
+    /// the per-position denominator is the full premium-leg PV per unit
+    /// spread (with accrual-on-default, Bloomberg CDSW convention);
+    /// otherwise the ISDA-standard risky annuity is used. Both branches
+    /// (`SingleCurve` and `Constituents`) honour the flag identically so
+    /// a single config field controls index par-spread methodology.
     pub(crate) fn par_spread_detailed(
         &self,
         index: &CDSIndex,
@@ -233,22 +240,34 @@ impl CDSIndexPricer {
         as_of: Date,
     ) -> Result<IndexParSpreadResult> {
         let pricer = CDSPricer::with_config(self.cds_config.clone());
+        let method = if self.cds_config.par_spread_uses_full_premium {
+            ParSpreadMethod::FullPremiumAoD
+        } else {
+            ParSpreadMethod::RiskyAnnuity
+        };
         match index.pricing {
             IndexPricing::SingleCurve => {
                 let cds = self.synthetic_cds(index);
                 let disc = curves.get_discount(&cds.premium.discount_curve_id)?;
                 let surv = curves.get_hazard(&cds.protection.credit_curve_id)?;
-                let total_spread_bp =
-                    pricer.par_spread(&cds, disc.as_ref(), surv.as_ref(), as_of)?;
                 let numerator_protection_pv =
                     pricer.pv_protection_leg(&cds, disc.as_ref(), surv.as_ref(), as_of)?;
                 let denom_per_unit =
-                    pricer.risky_annuity(&cds, disc.as_ref(), surv.as_ref(), as_of)?;
+                    pricer.par_spread_denominator(&cds, disc.as_ref(), surv.as_ref(), as_of)?;
                 let denominator = denom_per_unit * cds.notional.amount();
+                if denominator.abs() < credit::PAR_SPREAD_DENOM_TOLERANCE {
+                    return Err(Error::Validation(
+                        "CDS Index par spread denominator near zero. This may indicate \
+                         zero survival probability or expired protection."
+                            .to_string(),
+                    ));
+                }
+                let total_spread_bp =
+                    numerator_protection_pv.amount() / denominator * BASIS_POINTS_PER_UNIT;
                 Ok(IndexParSpreadResult {
                     total_spread_bp,
                     constituents_spread_bp: Vec::new(),
-                    method: ParSpreadMethod::RiskyAnnuity,
+                    method,
                     numerator_protection_pv,
                     denominator,
                 })
@@ -266,7 +285,7 @@ impl CDSIndexPricer {
                         pricer.pv_protection_leg(cds, disc.as_ref(), surv.as_ref(), as_of)?;
                     numerator_protection_pv = numerator_protection_pv.checked_add(prot_pv)?;
                     let denom_per_unit =
-                        pricer.risky_annuity(cds, disc.as_ref(), surv.as_ref(), as_of)?;
+                        pricer.par_spread_denominator(cds, disc.as_ref(), surv.as_ref(), as_of)?;
                     let local_denom = denom_per_unit * cds.notional.amount();
                     denominator += local_denom;
                     // Guard per-constituent division: if the local denominator is near zero
@@ -298,7 +317,7 @@ impl CDSIndexPricer {
                 Ok(IndexParSpreadResult {
                     total_spread_bp,
                     constituents_spread_bp,
-                    method: ParSpreadMethod::RiskyAnnuity,
+                    method,
                     numerator_protection_pv,
                     denominator,
                 })
@@ -617,8 +636,23 @@ impl CDSIndexPricer {
             )));
         }
         // Validate index_factor consistency with defaulted weights.
-        // After defaults, the surviving notional should equal
-        // (1 - sum_defaulted_weights) of the original. Reject silent drift.
+        //
+        // The check is two-sided when defaults are explicitly declared on
+        // the constituent list, but degenerate to one-sided when the user
+        // is modelling defaults purely via `index_factor` (e.g. SingleCurve
+        // mode, or an aggregate post-default snapshot without constituent
+        // attribution):
+        //
+        //   * Over-statement (`factor > 1 − sum_defaulted_weights`): always
+        //     rejected — the surviving notional cannot exceed
+        //     `original − defaulted`. This catches double-counting bugs
+        //     irrespective of whether defaults are listed.
+        //   * Under-statement (`factor < 1 − sum_defaulted_weights`):
+        //     rejected only when `sum_defaulted_weights > 0`. With no
+        //     declared defaults the user is allowed to encode externally-
+        //     tracked defaults via `index_factor` alone (this is how
+        //     SingleCurve mode and many constituents-mode tests express a
+        //     post-default snapshot).
         let defaulted_sum_w: f64 = index
             .constituents
             .iter()
@@ -631,6 +665,22 @@ impl CDSIndexPricer {
                 "CDS Index '{}' index_factor {} exceeds 1 - sum_defaulted_weights = {} \
                  (defaulted weights total {})",
                 index.id, index.index_factor, expected_factor_max, defaulted_sum_w
+            )));
+        }
+        if defaulted_sum_w > INDEX_FACTOR_CONSISTENCY_TOL
+            && index.index_factor < expected_factor_max - INDEX_FACTOR_CONSISTENCY_TOL
+        {
+            return Err(Error::Validation(format!(
+                "CDS Index '{}' index_factor {} is below 1 - sum_defaulted_weights = {} \
+                 with defaults declared (defaulted weights total {}, tolerance {}). \
+                 If you intend to model additional externally-tracked defaults, mark \
+                 the corresponding constituents as defaulted instead of shrinking the \
+                 factor below the declared total.",
+                index.id,
+                index.index_factor,
+                expected_factor_max,
+                defaulted_sum_w,
+                INDEX_FACTOR_CONSISTENCY_TOL
             )));
         }
         let active_constituents: Vec<_> =
@@ -1183,41 +1233,184 @@ mod tests {
     }
 
     #[test]
-    fn with_config_changes_par_spread_methodology() {
-        // Sanity check that `CDSIndexPricer::with_config` plumbs the CDS
-        // pricer config through to par-spread calculations. Switching the
-        // par-spread denominator to "full premium AoD" (Bloomberg CDSW)
-        // should yield a different (typically slightly lower) par spread
-        // than the ISDA risky-annuity default.
+    fn rejects_index_factor_understated_relative_to_declared_defaults() {
+        // Q4: when the constituent list declares defaults, the
+        // consistency check is two-sided — an index_factor strictly below
+        // `1 − sum_defaulted_weights` would silently shrink the surviving
+        // notional further than the declared defaults justify.
+        let mut index = CDSIndex::example();
+        index.pricing = IndexPricing::Constituents;
+        // 20% declared default → factor should be 0.8; we set 0.5 to
+        // simulate the bug.
+        index.index_factor = 0.5;
+        index.constituents = vec![
+            CDSIndexConstituent {
+                credit: CreditParams::corporate_standard("A", "HZ-A"),
+                weight: 0.8,
+                defaulted: false,
+            },
+            CDSIndexConstituent {
+                credit: CreditParams::corporate_standard("B", "HZ-B"),
+                weight: 0.2,
+                defaulted: true,
+            },
+        ];
+        let err = CDSIndexPricer::new()
+            .constituent_positions(&index)
+            .expect_err("understated index_factor should fail when defaults are declared");
+        let msg = format!("{err}");
+        assert!(msg.contains("index_factor"), "got: {msg}");
+    }
+
+    #[test]
+    fn allows_index_factor_below_one_with_no_declared_defaults() {
+        // Complementary invariant: `index_factor < 1.0` is permitted when
+        // no constituents are flagged as defaulted (e.g. SingleCurve mode
+        // or external default tracking). This must NOT be rejected by the
+        // Q4 lower-bound check.
+        let mut index = CDSIndex::example();
+        index.pricing = IndexPricing::Constituents;
+        index.index_factor = 0.8;
+        index.constituents = vec![CDSIndexConstituent {
+            credit: CreditParams::corporate_standard("A", "HZ-A"),
+            weight: 1.0,
+            defaulted: false,
+        }];
+        CDSIndexPricer::new()
+            .constituent_positions(&index)
+            .expect("factor < 1 with no declared defaults must be accepted");
+    }
+
+    #[test]
+    fn with_config_changes_par_spread_methodology_single_curve() {
+        // Verify that `CDSIndexPricer::with_config` plumbs the CDS pricer
+        // config through to par-spread calculations on the SingleCurve
+        // branch. Switching from clean-price (Bloomberg default) to
+        // full-premium-AoD must produce a measurably DIFFERENT (typically
+        // slightly lower) par spread, confirming the flag is honoured.
         let as_of = date(2024, 1, 1);
         let market = sample_market(as_of);
         let index = CDSIndex::example();
+        assert_eq!(index.pricing, IndexPricing::SingleCurve);
 
-        let isda = CDSIndexPricer::new()
-            .par_spread(&index, &market, as_of)
-            .expect("isda par spread");
+        let baseline = CDSIndexPricer::new()
+            .par_spread_detailed(&index, &market, as_of)
+            .expect("baseline detailed");
 
-        let alt_config = CDSPricerConfig {
+        let alt = CDSIndexPricer::with_config(CDSPricerConfig {
             par_spread_uses_full_premium: true,
             ..CDSPricerConfig::default()
-        };
-        let alt = CDSIndexPricer::with_config(alt_config)
-            .par_spread(&index, &market, as_of)
-            .expect("alt par spread");
+        })
+        .par_spread_detailed(&index, &market, as_of)
+        .expect("alt detailed");
 
+        assert_eq!(baseline.method, ParSpreadMethod::RiskyAnnuity);
+        assert_eq!(alt.method, ParSpreadMethod::FullPremiumAoD);
+
+        assert!(baseline.total_spread_bp.is_finite() && alt.total_spread_bp.is_finite());
+        // Numerator (protection PV) is independent of the denominator
+        // convention and must match exactly.
         assert!(
-            isda.is_finite() && alt.is_finite(),
-            "par spreads should be finite: isda={}, alt={}",
-            isda,
-            alt
+            (baseline.numerator_protection_pv.amount() - alt.numerator_protection_pv.amount())
+                .abs()
+                < 1e-6,
+            "protection-leg PV should not depend on par-spread methodology"
         );
-        // Both methodologies converge for benign IG-style hazards; they should
-        // be close but not identical.
+        // The denominator must change when the flag flips. Full-premium
+        // includes accrual-on-default, so its denom is strictly larger and
+        // its par spread strictly smaller for a positive-spread credit.
         assert!(
-            (isda - alt).abs() < 5.0,
-            "par spreads should be within a few bp of each other: isda={}, alt={}",
-            isda,
-            alt
+            alt.denominator > baseline.denominator,
+            "full-premium denominator should exceed clean-price denom (includes AoD): \
+             baseline={}, alt={}",
+            baseline.denominator,
+            alt.denominator
+        );
+        assert!(
+            alt.total_spread_bp < baseline.total_spread_bp,
+            "full-premium par spread should be strictly smaller than clean-price: \
+             baseline={}, alt={}",
+            baseline.total_spread_bp,
+            alt.total_spread_bp
+        );
+        // And the numerator/denominator/total-bp triple must be internally
+        // consistent (regression guard for the bug where the reported
+        // denominator was risky_annuity while total_spread_bp came from
+        // pricer.par_spread()).
+        for r in [&baseline, &alt] {
+            let implied =
+                r.numerator_protection_pv.amount() / r.denominator * BASIS_POINTS_PER_UNIT;
+            assert!(
+                (implied - r.total_spread_bp).abs() < 1e-6,
+                "IndexParSpreadResult fields must be internally consistent: \
+                 numerator={}, denominator={}, implied={}, total_bp={}",
+                r.numerator_protection_pv.amount(),
+                r.denominator,
+                implied,
+                r.total_spread_bp
+            );
+        }
+    }
+
+    #[test]
+    fn with_config_changes_par_spread_methodology_constituents() {
+        // Same invariants on the Constituents branch — this is the path
+        // that previously hardcoded `risky_annuity` and silently ignored
+        // the config flag.
+        let as_of = date(2024, 1, 1);
+        let mut market = sample_market(as_of);
+        market = market.insert(
+            HazardCurve::builder("HZ-A")
+                .base_date(as_of)
+                .currency(Currency::USD)
+                .recovery_rate(0.40)
+                .knots([(0.0, 0.02), (5.0, 0.02)])
+                .build()
+                .expect("hazard A"),
+        );
+        market = market.insert(
+            HazardCurve::builder("HZ-B")
+                .base_date(as_of)
+                .currency(Currency::USD)
+                .recovery_rate(0.40)
+                .knots([(0.0, 0.02), (5.0, 0.02)])
+                .build()
+                .expect("hazard B"),
+        );
+
+        let mut index = CDSIndex::example();
+        index.pricing = IndexPricing::Constituents;
+        index.constituents = vec![
+            CDSIndexConstituent {
+                credit: CreditParams::corporate_standard("A", "HZ-A"),
+                weight: 0.5,
+                defaulted: false,
+            },
+            CDSIndexConstituent {
+                credit: CreditParams::corporate_standard("B", "HZ-B"),
+                weight: 0.5,
+                defaulted: false,
+            },
+        ];
+
+        let baseline = CDSIndexPricer::new()
+            .par_spread_detailed(&index, &market, as_of)
+            .expect("baseline constituents");
+        let alt = CDSIndexPricer::with_config(CDSPricerConfig {
+            par_spread_uses_full_premium: true,
+            ..CDSPricerConfig::default()
+        })
+        .par_spread_detailed(&index, &market, as_of)
+        .expect("alt constituents");
+
+        assert_eq!(baseline.method, ParSpreadMethod::RiskyAnnuity);
+        assert_eq!(alt.method, ParSpreadMethod::FullPremiumAoD);
+        assert!(
+            (baseline.total_spread_bp - alt.total_spread_bp).abs() > 0.0,
+            "constituents-mode par spread must respond to par_spread_uses_full_premium: \
+             baseline={}, alt={}",
+            baseline.total_spread_bp,
+            alt.total_spread_bp
         );
     }
 
