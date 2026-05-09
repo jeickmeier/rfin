@@ -2,8 +2,58 @@
   "schema": "finstack.calibration",
   "plan": {
     "id": "issuer_a_hazard",
-    "description": "Single-name hazard curve for Issuer-A, bootstrapped from CDS par spreads against a USD-OIS discount curve provided via initial_market. Demonstrates Track A step-on-snapshot composition: a hazard calibration step runs against a discount curve carried through unchanged from initial_market. Recovery rate 0.4 follows the ISDA CDS standard model convention for senior unsecured single-name CDS.",
+    "description": "Single-name hazard curve for Issuer-A bootstrapped from CDS par spreads, chained on a USD-OIS discount curve bootstrapped from deposit and IRS quotes in the same plan. Step 1 produces the USD-OIS discount curve; step 2 calibrates the hazard curve against it. The envelope is fully self-bootstrapping from quotes — no hand-entered curves in initial_market. Recovery rate 0.4 follows the ISDA CDS standard model convention for senior unsecured single-name CDS.",
     "quote_sets": {
+      "usd_rate_quotes": [
+        {
+          "class": "rates",
+          "type": "deposit",
+          "id": "USD-SOFR-DEP-1M",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 1, "unit": "months" } },
+          "rate": 0.0525
+        },
+        {
+          "class": "rates",
+          "type": "deposit",
+          "id": "USD-SOFR-DEP-3M",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 3, "unit": "months" } },
+          "rate": 0.0520
+        },
+        {
+          "class": "rates",
+          "type": "swap",
+          "id": "USD-OIS-SWAP-1Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 1, "unit": "years" } },
+          "rate": 0.0510
+        },
+        {
+          "class": "rates",
+          "type": "swap",
+          "id": "USD-OIS-SWAP-2Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 2, "unit": "years" } },
+          "rate": 0.0490
+        },
+        {
+          "class": "rates",
+          "type": "swap",
+          "id": "USD-OIS-SWAP-5Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 5, "unit": "years" } },
+          "rate": 0.0450
+        },
+        {
+          "class": "rates",
+          "type": "swap",
+          "id": "USD-OIS-SWAP-10Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 10, "unit": "years" } },
+          "rate": 0.0410
+        }
+      ],
       "issuer_a_cds_quotes": [
         {
           "class": "cds",
@@ -99,6 +149,22 @@
     },
     "steps": [
       {
+        "id": "USD-OIS",
+        "quote_set": "usd_rate_quotes",
+        "kind": "discount",
+        "curve_id": "USD-OIS",
+        "currency": "USD",
+        "base_date": "2026-05-08",
+        "method": "Bootstrap",
+        "interpolation": "linear",
+        "extrapolation": "flat_forward",
+        "pricing_discount_id": null,
+        "pricing_forward_id": null,
+        "conventions": {
+          "curve_day_count": null
+        }
+      },
+      {
         "id": "ISSUER-A-CDS",
         "quote_set": "issuer_a_cds_quotes",
         "kind": "hazard",
@@ -119,29 +185,7 @@
   },
   "initial_market": {
     "version": 2,
-    "curves": [
-      {
-        "type": "discount",
-        "id": "USD-OIS",
-        "base": "2026-05-08",
-        "day_count": "Act360",
-        "knot_points": [
-          [0.0, 1.0],
-          [0.25, 0.98758],
-          [0.5, 0.97531],
-          [1.0, 0.95123],
-          [2.0, 0.90484],
-          [5.0, 0.77880],
-          [10.0, 0.60653]
-        ],
-        "interp_style": "log_linear",
-        "extrapolation": "flat_forward",
-        "min_forward_rate": null,
-        "allow_non_monotonic": false,
-        "min_forward_tenor": 1e-6,
-        "rate_calibration": null
-      }
-    ],
+    "curves": [],
     "fx": null,
     "surfaces": [],
     "prices": {},
