@@ -2,7 +2,14 @@
 //!
 //! Orchestrates the execution of a calibration plan.
 
+// `ExecuteError::Envelope` carries the full diagnostic payload (available
+// IDs, breakdowns, suggestions). The size is the price of preserving that
+// context across the engine's cold error path; boxing the variant would
+// hurt ergonomics for a single allocator call we never make on the hot path.
+#![allow(clippy::result_large_err)]
+
 use super::schema::{CalibrationEnvelope, CalibrationPlan};
+use crate::calibration::api::errors::EnvelopeError;
 use crate::calibration::api::schema::CalibrationStep;
 use crate::calibration::api::schema::{CalibrationResult, CalibrationResultEnvelope};
 use crate::calibration::config::CalibrationConfig;
@@ -16,6 +23,46 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
 use rayon::prelude::*;
 use std::collections::{BTreeMap, HashSet};
+
+/// Internal error type that preserves structured [`EnvelopeError`] detail
+/// across the engine pipeline.
+///
+/// The public [`execute`] flattens this back to [`finstack_core::Error`] for
+/// backwards compatibility. Bindings that want full structured detail (e.g.,
+/// `worst_quote_id` on solver non-convergence) call
+/// [`execute_with_diagnostics`] directly.
+#[derive(Debug)]
+pub enum ExecuteError {
+    /// Structured envelope-shaped failure (currently only solver
+    /// non-convergence; static-validator errors are surfaced via
+    /// [`super::validate::validate`] before `execute` runs).
+    Envelope(EnvelopeError),
+    /// Other (legacy, stringly-typed) errors from the engine pipeline:
+    /// quote-set lookup, preflight validation, market-context construction,
+    /// and step-runtime failures.
+    Other(finstack_core::Error),
+}
+
+impl From<finstack_core::Error> for ExecuteError {
+    fn from(e: finstack_core::Error) -> Self {
+        Self::Other(e)
+    }
+}
+
+impl From<EnvelopeError> for ExecuteError {
+    fn from(e: EnvelopeError) -> Self {
+        Self::Envelope(e)
+    }
+}
+
+impl From<ExecuteError> for finstack_core::Error {
+    fn from(e: ExecuteError) -> Self {
+        match e {
+            ExecuteError::Envelope(env) => env.into(),
+            ExecuteError::Other(other) => other,
+        }
+    }
+}
 
 // =============================================================================
 // Helper Types
@@ -259,14 +306,14 @@ fn apply_batch_results(
     context: &mut MarketContext,
     state: &mut ExecutionState,
     fail_on_bad_fit: bool,
-) -> Result<()> {
+) -> std::result::Result<(), ExecuteError> {
     if fail_on_bad_fit {
         if let Some((item, failing)) = batch
             .iter()
             .zip(results.iter())
             .find(|(_, r)| !r.report.success)
         {
-            return Err(bad_fit_error(&item.step.id, &failing.report));
+            return Err(bad_fit_envelope_error(&item.step.id, &failing.report).into());
         }
     }
     for (item, result) in batch.into_iter().zip(results) {
@@ -286,7 +333,7 @@ fn execute_parallel(
     plan: &CalibrationPlan,
     context: &mut MarketContext,
     state: &mut ExecutionState,
-) -> Result<()> {
+) -> std::result::Result<(), ExecuteError> {
     let mut index = 0;
     while index < plan.steps.len() {
         let mut builder = ParallelBatchBuilder::new(plan);
@@ -296,7 +343,7 @@ fn execute_parallel(
             match builder.try_add(&plan.steps[index], context) {
                 BatchAddResult::Added => index += 1,
                 BatchAddResult::Stop => break,
-                BatchAddResult::Error(e) => return Err(e),
+                BatchAddResult::Error(e) => return Err(e.into()),
             }
         }
 
@@ -327,12 +374,14 @@ fn execute_sequential(
     plan: &CalibrationPlan,
     context: &mut MarketContext,
     state: &mut ExecutionState,
-) -> Result<()> {
+) -> std::result::Result<(), ExecuteError> {
     for step in &plan.steps {
         let quotes = plan.quote_sets.get(&step.quote_set).ok_or_else(|| {
-            finstack_core::Error::Input(finstack_core::InputError::NotFound {
-                id: format!("Quote set '{}' not found", step.quote_set),
-            })
+            ExecuteError::Other(finstack_core::Error::Input(
+                finstack_core::InputError::NotFound {
+                    id: format!("Quote set '{}' not found", step.quote_set),
+                },
+            ))
         })?;
 
         preflight_step(step, quotes, context, &plan.settings)?;
@@ -352,7 +401,7 @@ fn execute_sequential(
             "calibration step complete"
         );
         if plan.settings.fail_on_bad_fit && !report.success {
-            return Err(bad_fit_error(&step.id, &report));
+            return Err(bad_fit_envelope_error(&step.id, &report).into());
         }
         step_runtime::apply_output(context, output, credit_index_update);
         state.record_result(&step.id, report);
@@ -360,15 +409,13 @@ fn execute_sequential(
     Ok(())
 }
 
-/// Build a `Calibration` error describing a step that failed to converge.
+/// Build the structured envelope error describing a step that failed to
+/// converge.
 ///
-/// Surfaces the structured [`EnvelopeError::SolverNotConverged`] variant —
-/// including the worst-fitting quote derived from `report.residuals` — so
-/// downstream code can pattern-match on the error category and pull out the
-/// failing quote without re-parsing the message.
-fn bad_fit_error(step_id: &str, report: &CalibrationReport) -> finstack_core::Error {
-    use crate::calibration::api::errors::EnvelopeError;
-
+/// Carries the worst-fitting quote derived from `report.residuals` so
+/// downstream code can pattern-match on the error kind and surface the
+/// failing quote ID without re-parsing the message.
+fn bad_fit_envelope_error(step_id: &str, report: &CalibrationReport) -> EnvelopeError {
     let tolerance = report.solver_config.tolerance();
     EnvelopeError::SolverNotConverged {
         step_id: step_id.to_string(),
@@ -378,7 +425,6 @@ fn bad_fit_error(step_id: &str, report: &CalibrationReport) -> finstack_core::Er
         worst_quote_id: report.worst_quote_id.clone(),
         worst_quote_residual: report.worst_quote_residual,
     }
-    .into()
 }
 
 // =============================================================================
@@ -387,10 +433,24 @@ fn bad_fit_error(step_id: &str, report: &CalibrationReport) -> finstack_core::Er
 
 /// Execute a full [`CalibrationEnvelope`] plan.
 ///
-/// This is the primary entry point for the calibration system. It
-/// processes a sequential list of calibration steps, updates the market
-/// context statefully, and produces a final aggregated result.
+/// Primary entry point — flattens any structured envelope failure to
+/// [`finstack_core::Error`] for backwards-compatible callers. Bindings that
+/// want full structured detail (e.g., `worst_quote_id` on solver
+/// non-convergence) should call [`execute_with_diagnostics`] directly.
 pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelope> {
+    execute_with_diagnostics(envelope).map_err(Into::into)
+}
+
+/// Execute a full [`CalibrationEnvelope`] plan, preserving structured
+/// envelope errors.
+///
+/// Returns [`ExecuteError::Envelope`] for solver non-convergence (carries
+/// `worst_quote_id`, `tolerance`, etc.) and [`ExecuteError::Other`] for the
+/// remaining stringly-typed failures from the engine pipeline. Callers that
+/// don't need the structured detail can use [`execute`] instead.
+pub fn execute_with_diagnostics(
+    envelope: &CalibrationEnvelope,
+) -> std::result::Result<CalibrationResultEnvelope, ExecuteError> {
     let _span = tracing::info_span!(
         "calibration_plan",
         plan_id = %envelope.plan.id,
@@ -400,7 +460,7 @@ pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelo
 
     let mut context: MarketContext = match &envelope.initial_market {
         Some(state) => MarketContext::try_from(state.clone())
-            .map_err(|e| finstack_core::Error::Validation(e.to_string()))?,
+            .map_err(|e| ExecuteError::Other(finstack_core::Error::Validation(e.to_string())))?,
         None => MarketContext::new(),
     };
     let plan = &envelope.plan;

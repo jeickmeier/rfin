@@ -126,8 +126,13 @@ CdsParSpread = TypedDict(
 """A CDS par-spread quote."""
 
 
-# Union of the typed quote variants. Other variants serialize as untyped
-# dicts — `dict[str, Any]` is the honest fallback.
+# Union of the typed quote variants plus an untyped escape hatch.
+#
+# Phase 5 v1 only types `RateDeposit`, `RateSwap`, and `CdsParSpread`.
+# Quotes for FRA, futures, FX, bond, vol, inflation, CDS upfront, CDS
+# tranche, and cross-currency variants pass through as `dict[str, Any]`
+# rather than triggering a type error. Pair with `dry_run` (Phase 4) for
+# structural validation that catches typos in the untyped variants.
 MarketQuote = RateDeposit | RateSwap | CdsParSpread | dict[str, Any]
 
 # =============================================================================

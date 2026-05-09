@@ -8,7 +8,7 @@ use crate::bindings::core::market_data::context::PyMarketContext;
 use crate::bindings::pandas_utils::dict_to_dataframe;
 use crate::errors::display_to_py;
 use finstack_core::market_data::context::MarketContext;
-use finstack_valuations::calibration::api::engine;
+use finstack_valuations::calibration::api::engine::{self, ExecuteError};
 use finstack_valuations::calibration::api::errors::EnvelopeError;
 use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelope, CalibrationResultEnvelope,
@@ -40,23 +40,14 @@ fn envelope_error_to_py(py: Python<'_>, err: &EnvelopeError) -> PyErr {
     exc
 }
 
-/// Map a finstack_core::Error back into a CalibrationEnvelopeError when it
-/// originated from an EnvelopeError, otherwise fall through to display_to_py.
-///
-/// `From<EnvelopeError> for finstack_core::Error` produces an
-/// `Error::Calibration` whose `category` matches the EnvelopeError's
-/// `kind_str`. We surface those fields back to Python so callers can pattern-
-/// match on `exc.kind`.
-fn calibration_error_to_py(py: Python<'_>, err: finstack_core::Error) -> PyErr {
-    if let finstack_core::Error::Calibration { message, category } = &err {
-        let exc = CalibrationEnvelopeError::new_err(message.clone());
-        let value = exc.value(py);
-        let _ = value.setattr("kind", category.as_str());
-        let _ = value.setattr("details", message.clone());
-        let _ = value.setattr("step_id", Option::<String>::None);
-        return exc;
+/// Map an [`ExecuteError`] (returned by `engine::execute_with_diagnostics`)
+/// to the appropriate Python exception, preserving the structured envelope
+/// payload when present.
+fn execute_error_to_py(py: Python<'_>, err: ExecuteError) -> PyErr {
+    match err {
+        ExecuteError::Envelope(env) => envelope_error_to_py(py, &env),
+        ExecuteError::Other(other) => display_to_py(other),
     }
-    display_to_py(err)
 }
 
 // ---------------------------------------------------------------------------
@@ -320,8 +311,8 @@ fn calibrate(py: Python<'_>, json: &str) -> PyResult<PyCalibrationResult> {
     })?;
     // Release the GIL for the duration of the solver: calibration can run for seconds.
     let result = py
-        .detach(|| engine::execute(&envelope))
-        .map_err(|e| calibration_error_to_py(py, e))?;
+        .detach(|| engine::execute_with_diagnostics(&envelope))
+        .map_err(|e| execute_error_to_py(py, e))?;
     Ok(PyCalibrationResult { inner: result })
 }
 

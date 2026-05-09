@@ -99,11 +99,6 @@ pub enum EnvelopeError {
         /// Human-readable reason describing the validation failure.
         reason: String,
     },
-    /// Cyclic dependency between steps.
-    StepCycle {
-        /// Step identifiers participating in the cycle, in traversal order.
-        involved_step_ids: Vec<String>,
-    },
 }
 
 impl fmt::Display for EnvelopeError {
@@ -204,13 +199,6 @@ impl fmt::Display for EnvelopeError {
                 f,
                 "step '{step_id}': quote '{quote_id}' is invalid: {reason}"
             ),
-            EnvelopeError::StepCycle { involved_step_ids } => {
-                write!(
-                    f,
-                    "step dependency cycle detected: {}",
-                    involved_step_ids.join(" -> ")
-                )
-            }
         }
     }
 }
@@ -231,7 +219,6 @@ impl EnvelopeError {
             EnvelopeError::QuoteClassMismatch { .. } => "quote_class_mismatch",
             EnvelopeError::SolverNotConverged { .. } => "solver_not_converged",
             EnvelopeError::QuoteDataInvalid { .. } => "quote_data_invalid",
-            EnvelopeError::StepCycle { .. } => "step_cycle",
         }
     }
 
@@ -247,7 +234,7 @@ impl EnvelopeError {
             | EnvelopeError::QuoteClassMismatch { step_id, .. }
             | EnvelopeError::SolverNotConverged { step_id, .. }
             | EnvelopeError::QuoteDataInvalid { step_id, .. } => Some(step_id),
-            EnvelopeError::JsonParse { .. } | EnvelopeError::StepCycle { .. } => None,
+            EnvelopeError::JsonParse { .. } => None,
         }
     }
 

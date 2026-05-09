@@ -1212,10 +1212,9 @@ class CalibrationEnvelopeError(RuntimeError):
         kind: Snake-case discriminator for the failure category. One of
             ``"json_parse"``, ``"unknown_step_kind"``, ``"missing_dependency"``,
             ``"undefined_quote_set"``, ``"quote_class_mismatch"``,
-            ``"solver_not_converged"``, ``"quote_data_invalid"``,
-            ``"step_cycle"``.
+            ``"solver_not_converged"``, ``"quote_data_invalid"``.
         step_id: Identifier of the offending step, when applicable. ``None``
-            for ``"json_parse"`` and ``"step_cycle"``.
+            for ``"json_parse"``.
         details: JSON-serialized structured payload (see ``EnvelopeError``
             in the Rust crate for the schema).
     """

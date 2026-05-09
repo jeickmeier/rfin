@@ -49,10 +49,21 @@ macro_rules! define_curve_state {
             )*
         }
 
-        fn curve_state_id(state: &CurveState) -> &CurveId {
-            match state {
-                $( CurveState::$variant(curve) => curve.id(), )*
+        impl CurveState {
+            /// Curve identifier for this state, regardless of variant.
+            ///
+            /// Useful for cross-cutting code (snapshot diff, dependency
+            /// graph emission, etc.) that needs the ID without dispatching
+            /// on the curve type.
+            pub fn id(&self) -> &CurveId {
+                match self {
+                    $( CurveState::$variant(curve) => curve.id(), )*
+                }
             }
+        }
+
+        fn curve_state_id(state: &CurveState) -> &CurveId {
+            state.id()
         }
 
         impl CurveStorage {

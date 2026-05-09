@@ -86,11 +86,13 @@ fn solver_not_converged_includes_worst_quote() {
 
 #[test]
 fn envelope_error_kind_str_matches_serialized_tag() {
-    let err = EnvelopeError::StepCycle {
-        involved_step_ids: vec!["a".to_string(), "b".to_string()],
+    let err = EnvelopeError::QuoteDataInvalid {
+        step_id: "discount".to_string(),
+        quote_id: "USD-IRS-2Y".to_string(),
+        reason: "rate is NaN".to_string(),
     };
-    assert_eq!(err.kind_str(), "step_cycle");
-    assert!(err.to_json().contains("\"kind\": \"step_cycle\""));
+    assert_eq!(err.kind_str(), "quote_data_invalid");
+    assert!(err.to_json().contains("\"kind\": \"quote_data_invalid\""));
 }
 
 #[test]
@@ -167,6 +169,26 @@ fn calibration_report_populates_worst_quote_from_residuals() {
     assert!(report.worst_quote_residual.is_some());
     let r = report.worst_quote_residual.expect("residual");
     assert!((r - 1.27e-3).abs() < 1e-15);
+}
+
+#[test]
+fn worst_quote_prefers_penalty_over_finite_residuals() {
+    // A solver that drove one quote to a penalty sentinel (NaN / INFINITY)
+    // should surface *that* quote as worst, not the next-largest finite
+    // residual. Otherwise diagnostic messages would point at a quote that's
+    // probably fine and hide the actually broken one.
+    use finstack_valuations::calibration::CalibrationReport;
+    use std::collections::BTreeMap;
+
+    let mut residuals = BTreeMap::new();
+    residuals.insert("USD-IRS-2Y".to_string(), 1.0e-10);
+    // Large finite residual — would win without penalty handling.
+    residuals.insert("USD-IRS-30Y".to_string(), 1.27e-3);
+    // Solver flagged this one as failed.
+    residuals.insert("USD-IRS-FAILED".to_string(), f64::NAN);
+
+    let report = CalibrationReport::new(residuals, 50, false, "did not converge");
+    assert_eq!(report.worst_quote_id.as_deref(), Some("USD-IRS-FAILED"));
 }
 
 #[test]

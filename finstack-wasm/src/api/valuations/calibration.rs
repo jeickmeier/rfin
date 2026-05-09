@@ -9,7 +9,7 @@
 //! both via `e.name` and `e.cause`.
 
 use crate::utils::to_js_err;
-use finstack_valuations::calibration::api::engine;
+use finstack_valuations::calibration::api::engine::{self, ExecuteError};
 use finstack_valuations::calibration::api::errors::EnvelopeError;
 use finstack_valuations::calibration::api::schema::CalibrationEnvelope;
 use finstack_valuations::calibration::api::validate;
@@ -41,7 +41,7 @@ pub fn calibrate(envelope_json: &str) -> Result<String, JsValue> {
             col: Some(e.column() as u32),
         })
     })?;
-    let result = engine::execute(&envelope).map_err(core_error_to_js)?;
+    let result = engine::execute_with_diagnostics(&envelope).map_err(execute_error_to_js)?;
     serde_json::to_string(&result).map_err(to_js_err)
 }
 
@@ -90,38 +90,13 @@ fn envelope_error_to_js(err: &EnvelopeError) -> JsValue {
     }
 }
 
-/// Wrap a `finstack_core::Error` produced during calibration as a JS error
-/// with `name = "CalibrationEnvelopeError"`.
-fn core_error_to_js(err: finstack_core::Error) -> JsValue {
-    if let finstack_core::Error::Calibration { message, category } = &err {
-        // Synthesize a minimal structured payload mirroring the
-        // EnvelopeError JSON shape so JS callers can read `e.cause.kind`
-        // even when the Rust-side error went through the legacy Calibration
-        // category instead of being constructed as an EnvelopeError directly.
-        let cause_json = serde_json::json!({
-            "kind": category,
-            "message": message,
-        })
-        .to_string();
-        #[cfg(target_arch = "wasm32")]
-        {
-            use js_sys::{Error as JsError, Reflect, JSON};
-            let js_err = JsError::new(message);
-            js_err.set_name("CalibrationEnvelopeError");
-            let cause_value: JsValue = match JSON::parse(&cause_json) {
-                Ok(v) => v,
-                Err(_) => JsValue::from_str(&cause_json),
-            };
-            let _ = Reflect::set(&js_err, &JsValue::from_str("cause"), &cause_value);
-            return js_err.into();
-        }
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let _ = cause_json;
-            return JsValue::NULL;
-        }
+/// Map an [`ExecuteError`] (returned by `engine::execute_with_diagnostics`)
+/// to a JS-side error, preserving the structured envelope payload when present.
+fn execute_error_to_js(err: ExecuteError) -> JsValue {
+    match err {
+        ExecuteError::Envelope(env) => envelope_error_to_js(&env),
+        ExecuteError::Other(other) => to_js_err(other),
     }
-    to_js_err(err)
 }
 
 #[cfg(test)]

@@ -8,7 +8,6 @@ Verifies that envelopes constructed via the typed-dict definitions in
 from __future__ import annotations
 
 import json
-from typing import cast
 
 from finstack.valuations import (
     CalibrationEnvelope,
@@ -190,11 +189,10 @@ def test_vol_surface_step_typeddict_round_trips() -> None:
 
 def test_typeddict_envelope_uses_dollar_schema_when_provided() -> None:
     """The optional ``$schema`` key for editor JSON Schema discovery."""
-    envelope = _typed_envelope()
-    # Add the $schema URL via cast — TypedDicts with `$` keys require dict
-    # access patterns rather than attribute syntax. The canonical envelope
-    # round-trips it back unchanged.
-    augmented = cast(dict, dict(envelope))
-    augmented["$schema"] = "../../schemas/calibration/2/calibration.schema.json"
-    canonical = json.loads(validate_calibration_json(json.dumps(augmented)))
+    envelope: CalibrationEnvelope = {
+        "$schema": "../../schemas/calibration/2/calibration.schema.json",
+        "schema": "finstack.calibration",
+        "plan": _typed_envelope()["plan"],
+    }
+    canonical = json.loads(validate_calibration_json(json.dumps(envelope)))
     assert canonical["$schema"].endswith("calibration.schema.json")

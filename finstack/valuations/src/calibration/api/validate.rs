@@ -1,9 +1,14 @@
 //! Static envelope validator and dependency-graph utilities.
 //!
 //! [`validate`] runs all structural checks (missing dependencies, undefined
-//! `quote_set`s, cycles) and returns a [`ValidationReport`] listing every
-//! error found plus the dependency graph of the steps. No solver is invoked
-//! — the validator runs in microseconds.
+//! `quote_set`s) and returns a [`ValidationReport`] listing every error found
+//! plus the dependency graph of the steps. No solver is invoked — the
+//! validator runs in microseconds.
+//!
+//! Genuine cycles cannot occur in the current `CalibrationPlan` model:
+//! steps execute in declared order and read only from `initial_market` or
+//! curves produced by *earlier* steps. A self-referential step would surface
+//! as a [`EnvelopeError::MissingDependency`] rather than a cycle.
 //!
 //! [`dry_run`] and [`dependency_graph_json`] are JSON-string wrappers for
 //! cross-binding consumption (Python / WASM).
@@ -18,7 +23,7 @@ use std::collections::{BTreeSet, HashSet};
 
 use crate::calibration::api::errors::EnvelopeError;
 use crate::calibration::api::schema::{CalibrationEnvelope, CalibrationStep, StepParams};
-use finstack_core::market_data::context::{CurveState, MarketContextState};
+use finstack_core::market_data::context::MarketContextState;
 
 /// Result of [`validate`]. Always contains the dependency graph; `errors` is
 /// empty when the envelope is structurally valid.
@@ -123,29 +128,12 @@ fn collect_initial_ids(state: Option<&MarketContextState>) -> HashSet<String> {
     let Some(state) = state else { return ids };
 
     for curve in &state.curves {
-        ids.insert(curve_state_id(curve));
+        ids.insert(curve.id().to_string());
     }
     for surface in &state.surfaces {
         ids.insert(surface.id().to_string());
     }
     ids
-}
-
-fn curve_state_id(state: &CurveState) -> String {
-    // `CurveState` is a generated enum (see finstack_core::market_data::
-    // context::state_serde) with one variant per curve type. Each variant's
-    // inner type implements `id() -> &CurveId`. We can serialize and pull
-    // the `id` out, but a direct match keeps this hot helper allocation-free.
-    //
-    // Until a public `CurveState::id()` accessor lands in finstack-core, fall
-    // back to JSON inspection: every variant serializes with an `id` field.
-    serde_json::to_value(state)
-        .ok()
-        .as_ref()
-        .and_then(|v| v.get("id"))
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_string())
-        .unwrap_or_default()
 }
 
 fn build_nodes(steps: &[CalibrationStep]) -> Vec<DependencyNode> {
