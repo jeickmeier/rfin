@@ -1,4 +1,49 @@
-"""Instrument pricing, risk metrics, and P&L attribution."""
+"""Instrument pricing, risk metrics, P&L attribution, and market-context bootstrapping.
+
+The canonical path to build a :class:`finstack.core.market_data.MarketContext`
+from raw market quotes is :func:`calibrate`:
+
+    >>> import json
+    >>> from finstack.valuations import calibrate
+    >>> envelope = {
+    ...     "schema": "finstack.calibration",
+    ...     "plan": {
+    ...         "id": "usd_curves",
+    ...         "quote_sets": {"usd_quotes": [...]},  # MarketQuote entries
+    ...         "steps": [{"id": "USD-OIS", "quote_set": "usd_quotes",
+    ...                    "kind": "discount", ...}],
+    ...         "settings": {},
+    ...     },
+    ...     "initial_market": None,
+    ... }
+    >>> result = calibrate(json.dumps(envelope))  # doctest: +SKIP
+    >>> result.success         # doctest: +SKIP
+    True
+    >>> result.rmse            # doctest: +SKIP    # check the curves actually fit
+    1.2e-9
+    >>> ctx = result.market    # doctest: +SKIP    # ready for pricing/attribution
+
+The :class:`CalibrationResult` wrapper carries the :class:`MarketContext` next
+to per-step residuals (:meth:`step_report_json`, :meth:`report_to_dataframe`)
+so users can verify their curves actually fit before consuming them downstream.
+
+A `CalibrationEnvelope` carries quotes in two complementary places:
+
+- **Bootstrapping** — ``plan.quote_sets`` + ``plan.steps``. Quotes that drive
+  a solver (rates, CDS, swaptions, vols, tranches, etc.) live here. Each step
+  reads its quote set and produces a curve or surface.
+- **Snapshot data** — ``initial_market``. FX matrices, bond prices, equity spot
+  prices, and dividend schedules are not bootstrapped today — pass them via
+  ``initial_market.fx``, ``initial_market.prices``, ``initial_market.dividends``.
+
+Reference envelope JSON examples covering both tracks live under
+``finstack/valuations/examples/market_bootstrap/`` in the repository.
+
+This module also exposes pricing (:func:`price_instrument`,
+:func:`price_instrument_with_metrics`), P&L attribution
+(:func:`attribute_pnl`), risk decomposition (:func:`decompose_factor_risk`),
+SABR / Black-Scholes primitives, and credit-factor hierarchy tooling.
+"""
 
 from __future__ import annotations
 
@@ -1148,27 +1193,52 @@ def validate_calibration_json(json: str) -> str:
     ...
 
 def calibrate(json: str) -> CalibrationResult:
-    """Execute a calibration plan and return the full result.
+    """Build a :class:`MarketContext` from raw market quotes — the canonical entry point.
 
-    Accepts a JSON-serialized ``CalibrationEnvelope`` containing the plan,
-    quote sets, and optional initial market state.
+    Accepts a JSON-serialized ``CalibrationEnvelope``. The envelope carries
+    quotes in two complementary places:
+
+    - ``plan.quote_sets`` + ``plan.steps`` — quote-driven calibration steps
+      (discount, forward, hazard, vol surface, swaption vol, base correlation,
+      etc.). Each step reads its named quote set and produces a curve/surface.
+    - ``initial_market`` — pre-built / snapshot data (FX matrices, bond prices,
+      equity spot prices, dividend schedules). FX and Bond ``MarketQuote``
+      variants exist for documentation but are not consumed by any calibration
+      step today; pass them via ``initial_market.fx``, ``initial_market.prices``,
+      ``initial_market.dividends``.
 
     Args:
-        json: JSON-serialized ``CalibrationEnvelope``.
+        json: JSON-serialized ``CalibrationEnvelope`` (schema string is
+            ``"finstack.calibration"``).
 
     Returns:
-        The calibration result with calibrated market, reports, and diagnostics.
+        :class:`CalibrationResult` with:
+            - ``.market`` — the live :class:`MarketContext` (use this for
+              pricing, attribution, scenarios, portfolio).
+            - ``.market_json`` — same context as a JSON snapshot for
+              persistence or comparison.
+            - ``.report_json`` / ``.step_report_json(id)`` /
+              ``.report_to_dataframe()`` — diagnostics. Always check
+              ``.success`` and ``.rmse`` before relying on the produced market.
+            - ``.iterations``, ``.max_residual``, ``.step_ids`` — summary stats.
 
     Raises:
-        ValueError: If the JSON is invalid or calibration fails.
+        ValueError: If the JSON is not a valid envelope, or if calibration
+            fails (e.g., missing dependency, solver non-convergence).
 
     Example:
         >>> import json as _json
         >>> from finstack.valuations import calibrate
-        >>> result = calibrate(_json.dumps(plan))  # doctest: +SKIP
-        >>> result.success  # doctest: +SKIP
-        True
+        >>> result = calibrate(_json.dumps(envelope))  # doctest: +SKIP
+        >>> assert result.success and result.rmse < 1e-6  # doctest: +SKIP
         >>> curve = result.market.get_discount("USD-OIS")  # doctest: +SKIP
+        >>> price_json = price_instrument(inst_json, result.market_json,
+        ...                                "2026-05-08")  # doctest: +SKIP
+
+    See Also:
+        - ``finstack/valuations/examples/market_bootstrap/`` — reference
+          envelope JSON files (discount curve, single-name hazard, FX matrix).
+        - :func:`validate_calibration_json` — pre-flight envelope check.
     """
     ...
 
