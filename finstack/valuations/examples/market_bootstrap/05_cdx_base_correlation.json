@@ -2,8 +2,150 @@
   "schema": "finstack.calibration",
   "plan": {
     "id": "cdx_ig_46_base_correlation",
-    "description": "CDX.NA.IG.46 base correlation curve calibrated from 4–5 standard CDX tranche quotes (3/7%, 7/10%, 10/15%, 15/30% detachment points) against the index hazard curve in initial_market. Demonstrates layered Track A composition: discount + hazard in initial_market, base correlation as the calibrated step. The base_correlation step accepts use_imm_dates: true to align tranche payment dates to IMM convention. Used by 12 (full credit desk composite).",
+    "description": "CDX.NA.IG.46 base correlation curve calibrated from 5 standard CDX tranche quotes (0/3%, 3/7%, 7/10%, 10/15%, 15/30% detachment points), chained on a USD-OIS discount curve and CDX-NA-IG-46 index hazard curve that are bootstrapped in the same plan. Step 1 produces the USD-OIS discount curve from deposit and IRS quotes; step 2 calibrates the CDX-NA-IG-46 index hazard curve from realistic par-spread CDS quotes (50/75/100/110/120 bp); step 3 solves for the base correlation smile. No hand-entered USD-OIS discount curve remains in initial_market — it is produced entirely from quotes. A placeholder CDX-NA-IG-46 hazard curve in initial_market is required because the credit_indices entry must reference an existing hazard curve at context-load time; step 2 overwrites it with the bootstrapped curve. A seed base_correlation curve (CDX-NA-IG-46_CORR) and credit_indices entry also remain in initial_market as required by the base correlation solver. Tranche upfront quotes are self-consistent with the chained USD-OIS + realistic CDX-IG-46 hazard market (re-derived by pricing each tranche against the bootstrapped market at seed correlations [0.10, 0.20, 0.30, 0.40, 0.55]). The base_correlation step uses use_imm_dates: true to align tranche payment dates to IMM convention. Used by 12 (full credit desk composite).",
     "quote_sets": {
+      "usd_rate_quotes": [
+        {
+          "class": "rates",
+          "type": "deposit",
+          "id": "USD-SOFR-DEP-1M",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 1, "unit": "months" } },
+          "rate": 0.0525
+        },
+        {
+          "class": "rates",
+          "type": "deposit",
+          "id": "USD-SOFR-DEP-3M",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 3, "unit": "months" } },
+          "rate": 0.0520
+        },
+        {
+          "class": "rates",
+          "type": "swap",
+          "id": "USD-OIS-SWAP-1Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 1, "unit": "years" } },
+          "rate": 0.0510
+        },
+        {
+          "class": "rates",
+          "type": "swap",
+          "id": "USD-OIS-SWAP-2Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 2, "unit": "years" } },
+          "rate": 0.0490
+        },
+        {
+          "class": "rates",
+          "type": "swap",
+          "id": "USD-OIS-SWAP-5Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 5, "unit": "years" } },
+          "rate": 0.0450
+        },
+        {
+          "class": "rates",
+          "type": "swap",
+          "id": "USD-OIS-SWAP-10Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 10, "unit": "years" } },
+          "rate": 0.0410
+        }
+      ],
+      "cdx_ig_46_cds_quotes": [
+        {
+          "class": "cds",
+          "type": "cds_par_spread",
+          "id": "CDX-IG-46-1Y",
+          "entity": "CDX.NA.IG.46",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 50.0,
+          "recovery_rate": 0.4
+        },
+        {
+          "class": "cds",
+          "type": "cds_par_spread",
+          "id": "CDX-IG-46-3Y",
+          "entity": "CDX.NA.IG.46",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 75.0,
+          "recovery_rate": 0.4
+        },
+        {
+          "class": "cds",
+          "type": "cds_par_spread",
+          "id": "CDX-IG-46-5Y",
+          "entity": "CDX.NA.IG.46",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 5,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 100.0,
+          "recovery_rate": 0.4
+        },
+        {
+          "class": "cds",
+          "type": "cds_par_spread",
+          "id": "CDX-IG-46-7Y",
+          "entity": "CDX.NA.IG.46",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 7,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 110.0,
+          "recovery_rate": 0.4
+        },
+        {
+          "class": "cds",
+          "type": "cds_par_spread",
+          "id": "CDX-IG-46-10Y",
+          "entity": "CDX.NA.IG.46",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 10,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 120.0,
+          "recovery_rate": 0.4
+        }
+      ],
       "cdx_ig_46_tranche_quotes": [
         {
           "class": "cds_tranche",
@@ -13,7 +155,7 @@
           "attachment": 0.0,
           "detachment": 0.03,
           "maturity": "2031-06-20",
-          "upfront_pct": 4.62694533,
+          "upfront_pct": 76.11437862,
           "running_spread_bp": 100.0,
           "convention": {
             "currency": "USD",
@@ -28,7 +170,7 @@
           "attachment": 0.03,
           "detachment": 0.07,
           "maturity": "2031-06-20",
-          "upfront_pct": -4.77313875,
+          "upfront_pct": 22.58621522,
           "running_spread_bp": 100.0,
           "convention": {
             "currency": "USD",
@@ -43,7 +185,7 @@
           "attachment": 0.07,
           "detachment": 0.10,
           "maturity": "2031-06-20",
-          "upfront_pct": -4.79328900,
+          "upfront_pct": 0.75174530,
           "running_spread_bp": 100.0,
           "convention": {
             "currency": "USD",
@@ -58,7 +200,7 @@
           "attachment": 0.10,
           "detachment": 0.15,
           "maturity": "2031-06-20",
-          "upfront_pct": -4.79328900,
+          "upfront_pct": -1.00395971,
           "running_spread_bp": 100.0,
           "convention": {
             "currency": "USD",
@@ -73,7 +215,7 @@
           "attachment": 0.15,
           "detachment": 0.30,
           "maturity": "2031-06-20",
-          "upfront_pct": -4.78617213,
+          "upfront_pct": -1.86826990,
           "running_spread_bp": 100.0,
           "convention": {
             "currency": "USD",
@@ -83,6 +225,38 @@
       ]
     },
     "steps": [
+      {
+        "id": "USD-OIS",
+        "quote_set": "usd_rate_quotes",
+        "kind": "discount",
+        "curve_id": "USD-OIS",
+        "currency": "USD",
+        "base_date": "2026-05-08",
+        "method": "Bootstrap",
+        "interpolation": "linear",
+        "extrapolation": "flat_forward",
+        "pricing_discount_id": null,
+        "pricing_forward_id": null,
+        "conventions": {
+          "curve_day_count": null
+        }
+      },
+      {
+        "id": "CDX-NA-IG-46",
+        "quote_set": "cdx_ig_46_cds_quotes",
+        "kind": "hazard",
+        "curve_id": "CDX-NA-IG-46",
+        "entity": "CDX.NA.IG.46",
+        "seniority": "senior",
+        "currency": "USD",
+        "base_date": "2026-05-08",
+        "discount_curve_id": "USD-OIS",
+        "recovery_rate": 0.4,
+        "notional": 1.0,
+        "method": "Bootstrap",
+        "interpolation": "linear",
+        "par_interp": "Linear"
+      },
       {
         "id": "CDX-NA-IG-46-BASE-CORR-STEP",
         "quote_set": "cdx_ig_46_tranche_quotes",
@@ -102,25 +276,6 @@
   "initial_market": {
     "version": 2,
     "curves": [
-      {
-        "type": "discount",
-        "id": "USD-OIS",
-        "base": "2026-05-08",
-        "day_count": "Act365F",
-        "knot_points": [
-          [0.0, 1.0],
-          [1.0, 0.96],
-          [3.0, 0.88],
-          [5.0, 0.82],
-          [10.0, 0.68]
-        ],
-        "interp_style": "log_linear",
-        "extrapolation": "flat_forward",
-        "min_forward_rate": null,
-        "allow_non_monotonic": false,
-        "min_forward_tenor": 1e-6,
-        "rate_calibration": null
-      },
       {
         "type": "hazard",
         "id": "CDX-NA-IG-46",
