@@ -42,6 +42,7 @@ mod tests {
             settings: Default::default(),
         };
         let envelope = CalibrationEnvelope {
+            schema_url: None,
             schema: CALIBRATION_SCHEMA.to_string(),
             plan,
             initial_market: None,

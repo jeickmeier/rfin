@@ -41,8 +41,14 @@ export const valuations = {
   decomposePeriod: wasm.decomposePeriod,
   validateValuationResultJson: wasm.validateValuationResultJson,
   // Calibration: build a MarketContext from raw quotes
-  validateCalibrationJson: wasm.validateCalibrationJson,
-  calibrate: wasm.calibrate,
+  calibrate(envelope) {
+    const json = typeof envelope === 'string' ? envelope : JSON.stringify(envelope);
+    return JSON.parse(wasm.calibrate(json));
+  },
+  validateCalibrationJson(envelope) {
+    const json = typeof envelope === 'string' ? envelope : JSON.stringify(envelope);
+    return wasm.validateCalibrationJson(json);
+  },
   validateInstrumentJson: wasm.validateInstrumentJson,
   priceInstrument: wasm.priceInstrument,
   priceInstrumentWithMetrics: wasm.priceInstrumentWithMetrics,
