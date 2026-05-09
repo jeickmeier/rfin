@@ -1407,6 +1407,18 @@ export interface ValuationsNamespace {
   /** Difference two `LevelsAtDate` snapshots component-wise. */
   decomposePeriod(fromLevels: LevelsAtDate, toLevels: LevelsAtDate): PeriodDecomposition;
   validateValuationResultJson(json: string): string;
+  /**
+   * Validate a `CalibrationEnvelope` JSON string and return the canonical pretty-printed form.
+   * Use as a pre-flight check before passing an envelope to `calibrate`.
+   */
+  validateCalibrationJson(json: string): string;
+  /**
+   * Execute a `CalibrationEnvelope` and return the full `CalibrationResultEnvelope` JSON.
+   * The canonical path for building a `MarketContext` from quotes — the resulting
+   * `result.final_market` is a materialized state ready for `MarketContext::try_from`
+   * (Rust) or `result.market` (Python).
+   */
+  calibrate(envelopeJson: string): string;
   validateInstrumentJson(json: string): string;
   priceInstrument(instrumentJson: string, marketJson: string, asOf: string, model: string): string;
   priceInstrumentWithMetrics(

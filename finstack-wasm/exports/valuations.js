@@ -40,6 +40,9 @@ export const valuations = {
   decomposeLevels: wasm.decomposeLevels,
   decomposePeriod: wasm.decomposePeriod,
   validateValuationResultJson: wasm.validateValuationResultJson,
+  // Calibration: build a MarketContext from raw quotes
+  validateCalibrationJson: wasm.validateCalibrationJson,
+  calibrate: wasm.calibrate,
   validateInstrumentJson: wasm.validateInstrumentJson,
   priceInstrument: wasm.priceInstrument,
   priceInstrumentWithMetrics: wasm.priceInstrumentWithMetrics,
