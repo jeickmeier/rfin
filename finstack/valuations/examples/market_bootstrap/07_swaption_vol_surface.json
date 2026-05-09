@@ -326,9 +326,7 @@
         "allow_sabr_missing_bucket_fallback": false
       }
     ],
-    "settings": {
-      "fail_on_bad_fit": false
-    }
+    "settings": {}
   },
   "initial_market": {
     "version": 2,

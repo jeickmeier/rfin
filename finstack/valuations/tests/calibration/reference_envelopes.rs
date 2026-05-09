@@ -261,8 +261,12 @@ fn example_07_swaption_vol_surface_builds_queryable_surface() {
     let vol = surface
         .vol(1.0, 5.0, 0.05)
         .expect("vol query at 1y × 5y × ATM should succeed");
+    // The surface's output convention (lognormal-equivalent vs normal bp)
+    // depends on the SABR target's internal model — both are positive and
+    // bounded. Accepting either convention; tighten to a unit-specific bound
+    // once the convention is confirmed by a domain test.
     assert!(
         vol > 0.0 && vol < 5.0,
-        "swaption vol should be in (0, 5), got {vol}"
+        "swaption vol should be positive and < 500%, got {vol}"
     );
 }
