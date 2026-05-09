@@ -7,6 +7,7 @@ import json
 from finstack.core.market_data import MarketContext
 
 from finstack.valuations import (
+    CalibrationEnvelopeError,
     ValuationResult,
     calibrate,
     price_instrument_with_metrics,
@@ -22,6 +23,12 @@ def _resolve_market(inputs: dict) -> MarketContext:
     Mutually exclusive: the fixture must provide exactly one. 'market' is the
     materialized MarketContext JSON (snapshot); 'market_envelope' is a
     CalibrationEnvelope routed through the calibration engine.
+
+    On envelope-driven failures the wrapped exception preserves the
+    structured ``CalibrationEnvelopeError`` payload (``kind``, ``step_id``,
+    ``details``) for downstream debugging — the legacy ``except ValueError``
+    pattern would have missed Phase 4's ``CalibrationEnvelopeError``
+    (RuntimeError subclass) entirely.
     """
     has_market = "market" in inputs
     has_envelope = "market_envelope" in inputs
@@ -30,14 +37,14 @@ def _resolve_market(inputs: dict) -> MarketContext:
     if has_market:
         return MarketContext.from_json(json.dumps(inputs["market"]))
     if has_envelope:
-        envelope_json = json.dumps(inputs["market_envelope"])
-        # "?" is the malformed-envelope sentinel: only triggers when the JSON is
-        # so far off that calibrate() was about to fail anyway.
-        plan_id = inputs["market_envelope"].get("plan", {}).get("id", "?")
+        envelope = inputs["market_envelope"]
+        plan_id = envelope.get("plan", {}).get("id", "?")
         try:
-            result = calibrate(envelope_json)
-        except ValueError as exc:
-            raise ValueError(f"calibrate market_envelope for plan '{plan_id}': {exc}") from exc
+            result = calibrate(json.dumps(envelope))
+        except CalibrationEnvelopeError as exc:
+            raise CalibrationEnvelopeError(
+                f"calibrate market_envelope for plan '{plan_id}' failed ({exc.kind}, step={exc.step_id}): {exc}"
+            ) from exc
         return result.market
     raise ValueError("pricing fixture must supply either 'market' or 'market_envelope'")
 

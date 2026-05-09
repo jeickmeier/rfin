@@ -2,7 +2,7 @@
 
 use crate::golden::schema::GoldenFixture;
 use finstack_core::market_data::context::MarketContext;
-use finstack_valuations::calibration::api::engine;
+use finstack_valuations::calibration::api::engine::{self, ExecuteError};
 use finstack_valuations::calibration::api::schema::CalibrationEnvelope;
 use finstack_valuations::pricer::price_instrument_json_with_metrics;
 use serde::Deserialize;
@@ -31,11 +31,26 @@ impl PricingInputs {
             ),
             (Some(m), None) => Ok(m.clone()),
             (None, Some(env)) => {
-                let result = engine::execute(env).map_err(|err| {
-                    format!(
-                        "calibrate market_envelope for plan '{}': {err}",
-                        env.plan.id
-                    )
+                // Use `execute_with_diagnostics` so envelope failures surface
+                // the structured `EnvelopeError::SolverNotConverged`
+                // (worst-quote ID, tolerance, etc.) instead of the lossy
+                // `finstack_core::Error::Calibration { message, category }`
+                // form. The plan_id wrapper preserves the calling fixture's
+                // context while the inner Display carries the structured
+                // detail.
+                let result = engine::execute_with_diagnostics(env).map_err(|err| {
+                    let plan_id = &env.plan.id;
+                    match &err {
+                        ExecuteError::Envelope(envelope_err) => format!(
+                            "calibrate market_envelope for plan '{plan_id}' failed \
+                             ({}, step={:?}): {envelope_err}",
+                            envelope_err.kind_str(),
+                            envelope_err.step_id(),
+                        ),
+                        ExecuteError::Other(other) => {
+                            format!("calibrate market_envelope for plan '{plan_id}': {other}")
+                        }
+                    }
                 })?;
                 let plan_id = env.plan.id.clone();
                 MarketContext::try_from(result.result.final_market).map_err(|err| {
