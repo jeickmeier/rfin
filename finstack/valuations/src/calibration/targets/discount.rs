@@ -10,10 +10,13 @@ use crate::calibration::validation::RateBoundsPolicy;
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::ExtractQuotes;
 use crate::market::quotes::market_quote::MarketQuote;
+use crate::market::quotes::rates::RateQuote;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::{
+    DiscountCurve, DiscountCurveRateCalibration, DiscountCurveRateQuote, DiscountCurveRateQuoteType,
+};
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use finstack_core::types::CurveId;
 use finstack_core::Result;
@@ -357,6 +360,12 @@ Global solve requires strictly increasing times.",
             ));
         }
 
+        // Build rate_calibration sidecar before consuming rates_quotes so that the
+        // produced curve carries the original benchmark quotes.  Downstream metrics
+        // that re-bump and re-bootstrap (e.g. CDS option IR DV01) require this.
+        let rate_calibration_sidecar =
+            Self::build_rate_calibration_from_quotes(&rates_quotes, params.currency);
+
         // Curve time axis day count:
         //
         // In the prior calibration engine (master-era `calibration/adapters/discount.rs`),
@@ -486,6 +495,15 @@ Global solve requires strictly increasing times.",
             }
         }
 
+        // Attach the rate_calibration sidecar (computed from rates_quotes before they were
+        // consumed by the prepare loop above).
+        let curve = if let Some(cal) = rate_calibration_sidecar {
+            let id = curve.id().to_string();
+            curve.to_builder_with_id(id).rate_calibration(cal).build()?
+        } else {
+            curve
+        };
+
         let new_context = context.clone().insert(curve);
 
         // Track solver configuration used and any seed diagnostics for transparency.
@@ -519,6 +537,56 @@ Global solve requires strictly increasing times.",
             .insert("currency".to_string(), params.currency.to_string());
 
         Ok((new_context, report))
+    }
+
+    /// Build a [`DiscountCurveRateCalibration`] from the solved rate quotes.
+    ///
+    /// This preserves the input benchmark quotes on the bootstrapped curve so
+    /// that downstream quote-bump sensitivities (e.g. CDS option IR DV01) can
+    /// re-shock and re-bootstrap instead of applying direct DF bumps.
+    ///
+    /// Returns `None` if the quote list contains no deposit or swap quotes
+    /// (futures-only or empty inputs do not produce a meaningful calibration record).
+    fn build_rate_calibration_from_quotes(
+        quotes: &[RateQuote],
+        currency: Currency,
+    ) -> Option<DiscountCurveRateCalibration> {
+        // Infer the index_id from the first deposit or swap quote that has one.
+        let index_id = quotes.iter().find_map(|q| match q {
+            RateQuote::Deposit { index, .. } | RateQuote::Swap { index, .. } => {
+                Some(index.to_string())
+            }
+            _ => None,
+        })?;
+
+        let calibration_quotes: Vec<DiscountCurveRateQuote> = quotes
+            .iter()
+            .filter_map(|q| match q {
+                RateQuote::Deposit { pillar, rate, .. } => Some(DiscountCurveRateQuote {
+                    quote_type: DiscountCurveRateQuoteType::Deposit,
+                    tenor: pillar.to_string(),
+                    rate: *rate,
+                }),
+                RateQuote::Swap { pillar, rate, .. } => Some(DiscountCurveRateQuote {
+                    quote_type: DiscountCurveRateQuoteType::Swap,
+                    tenor: pillar.to_string(),
+                    rate: *rate,
+                }),
+                // Futures and FRAs are not re-bumpable via the simple quote-bump
+                // mechanism; skip them to keep the calibration record clean.
+                _ => None,
+            })
+            .collect();
+
+        if calibration_quotes.is_empty() {
+            return None;
+        }
+
+        Some(DiscountCurveRateCalibration {
+            index_id,
+            currency,
+            quotes: calibration_quotes,
+        })
     }
 }
 

@@ -192,6 +192,40 @@ impl HazardCurveTarget {
         let mut report = report;
         report.update_solver_config(config.solver.clone());
 
+        // Attach par spread points from the calibration quotes to the bootstrapped curve
+        // so that downstream quote-bump CS01 metrics can re-bootstrap from par spreads.
+        // The pillar_time values come from the prepared quotes and reflect the actual
+        // IMM-rolled maturity dates used during calibration.
+        let par_points: Vec<(f64, f64)> = prepared_quotes
+            .iter()
+            .filter_map(|q| {
+                let pq = match q {
+                    CalibrationQuote::Cds(pq) => pq,
+                    _ => return None,
+                };
+                let spread_bp = match pq.quote.as_ref() {
+                    crate::market::quotes::cds::CdsQuote::CdsParSpread { spread_bp, .. } => {
+                        *spread_bp
+                    }
+                    crate::market::quotes::cds::CdsQuote::CdsUpfront {
+                        running_spread_bp, ..
+                    } => *running_spread_bp,
+                };
+                Some((pq.pillar_time, spread_bp))
+            })
+            .collect();
+
+        let curve = if !par_points.is_empty() {
+            let id = curve.id().to_string();
+            curve
+                .to_builder_with_id(id)
+                .par_spreads(par_points)
+                .par_interp(params.par_interp)
+                .build()?
+        } else {
+            curve
+        };
+
         let new_context = context.clone().insert(curve);
         Ok((new_context, report))
     }
