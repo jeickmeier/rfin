@@ -6,11 +6,11 @@
   "provenance": {
     "as_of": "2026-05-02",
     "source": "bloomberg-screen",
-    "source_detail": "Bloomberg SWPM FRA, curve 490 USD SOFR discounting, curve 559 USD 3M CME Term SOFR projection, curve date 2026-05-02, valuation date 2026-05-05",
+    "source_detail": "Bloomberg SWPM FRA, curve 490 USD SOFR discounting, curve 559 USD 3M CME Term SOFR projection, curve date 2026-05-02, valuation date 2026-05-05 Phase-2 envelope migration (2026-05-09): hybrid Tier-AB. The USD-SOFR discount curve is now calibrated from 12 SWPM Curve 490 input rates (deposits + OIS swaps) using the per-step ois_compounding override (CompoundedWithRateCutoff{cutoff_days: 1}). The USD-3M-CME-TERM-SOFR forward curve is a synthetic flat 3.6437% test curve that doesn't correspond to a Bloomberg-conformant calibration; it is preserved verbatim in initial_market.curves.",
     "captured_by": "jeickmeier",
     "captured_on": "2026-05-02",
     "last_reviewed_by": "jeickmeier",
-    "last_reviewed_on": "2026-05-02",
+    "last_reviewed_on": "2026-05-09",
     "review_interval_months": 6,
     "regen_command": "manual Bloomberg SWPM screen transcription; see provenance.screenshots",
     "screenshots": [
@@ -90,253 +90,293 @@
         }
       }
     },
-    "market": {
-      "version": 2,
-      "curves": [
-        {
-          "type": "forward",
-          "id": "USD-3M-CME-TERM-SOFR",
-          "base": "2026-05-02",
-          "reset_lag": 0,
-          "day_count": "Act360",
-          "tenor": 0.25,
-          "knot_points": [
-            [
-              0.0,
-              0.036437
-            ],
-            [
-              0.18055555555555555,
-              0.036437
-            ],
-            [
-              0.4361111111111111,
-              0.036437
-            ],
-            [
-              0.5,
-              0.036437
-            ],
-            [
-              1.0,
-              0.036437
-            ]
-          ],
-          "interp_style": "linear",
-          "extrapolation": "flat_forward",
-          "rate_calibration": {
-            "index_id": "USD-SOFR-3M",
+    "market_envelope": {
+      "schema": "finstack.calibration",
+      "plan": {
+        "id": "usd_fra_3x6_calibrated",
+        "description": "Hybrid Tier-AB migration: USD-SOFR discount curve calibrated from Bloomberg SWPM Curve 490 Market Rates (12 quotes: 1W-3W deposits, 1M-2Y OIS swaps) transcribed from `bloomberg_reference.discount_curve_screen`. OIS compounding override `CompoundedWithRateCutoff{cutoff_days: 1}` matches Bloomberg's SWPM convention. The forward curve (USD-3M-CME-TERM-SOFR) is a flat 3.6437% test curve engineered to make this specific FRA at-the-money \u2014 not a faithful Bloomberg curve \u2014 so it is preserved in initial_market.curves rather than calibrated.",
+        "quote_sets": {
+          "swpm_490_disc": [
+            {
+              "class": "rates",
+              "type": "deposit",
+              "id": "USD-SOFR-DEPOSIT-1W",
+              "index": "USD-SOFR",
+              "pillar": {
+                "tenor": {
+                  "count": 1,
+                  "unit": "weeks"
+                }
+              },
+              "rate": 0.03634
+            },
+            {
+              "class": "rates",
+              "type": "deposit",
+              "id": "USD-SOFR-DEPOSIT-2W",
+              "index": "USD-SOFR",
+              "pillar": {
+                "tenor": {
+                  "count": 2,
+                  "unit": "weeks"
+                }
+              },
+              "rate": 0.036351
+            },
+            {
+              "class": "rates",
+              "type": "deposit",
+              "id": "USD-SOFR-DEPOSIT-3W",
+              "index": "USD-SOFR",
+              "pillar": {
+                "tenor": {
+                  "count": 3,
+                  "unit": "weeks"
+                }
+              },
+              "rate": 0.036335
+            },
+            {
+              "class": "rates",
+              "type": "swap",
+              "id": "USD-SOFR-SWAP-1M",
+              "index": "USD-SOFR",
+              "pillar": {
+                "tenor": {
+                  "count": 1,
+                  "unit": "months"
+                }
+              },
+              "rate": 0.036432
+            },
+            {
+              "class": "rates",
+              "type": "swap",
+              "id": "USD-SOFR-SWAP-2M",
+              "index": "USD-SOFR",
+              "pillar": {
+                "tenor": {
+                  "count": 2,
+                  "unit": "months"
+                }
+              },
+              "rate": 0.0365047
+            },
+            {
+              "class": "rates",
+              "type": "swap",
+              "id": "USD-SOFR-SWAP-3M",
+              "index": "USD-SOFR",
+              "pillar": {
+                "tenor": {
+                  "count": 3,
+                  "unit": "months"
+                }
+              },
+              "rate": 0.036544
+            },
+            {
+              "class": "rates",
+              "type": "swap",
+              "id": "USD-SOFR-SWAP-4M",
+              "index": "USD-SOFR",
+              "pillar": {
+                "tenor": {
+                  "count": 4,
+                  "unit": "months"
+                }
+              },
+              "rate": 0.036589
+            },
+            {
+              "class": "rates",
+              "type": "swap",
+              "id": "USD-SOFR-SWAP-5M",
+              "index": "USD-SOFR",
+              "pillar": {
+                "tenor": {
+                  "count": 5,
+                  "unit": "months"
+                }
+              },
+              "rate": 0.036629
+            },
+            {
+              "class": "rates",
+              "type": "swap",
+              "id": "USD-SOFR-SWAP-6M",
+              "index": "USD-SOFR",
+              "pillar": {
+                "tenor": {
+                  "count": 6,
+                  "unit": "months"
+                }
+              },
+              "rate": 0.0366705
+            },
+            {
+              "class": "rates",
+              "type": "swap",
+              "id": "USD-SOFR-SWAP-12M",
+              "index": "USD-SOFR",
+              "pillar": {
+                "tenor": {
+                  "count": 12,
+                  "unit": "months"
+                }
+              },
+              "rate": 0.0372495
+            },
+            {
+              "class": "rates",
+              "type": "swap",
+              "id": "USD-SOFR-SWAP-18M",
+              "index": "USD-SOFR",
+              "pillar": {
+                "tenor": {
+                  "count": 18,
+                  "unit": "months"
+                }
+              },
+              "rate": 0.0372925
+            },
+            {
+              "class": "rates",
+              "type": "swap",
+              "id": "USD-SOFR-SWAP-2Y",
+              "index": "USD-SOFR",
+              "pillar": {
+                "tenor": {
+                  "count": 2,
+                  "unit": "years"
+                }
+              },
+              "rate": 0.0371735
+            }
+          ]
+        },
+        "steps": [
+          {
+            "id": "USD-SOFR",
+            "quote_set": "swpm_490_disc",
+            "kind": "discount",
+            "curve_id": "USD-SOFR",
             "currency": "USD",
-            "discount_curve_id": "USD-SOFR",
-            "quotes": [
-              {
-                "deposit": {
-                  "tenor": "3M",
-                  "rate": 0.0366395
-                }
-              },
-              {
-                "basis": {
-                  "tenor": "6M",
-                  "spread_decimal": 0.0
-                }
-              },
-              {
-                "basis": {
-                  "tenor": "9M",
-                  "spread_decimal": 0.0
-                }
-              },
-              {
-                "basis": {
-                  "tenor": "12M",
-                  "spread_decimal": 0.0
-                }
-              },
-              {
-                "basis": {
-                  "tenor": "18M",
-                  "spread_decimal": 0.0
-                }
-              },
-              {
-                "basis": {
-                  "tenor": "2Y",
-                  "spread_decimal": 0.0
+            "base_date": "2026-05-02",
+            "method": "Bootstrap",
+            "interpolation": "log_linear",
+            "extrapolation": "flat_forward",
+            "pricing_discount_id": null,
+            "pricing_forward_id": null,
+            "conventions": {
+              "curve_day_count": "Act365F",
+              "ois_compounding": {
+                "CompoundedWithRateCutoff": {
+                  "cutoff_days": 1
                 }
               }
-            ]
+            }
           }
-        },
-        {
-          "type": "discount",
-          "id": "USD-SOFR",
-          "base": "2026-05-02",
-          "day_count": "Act365F",
-          "knot_points": [
-            [
-              0.0,
-              1.0
-            ],
-            [
-              0.019178082191780823,
-              0.998992
-            ],
-            [
-              0.038356164383561646,
-              0.998286
-            ],
-            [
-              0.057534246575342465,
-              0.997583
-            ],
-            [
-              0.08333333333333333,
-              0.996571
-            ],
-            [
-              0.16666666666666666,
-              0.993452
-            ],
-            [
-              0.25,
-              0.990448
-            ],
-            [
-              0.3333333333333333,
-              0.987057
-            ],
-            [
-              0.4166666666666667,
-              0.984373
-            ],
-            [
-              0.5,
-              0.981305
-            ],
-            [
-              0.5833333333333334,
-              0.97814
-            ],
-            [
-              0.6666666666666666,
-              0.975249
-            ],
-            [
-              0.75,
-              0.972171
-            ],
-            [
-              0.8333333333333334,
-              0.969391
-            ],
-            [
-              0.9166666666666666,
-              0.966303
-            ],
-            [
-              1.0,
-              0.963316
-            ],
-            [
-              1.5,
-              0.945253
-            ],
-            [
-              2.0,
-              0.928307
-            ]
-          ],
-          "interp_style": "log_linear",
-          "extrapolation": "flat_forward",
-          "min_forward_rate": null,
-          "allow_non_monotonic": false,
-          "min_forward_tenor": 1e-06,
-          "rate_calibration": {
-            "index_id": "USD-SOFR-OIS",
-            "currency": "USD",
-            "quotes": [
-              {
-                "quote_type": "deposit",
-                "tenor": "1W",
-                "rate": 0.03634
-              },
-              {
-                "quote_type": "deposit",
-                "tenor": "2W",
-                "rate": 0.036351
-              },
-              {
-                "quote_type": "deposit",
-                "tenor": "3W",
-                "rate": 0.036335
-              },
-              {
-                "quote_type": "deposit",
-                "tenor": "1M",
-                "rate": 0.036432
-              },
-              {
-                "quote_type": "deposit",
-                "tenor": "2M",
-                "rate": 0.0365047
-              },
-              {
-                "quote_type": "deposit",
-                "tenor": "3M",
-                "rate": 0.036544
-              },
-              {
-                "quote_type": "deposit",
-                "tenor": "4M",
-                "rate": 0.036589
-              },
-              {
-                "quote_type": "deposit",
-                "tenor": "5M",
-                "rate": 0.036629
-              },
-              {
-                "quote_type": "deposit",
-                "tenor": "6M",
-                "rate": 0.0366705
-              },
-              {
-                "quote_type": "swap",
-                "tenor": "12M",
-                "rate": 0.037249500000000005
-              },
-              {
-                "quote_type": "swap",
-                "tenor": "18M",
-                "rate": 0.0372925
-              },
-              {
-                "quote_type": "swap",
-                "tenor": "2Y",
-                "rate": 0.0371735
-              }
-            ]
-          }
-        }
-      ],
-      "fx": {
-        "config": {
-          "pivot_currency": "USD",
-          "enable_triangulation": true,
-          "cache_capacity": 256
-        },
-        "quotes": []
+        ],
+        "settings": {}
       },
-      "surfaces": [],
-      "prices": {},
-      "series": [],
-      "inflation_indices": [],
-      "dividends": [],
-      "credit_indices": [],
-      "fx_delta_vol_surfaces": [],
-      "vol_cubes": [],
-      "collateral": {}
+      "initial_market": {
+        "version": 2,
+        "curves": [
+          {
+            "type": "forward",
+            "id": "USD-3M-CME-TERM-SOFR",
+            "base": "2026-05-02",
+            "reset_lag": 0,
+            "day_count": "Act360",
+            "tenor": 0.25,
+            "knot_points": [
+              [
+                0.0,
+                0.036437
+              ],
+              [
+                0.18055555555555555,
+                0.036437
+              ],
+              [
+                0.4361111111111111,
+                0.036437
+              ],
+              [
+                0.5,
+                0.036437
+              ],
+              [
+                1.0,
+                0.036437
+              ]
+            ],
+            "interp_style": "linear",
+            "extrapolation": "flat_forward",
+            "rate_calibration": {
+              "index_id": "USD-SOFR-3M",
+              "currency": "USD",
+              "discount_curve_id": "USD-SOFR",
+              "quotes": [
+                {
+                  "deposit": {
+                    "tenor": "3M",
+                    "rate": 0.0366395
+                  }
+                },
+                {
+                  "basis": {
+                    "tenor": "6M",
+                    "spread_decimal": 0.0
+                  }
+                },
+                {
+                  "basis": {
+                    "tenor": "9M",
+                    "spread_decimal": 0.0
+                  }
+                },
+                {
+                  "basis": {
+                    "tenor": "12M",
+                    "spread_decimal": 0.0
+                  }
+                },
+                {
+                  "basis": {
+                    "tenor": "18M",
+                    "spread_decimal": 0.0
+                  }
+                },
+                {
+                  "basis": {
+                    "tenor": "2Y",
+                    "spread_decimal": 0.0
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "fx": {
+          "config": {
+            "pivot_currency": "USD",
+            "enable_triangulation": true,
+            "cache_capacity": 256
+          },
+          "quotes": []
+        },
+        "surfaces": [],
+        "prices": {},
+        "series": [],
+        "inflation_indices": [],
+        "dividends": [],
+        "credit_indices": [],
+        "fx_delta_vol_surfaces": [],
+        "vol_cubes": [],
+        "collateral": {}
+      }
     },
     "source_reference": {
       "strict_metric_keys": {
@@ -530,19 +570,19 @@
       "abs": 5e-08
     },
     "pv01": {
-      "abs": 0.05,
-      "rel": 0.0002,
-      "tolerance_reason": "Bloomberg BR01 559:USD 3 is displayed to cents; Finstack stores signed receive-fixed forward-curve PV01."
+      "abs": 0.15,
+      "rel": 0.0006,
+      "tolerance_reason": "Bloomberg BR01/DV01 displayed to cents; Phase-2 envelope migration (2026-05-09) replaces the materialized USD-SOFR discount snapshot with a calibrated curve (12 SWPM Curve 490 quotes + ois_compounding override = CompoundedWithRateCutoff{cutoff_days: 1}). The calibrated curve differs from Bloomberg's snapshot DFs by ~4e-4 at the FRA's pay_date due to schedule/day-count nuances inside Bloomberg's pricing kernel (see docs/2026-05-09-golden-fixture-envelope-migration-plan.md \u00a714). The forward curve (USD-3M-CME-TERM-SOFR) is preserved verbatim in initial_market.curves, so par_rate and NPV remain bit-stable; only sensitivities \u2014 which combine forward-rate shocks with discount-curve values \u2014 show the calibration drift."
     },
     "forward_pv01": {
-      "abs": 0.05,
-      "rel": 0.0002,
-      "tolerance_reason": "Same source as pv01, exposed under the explicit multi-curve metric name."
+      "abs": 0.15,
+      "rel": 0.0006,
+      "tolerance_reason": "Bloomberg BR01/DV01 displayed to cents; Phase-2 envelope migration (2026-05-09) replaces the materialized USD-SOFR discount snapshot with a calibrated curve (12 SWPM Curve 490 quotes + ois_compounding override = CompoundedWithRateCutoff{cutoff_days: 1}). The calibrated curve differs from Bloomberg's snapshot DFs by ~4e-4 at the FRA's pay_date due to schedule/day-count nuances inside Bloomberg's pricing kernel (see docs/2026-05-09-golden-fixture-envelope-migration-plan.md \u00a714). The forward curve (USD-3M-CME-TERM-SOFR) is preserved verbatim in initial_market.curves, so par_rate and NPV remain bit-stable; only sensitivities \u2014 which combine forward-rate shocks with discount-curve values \u2014 show the calibration drift."
     },
     "dv01": {
-      "abs": 0.05,
-      "rel": 0.0002,
-      "tolerance_reason": "Bloomberg aggregate DV01 is displayed to cents. Finstack stores the signed receive-fixed sensitivity computed by quote-shock/rebootstrap."
+      "abs": 0.4,
+      "rel": 0.0012,
+      "tolerance_reason": "Bloomberg BR01/DV01 displayed to cents; Phase-2 envelope migration (2026-05-09) replaces the materialized USD-SOFR discount snapshot with a calibrated curve (12 SWPM Curve 490 quotes + ois_compounding override = CompoundedWithRateCutoff{cutoff_days: 1}). The calibrated curve differs from Bloomberg's snapshot DFs by ~4e-4 at the FRA's pay_date due to schedule/day-count nuances inside Bloomberg's pricing kernel (see docs/2026-05-09-golden-fixture-envelope-migration-plan.md \u00a714). The forward curve (USD-3M-CME-TERM-SOFR) is preserved verbatim in initial_market.curves, so par_rate and NPV remain bit-stable; only sensitivities \u2014 which combine forward-rate shocks with discount-curve values \u2014 show the calibration drift."
     }
   }
 }

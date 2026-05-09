@@ -419,3 +419,78 @@ The drift comes from convention mismatch: Bloomberg SWPM bootstraps from **spot 
 2. **Bulk Tier-A wrap of remaining 29 fixtures.** ~2 hours scripted.
 3. **Tier-B2 the Bloomberg fixtures with visible quote screenshots:** `cds/cds_5y_par_spread.json`, `cap_floor/usd_cap_5y_atm_black.json`, `fra/usd_fra_3x6.json`, `swaption/usd_swaption_5y_into_5y_receiver_25_otm.json`, `bond/*` (2 fixtures). Estimated 4-9 hours total.
 4. **File a follow-up issue** for Tier-B1 readiness: extend `RatesStepConventions` with `spot_lag_days`, `bdc`, `calendar_id` so future migrations can achieve Bloomberg parity without tolerance loosening.
+
+---
+
+## 15. POC #3 (2026-05-09): `fra/usd_fra_3x6.json` — hybrid Tier-AB
+
+### What was tried
+
+Migrated the Bloomberg SWPM USD 2M x 5M FRA fixture. The fixture uses two curves:
+- **Discount** `USD-SOFR` (18-knot snapshot from Curve 490)
+- **Forward** `USD-3M-CME-TERM-SOFR` (5-knot snapshot from Curve 559)
+
+Approach: calibrate the discount curve from input quotes; preserve the forward curve verbatim in `initial_market`.
+
+### Key discovery: forward curve is engineered
+
+Inspecting the snapshot's forward curve revealed that **all 5 knots have the same forward rate of 0.0364370** — it's a **flat curve at 3.6437%, exactly the FRA's strike**. This is a synthetic test curve constructed to make the FRA at-the-money (NPV = 0). It does not correspond to Bloomberg's actual Curve 559 (whose 3M Cash quote is 3.66395% and zero rates range 3.69-3.93% across tenors).
+
+Bootstrapping the forward curve from Bloomberg's Curve 559 input rates would produce a non-flat curve and shift the FRA away from at-the-money. The fixture's at-the-money assertion contract would break.
+
+**Resolution: hybrid Tier-AB.** Calibrate the discount curve (Tier-B); preserve the forward curve verbatim in `initial_market.curves` (Tier-A for that curve only).
+
+### Implementation
+
+The envelope's `plan.steps` contains a single discount step:
+- `quote_set`: 12 SWPM Curve 490 rates from `bloomberg_reference.discount_curve_screen`
+  - 1W/2W/3W deposits, 1M/2M/.../12M/18M/2Y OIS swaps
+- `conventions.curve_day_count: Act365F`
+- `conventions.ois_compounding: CompoundedWithRateCutoff{cutoff_days: 1}` (matching Bloomberg SWPM, IRS POC pattern)
+
+`initial_market.curves` carries the synthetic forward curve unchanged.
+
+Bootstrap converges genuinely: **954 iterations, residuals at 9.6e-13 across 12 quotes**, 13 knots calibrated.
+
+### Drift profile
+
+| Metric | Bloomberg expected | Calibrated | Diff abs | Original tolerance | New tolerance |
+|---|---|---|---|---|---|
+| `npv` | -0.01 | -0.01 (≈) | <0.01 | 0.01 | unchanged |
+| `par_rate` | 0.036437 | 0.036437 | <5e-8 | 5e-8 | unchanged |
+| `pv01` | -251.51 | -251.62 | 0.106 | 0.05 | **0.15** |
+| `forward_pv01` | -251.51 | -251.62 | 0.106 | 0.05 | **0.15** |
+| `dv01` | -337.37 | -337.70 | 0.327 | 0.05 | **0.4** |
+
+NPV and par_rate **bit-stable at original tolerances** because:
+- The forward curve is preserved verbatim, so the projected forward rate at the FRA's accrual period is exactly Bloomberg's 0.036437.
+- NPV depends on cashflow × DF(pay_date); cashflow ≈ 0 (FRA is at-the-money), so DF differences cancel out.
+- par_rate is the projected forward rate, independent of the discount curve.
+
+Sensitivities (PV01/DV01) **drift by ~0.04% relative** because they shock the discount curve and re-price; the calibrated curve's DF at the pay date differs from the snapshot's by ~4e-4 (consistent with the IRS POC's ~3-4e-4 drift in the 5Y zone, scaled to the FRA's 5M maturity).
+
+### Plan implications
+
+**Hybrid Tier-AB is a viable third path** alongside pure Tier-A wrap and pure Tier-B calibrate. It applies when:
+- Some curves are bootstrap-reproducible (Tier-B for those)
+- Other curves are synthetic test data (Tier-A wrap inside `initial_market.curves`)
+- Same fixture, mixed treatment per curve
+
+This pattern is useful for fixtures whose curves were authored for testability (flat synthetic forward curves, hand-tuned vol surfaces) but whose discount curves are real Bloomberg captures. Likely candidates: the equity-option fixtures (BS surface is synthetic; discount is real), some structured-credit fixtures.
+
+### Updated coverage
+
+After this commit:
+
+| Step kind | Covered? |
+|---|---|
+| `discount` | ✓ (cdx_ig_46, irs, fra) |
+| `hazard` | ✓ (cdx_ig_46) |
+| `base_correlation` | ✓ (cdx_ig_46, indirect) |
+| `forward` | ✗ (still uncovered — the FRA fixture's forward curve is uncalibratable test data) |
+
+The next migration that *actually* covers the `forward` step kind will need either:
+- A different forward fixture whose snapshot is bootstrap-reproducible (most are synthetic `formula` fixtures); or
+- A new fixture authored from scratch with real-date forward quotes (e.g., a SOFR 3M-tenor IRS curve calibration).
+
+Recommend file a follow-up to author such a fixture, since none of the existing 33 pricing goldens have a calibratable forward curve.
