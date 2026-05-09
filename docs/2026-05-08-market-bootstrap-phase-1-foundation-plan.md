@@ -882,7 +882,7 @@ Replace lines 1 through 73 (everything from the `//! Calibration framework...` o
 //! let envelope: CalibrationEnvelope =
 //!     serde_json::from_str(envelope_json).expect("parse envelope");
 //! let result = engine::execute(&envelope).expect("calibration succeeded");
-//! let market = MarketContext::try_from(result.result.final_market.clone())
+//! let market = MarketContext::try_from(result.result.final_market)
 //!     .expect("rehydrate market");
 //! // `market` is now ready for valuations, attribution, scenarios, portfolio analysis.
 //! # let _ = market;

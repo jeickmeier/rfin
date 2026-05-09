@@ -26,10 +26,7 @@ def _resolve_market(inputs: dict) -> MarketContext:
     has_market = "market" in inputs
     has_envelope = "market_envelope" in inputs
     if has_market and has_envelope:
-        raise ValueError(
-            "pricing fixture supplied both 'market' and 'market_envelope'; "
-            "specify exactly one"
-        )
+        raise ValueError("pricing fixture supplied both 'market' and 'market_envelope'; specify exactly one")
     if has_market:
         return MarketContext.from_json(json.dumps(inputs["market"]))
     if has_envelope:
@@ -40,13 +37,9 @@ def _resolve_market(inputs: dict) -> MarketContext:
         try:
             result = calibrate(envelope_json)
         except ValueError as exc:
-            raise ValueError(
-                f"calibrate market_envelope for plan '{plan_id}': {exc}"
-            ) from exc
+            raise ValueError(f"calibrate market_envelope for plan '{plan_id}': {exc}") from exc
         return result.market
-    raise ValueError(
-        "pricing fixture must supply either 'market' or 'market_envelope'"
-    )
+    raise ValueError("pricing fixture must supply either 'market' or 'market_envelope'")
 
 
 def run_pricing_fixture(fixture: GoldenFixture) -> dict[str, float]:

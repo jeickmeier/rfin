@@ -17,11 +17,11 @@ from raw market quotes is :func:`calibrate`:
     ...     "initial_market": None,
     ... }
     >>> result = calibrate(json.dumps(envelope))  # doctest: +SKIP
-    >>> result.success         # doctest: +SKIP
+    >>> result.success  # doctest: +SKIP
     True
-    >>> result.rmse            # doctest: +SKIP    # check the curves actually fit
+    >>> result.rmse  # doctest: +SKIP    # check the curves actually fit
     1.2e-9
-    >>> ctx = result.market    # doctest: +SKIP    # ready for pricing/attribution
+    >>> ctx = result.market  # doctest: +SKIP    # ready for pricing/attribution
 
 The :class:`CalibrationResult` wrapper carries the :class:`MarketContext` next
 to per-step residuals (:meth:`step_report_json`, :meth:`report_to_dataframe`)
@@ -1232,8 +1232,7 @@ def calibrate(json: str) -> CalibrationResult:
         >>> result = calibrate(_json.dumps(envelope))  # doctest: +SKIP
         >>> assert result.success and result.rmse < 1e-6  # doctest: +SKIP
         >>> curve = result.market.get_discount("USD-OIS")  # doctest: +SKIP
-        >>> price_json = price_instrument(inst_json, result.market_json,
-        ...                                "2026-05-08")  # doctest: +SKIP
+        >>> price_json = price_instrument(inst_json, result.market_json, "2026-05-08")  # doctest: +SKIP
 
     See Also:
         - ``finstack/valuations/examples/market_bootstrap/`` — reference

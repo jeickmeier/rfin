@@ -221,9 +221,7 @@ def _validate_pricing_input_schema(path: Path, fixture: GoldenFixture) -> None:
     assert not (has_market and has_envelope), (
         "pricing fixture must not supply both 'market' and 'market_envelope'; specify exactly one"
     )
-    assert has_market or has_envelope, (
-        "pricing fixture must supply either 'market' or 'market_envelope'"
-    )
+    assert has_market or has_envelope, "pricing fixture must supply either 'market' or 'market_envelope'"
 
     if has_market:
         try:
