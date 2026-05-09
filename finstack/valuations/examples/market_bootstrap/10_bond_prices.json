@@ -1,0 +1,43 @@
+{
+  "schema": "finstack.calibration",
+  "plan": {
+    "id": "bond_prices_snapshot",
+    "description": "Snapshot-only example: bond clean prices supplied via initial_market.prices keyed by bond ID, with no calibration steps. Demonstrates Track B for fixed-income — non-bootstrapped bond marks loaded as MarketScalar values. The MarketScalar shape is shared with equity spot prices (see 08_equity_vol_surface.json). Three bonds are included: a 10-year US Treasury, an IBM 7-year corporate bond, and a Microsoft 5-year corporate bond. Clean prices are near par (99–105) as is typical for investment-grade fixed-income instruments close to issuance.",
+    "quote_sets": {},
+    "steps": [],
+    "settings": {}
+  },
+  "initial_market": {
+    "version": 2,
+    "curves": [],
+    "fx": null,
+    "surfaces": [],
+    "prices": {
+      "US-TREASURY-10Y-2026-05-08": {
+        "price": {
+          "amount": "99.875",
+          "currency": "USD"
+        }
+      },
+      "IBM-7YR-2033": {
+        "price": {
+          "amount": "101.250",
+          "currency": "USD"
+        }
+      },
+      "MSFT-5YR-2031": {
+        "price": {
+          "amount": "103.500",
+          "currency": "USD"
+        }
+      }
+    },
+    "series": [],
+    "inflation_indices": [],
+    "dividends": [],
+    "credit_indices": [],
+    "fx_delta_vol_surfaces": [],
+    "vol_cubes": [],
+    "collateral": {}
+  }
+}

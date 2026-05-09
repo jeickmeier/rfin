@@ -308,3 +308,31 @@ fn example_08_equity_vol_surface_builds_queryable_surface() {
         "AAPL equity vol should be positive, got {vol}"
     );
 }
+
+#[test]
+fn example_10_bond_prices_supports_lookup() {
+    use finstack_core::market_data::scalars::MarketScalar;
+
+    let envelope = load_envelope("10_bond_prices.json");
+    let market = execute(&envelope);
+
+    // At least two distinct bond IDs must be retrievable.
+    let scalar1 = market
+        .get_price("US-TREASURY-10Y-2026-05-08")
+        .expect("US 10Y treasury price present in initial_market.prices");
+    let p1 = match scalar1 {
+        MarketScalar::Price(m) => m.amount(),
+        MarketScalar::Unitless(v) => *v,
+    };
+
+    let scalar2 = market
+        .get_price("IBM-7YR-2033")
+        .expect("IBM corporate bond price present");
+    let p2 = match scalar2 {
+        MarketScalar::Price(m) => m.amount(),
+        MarketScalar::Unitless(v) => *v,
+    };
+
+    assert!(p1 > 0.0, "treasury price should be positive, got {p1}");
+    assert!(p2 > 0.0, "IBM bond price should be positive, got {p2}");
+}
