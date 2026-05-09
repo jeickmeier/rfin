@@ -58,3 +58,26 @@ fn example_01_usd_discount_builds_queryable_curve() {
         "df at t=1y should be in (0, 1), got {df_one_year}"
     );
 }
+
+#[test]
+fn example_03_single_name_hazard_composes_on_initial_market() {
+    let envelope = load_envelope("03_single_name_hazard.json");
+    let market = execute(&envelope);
+
+    // Discount curve must survive from initial_market unchanged.
+    market
+        .get_discount("USD-OIS")
+        .expect("discount curve carried through from initial_market");
+
+    // Hazard curve must be produced by the calibration step.
+    let hazard = market
+        .get_hazard("ISSUER-A-CDS")
+        .expect("hazard curve present after single-name CDS calibration");
+
+    // Survival probability must be in (0, 1) for any positive horizon.
+    let survival_one_year = hazard.sp(1.0);
+    assert!(
+        survival_one_year > 0.0 && survival_one_year < 1.0,
+        "sp(1y) should be in (0, 1), got {survival_one_year}"
+    );
+}
