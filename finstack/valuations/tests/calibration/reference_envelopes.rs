@@ -391,10 +391,14 @@ fn example_12_full_credit_desk_market_chains_steps() {
     let fx = market.fx().expect("fx matrix from initial_market");
     let _ = fx;
 
-    // Sanity: hazard at 5y is in (0, 1).
+    // Hazard at 5y reflects the SYNTHETIC sub-1bp CDS spreads used to keep
+    // the chained tranche calibration well-bracketed (see envelope's
+    // plan.description for the rationale). Realistic IG hazards would give
+    // SP(5y) ≈ 0.92 — the narrow band below locks the synthetic value so
+    // that any unit-class regression in step 2 of the chain is caught here.
     let sp_5y = hazard.sp(5.0);
     assert!(
-        sp_5y > 0.0 && sp_5y < 1.0,
-        "5y survival should be in (0, 1), got {sp_5y}"
+        (0.999..1.0).contains(&sp_5y),
+        "5y SP should reflect synthetic sub-1bp spreads (~0.9997), got {sp_5y}"
     );
 }
