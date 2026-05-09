@@ -17,6 +17,20 @@ from finstack.valuations import (
     fx as fx,
     instruments as instruments,
 )
+from finstack.valuations.envelope import (
+    CalibrationEnvelope as CalibrationEnvelope,
+    CalibrationPlan as CalibrationPlan,
+    CalibrationStep as CalibrationStep,
+    DiscountStep as DiscountStep,
+    ForwardStep as ForwardStep,
+    HazardStep as HazardStep,
+    MarketQuote as MarketQuote,
+    Pillar as Pillar,
+    RateDeposit as RateDeposit,
+    RateSwap as RateSwap,
+    Tenor as Tenor,
+    VolSurfaceStep as VolSurfaceStep,
+)
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -117,22 +131,34 @@ def instrument_cashflows(
 
 
 __all__: list[str] = [
+    "CalibrationEnvelope",
     "CalibrationEnvelopeError",
+    "CalibrationPlan",
     "CalibrationResult",
+    "CalibrationStep",
     "CreditCalibrator",
     "CreditFactorModel",
+    "DiscountStep",
     "FactorCovarianceForecast",
     "FactorPnlProfile",
+    "ForwardStep",
+    "HazardStep",
     "LevelsAtDate",
+    "MarketQuote",
     "PeriodDecomposition",
+    "Pillar",
     "PnlAttribution",
+    "RateDeposit",
+    "RateSwap",
     "RiskDecomposition",
     "SabrCalibrator",
     "SabrModel",
     "SabrParameters",
     "SabrSmile",
     "SensitivityMatrix",
+    "Tenor",
     "ValuationResult",
+    "VolSurfaceStep",
     "asian_option_price",
     "attribute_pnl",
     "attribute_pnl_from_spec",

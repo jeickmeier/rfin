@@ -56,6 +56,20 @@ from finstack.valuations import credit_derivatives as credit_derivatives
 from finstack.valuations import exotics as exotics
 from finstack.valuations import fx as fx
 from finstack.valuations import instruments as instruments
+from finstack.valuations.envelope import (
+    CalibrationEnvelope as CalibrationEnvelope,
+    CalibrationPlan as CalibrationPlan,
+    CalibrationStep as CalibrationStep,
+    DiscountStep as DiscountStep,
+    ForwardStep as ForwardStep,
+    HazardStep as HazardStep,
+    MarketQuote as MarketQuote,
+    Pillar as Pillar,
+    RateDeposit as RateDeposit,
+    RateSwap as RateSwap,
+    Tenor as Tenor,
+    VolSurfaceStep as VolSurfaceStep,
+)
 
 __all__ = [
     "correlation",
@@ -89,8 +103,20 @@ __all__ = [
     "compute_pnl_profiles",
     "RiskDecomposition",
     "decompose_factor_risk",
-    "CalibrationResult",
+    "CalibrationEnvelope",
     "CalibrationEnvelopeError",
+    "CalibrationPlan",
+    "CalibrationResult",
+    "CalibrationStep",
+    "DiscountStep",
+    "ForwardStep",
+    "HazardStep",
+    "MarketQuote",
+    "Pillar",
+    "RateDeposit",
+    "RateSwap",
+    "Tenor",
+    "VolSurfaceStep",
     "validate_calibration_json",
     "calibrate",
     "dry_run",
