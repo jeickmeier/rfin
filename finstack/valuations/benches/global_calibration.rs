@@ -148,6 +148,7 @@ fn discount_envelope(
     let curve_id = CurveId::from(format!("USD-OIS-{curve_suffix}"));
     CalibrationEnvelope {
         schema: CALIBRATION_SCHEMA.to_string(),
+        schema_url: None,
         initial_market: Some((&MarketContext::new()).into()),
         plan: CalibrationPlan {
             id: format!("global_disc_{curve_suffix}"),
@@ -190,6 +191,7 @@ fn hazard_envelope(
 
     CalibrationEnvelope {
         schema: CALIBRATION_SCHEMA.to_string(),
+        schema_url: None,
         initial_market: Some((&MarketContext::new()).into()),
         plan: CalibrationPlan {
             id: format!("global_hazard_{suffix}"),

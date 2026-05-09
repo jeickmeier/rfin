@@ -112,6 +112,7 @@ fn bench_discount_and_forward_steps(c: &mut Criterion) {
             };
             let envelope = CalibrationEnvelope {
                 schema: CALIBRATION_SCHEMA.to_string(),
+                schema_url: None,
                 initial_market: Some((&MarketContext::new()).into()),
                 plan,
             };
@@ -144,6 +145,7 @@ fn bench_discount_and_forward_steps(c: &mut Criterion) {
             };
             let envelope = CalibrationEnvelope {
                 schema: CALIBRATION_SCHEMA.to_string(),
+                schema_url: None,
                 initial_market: Some((&MarketContext::new()).into()),
                 plan,
             };
@@ -222,6 +224,7 @@ fn bench_residual_normalization(c: &mut Criterion) {
             };
             let envelope = CalibrationEnvelope {
                 schema: CALIBRATION_SCHEMA.to_string(),
+                schema_url: None,
                 initial_market: Some((&MarketContext::new()).into()),
                 plan,
             };
@@ -259,6 +262,7 @@ fn bench_residual_normalization(c: &mut Criterion) {
             };
             let envelope = CalibrationEnvelope {
                 schema: CALIBRATION_SCHEMA.to_string(),
+                schema_url: None,
                 initial_market: Some((&MarketContext::new()).into()),
                 plan,
             };
