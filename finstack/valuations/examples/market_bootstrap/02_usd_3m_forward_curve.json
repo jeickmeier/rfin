@@ -2,8 +2,58 @@
   "schema": "finstack.calibration",
   "plan": {
     "id": "usd_sofr_3m_forward",
-    "description": "USD 3M SOFR forward curve calibrated from a strip of FRA quotes against an initial_market USD-OIS discount curve. Demonstrates the standard rates pattern of bootstrapping a forward curve while holding a discount-curve assumption fixed. FRAs were chosen over futures to keep the example free of the convexity-adjustment magic number futures calibration requires.",
+    "description": "USD 3M SOFR forward curve bootstrapped from a strip of FRA quotes, chained on a USD-OIS discount curve that is bootstrapped in the same plan from deposit and IRS quotes. Demonstrates the standard rates pattern: step 1 produces the discount curve from quotes; step 2 uses it to bootstrap the forward curve. FRAs were chosen over futures to keep the example free of the convexity-adjustment magic numbers futures calibration requires. The envelope is fully self-bootstrapping from quotes — no hand-entered curves in initial_market.",
     "quote_sets": {
+      "usd_rate_quotes": [
+        {
+          "class": "rates",
+          "type": "deposit",
+          "id": "USD-SOFR-DEP-1M",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 1, "unit": "months" } },
+          "rate": 0.0525
+        },
+        {
+          "class": "rates",
+          "type": "deposit",
+          "id": "USD-SOFR-DEP-3M",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 3, "unit": "months" } },
+          "rate": 0.0520
+        },
+        {
+          "class": "rates",
+          "type": "swap",
+          "id": "USD-OIS-SWAP-1Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 1, "unit": "years" } },
+          "rate": 0.0510
+        },
+        {
+          "class": "rates",
+          "type": "swap",
+          "id": "USD-OIS-SWAP-2Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 2, "unit": "years" } },
+          "rate": 0.0490
+        },
+        {
+          "class": "rates",
+          "type": "swap",
+          "id": "USD-OIS-SWAP-5Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 5, "unit": "years" } },
+          "rate": 0.0450
+        },
+        {
+          "class": "rates",
+          "type": "swap",
+          "id": "USD-OIS-SWAP-10Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": { "tenor": { "count": 10, "unit": "years" } },
+          "rate": 0.0410
+        }
+      ],
       "sofr_3m_quotes": [
         {
           "class": "rates",
@@ -74,6 +124,22 @@
     },
     "steps": [
       {
+        "id": "USD-OIS",
+        "quote_set": "usd_rate_quotes",
+        "kind": "discount",
+        "curve_id": "USD-OIS",
+        "currency": "USD",
+        "base_date": "2026-05-08",
+        "method": "Bootstrap",
+        "interpolation": "linear",
+        "extrapolation": "flat_forward",
+        "pricing_discount_id": null,
+        "pricing_forward_id": null,
+        "conventions": {
+          "curve_day_count": null
+        }
+      },
+      {
         "id": "USD-SOFR-3M",
         "quote_set": "sofr_3m_quotes",
         "kind": "forward",
@@ -91,29 +157,7 @@
   },
   "initial_market": {
     "version": 2,
-    "curves": [
-      {
-        "type": "discount",
-        "id": "USD-OIS",
-        "base": "2026-05-08",
-        "day_count": "Act365F",
-        "knot_points": [
-          [0.0, 1.0],
-          [0.25, 0.98758],
-          [0.5, 0.97531],
-          [1.0, 0.95123],
-          [2.0, 0.90484],
-          [5.0, 0.77880],
-          [10.0, 0.60653]
-        ],
-        "interp_style": "log_linear",
-        "extrapolation": "flat_forward",
-        "min_forward_rate": null,
-        "allow_non_monotonic": false,
-        "min_forward_tenor": 1e-06,
-        "rate_calibration": null
-      }
-    ],
+    "curves": [],
     "fx": null,
     "surfaces": [],
     "prices": {},
