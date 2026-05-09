@@ -34,10 +34,12 @@ def _resolve_market(inputs: dict) -> MarketContext:
         return MarketContext.from_json(json.dumps(inputs["market"]))
     if has_envelope:
         envelope_json = json.dumps(inputs["market_envelope"])
+        # "?" is the malformed-envelope sentinel: only triggers when the JSON is
+        # so far off that calibrate() was about to fail anyway.
         plan_id = inputs["market_envelope"].get("plan", {}).get("id", "?")
         try:
             result = calibrate(envelope_json)
-        except Exception as exc:
+        except ValueError as exc:
             raise ValueError(
                 f"calibrate market_envelope for plan '{plan_id}': {exc}"
             ) from exc

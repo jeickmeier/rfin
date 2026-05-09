@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.golden.runners.pricing_common import run_pricing_fixture
+from tests.golden.runners.pricing_common import _resolve_market, run_pricing_fixture
 from tests.golden.schema import GoldenFixture, Provenance, ToleranceEntry
 
 
@@ -90,3 +90,17 @@ def test_pricing_inputs_reject_when_neither_market_nor_market_envelope() -> None
     })
     with pytest.raises(ValueError, match=r"market.*market_envelope|market_envelope.*market"):
         run_pricing_fixture(fixture)
+
+
+def test_pricing_inputs_resolve_market_only() -> None:
+    """Happy path: only `market` supplied, returns a MarketContext."""
+    inputs = {"market": _minimal_market_dict()}
+    market = _resolve_market(inputs)
+    assert market is not None
+
+
+def test_pricing_inputs_resolve_market_envelope_only() -> None:
+    """Happy path: only `market_envelope` supplied, returns a MarketContext via calibrate()."""
+    inputs = {"market_envelope": _minimal_envelope_dict()}
+    market = _resolve_market(inputs)
+    assert market is not None
