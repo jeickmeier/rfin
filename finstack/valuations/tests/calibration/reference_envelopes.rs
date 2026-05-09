@@ -270,3 +270,41 @@ fn example_07_swaption_vol_surface_builds_queryable_surface() {
         "swaption vol should be positive and < 500%, got {vol}"
     );
 }
+
+#[test]
+fn example_08_equity_vol_surface_builds_queryable_surface() {
+    use finstack_core::market_data::scalars::MarketScalar;
+
+    let envelope = load_envelope("08_equity_vol_surface.json");
+    let market = execute(&envelope);
+
+    market
+        .get_discount("USD-OIS")
+        .expect("discount carried through from initial_market");
+
+    // Equity spot price must be present in initial_market.prices.
+    let scalar = market
+        .get_price("AAPL")
+        .expect("AAPL spot price present in initial_market.prices");
+    let spot = match scalar {
+        MarketScalar::Price(m) => m.amount(),
+        MarketScalar::Unitless(v) => *v,
+    };
+    assert!(spot > 0.0, "AAPL spot should be positive, got {spot}");
+
+    // Equity vol surface produced by the calibration step. The vol_surface
+    // step stores its output as a VolSurface (not a VolCube), so use
+    // get_surface — which returns Arc<VolSurface>, already implementing
+    // VolProvider — rather than get_vol_provider (returns Arc<dyn VolProvider>).
+    let surface = market
+        .get_surface("AAPL-EQUITY-VOL")
+        .expect("AAPL equity vol surface present after calibration");
+
+    let vol = surface
+        .vol(0.5, 0.0, 175.0)
+        .expect("vol query at 6m × ATM should succeed");
+    assert!(
+        vol > 0.0 && vol < 5.0,
+        "AAPL equity vol should be positive, got {vol}"
+    );
+}
