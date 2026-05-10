@@ -421,6 +421,45 @@ impl XccySwap {
         Ok((constant, resetting))
     }
 
+    /// Validate the swap's static configuration.
+    ///
+    /// Checks each leg independently (notional currency consistency, finite/positive
+    /// notional, non-negative payment lag) and then applies additional guards
+    /// when [`NotionalExchange::MtmResetting`] is configured:
+    ///
+    /// - The two legs must have different currencies (`partition_legs` guard).
+    /// - Both legs must share the same coupon frequency so reset dates are unambiguous.
+    /// - Both legs must share the same start and end dates (schedule alignment).
+    pub fn validate(&self) -> Result<()> {
+        self.validate_leg(&self.leg1)?;
+        self.validate_leg(&self.leg2)?;
+
+        // Additional validation when MtM-resetting is configured: the two legs must
+        // share the same accrual schedule so the reset dates are unambiguous, and the
+        // resetting side must point to a valid leg.
+        if let NotionalExchange::MtmResetting { resetting_side } = &self.notional_exchange {
+            // Confirm resetting_side resolves and yields different currencies.
+            self.partition_legs(*resetting_side)?;
+
+            if self.leg1.frequency != self.leg2.frequency {
+                return Err(finstack_core::Error::Validation(format!(
+                    "XccySwap '{}': MtmResetting requires both legs to share the same coupon \
+                     frequency, got leg1={:?} leg2={:?}",
+                    self.id, self.leg1.frequency, self.leg2.frequency
+                )));
+            }
+            if self.leg1.start != self.leg2.start || self.leg1.end != self.leg2.end {
+                return Err(finstack_core::Error::Validation(format!(
+                    "XccySwap '{}': MtmResetting requires both legs to share start and end \
+                     dates (schedule alignment), got leg1=[{}, {}] leg2=[{}, {}]",
+                    self.id, self.leg1.start, self.leg1.end, self.leg2.start, self.leg2.end
+                )));
+            }
+        }
+
+        Ok(())
+    }
+
     /// Pre-flight check that every leg whose currency differs from
     /// [`Self::reporting_currency`] is reachable through the market's FX matrix.
     ///
@@ -1225,6 +1264,104 @@ mod tests {
         assert!(
             msg.contains("different currencies") && msg.contains("USD"),
             "expected currency-mismatch error mentioning USD; got: {msg}"
+        );
+    }
+
+    #[test]
+    fn validate_rejects_mtm_reset_with_misaligned_leg_schedules() {
+        use finstack_core::money::Money;
+
+        let start = Date::from_calendar_date(2025, time::Month::January, 2)
+            .expect("valid date");
+        let end = Date::from_calendar_date(2030, time::Month::January, 2)
+            .expect("valid date");
+        let start_off = Date::from_calendar_date(2025, time::Month::February, 3)
+            .expect("valid date");
+
+        let leg1 = XccySwapLeg {
+            currency: Currency::EUR,
+            notional: Money::new(9_200_000.0, Currency::EUR),
+            side: LegSide::Receive,
+            forward_curve_id: CurveId::new("EUR-EURIBOR-3M"),
+            discount_curve_id: CurveId::new("EUR-OIS"),
+            start,
+            end,
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            stub: StubKind::ShortFront,
+            spread_bp: Decimal::ZERO,
+            payment_lag_days: 0,
+            calendar_id: None,
+            reset_lag_days: None,
+            allow_calendar_fallback: true,
+        };
+        let mut leg2 = leg1.clone();
+        leg2.currency = Currency::USD;
+        leg2.notional = Money::new(10_000_000.0, Currency::USD);
+        leg2.side = LegSide::Pay;
+        leg2.forward_curve_id = CurveId::new("USD-SOFR-3M");
+        leg2.discount_curve_id = CurveId::new("USD-OIS");
+        leg2.start = start_off; // misaligned start
+
+        let swap = XccySwap::new("MTM-MISALIGNED", leg1, leg2, Currency::USD)
+            .with_notional_exchange(NotionalExchange::MtmResetting {
+                resetting_side: ResettingSide::Leg1,
+            });
+
+        let err = swap.validate().expect_err("misaligned schedules must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("MtmResetting") && msg.contains("schedule"),
+            "expected MtM-reset schedule-alignment error, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn validate_rejects_mtm_reset_with_mismatched_frequencies() {
+        use finstack_core::money::Money;
+
+        let start = Date::from_calendar_date(2025, time::Month::January, 2)
+            .expect("valid date");
+        let end = Date::from_calendar_date(2030, time::Month::January, 2)
+            .expect("valid date");
+
+        let leg1 = XccySwapLeg {
+            currency: Currency::EUR,
+            notional: Money::new(9_200_000.0, Currency::EUR),
+            side: LegSide::Receive,
+            forward_curve_id: CurveId::new("EUR-EURIBOR-3M"),
+            discount_curve_id: CurveId::new("EUR-OIS"),
+            start,
+            end,
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            stub: StubKind::ShortFront,
+            spread_bp: Decimal::ZERO,
+            payment_lag_days: 0,
+            calendar_id: None,
+            reset_lag_days: None,
+            allow_calendar_fallback: true,
+        };
+        let mut leg2 = leg1.clone();
+        leg2.currency = Currency::USD;
+        leg2.notional = Money::new(10_000_000.0, Currency::USD);
+        leg2.side = LegSide::Pay;
+        leg2.forward_curve_id = CurveId::new("USD-SOFR-3M");
+        leg2.discount_curve_id = CurveId::new("USD-OIS");
+        leg2.frequency = Tenor::semi_annual();
+
+        let swap = XccySwap::new("MTM-FREQ", leg1, leg2, Currency::USD)
+            .with_notional_exchange(NotionalExchange::MtmResetting {
+                resetting_side: ResettingSide::Leg1,
+            });
+
+        let err = swap.validate().expect_err("mismatched frequencies must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("MtmResetting") && msg.contains("frequency"),
+            "expected MtM-reset frequency-mismatch error, got: {msg}"
         );
     }
 }
