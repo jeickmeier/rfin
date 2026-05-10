@@ -747,3 +747,42 @@ Every primary calibration step kind now has at least one golden fixture exercisi
 - Rust: `cargo test -p finstack-valuations --test golden` → 31/31 pass
 - Python: `pytest finstack-py/tests/golden/` → 104/104 pass (was 101 before this batch; +3 self-test fixtures)
 - 12 fixtures now genuinely exercise calibration math (was 9 in §18).
+
+---
+
+## 20. Swaption-vol step coverage (2026-05-10)
+
+**Fixture:** `pricing/swaption/usd_swaption_normal_vol_self_test.json`
+
+Three-step plan: USD-OIS discount → USD-SOFR-3M forward (depends on discount) → USD-SWAPTION-NORMAL-VOL SABR cube (3 expiries × 3 tenors × 3 strikes = 27 OptionVol quotes, β=0.0 normal SABR, bilinear interp, USD-SOFR-3M as the swap index). Instrument: 1Y-into-2Y USD receiver swaption, 10MM USD notional, ATM strike.
+
+**Implementation note:** the swaption_vol step produces a `vol_cube` rather than a `vol_surface` — finstack stores swaption volatilities in `MarketContextState.vol_cubes`, not `surfaces`. The instrument's `vol_surface_id` field resolves from either store, so the pricer transparently consumes the cube.
+
+**Verifies:** the `swaption_vol` step kind, the SABR cube fit across (expiry, tenor, strike), the cube → instrument resolution path through `vol_surface_id`, and the swaption pricing kernel against a calibrated cube. SABR fit rmse ~3e-4 (typical for a 3×3 grid).
+
+**Expected outputs** (captured from Finstack):
+- npv = 2,412,426.92
+- vega = 169,598.02
+- dv01 = -2,956.78
+
+Tolerances: `1e-6` abs for all three. Self-test contract.
+
+### Updated coverage scoreboard
+
+| Step kind | Production fixtures | Self-test fixtures |
+|---|---|---|
+| `discount` | 7 | 1 |
+| `forward` | 4 | 1 |
+| `hazard` | 1 | 1 |
+| `base_correlation` | 1 | 0 |
+| `inflation` | 0 | 1 |
+| `vol_surface` (SABR) | 0 | 1 |
+| **`swaption_vol`** | 0 | **1 NEW** |
+| `svi_surface` | 0 | 0 |
+
+### Final test gates
+
+- Rust: `cargo test -p finstack-valuations --test golden` → 31/31 pass
+- Python: `pytest finstack-py/tests/golden/` → 105/105 pass
+- 13 fixtures now genuinely exercise calibration math (was 12).
+- Only `svi_surface` remains uncovered — the same self-test pattern would close it (would use the equity-vol-style fixture with model="SVI" and SVI-specific quote conventions).
