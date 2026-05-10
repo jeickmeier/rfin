@@ -556,3 +556,66 @@ This fixture is the canonical pattern for:
 - `convertible/conv_bond_*` — discount + forward + hazard. Same recipe.
 
 For each: the rates curves (discount + forward) come from the canonical SWPM Curve 490 / Curve 559-style quotes (real Bloomberg or self-consistent synthetic). The instrument-specific curves (hazard, equity, etc.) layer on top.
+
+---
+
+## 17. POC #5 (2026-05-09): `term_loan/term_loan_b_5y_floating.json` — first floating-rate-instrument migration
+
+### What was done
+
+Migrated the 5Y synthetic USD term loan B floating-rate facility to the calibration entry point using the POC #4 two-step pattern. This is the first **production-instrument** migration (not a self-test) using forward-step calibration.
+
+### Curve treatment
+
+The term loan instrument directly uses:
+- `discount_curve_id: USD-CORP` (corporate discount with credit spread)
+- `credit_curve_id: ACME-HZD` (obligor hazard curve)
+- `rate.Floating.index_id: USD-SOFR-3M` (forward curve for SOFR projection)
+
+The fixture's market snapshot also carries 3 auxiliary curves (USD-OIS, USD-TREASURY, HYCO-HZD) for scenario/diagnostic use.
+
+**Migration treatment:**
+
+| Curve | Treatment | Reason |
+|---|---|---|
+| `USD-OIS` | **Calibrated** (Step 1, discount) | Required to provide the discount curve for the forward step |
+| `USD-SOFR-3M` | **Calibrated** (Step 2, forward) | Used by the term loan for floating-rate projection — exercises forward-step calibration on a real production instrument |
+| `USD-CORP`, `USD-TREASURY` | Preserved in `initial_market` | Synthetic credit-spread curves; no natural quote-based bootstrap |
+| `ACME-HZD`, `HYCO-HZD` | Preserved in `initial_market` | Synthetic hazard curves; would need CDS quotes to calibrate (out of scope for this migration) |
+
+### Expected outputs
+
+The original snapshot used flat-ish synthetic curves (USD-SOFR-3M monotonic 4.3-4.9% at clean integer-year pillars). Replacing with a calibrated USD-SOFR-3M (real-date pillars, slightly different rates) shifts every pricing metric. Re-captured from Finstack itself:
+
+| Metric | Original (synthetic-curve) | New (calibrated-curve) | Original tolerance | New tolerance |
+|---|---|---|---|---|
+| `npv` | 27,688,694.50 | **27,319,795.88** | 1e-9 abs | 1e-9 abs (unchanged) |
+| `discount_margin` | -0.033051 | **-0.028902** | 1e-9 | 1e-9 |
+| `ytm` | 0.090182 | **0.085698** | 1e-9 | 1e-9 |
+| `dv01` | -565.16 | **-487.99** | 1e-9 | 1e-9 |
+| `cs01` | 0.0 | 0.0 (preserved) | 1e-9 | 1e-9 |
+
+Tolerances stay at the original tight `1e-9 abs / 5e-9 rel` because both setups are deterministic — the change is in *what is being tested*, not the precision contract.
+
+### Test contract change (documented)
+
+The original fixture was "term-loan pricing on these specific synthetic curves." The migrated fixture is "term-loan pricing with two-step calibration of USD-OIS + USD-SOFR-3M." The new contract still catches:
+- Refactors that change calibration math (Step 1 / Step 2 paths)
+- FP-contract changes in the bootstrap solvers
+- Algorithm swaps in the term-loan pricing kernel
+- OIS compounding override regressions (Step 1 uses `CompoundedWithRateCutoff{cutoff_days: 1}`)
+
+It additionally covers:
+- Forward-step calibration on a real production-instrument shape
+- Sequential plan ordering (forward depends on discount)
+- Hazard-curve passthrough via `initial_market.curves`
+
+### Pattern validation
+
+This migration validates POC #4's pattern (§16) on a real production fixture:
+- Two-step calibration with the same OIS + 3M-Term-SOFR quote sets
+- `ois_compounding` override on the discount step
+- Auxiliary curves preserved in `initial_market.curves` (a 4-curve initial market — most we've used so far)
+- Self-test contract because the synthetic snapshot's curves don't bit-match calibrated curves
+
+Pattern transfers cleanly. Expected effort for the next floating-rate migration (`structured_credit/*`, `convertible/*`): ~30-60 min each, mostly mechanical now.
