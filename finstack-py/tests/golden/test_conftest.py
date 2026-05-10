@@ -203,6 +203,37 @@ def test_pricing_validation_requires_expected_metrics_to_be_requested() -> None:
         validate_fixture(path, fixture)
 
 
+def test_pricing_validation_allows_dynamic_metric_keys_from_requested_base_metric() -> None:
+    path, fixture = _deposit_fixture()
+    fixture.inputs["metrics"] = ["dv01", "bucketed_dv01"]
+    fixture.expected_outputs = {"dv01": 1.0, "bucketed_dv01::USD-OIS::1y": 1.0}
+    fixture.tolerances = {metric: ToleranceEntry(abs=1e-9) for metric in fixture.expected_outputs}
+
+    validate_fixture(path, fixture)
+
+
+def test_manual_screenshot_paths_must_stay_under_screenshots_directory() -> None:
+    path = DATA_ROOTS["pricing"] / "pricing/cap_floor/usd_cap_5y_atm_black.json"
+    fixture = GoldenFixture.from_path(path)
+    fixture.provenance.screenshots[0].path = "../cap_floor/usd_cap_5y_atm_black.json"
+
+    with pytest.raises(AssertionError, match="screenshots/"):
+        validate_fixture(path, fixture)
+
+
+def test_pricing_validation_rejects_inconsistent_swaption_underlying_tenor() -> None:
+    path = DATA_ROOTS["pricing"] / "pricing/swaption/usd_swaption_normal_vol_self_test.json"
+    fixture = GoldenFixture.from_path(path)
+    fixture.inputs = deepcopy(fixture.inputs)
+    spec = fixture.inputs["instrument_json"]["instrument"]["spec"]
+    spec["swap_end"] = "2029-05-08"
+    spec["underlying_fixed_leg"]["end"] = "2032-05-05"
+    spec["underlying_float_leg"]["end"] = "2032-05-05"
+
+    with pytest.raises(AssertionError, match="swaption"):
+        validate_fixture(path, fixture)
+
+
 def _fixture(
     inputs: dict,
     expected_outputs: dict[str, float],

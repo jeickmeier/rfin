@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 import csv
+from datetime import date
 import importlib
 import json
 import os
@@ -193,7 +194,7 @@ def validate_fixture(path: Path, fixture: GoldenFixture) -> None:
         )
 
     for metric, expected in fixture.expected_outputs.items():
-        if abs(expected) <= ZERO_RISK_EPSILON and metric in ZERO_RISK_METRICS_REQUIRING_REASON:
+        if abs(expected) <= ZERO_RISK_EPSILON and _metric_base(metric) in ZERO_RISK_METRICS_REQUIRING_REASON:
             assert _has_zero_metric_reason(fixture, metric), (
                 f"zero risk metric {metric!r} requires a tolerance_reason or "
                 "inputs.source_reference.zero_metric_reasons entry"
@@ -241,7 +242,29 @@ def _validate_pricing_input_schema(path: Path, fixture: GoldenFixture) -> None:
         validated_instrument_json(inputs["instrument_json"])
     except Exception as exc:
         raise AssertionError(f"pricing fixture inputs.instrument_json is not valid: {exc}") from exc
+    _validate_swaption_underlying_tenor(inputs["instrument_json"])
     validate_requested_metrics(list(inputs["metrics"]), fixture.expected_outputs)
+
+
+def _validate_swaption_underlying_tenor(instrument_json: dict) -> None:
+    instrument = instrument_json.get("instrument", instrument_json)
+    if instrument.get("type") != "swaption":
+        return
+    spec = instrument.get("spec", {})
+    assert isinstance(spec, dict), "swaption instrument_json.spec must be an object"
+    top_tenor = _tenor_days(spec, "swap_start", "swap_end")
+    fixed_tenor = _tenor_days(spec["underlying_fixed_leg"], "start", "end")
+    float_tenor = _tenor_days(spec["underlying_float_leg"], "start", "end")
+    assert fixed_tenor == float_tenor, (
+        f"swaption underlying fixed/float leg tenors differ: fixed={fixed_tenor}d, float={float_tenor}d"
+    )
+    assert abs(top_tenor - fixed_tenor) <= 7, (
+        f"swaption top-level tenor ({top_tenor}d) does not match underlying leg tenor ({fixed_tenor}d)"
+    )
+
+
+def _tenor_days(obj: dict, start_key: str, end_key: str) -> int:
+    return (date.fromisoformat(obj[end_key]) - date.fromisoformat(obj[start_key])).days
 
 
 def _validate_object_keys(field: str, obj: dict, required: set[str], optional: set[str]) -> None:
@@ -254,14 +277,18 @@ def _validate_object_keys(field: str, obj: dict, required: set[str], optional: s
 
 def _validate_required_pricing_risk_metrics(fixture: GoldenFixture) -> None:
     if fixture.domain.startswith("rates."):
-        assert "dv01" in fixture.expected_outputs, "rates pricing fixtures must assert dv01"
+        assert _has_expected_metric(fixture, "dv01"), "rates pricing fixtures must assert dv01"
 
     if fixture.domain.startswith("fixed_income."):
-        assert "dv01" in fixture.expected_outputs, "fixed-income pricing fixtures must assert dv01"
+        assert _has_expected_metric(fixture, "dv01"), "fixed-income pricing fixtures must assert dv01"
 
     if fixture.domain.startswith("credit."):
-        assert "dv01" in fixture.expected_outputs, "credit pricing fixtures must assert dv01"
-        assert "cs01" in fixture.expected_outputs, "credit pricing fixtures must assert cs01"
+        assert _has_expected_metric(fixture, "dv01"), "credit pricing fixtures must assert dv01"
+        assert _has_expected_metric(fixture, "cs01"), "credit pricing fixtures must assert cs01"
+
+
+def _has_expected_metric(fixture: GoldenFixture, base_metric: str) -> bool:
+    return any(_metric_base(metric) == base_metric for metric in fixture.expected_outputs)
 
 
 def _validate_screenshots(path: Path, fixture: GoldenFixture) -> None:
@@ -269,11 +296,22 @@ def _validate_screenshots(path: Path, fixture: GoldenFixture) -> None:
         assert fixture.provenance.screenshots, f"source {fixture.provenance.source!r} requires at least one screenshot"
 
     for screenshot in fixture.provenance.screenshots:
-        screenshot_path = path.parent / screenshot.path
+        screenshot_path = Path(screenshot.path)
+        assert _is_valid_screenshot_path(screenshot_path), (
+            f"screenshot {screenshot.path!r} must be a relative path under screenshots/"
+        )
+        assert screenshot_path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}, (
+            f"screenshot {screenshot.path!r} must use an image extension"
+        )
+        screenshot_path = path.parent / screenshot_path
         assert screenshot_path.exists(), (
             f"screenshot {screenshot.path!r} does not exist (resolved to {screenshot_path})"
         )
         assert is_git_tracked(screenshot_path), f"screenshot {screenshot.path!r} exists but is not tracked by git"
+
+
+def _is_valid_screenshot_path(path: Path) -> bool:
+    return not path.is_absolute() and ".." not in path.parts and path.parts[:1] == ("screenshots",)
 
 
 def _validate_source_reference_coverage(fixture: GoldenFixture) -> None:
@@ -331,16 +369,21 @@ def _has_zero_metric_reason(fixture: GoldenFixture, metric: str) -> bool:
     zero_metric_reasons = source_reference.get("zero_metric_reasons", {})
     if not isinstance(zero_metric_reasons, dict):
         return False
-    reason = zero_metric_reasons.get(metric)
+    reason = zero_metric_reasons.get(metric, zero_metric_reasons.get(_metric_base(metric)))
     return isinstance(reason, str) and bool(reason.strip())
 
 
 def is_required_executable_pricing_risk_metric(fixture: GoldenFixture, metric: str) -> bool:
+    metric = _metric_base(metric)
     if fixture.domain.startswith("rates."):
         return metric == "dv01"
     if fixture.domain.startswith("fixed_income."):
         return metric == "dv01"
     return fixture.domain.startswith("credit.") and metric in {"dv01", "cs01"}
+
+
+def _metric_base(metric: str) -> str:
+    return metric.split("::", 1)[0]
 
 
 def _validate_source_validation_metadata(fixture: GoldenFixture) -> None:

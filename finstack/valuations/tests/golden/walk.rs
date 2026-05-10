@@ -7,7 +7,7 @@ use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::parse_boxed_instrument_json;
 use std::collections::BTreeSet;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 
 const DATA_ROOT: &str = "tests/golden/data";
@@ -185,22 +185,7 @@ pub(crate) fn validate_fixture(path: &Path) -> Result<(), String> {
         ));
     }
 
-    let parent = path.parent().ok_or("fixture has no parent dir")?;
-    for shot in &fixture.provenance.screenshots {
-        let shot_path = parent.join(&shot.path);
-        if !shot_path.exists() {
-            return Err(format!(
-                "screenshot '{}' does not exist (resolved to {:?})",
-                shot.path, shot_path
-            ));
-        }
-        if !is_git_tracked(&shot_path) {
-            return Err(format!(
-                "screenshot '{}' exists but is not tracked by git",
-                shot.path
-            ));
-        }
-    }
+    validate_screenshot_paths(path, &fixture)?;
 
     Ok(())
 }
@@ -255,6 +240,7 @@ fn validate_pricing_input_schema(path: &Path, fixture: &GoldenFixture) -> Result
     let instrument_json = inputs
         .get("instrument_json")
         .ok_or("pricing fixture inputs.instrument_json is required")?;
+    validate_swaption_underlying_tenor(instrument_json)?;
     let instrument_json = serde_json::to_string(instrument_json)
         .map_err(|err| format!("serialize pricing fixture inputs.instrument_json: {err}"))?;
     parse_boxed_instrument_json(&instrument_json, None).map_err(|err| {
@@ -268,7 +254,8 @@ fn validate_pricing_input_schema(path: &Path, fixture: &GoldenFixture) -> Result
     }
     let requested = metrics.iter().map(String::as_str).collect::<BTreeSet<_>>();
     for metric in fixture.expected_outputs.keys() {
-        if metric != "npv" && !requested.contains(metric.as_str()) {
+        let base_metric = metric_base(metric);
+        if base_metric != "npv" && !requested.contains(base_metric) {
             return Err(format!(
                 "expected_outputs has '{metric}' but inputs.metrics does not request it"
             ));
@@ -367,6 +354,65 @@ fn remove_empty_object(object: &mut serde_json::Map<String, serde_json::Value>, 
     }
 }
 
+fn validate_swaption_underlying_tenor(instrument_json: &serde_json::Value) -> Result<(), String> {
+    let instrument = instrument_json.get("instrument").unwrap_or(instrument_json);
+    if instrument.get("type").and_then(serde_json::Value::as_str) != Some("swaption") {
+        return Ok(());
+    }
+    let spec = instrument
+        .get("spec")
+        .and_then(serde_json::Value::as_object)
+        .ok_or("swaption instrument_json.spec must be an object")?;
+    let top_tenor = tenor_years(spec, "swap_start", "swap_end")?;
+    let fixed_tenor = leg_tenor_years(spec, "underlying_fixed_leg")?;
+    let float_tenor = leg_tenor_years(spec, "underlying_float_leg")?;
+    if fixed_tenor != float_tenor {
+        return Err(format!(
+            "swaption underlying fixed/float leg tenors differ: fixed={fixed_tenor}y, float={float_tenor}y"
+        ));
+    }
+    if top_tenor != fixed_tenor {
+        return Err(format!(
+            "swaption top-level tenor ({top_tenor}y) does not match underlying leg tenor ({fixed_tenor}y)"
+        ));
+    }
+    Ok(())
+}
+
+fn leg_tenor_years(
+    spec: &serde_json::Map<String, serde_json::Value>,
+    leg_key: &str,
+) -> Result<i32, String> {
+    let leg = spec
+        .get(leg_key)
+        .and_then(serde_json::Value::as_object)
+        .ok_or_else(|| format!("swaption {leg_key} must be an object"))?;
+    tenor_years(leg, "start", "end")
+}
+
+fn tenor_years(
+    object: &serde_json::Map<String, serde_json::Value>,
+    start_key: &str,
+    end_key: &str,
+) -> Result<i32, String> {
+    let start = object
+        .get(start_key)
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| format!("swaption {start_key} must be a date string"))?;
+    let end = object
+        .get(end_key)
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| format!("swaption {end_key} must be a date string"))?;
+    Ok(iso_year(end)? - iso_year(start)?)
+}
+
+fn iso_year(date: &str) -> Result<i32, String> {
+    date.get(..4)
+        .ok_or_else(|| format!("swaption date '{date}' is not YYYY-MM-DD"))?
+        .parse::<i32>()
+        .map_err(|err| format!("swaption date '{date}' has invalid year: {err}"))
+}
+
 fn validate_object_keys(
     field: &str,
     object: &serde_json::Map<String, serde_json::Value>,
@@ -392,25 +438,31 @@ fn validate_object_keys(
 }
 
 fn validate_required_pricing_risk_metrics(fixture: &GoldenFixture) -> Result<(), String> {
-    if fixture.domain.starts_with("rates.") && !fixture.expected_outputs.contains_key("dv01") {
+    if fixture.domain.starts_with("rates.") && !has_expected_metric(fixture, "dv01") {
         return Err("rates pricing fixtures must assert dv01".to_string());
     }
 
-    if fixture.domain.starts_with("fixed_income.") && !fixture.expected_outputs.contains_key("dv01")
-    {
+    if fixture.domain.starts_with("fixed_income.") && !has_expected_metric(fixture, "dv01") {
         return Err("fixed-income pricing fixtures must assert dv01".to_string());
     }
 
     if fixture.domain.starts_with("credit.") {
-        if !fixture.expected_outputs.contains_key("dv01") {
+        if !has_expected_metric(fixture, "dv01") {
             return Err("credit pricing fixtures must assert dv01".to_string());
         }
-        if !fixture.expected_outputs.contains_key("cs01") {
+        if !has_expected_metric(fixture, "cs01") {
             return Err("credit pricing fixtures must assert cs01".to_string());
         }
     }
 
     Ok(())
+}
+
+fn has_expected_metric(fixture: &GoldenFixture, base_metric: &str) -> bool {
+    fixture
+        .expected_outputs
+        .keys()
+        .any(|metric| metric_base(metric) == base_metric)
 }
 
 fn validate_required_metrics_not_non_compared(fixture: &GoldenFixture) -> Result<(), String> {
@@ -442,6 +494,7 @@ fn validate_required_metrics_not_non_compared(fixture: &GoldenFixture) -> Result
 }
 
 fn is_required_executable_pricing_risk_metric(fixture: &GoldenFixture, metric: &str) -> bool {
+    let metric = metric_base(metric);
     if fixture.domain.starts_with("rates.") {
         return metric == "dv01";
     }
@@ -460,8 +513,9 @@ fn validate_source_validation_metadata(fixture: &GoldenFixture) -> Result<(), St
 
 fn validate_zero_risk_metric_reasons(fixture: &GoldenFixture) -> Result<(), String> {
     for (metric, expected) in &fixture.expected_outputs {
+        let base_metric = metric_base(metric);
         if expected.abs() <= f64::EPSILON
-            && ZERO_RISK_METRICS_REQUIRING_REASON.contains(&metric.as_str())
+            && ZERO_RISK_METRICS_REQUIRING_REASON.contains(&base_metric)
             && !has_zero_metric_reason(fixture, metric)
         {
             return Err(format!(
@@ -481,13 +535,14 @@ fn has_zero_metric_reason(fixture: &GoldenFixture, metric: &str) -> bool {
     {
         return true;
     }
+    let base_metric = metric_base(metric);
     fixture
         .inputs
         .get("source_reference")
         .and_then(serde_json::Value::as_object)
         .and_then(|source_reference| source_reference.get("zero_metric_reasons"))
         .and_then(serde_json::Value::as_object)
-        .and_then(|reasons| reasons.get(metric))
+        .and_then(|reasons| reasons.get(metric).or_else(|| reasons.get(base_metric)))
         .and_then(serde_json::Value::as_str)
         .is_some_and(|reason| !reason.trim().is_empty())
 }
@@ -632,6 +687,54 @@ fn validate_non_empty(field: &str, value: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_screenshot_paths(path: &Path, fixture: &GoldenFixture) -> Result<(), String> {
+    let parent = path.parent().ok_or("fixture has no parent dir")?;
+    for shot in &fixture.provenance.screenshots {
+        let relative = Path::new(&shot.path);
+        if relative.is_absolute()
+            || relative.components().any(|component| {
+                matches!(
+                    component,
+                    Component::ParentDir | Component::RootDir | Component::Prefix(_)
+                )
+            })
+            || relative.components().next() != Some(Component::Normal("screenshots".as_ref()))
+        {
+            return Err(format!(
+                "screenshot '{}' must be a relative path under screenshots/",
+                shot.path
+            ));
+        }
+        match relative.extension().and_then(|ext| ext.to_str()) {
+            Some("png" | "jpg" | "jpeg" | "webp") => {}
+            _ => {
+                return Err(format!(
+                    "screenshot '{}' must use an image extension",
+                    shot.path
+                ));
+            }
+        }
+        let shot_path = parent.join(relative);
+        if !shot_path.exists() {
+            return Err(format!(
+                "screenshot '{}' does not exist (resolved to {:?})",
+                shot.path, shot_path
+            ));
+        }
+        if !is_git_tracked(&shot_path) {
+            return Err(format!(
+                "screenshot '{}' exists but is not tracked by git",
+                shot.path
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn metric_base(metric: &str) -> &str {
+    metric.split_once("::").map_or(metric, |(base, _)| base)
+}
+
 fn is_git_tracked(path: &Path) -> bool {
     Command::new("git")
         .arg("ls-files")
@@ -652,9 +755,11 @@ fn fixture_relative_path(path: &Path) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
 
     const CAP_FLOOR_FIXTURE: &str = "pricing/cap_floor/usd_cap_5y_atm_black.json";
     const DEPOSIT_FIXTURE: &str = "pricing/deposit/usd_deposit_3m.json";
+    const SWAPTION_FIXTURE: &str = "pricing/swaption/usd_swaption_normal_vol_self_test.json";
 
     #[test]
     fn pricing_input_schema_rejects_invalid_instrument_json() {
@@ -696,6 +801,63 @@ mod tests {
             .expect_err("expected risk metrics must be requested in pricing inputs");
 
         assert!(err.contains("dv01"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn pricing_input_schema_allows_dynamic_metric_keys_from_requested_base_metric() {
+        let path = data_root().join(DEPOSIT_FIXTURE);
+        let mut fixture = load_fixture(DEPOSIT_FIXTURE);
+        fixture.inputs["metrics"] = serde_json::json!(["dv01", "bucketed_dv01"]);
+        fixture.expected_outputs = BTreeMap::from([
+            ("dv01".to_string(), 1.0),
+            ("bucketed_dv01::USD-OIS::1y".to_string(), 1.0),
+        ]);
+        fixture.tolerances = fixture
+            .expected_outputs
+            .keys()
+            .map(|metric| {
+                (
+                    metric.clone(),
+                    crate::golden::schema::ToleranceEntry {
+                        abs: Some(1e-9),
+                        rel: None,
+                        tolerance_reason: None,
+                    },
+                )
+            })
+            .collect();
+
+        validate_pricing_input_schema(&path, &fixture)
+            .expect("dynamic metric keys should be covered by the requested base metric");
+    }
+
+    #[test]
+    fn manual_screenshot_paths_must_stay_under_screenshots_directory() {
+        let path = data_root().join(CAP_FLOOR_FIXTURE);
+        let mut fixture = load_fixture(CAP_FLOOR_FIXTURE);
+        fixture.provenance.screenshots[0].path = "../usd_cap_5y_atm_black.json".to_string();
+
+        let err = validate_screenshot_paths(&path, &fixture)
+            .expect_err("manual screenshot evidence must not escape screenshots/");
+
+        assert!(err.contains("screenshots/"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn pricing_input_schema_rejects_inconsistent_swaption_underlying_tenor() {
+        let path = data_root().join(SWAPTION_FIXTURE);
+        let mut fixture = load_fixture(SWAPTION_FIXTURE);
+        fixture.inputs["instrument_json"]["instrument"]["spec"]["swap_end"] =
+            serde_json::json!("2029-05-08");
+        fixture.inputs["instrument_json"]["instrument"]["spec"]["underlying_fixed_leg"]["end"] =
+            serde_json::json!("2032-05-05");
+        fixture.inputs["instrument_json"]["instrument"]["spec"]["underlying_float_leg"]["end"] =
+            serde_json::json!("2032-05-05");
+
+        let err = validate_pricing_input_schema(&path, &fixture)
+            .expect_err("swaption top-level tenor must agree with underlying leg tenors");
+
+        assert!(err.contains("swaption"), "unexpected error: {err}");
     }
 
     #[test]

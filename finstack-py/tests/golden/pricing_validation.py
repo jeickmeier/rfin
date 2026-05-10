@@ -29,7 +29,10 @@ def validate_requested_metrics(metrics: list[str], expected_outputs: dict[str, f
     unknown = [metric for metric in metrics if metric not in standard_metrics]
     assert not unknown, f"pricing fixture inputs.metrics contains unknown metric(s): {unknown}"
 
-    missing = [metric for metric in expected_outputs if metric != "npv" and metric not in metrics]
+    requested = set(metrics)
+    missing = [
+        metric for metric in expected_outputs if _metric_base(metric) != "npv" and _metric_base(metric) not in requested
+    ]
     assert not missing, f"pricing fixture expected_outputs has metric(s) not requested in inputs.metrics: {missing}"
 
 
@@ -47,3 +50,7 @@ def _validate_instrument_envelope_schema(instrument_json: dict[str, Any]) -> Non
         details = "\n  ".join(error.message for error in errors)
         msg = f"instrument_json failed {INSTRUMENT_ENVELOPE_SCHEMA_PATH.name} validation:\n  {details}"
         raise ValueError(msg)
+
+
+def _metric_base(metric: str) -> str:
+    return metric.split("::", 1)[0]
