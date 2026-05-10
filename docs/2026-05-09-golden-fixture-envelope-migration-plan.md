@@ -619,3 +619,54 @@ This migration validates POC #4's pattern (§16) on a real production fixture:
 - Self-test contract because the synthetic snapshot's curves don't bit-match calibrated curves
 
 Pattern transfers cleanly. Expected effort for the next floating-rate migration (`structured_credit/*`, `convertible/*`): ~30-60 min each, mostly mechanical now.
+
+---
+
+## 18. Final state (2026-05-09): all 34 pricing goldens migrated
+
+### Migration scoreboard
+
+**100% of pricing golden fixtures now use the envelope path.** All 34 pricing goldens route through `engine::execute_with_diagnostics` rather than direct `MarketContext` deserialization.
+
+| Pattern | Count | Fixtures |
+|---|---|---|
+| **Tier-A wrap** (no calibration; preserves snapshot) | 25 | All Bloomberg-parity-tight fixtures (cap_floor, swaption, bonds, CDS, FRA-like inputs); all formula fixtures whose synthetic clean-time-pillar curves can't be reproduced from real-date calibration (deposit, equity_options ×5, fx_options ×4, fx_swap, ir_futures ×2, etc.); inflation fixtures (uncovered step kind) |
+| **Tier-B calibrated** (real bootstrap exercise) | 9 | IRS SWPM (B with override), IRS self_test (2-step), FRA (hybrid Tier-AB: discount cal, forward kept), term_loan (2-step), structured_credit ×2 (2-step), convertible ×2 (2-step), CDX IG 46 cds_option (discount + hazard) |
+
+### Step-kind coverage
+
+| Step kind | Production fixtures with calibration |
+|---|---|
+| `discount` | 7 (FRA, IRS SWPM, IRS self_test, term_loan, ABS, CLO, conv ×2, CDX IG 46) |
+| `forward` | 5 (IRS self_test, term_loan, ABS, CLO, conv ×2) |
+| `hazard` | 1 (CDX IG 46) |
+| `base_correlation` | 1 (CDX IG 46, indirect via initial_market) |
+| `inflation` | 0 |
+| `vol_surface` / `swaption_vol` / `svi_surface` | 0 (snapshots only — these are externally-built and not bootstrap-reproducible from a finstack-side calibration) |
+
+### Patterns established
+
+Three migration patterns now have working examples in the test suite:
+
+1. **Tier-A wrap** (§13, §15 cap_floor/swaption): wrap snapshot in envelope, empty `plan.steps`, route through entry point. Used when the fixture's contract is parity-tight (Bloomberg/QuantLib screen NPV) or the snapshot's curves are synthetic clean-time data not reproducible from calibration.
+
+2. **Tier-B calibrate** (§14 IRS SWPM, §16 IRS self_test, §17 term_loan, §18 ABS/CLO/convertibles): full quote-driven calibration with `initial_market` carrying instrument-relevant non-rates curves (hazard, credit-spread, prices). Self-test contract — expected outputs captured from Finstack.
+
+3. **Hybrid Tier-AB** (§15 FRA): some curves calibrated, others materialized in `initial_market`. Useful when only a subset of curves is bootstrap-reproducible.
+
+The OIS compounding override (`RatesStepConventions.ois_compounding`) is the key piece of plumbing that closed 40% of Bloomberg parity drift on the IRS POC — landed alongside this work as part of the audit cycle.
+
+### Recommended follow-ups (out of scope for this migration)
+
+- **Inflation step coverage**: author a new self-test fixture exercising `inflation` calibration, similar to POC #4 for forward step. None of the existing fixtures provide a path to this.
+- **Surface step coverage**: vol surfaces are externally-built; finstack's own surface calibration step (e.g., SABR fitting) doesn't yet have golden coverage.
+- **CDS/hazard step coverage on real Bloomberg curves**: `cds_5y_par_spread.json` is Bloomberg-sourced but currently Tier-A wrapped; could be migrated to Tier-B calibrate once a bootstrap-conformant approach is found (likely needs the same kind of `ois_compounding`-style convention work for hazard curves).
+- **`inflation_swap` and `inflation_linked_bond` Tier-B**: defer until inflation step has a tested calibration path.
+
+### Final test gates
+
+- Rust: `cargo test -p finstack-valuations --test golden` → 31/31 pass
+- Python: `pytest finstack-py/tests/golden/` → 101/101 pass
+- All Bloomberg parity contracts preserved (deposit, FRA, IRS SWPM, swaption, cap_floor, bonds ×2, CDS).
+- All formula self-test contracts preserved (equity_options, fx_options, etc.).
+- 9 fixtures genuinely exercise calibration math via real bootstrap (1378+ iterations, residuals ~1e-13).
