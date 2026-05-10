@@ -181,6 +181,7 @@ impl std::str::FromStr for NotionalExchange {
     schemars::JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum ResettingSide {
     Leg1,
     Leg2,
@@ -199,7 +200,8 @@ impl std::str::FromStr for ResettingSide {
     type Err = String;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s.trim().to_ascii_lowercase().as_str() {
+        let normalized = s.trim().to_ascii_lowercase().replace(['-', '/', ' '], "_");
+        match normalized.as_str() {
             "leg1" | "leg_1" => Ok(Self::Leg1),
             "leg2" | "leg_2" => Ok(Self::Leg2),
             other => Err(format!(
@@ -1041,13 +1043,24 @@ mod tests {
     }
 
     #[test]
-    fn resetting_side_display_and_parse_roundtrip() {
+    fn resetting_side_fromstr_display_roundtrip() {
         use std::str::FromStr;
         for side in [ResettingSide::Leg1, ResettingSide::Leg2] {
             let s = side.to_string();
             let parsed = ResettingSide::from_str(&s).expect("roundtrip parse");
-            assert_eq!(side, parsed);
+            assert_eq!(side, parsed, "roundtrip failed for {s}");
         }
+        // Underscore alias path
+        assert_eq!(
+            ResettingSide::from_str("leg_1").expect("leg_1 alias"),
+            ResettingSide::Leg1,
+            "roundtrip failed for leg_1"
+        );
+        assert_eq!(
+            ResettingSide::from_str("leg_2").expect("leg_2 alias"),
+            ResettingSide::Leg2,
+            "roundtrip failed for leg_2"
+        );
         assert!(ResettingSide::from_str("garbage").is_err());
     }
 }
