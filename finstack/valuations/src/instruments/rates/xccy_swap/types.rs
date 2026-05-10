@@ -72,6 +72,9 @@ impl std::str::FromStr for LegSide {
 }
 
 impl LegSide {
+    /// Returns the sign multiplier for coupon cashflows.
+    ///
+    /// `Receive` leg coupons flow in (`+1.0`); `Pay` leg coupons flow out (`-1.0`).
     #[inline]
     pub(crate) fn coupon_sign(self) -> f64 {
         match self {
@@ -1203,5 +1206,25 @@ mod tests {
             .expect("partition succeeds");
         assert_eq!(constant_l1.currency, Currency::EUR);
         assert_eq!(resetting_l1.currency, Currency::USD);
+    }
+
+    #[test]
+    fn partition_legs_errors_when_legs_share_currency() {
+        // Force both legs to USD to exercise the same-currency guard inside
+        // `partition_legs`. `validate()` should also reject this shape, but this test
+        // pins the guard at the helper level since `partition_legs` is the primary
+        // contract used by Task 7's PV path.
+        let mut swap = XccySwap::example();
+        swap.leg2.currency = Currency::USD;
+        swap.leg2.notional = finstack_core::money::Money::new(1.0, Currency::USD);
+
+        let err = swap
+            .partition_legs(ResettingSide::Leg2)
+            .expect_err("same-currency legs must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("different currencies") && msg.contains("USD"),
+            "expected currency-mismatch error mentioning USD; got: {msg}"
+        );
     }
 }
