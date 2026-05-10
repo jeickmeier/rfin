@@ -165,6 +165,50 @@ impl std::str::FromStr for NotionalExchange {
     }
 }
 
+/// Identifies which leg of an XCCY swap has its notional reset under
+/// MtM-resetting. `Leg1` and `Leg2` refer to `XccySwap::leg1` and `XccySwap::leg2`
+/// respectively.
+#[cfg_attr(feature = "ts_export", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts_export", ts(export, rename_all = "snake_case"))]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum ResettingSide {
+    Leg1,
+    Leg2,
+}
+
+impl std::fmt::Display for ResettingSide {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Leg1 => write!(f, "leg1"),
+            Self::Leg2 => write!(f, "leg2"),
+        }
+    }
+}
+
+impl std::str::FromStr for ResettingSide {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "leg1" | "leg_1" => Ok(Self::Leg1),
+            "leg2" | "leg_2" => Ok(Self::Leg2),
+            other => Err(format!(
+                "Unknown resetting side: '{other}'. Valid: leg1, leg2"
+            )),
+        }
+    }
+}
+
 /// One floating leg of an XCCY swap.
 ///
 /// Each leg owns its own dates, discount curve, calendar, and stub conventions,
@@ -994,5 +1038,16 @@ mod tests {
         }
         assert_notional_exchange("both", NotionalExchange::InitialAndFinal);
         assert!(NotionalExchange::from_str("invalid").is_err());
+    }
+
+    #[test]
+    fn resetting_side_display_and_parse_roundtrip() {
+        use std::str::FromStr;
+        for side in [ResettingSide::Leg1, ResettingSide::Leg2] {
+            let s = side.to_string();
+            let parsed = ResettingSide::from_str(&s).expect("roundtrip parse");
+            assert_eq!(side, parsed);
+        }
+        assert!(ResettingSide::from_str("garbage").is_err());
     }
 }
