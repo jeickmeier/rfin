@@ -200,7 +200,9 @@ impl std::str::FromStr for NotionalExchange {
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum ResettingSide {
+    /// The first leg (`XccySwap::leg1`) has its notional reset each period.
     Leg1,
+    /// The second leg (`XccySwap::leg2`) has its notional reset each period.
     Leg2,
 }
 

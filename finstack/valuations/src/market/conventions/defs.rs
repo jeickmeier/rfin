@@ -237,11 +237,13 @@ pub struct XccyConventions {
     pub quote_calendar_id: String,
     /// Notional-exchange behaviour for this currency pair.
     ///
-    /// G10 pair conventions are typically `MtmResetting { resetting_side: Leg1 }`
-    /// (the non-USD/base leg resets to match the constant USD/quote leg's notional
-    /// at each coupon reset date, per dealer market convention). Defaults to
-    /// `InitialAndFinal` when not specified, preserving legacy fixed-notional
-    /// behaviour for entries that omit the field.
+    /// For G10 pairs against USD (where `quote_currency = USD`) the dealer convention
+    /// is `MtmResetting { resetting_side: Leg1 }`: the base-currency leg (leg1) has its
+    /// notional re-marked each period to match the constant quote-currency (leg2)
+    /// notional in current FX. Pair conventions registered the other way around (USD
+    /// as base) must invert this to `Leg2`. Defaults to `InitialAndFinal` when not
+    /// specified, preserving legacy fixed-notional behaviour for entries that omit
+    /// the field.
     #[serde(default)]
     pub notional_exchange: crate::instruments::rates::xccy_swap::NotionalExchange,
 }
