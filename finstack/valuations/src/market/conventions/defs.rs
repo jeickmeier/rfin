@@ -235,6 +235,15 @@ pub struct XccyConventions {
     pub base_calendar_id: String,
     /// Quote-currency calendar identifier for business day adjustments.
     pub quote_calendar_id: String,
+    /// Notional-exchange behaviour for this currency pair.
+    ///
+    /// G10 pair conventions are typically `MtmResetting { resetting_side: Leg1 }`
+    /// (the non-USD/base leg resets to match the constant USD/quote leg's notional
+    /// at each coupon reset date, per dealer market convention). Defaults to
+    /// `InitialAndFinal` when not specified, preserving legacy fixed-notional
+    /// behaviour for entries that omit the field.
+    #[serde(default)]
+    pub notional_exchange: crate::instruments::rates::xccy_swap::NotionalExchange,
 }
 
 /// Conventions for Interest Rate Futures.

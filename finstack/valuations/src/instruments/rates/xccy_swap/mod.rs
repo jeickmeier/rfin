@@ -12,4 +12,4 @@
 pub(crate) mod metrics;
 mod types;
 
-pub use types::{LegSide, NotionalExchange, XccySwap, XccySwapLeg};
+pub use types::{LegSide, NotionalExchange, ResettingSide, XccySwap, XccySwapLeg};

@@ -20,6 +20,8 @@ struct XccyConventionRecord {
     business_day_convention: BusinessDayConvention,
     base_calendar_id: String,
     quote_calendar_id: String,
+    #[serde(default)]
+    notional_exchange: crate::instruments::rates::xccy_swap::NotionalExchange,
 }
 
 impl XccyConventionRecord {
@@ -54,6 +56,7 @@ impl XccyConventionRecord {
             business_day_convention: self.business_day_convention,
             base_calendar_id: self.base_calendar_id,
             quote_calendar_id: self.quote_calendar_id,
+            notional_exchange: self.notional_exchange,
         })
     }
 }
@@ -67,6 +70,37 @@ pub(crate) fn load_registry() -> Result<HashMap<XccyConventionId, XccyConvention
         XccyConventionId::new,
         |rec: &XccyConventionRecord| rec.clone().into_conventions(),
     )
+}
+
+#[cfg(test)]
+mod mtm_reset_loader_tests {
+    use super::*;
+    use crate::instruments::rates::xccy_swap::{NotionalExchange, ResettingSide};
+
+    #[test]
+    fn eur_usd_xccy_convention_defaults_to_mtm_resetting_on_leg1() {
+        let registry = load_registry().expect("xccy registry loads");
+        let conv = registry
+            .get(&XccyConventionId::new("EUR/USD-XCCY"))
+            .expect("EUR/USD-XCCY convention present");
+        assert_eq!(
+            conv.notional_exchange,
+            NotionalExchange::MtmResetting {
+                resetting_side: ResettingSide::Leg1,
+            },
+        );
+    }
+
+    #[test]
+    fn xccy_convention_falls_back_to_initial_and_final_when_field_absent() {
+        // If a future JSON entry omits `notional_exchange`, the default must be
+        // `InitialAndFinal` (matches today's behaviour). This is exercised by
+        // the serde default; we just confirm the type-level default here.
+        assert_eq!(
+            NotionalExchange::default(),
+            NotionalExchange::InitialAndFinal,
+        );
+    }
 }
 
 #[cfg(test)]
