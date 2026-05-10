@@ -17,32 +17,32 @@
  * - `df_bounds`: Feasible domain for `df` as `(lo, hi)`, e.g., `(2.1, 50.0)`.
  * - `correlation`: Market-implied flat correlation for the tranche.
  */
-export type StudentTParams = {
+export type StudentTParams = { 
 /**
  * Identifier for the reference tranche instrument.
  */
-tranche_instrument_id: string,
+tranche_instrument_id: string, 
 /**
  * Identifier for the pre-calibrated base correlation curve.
  */
-base_correlation_curve_id: string,
+base_correlation_curve_id: string, 
 /**
  * Discount curve identifier used to price the tranche.
  *
  * When omitted, calibration falls back to the only discount curve present
  * in the market context as a convenience default.
  */
-discount_curve_id: string | null,
+discount_curve_id: string | null, 
 /**
  * Starting guess for degrees of freedom (typically 4-10).
  */
-initial_df: number,
+initial_df: number, 
 /**
  * Feasible domain for `df` as `(lower_bound, upper_bound)`.
  *
  * `df` must be > 2 for finite variance. Typical range: `(2.1, 50.0)`.
  */
-df_bounds: [number, number],
+df_bounds: [number, number], 
 /**
  * Market-implied flat correlation for the tranche.
  */

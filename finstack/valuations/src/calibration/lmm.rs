@@ -22,7 +22,6 @@
 //! - Andersen, L. & Piterbarg, V. (2010). *Interest Rate Modeling*, Vol. 2,
 //!   Ch. 15-16, Atlantic Financial Press.
 
-use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
 use finstack_core::math::stats::OnlineStats;
 use finstack_monte_carlo::discretization::lmm_predictor_corrector::LmmPredictorCorrector;
 use finstack_monte_carlo::process::lmm::{LmmParams, LmmProcess};
@@ -30,8 +29,11 @@ use finstack_monte_carlo::rng::philox::PhiloxRng;
 use finstack_monte_carlo::traits::{Discretization, RandomStream};
 use std::collections::BTreeMap;
 
+use crate::calibration::config::CalibrationConfig;
 use crate::calibration::hull_white::SwaptionQuote;
 use crate::calibration::report::CalibrationReport;
+use crate::calibration::solver::global::GlobalFitOptimizer;
+use crate::calibration::solver::traits::GlobalSolveTarget;
 
 /// Maximum number of LMM factors (must match [`LmmParams`]).
 const MAX_FACTORS: usize = 3;
@@ -851,6 +853,89 @@ fn rebonato_swaption_vol(
 // ---------------------------------------------------------------------------
 
 /// Calibrate the correlation decay parameter β to minimise repricing error.
+/// `GlobalSolveTarget` impl for the LMM correlation-decay (β) calibration.
+///
+/// The β calibration is a 1D fit: minimise repricing error of co-terminal
+/// swaptions over the single parameter `ln(β)` (parametrised in log-space
+/// to keep β > 0). Each residual evaluation rebuilds the multi-factor
+/// loadings from `inst_vols` via PCA on the parametric correlation matrix
+/// `ρ_{ij} = exp(−β|T_i − T_j|)` and reprices via Rebonato's formula.
+struct LmmBetaTarget<'a> {
+    forwards: &'a [f64],
+    accrual_factors: &'a [f64],
+    tenors: &'a [f64],
+    inst_vols: &'a [f64],
+    config: &'a LmmCalibrationConfig,
+    initial_x0: [f64; 1],
+}
+
+impl<'a> GlobalSolveTarget for LmmBetaTarget<'a> {
+    type Quote = SwaptionQuote;
+    type Curve = f64; // β
+
+    fn build_time_grid_and_guesses(
+        &self,
+        quotes: &[Self::Quote],
+    ) -> finstack_core::Result<(Vec<f64>, Vec<f64>, Vec<Self::Quote>)> {
+        // Single dummy time entry — strictly positive to clear the
+        // framework's input validator.
+        Ok((vec![1.0], self.initial_x0.to_vec(), quotes.to_vec()))
+    }
+
+    fn build_curve_from_params(
+        &self,
+        _times: &[f64],
+        params: &[f64],
+    ) -> finstack_core::Result<Self::Curve> {
+        Ok(params[0].exp())
+    }
+
+    fn calculate_residuals(
+        &self,
+        beta: &Self::Curve,
+        quotes: &[Self::Quote],
+        residuals: &mut [f64],
+    ) -> finstack_core::Result<()> {
+        // β-calibration inner loop intentionally runs with strict_mode =
+        // false so a transient ill-conditioned β doesn't abort the outer
+        // LM iteration. The outer calibrator will re-run with the
+        // caller's strict_mode setting after β converges.
+        let loadings = match build_factor_loadings(
+            self.inst_vols,
+            self.tenors,
+            self.config.num_factors,
+            *beta,
+            false,
+            self.config.pca_variance_loss_tolerance,
+        ) {
+            Ok((l, _)) => l,
+            Err(_) => {
+                for r in residuals.iter_mut().take(quotes.len()) {
+                    *r = 1e6;
+                }
+                return Ok(());
+            }
+        };
+
+        for (i, q) in quotes.iter().enumerate() {
+            let repriced = rebonato_swaption_vol(
+                i,
+                self.forwards,
+                self.accrual_factors,
+                self.tenors,
+                &loadings,
+                self.config.num_factors,
+            );
+            residuals[i] = repriced - q.volatility;
+        }
+        Ok(())
+    }
+
+    fn residual_key(&self, quote: &Self::Quote, _idx: usize) -> String {
+        format!("{}Yx{}Y", quote.expiry, quote.tenor)
+    }
+}
+
 fn calibrate_beta(
     forwards: &[f64],
     accrual_factors: &[f64],
@@ -859,56 +944,26 @@ fn calibrate_beta(
     inst_vols: &[f64],
     config: &LmmCalibrationConfig,
 ) -> finstack_core::Result<f64> {
-    let _n = forwards.len();
-    let n_quotes = quotes.len();
-
-    // Parameterise as ln(β) to keep β > 0
-    let x0 = [config.beta_init.ln()];
-
-    let residuals = |x: &[f64], resid: &mut [f64]| {
-        let beta = x[0].exp();
-
-        // β-calibration inner loop intentionally runs with strict_mode =
-        // false so a transient ill-conditioned β doesn't abort the outer
-        // LM iteration. The outer calibrator will re-run with the
-        // caller's strict_mode setting after β converges.
-        let loadings = match build_factor_loadings(
-            inst_vols,
-            tenors,
-            config.num_factors,
-            beta,
-            false,
-            config.pca_variance_loss_tolerance,
-        ) {
-            Ok((l, _)) => l,
-            Err(_) => {
-                for r in resid.iter_mut().take(n_quotes) {
-                    *r = 1e6;
-                }
-                return;
-            }
-        };
-
-        for (i, q) in quotes.iter().enumerate() {
-            let repriced = rebonato_swaption_vol(
-                i,
-                forwards,
-                accrual_factors,
-                tenors,
-                &loadings,
-                config.num_factors,
-            );
-            resid[i] = repriced - q.volatility;
-        }
+    let target = LmmBetaTarget {
+        forwards,
+        accrual_factors,
+        tenors,
+        inst_vols,
+        config,
+        initial_x0: [config.beta_init.ln()],
     };
 
-    let solver = LevenbergMarquardtSolver::new()
+    // Use the calibration framework's LM wrapper. We don't need
+    // multi-start (β is well-conditioned in 1D) or per-quote diagnostics
+    // here, so wire only the bare minimum — solver tolerance + max iters.
+    let mut lm_config = CalibrationConfig::default();
+    lm_config.solver = lm_config
+        .solver
         .with_tolerance(config.tolerance)
         .with_max_iterations(config.max_iterations);
 
-    let solution = solver.solve_system_with_dim_stats(residuals, &x0, n_quotes)?;
-    let beta = solution.params[0].exp();
-
+    let (beta, _report) =
+        GlobalFitOptimizer::optimize(&target, quotes, &lm_config, Some(config.tolerance))?;
     Ok(beta)
 }
 

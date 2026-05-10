@@ -4,50 +4,50 @@ import type { CalibrationMethod } from "./CalibrationMethod";
 /**
  * Parameters for hazard curve calibration step.
  */
-export type HazardCurveParams = {
+export type HazardCurveParams = { 
 /**
  * Identifier for the hazard curve being built.
  */
-curve_id: string,
+curve_id: string, 
 /**
  * Entity name.
  */
-entity: string,
+entity: string, 
 /**
  * Seniority of the debt.
  */
-seniority: string,
+seniority: string, 
 /**
  * Currency of the curve.
  */
-currency: string,
+currency: string, 
 /**
  * Base date for the curve.
  */
-base_date: string,
+base_date: string, 
 /**
  * Identifier for the discount curve to use.
  */
-discount_curve_id: string,
+discount_curve_id: string, 
 /**
  * Recovery rate assumption (defaults to 0.4).
  */
-recovery_rate: number,
+recovery_rate: number, 
 /**
  * Notional used to price synthetic CDS instruments during calibration.
  *
  * Calibration normalizes residuals by notional, so this is typically left as
  * the unit-notional default unless you have a specific reason to change it.
  */
-notional: number,
+notional: number, 
 /**
  * Calibration method to use.
  */
-method: CalibrationMethod,
+method: CalibrationMethod, 
 /**
  * Interpolation style for the curve.
  */
-interpolation: string,
+interpolation: string, 
 /**
  * Interpolation method for par spreads reported by the calibrated curve.
  *
@@ -55,7 +55,7 @@ interpolation: string,
  * survival no-arbitrage, which is enforced via non-negative hazards and the curve's
  * internal log-linear survival interpolation.
  */
-par_interp: string,
+par_interp: string, 
 /**
  * Optional CDS doc clause / market convention identifier.
  *
@@ -67,7 +67,7 @@ par_interp: string,
  * - `"isda_eu"` (EUR/GBP/CHF default)
  * - `"isda_as"` (JPY/AUD/NZD/HKD/SGD default)
  */
-doc_clause?: string | null,
+doc_clause?: string | null, 
 /**
  * Optional CDS valuation convention used by synthetic CDS instruments
  * during hazard calibration and rebootstrap.

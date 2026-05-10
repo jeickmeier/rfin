@@ -5,56 +5,56 @@ import type { SeasonalFactors } from "./SeasonalFactors";
 /**
  * Parameters for inflation curve calibration step.
  */
-export type InflationCurveParams = {
+export type InflationCurveParams = { 
 /**
  * Identifier for the inflation curve being built.
  */
-curve_id: string,
+curve_id: string, 
 /**
  * Currency of the curve.
  */
-currency: string,
+currency: string, 
 /**
  * Base date for the curve.
  */
-base_date: string,
+base_date: string, 
 /**
  * Identifier for the discount curve to use.
  */
-discount_curve_id: string,
+discount_curve_id: string, 
 /**
  * Reference index (e.g. "USA-CPI-U").
  */
-index: string,
+index: string, 
 /**
  * Observation lag (e.g. "3M").
  *
  * This controls the index publication lag used for instruments referencing this curve
  * when no `InflationIndex` fixings series is provided in the market context.
  */
-observation_lag: string,
+observation_lag: string, 
 /**
  * Base CPI level used as the curve's reference CPI at t=0.
  *
  * When calibrating ZCIS curves in a curve-only context, this is typically the latest
  * known CPI fixing, i.e. CPI at `base_date - observation_lag` (not CPI at `base_date`).
  */
-base_cpi: number,
+base_cpi: number, 
 /**
  * Notional used to price synthetic inflation swaps during calibration.
  *
  * Calibration normalizes residuals by notional, so this is typically left as
  * the unit-notional default unless you have a specific reason to change it.
  */
-notional: number,
+notional: number, 
 /**
  * Calibration method to use.
  */
-method: CalibrationMethod,
+method: CalibrationMethod, 
 /**
  * Interpolation style for the curve.
  */
-interpolation: string,
+interpolation: string, 
 /**
  * Optional seasonal adjustment factors for deseasonalizing CPI observations.
  *

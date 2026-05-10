@@ -7,7 +7,7 @@
  * zero-coupon inflation curve, then reseasonalize the output.
  * Monthly adjustments should approximately sum to zero.
  */
-export type SeasonalFactors = {
+export type SeasonalFactors = { 
 /**
  * Monthly adjustment factors (Jan=index 0 through Dec=index 11).
  * These are additive adjustments to the log CPI level.

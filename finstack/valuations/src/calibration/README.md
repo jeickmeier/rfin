@@ -123,6 +123,7 @@ let plan = CalibrationPlan {
 
 ## Performance and Reliability
 
-- **No-alloc Hot Loops**: Solvers are designed to minimize heap allocations during iteration.
-- **Deterministic**: Calibration results are deterministic given the same inputs and configuration.
+- **Allocation-aware Hot Loops**: Solver inner iterations (Brent / LM residual evaluation) reuse buffers via `RefCell<Vec<_>>` and avoid heap allocations. Per-knot reporting allocates one small `String` per residual key, which is `O(n_quotes)` not `O(n_iters × n_quotes)` — negligible relative to solver cost.
+- **Deterministic**: Calibration results are deterministic given the same inputs and configuration. Multi-start uses Halton sequences (no system RNG); residual maps use `BTreeMap` for stable ordering.
 - **Strict Validation**: Optional strict mode ensures all conventions are explicitly defined.
+- **Production Diagnostics**: When a global-solve calibration fails, the `convergence_reason` includes the top-3 worst-fit quotes inline (no need to re-run with `compute_diagnostics=true` to know which instruments drove the failure). For full per-quote sensitivity / condition number, set `config.compute_diagnostics = true`.

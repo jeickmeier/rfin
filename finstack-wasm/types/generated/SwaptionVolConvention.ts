@@ -3,7 +3,7 @@
 /**
  * Volatility quoting convention for swaptions.
  */
-export type SwaptionVolConvention = "normal" | "lognormal" | { "shifted_lognormal": {
+export type SwaptionVolConvention = "normal" | "lognormal" | { "shifted_lognormal": { 
 /**
  * Shift amount for negative rate handling
  */

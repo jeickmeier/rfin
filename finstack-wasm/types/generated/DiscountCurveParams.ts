@@ -5,39 +5,39 @@ import type { RatesStepConventions } from "./RatesStepConventions";
 /**
  * Parameters for discount curve calibration step.
  */
-export type DiscountCurveParams = {
+export type DiscountCurveParams = { 
 /**
  * Identifier for the discount curve being built.
  */
-curve_id: string,
+curve_id: string, 
 /**
  * Currency of the curve.
  */
-currency: string,
+currency: string, 
 /**
  * Base date for the curve.
  */
-base_date: string,
+base_date: string, 
 /**
  * Calibration method to use.
  */
-method: CalibrationMethod,
+method: CalibrationMethod, 
 /**
  * Interpolation style for the curve.
  */
-interpolation: string,
+interpolation: string, 
 /**
  * Extrapolation policy for the curve.
  */
-extrapolation: string,
+extrapolation: string, 
 /**
  * Optional separate ID for pricing logic (defaults to curve_id).
  */
-pricing_discount_id: string | null,
+pricing_discount_id: string | null, 
 /**
  * Optional forward curve ID for pricing (if needed).
  */
-pricing_forward_id: string | null,
+pricing_forward_id: string | null, 
 /**
  * Step-level conventions for pricing and curve time axis.
  */

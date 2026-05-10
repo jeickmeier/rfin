@@ -4,49 +4,49 @@ import type { SurfaceExtrapolationPolicy } from "./SurfaceExtrapolationPolicy";
 /**
  * Parameters for volatility surface calibration step.
  */
-export type VolSurfaceParams = {
+export type VolSurfaceParams = { 
 /**
  * Identifier for the volatility surface being built.
  */
-surface_id: string,
+surface_id: string, 
 /**
  * Base date for the surface.
  */
-base_date: string,
+base_date: string, 
 /**
  * Identifier for the underlying instrument.
  */
-underlying_ticker: string,
+underlying_ticker: string, 
 /**
  * Model type.
  *
  * Note: currently supports SABR-only; set to `"SABR"` (case-insensitive).
  */
-model: string,
+model: string, 
 /**
  * Discount curve ID.
  */
-discount_curve_id: string | null,
+discount_curve_id: string | null, 
 /**
  * SABR Beta parameter.
  */
-beta: number,
+beta: number, 
 /**
  * Target expiries for calibration.
  */
-target_expiries: Array<number>,
+target_expiries: Array<number>, 
 /**
  * Target strikes for calibration.
  */
-target_strikes: Array<number>,
+target_strikes: Array<number>, 
 /**
  * Optional spot price override.
  */
-spot_override: number | null,
+spot_override: number | null, 
 /**
  * Optional dividend yield override.
  */
-dividend_yield_override: number | null,
+dividend_yield_override: number | null, 
 /**
  * Extrapolation policy for SABR parameter interpolation across expiries.
  *

@@ -225,7 +225,12 @@ impl GlobalFitOptimizer {
             .map(|(r, w)| (r * w).abs())
             .fold(0.0_f64, f64::max);
 
-        // Use explicit success_tolerance if provided, otherwise fall back to discount_curve.validation_tolerance.
+        // Two distinct tolerances are in play (see calibration/README.md):
+        //   * `config.solver.tolerance()` — LM convergence tolerance, already
+        //      wired into the solver via `config.create_lm_solver()`.
+        //   * `validation_tolerance` — accept/reject threshold on the final
+        //      residual. Falls back to `discount_curve.validation_tolerance`
+        //      for legacy callers that did not pass `success_tolerance`.
         let validation_tolerance =
             success_tolerance.unwrap_or(config.discount_curve.validation_tolerance);
 
@@ -259,6 +264,17 @@ impl GlobalFitOptimizer {
                      weighted L2 norm ({:.2e}) passed",
                     max_abs_residual, max_residual_tolerance, weighted_l2_norm,
                 );
+            }
+        }
+
+        if !calibration_success {
+            // On failure, surface the worst-fit quotes inline so a 2 AM
+            // operator can see which instruments drove the calibration off
+            // without re-running with `compute_diagnostics=true`.
+            let worst = top_k_worst_fits(target, &active_quotes, &resid_values, 3);
+            if !worst.is_empty() {
+                report.convergence_reason.push_str(". Worst fits: ");
+                report.convergence_reason.push_str(&worst);
             }
         }
 
@@ -383,6 +399,11 @@ where
     let eval_diagnostics: RefCell<EvalDiagnostics> = RefCell::new(EvalDiagnostics::default());
     let eval_counter: Cell<usize> = Cell::new(0);
 
+    // Hoisted buffer reused across LM residual evaluations to avoid a
+    // per-iteration `Vec::new()` when bounds clamping is active. For
+    // unbounded targets the buffer stays empty (zero-cost).
+    let clamp_buffer: RefCell<Vec<f64>> = RefCell::new(Vec::with_capacity(initials.len()));
+
     let residuals_func = |params: &[f64], resid: &mut [f64]| {
         let eval_idx = eval_counter.get() + 1;
         eval_counter.set(eval_idx);
@@ -407,8 +428,8 @@ where
             *r = 0.0;
         }
 
-        let mut params_to_use = Vec::new();
-        let params_ref = if lb.is_some() || ub.is_some() {
+        let mut params_to_use = clamp_buffer.borrow_mut();
+        let params_ref: &[f64] = if lb.is_some() || ub.is_some() {
             let n_clamped = clamp_to_bounds(params, lb, ub, &mut params_to_use);
             if n_clamped > 0 {
                 record_eval_error(
@@ -419,7 +440,7 @@ where
                     &format!("{n_clamped} param(s) clamped to bounds"),
                 );
             }
-            &params_to_use
+            &params_to_use[..]
         } else {
             params
         };
@@ -700,6 +721,32 @@ fn clamp_to_bounds(
         out.push(v);
     }
     clamped
+}
+
+/// Return a comma-separated string naming the `k` quotes with the largest
+/// absolute residuals, formatted as `"<key>=±<resid>"`. Used to make
+/// calibration failure messages actionable without requiring the user to
+/// re-run with `compute_diagnostics=true`.
+fn top_k_worst_fits<T>(target: &T, quotes: &[T::Quote], residuals: &[f64], k: usize) -> String
+where
+    T: GlobalSolveTarget,
+{
+    let mut indexed: Vec<(usize, f64)> = residuals
+        .iter()
+        .enumerate()
+        .map(|(i, r)| (i, r.abs()))
+        .collect();
+    indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    indexed
+        .into_iter()
+        .take(k)
+        .filter_map(|(i, mag)| {
+            quotes
+                .get(i)
+                .map(|q| format!("{}={:.2e}", target.residual_key(q, i), mag))
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn param_range(params: &[f64]) -> (f64, f64) {

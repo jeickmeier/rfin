@@ -44,75 +44,75 @@ import type { OptionType } from "./OptionType";
  * };
  * ```
  */
-export type VolQuote = { "option_vol": {
+export type VolQuote = { "option_vol": { 
 /**
  * Underlying identifier
  */
-underlying: string,
+underlying: string, 
 /**
  * Option expiry
  */
-expiry: string,
+expiry: string, 
 /**
  * Strike
  */
-strike: number,
+strike: number, 
 /**
  * Implied volatility
  */
-vol: number,
+vol: number, 
 /**
  * Option type (Call or Put).
  */
-option_type: OptionType,
+option_type: OptionType, 
 /**
  * Per-instrument conventions
  */
-convention: string, } } | { "swaption_vol": {
+convention: string, } } | { "swaption_vol": { 
 /**
  * Option expiry
  */
-expiry: string,
+expiry: string, 
 /**
  * Underlying swap maturity date
  */
-maturity: string,
+maturity: string, 
 /**
  * Strike rate
  */
-strike: number,
+strike: number, 
 /**
  * Implied volatility
  */
-vol: number,
+vol: number, 
 /**
  * Quote type
  */
-quote_type: string,
+quote_type: string, 
 /**
  * Option exercise conventions
  */
-convention: string, } } | { "cap_floor_vol": {
+convention: string, } } | { "cap_floor_vol": { 
 /**
  * Cap/floor maturity or caplet expiry.
  */
-expiry: string,
+expiry: string, 
 /**
  * Strike rate.
  */
-strike: number,
+strike: number, 
 /**
  * Implied volatility.
  */
-vol: number,
+vol: number, 
 /**
  * Quote type, e.g. "normal".
  */
-quote_type: string,
+quote_type: string, 
 /**
  * `true` for cap, `false` for floor.
  */
-is_cap: boolean,
+is_cap: boolean, 
 /**
  * Cap/floor market conventions.
  */

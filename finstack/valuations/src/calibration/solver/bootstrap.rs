@@ -97,6 +97,17 @@ fn validate_time_ordering(time: f64, last_time: f64, original_idx: usize) -> Res
     Ok(())
 }
 
+/// Maximum half-width of the geometric scan grid relative to the initial
+/// guess magnitude. Prevents the geometric ×2 expansion from producing
+/// scan points that are tens of orders of magnitude beyond any sensible
+/// rate / hazard / spread value (e.g. with default
+/// `scan_grid_points = 48` and `scan_grid_step = 1e-4` an unbounded scan
+/// reaches ~3e10 × center, which only wastes evaluations and produces NaN
+/// in pricers). The cap of `100 × max(|center|, 1.0)` still admits
+/// distressed-credit-style wide scans (hazard rates up to ~10000% from a
+/// sub-percent guess) but rejects pathological growth.
+const SCAN_GRID_HALF_WIDTH_CAP: f64 = 100.0;
+
 /// Build the default geometric scan grid around an initial guess.
 fn build_default_scan_grid(initial_guess: f64, config: &CalibrationConfig) -> Vec<f64> {
     let center = if initial_guess.is_finite() {
@@ -107,12 +118,14 @@ fn build_default_scan_grid(initial_guess: f64, config: &CalibrationConfig) -> Ve
 
     let step0 = (config.discount_curve.scan_grid_step * (1.0 + center.abs())).max(1e-8);
     let grid_size = config.discount_curve.scan_grid_points;
+    let max_step = SCAN_GRID_HALF_WIDTH_CAP * (1.0_f64).max(center.abs());
     let mut pts = Vec::with_capacity(2 * grid_size + 1);
     pts.push(center);
     let mut step = step0;
     for _ in 0..grid_size {
-        pts.push(center - step);
-        pts.push(center + step);
+        let s = step.min(max_step);
+        pts.push(center - s);
+        pts.push(center + s);
         step *= 2.0;
     }
     pts

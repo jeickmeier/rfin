@@ -41,10 +41,13 @@
 //!   Springer Finance (2nd ed.), Chapter 3.
 
 use finstack_core::math::solver::{BrentSolver, Solver};
-use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
 use finstack_core::math::special_functions::{norm_cdf, norm_pdf};
 use std::collections::BTreeMap;
 
+use crate::calibration::config::CalibrationConfig;
+use crate::calibration::solver::global::GlobalFitOptimizer;
+use crate::calibration::solver::multi_start::MultiStartConfig;
+use crate::calibration::solver::traits::GlobalSolveTarget;
 use crate::calibration::CalibrationReport;
 use crate::instruments::common_impl::models::trees::HullWhiteTreeConfig;
 
@@ -270,6 +273,184 @@ impl SwapFrequency {
     }
 }
 
+/// HW1F κ hard-bounds check. Mean-reversion must lie in [1e-3, 1.0]:
+/// below 0.001 the half-life exceeds 693y and tree/bond price calculations
+/// become numerically unstable; above 1.0 the model effectively collapses
+/// to the instantaneous-rate level and no longer has meaningful term
+/// structure.
+const KAPPA_MIN: f64 = 0.001;
+const KAPPA_MAX: f64 = 1.0;
+
+/// Vega floor: 1 bp of annuity-year. Protects against division by a
+/// near-zero vega at extreme expiries or zero quoted vol.
+const SWAPTION_VEGA_FLOOR: f64 = 1e-8;
+
+/// Number of deterministic multi-start restarts used for HW1F calibration.
+const HW_NUM_RESTARTS: usize = 5;
+/// Halton perturbation scale (50%) applied to each parameter on restart.
+const HW_PERTURB_SCALE: f64 = 0.5;
+/// Validation tolerance reported on the HW1F calibration report.
+const HW_VALIDATION_TOLERANCE: f64 = 1e-6;
+
+/// Pre-computed market data for one swaption quote, captured once before
+/// LM iteration so that the residual loop is a pure numeric computation.
+struct PreparedSwaption {
+    market_price: f64,
+    fwd_swap_rate: f64,
+    vega: f64,
+}
+
+/// `GlobalSolveTarget` impl carrying everything HW1F swaption calibration
+/// needs to evaluate residuals. The borrowed `df` keeps the target zero-
+/// allocation per residual call; the pre-computed market data avoids re-
+/// pricing from quotes inside the LM hot loop.
+struct HullWhiteSwaptionTarget<'a> {
+    df: &'a dyn Fn(f64) -> f64,
+    ppy: usize,
+    initial_x0: [f64; 2],
+    prepared: Vec<PreparedSwaption>,
+}
+
+impl<'a> GlobalSolveTarget for HullWhiteSwaptionTarget<'a> {
+    type Quote = SwaptionQuote;
+    type Curve = HullWhiteParams;
+
+    fn build_time_grid_and_guesses(
+        &self,
+        quotes: &[Self::Quote],
+    ) -> finstack_core::Result<(Vec<f64>, Vec<f64>, Vec<Self::Quote>)> {
+        // HW1F has 2 scalar parameters (lnκ, lnσ); we use a dummy 2-point
+        // time grid to satisfy the framework's knot-oriented API. Values
+        // must be strictly positive to clear `validate_global_inputs`,
+        // so we use `[1.0, 2.0]`. The target ignores `times` entirely
+        // in `build_curve_from_params`.
+        Ok((vec![1.0, 2.0], self.initial_x0.to_vec(), quotes.to_vec()))
+    }
+
+    fn build_curve_from_params(
+        &self,
+        _times: &[f64],
+        params: &[f64],
+    ) -> finstack_core::Result<Self::Curve> {
+        // Used by `build_curve_final_from_params` (default delegation).
+        // For solver iterations we override to skip validation; here we
+        // accept anything finite-positive and leave the κ-bounds check
+        // to the wrapper post-solve so a transient out-of-bounds final
+        // step does not mask a successful calibration.
+        let kappa = params[0].exp();
+        let sigma = params[1].exp();
+        Ok(HullWhiteParams { kappa, sigma })
+    }
+
+    fn calculate_residuals(
+        &self,
+        curve: &Self::Curve,
+        quotes: &[Self::Quote],
+        residuals: &mut [f64],
+    ) -> finstack_core::Result<()> {
+        for (idx, q) in quotes.iter().enumerate() {
+            let pre = &self.prepared[idx];
+            let model_price = hw1f_swaption_price(
+                curve.kappa,
+                curve.sigma,
+                self.df,
+                q.expiry,
+                q.tenor,
+                pre.fwd_swap_rate,
+                self.ppy,
+            );
+            residuals[idx] = if model_price.is_finite() {
+                // Vega-weighted price residual: algebraically the
+                // first-order approximation to (σ_model − σ_market),
+                // so all quotes enter the objective on an implied-
+                // vol scale. See Gilli–Maringer–Schumann §13.4.
+                (model_price - pre.market_price) / pre.vega
+            } else {
+                1e6
+            };
+        }
+        Ok(())
+    }
+
+    fn residual_key(&self, quote: &Self::Quote, _idx: usize) -> String {
+        format!("{}Yx{}Y", quote.expiry, quote.tenor)
+    }
+}
+
+/// Pre-computed market data for one cap/floor quote.
+struct PreparedCapFloor {
+    market_price: f64,
+    vega: f64,
+}
+
+/// `GlobalSolveTarget` impl for HW1F cap/floor calibration. Used only on
+/// the two-parameter path (κ, σ). The fixed-κ path stays on the existing
+/// 1D Brent solver because a single scalar root-find does not benefit
+/// from the LM machinery.
+struct HullWhiteCapFloorTarget<'a> {
+    discount_df: &'a dyn Fn(f64) -> f64,
+    forward_df: &'a dyn Fn(f64) -> f64,
+    frequency: SwapFrequency,
+    initial_x0: [f64; 2],
+    prepared: Vec<PreparedCapFloor>,
+}
+
+impl<'a> GlobalSolveTarget for HullWhiteCapFloorTarget<'a> {
+    type Quote = CapFloorQuote;
+    type Curve = HullWhiteParams;
+
+    fn build_time_grid_and_guesses(
+        &self,
+        quotes: &[Self::Quote],
+    ) -> finstack_core::Result<(Vec<f64>, Vec<f64>, Vec<Self::Quote>)> {
+        Ok((vec![1.0, 2.0], self.initial_x0.to_vec(), quotes.to_vec()))
+    }
+
+    fn build_curve_from_params(
+        &self,
+        _times: &[f64],
+        params: &[f64],
+    ) -> finstack_core::Result<Self::Curve> {
+        let kappa = params[0].exp();
+        let sigma = params[1].exp();
+        Ok(HullWhiteParams { kappa, sigma })
+    }
+
+    fn calculate_residuals(
+        &self,
+        curve: &Self::Curve,
+        quotes: &[Self::Quote],
+        residuals: &mut [f64],
+    ) -> finstack_core::Result<()> {
+        for (idx, quote) in quotes.iter().enumerate() {
+            let pre = &self.prepared[idx];
+            let spec = CapFloorPriceSpec::from_quote(quote, self.frequency);
+            let model_price = hw1f_cap_floor_price(
+                curve.kappa,
+                curve.sigma,
+                self.discount_df,
+                self.forward_df,
+                spec,
+            );
+            residuals[idx] = if model_price.is_finite() {
+                (model_price - pre.market_price) / pre.vega
+            } else {
+                1e6
+            };
+        }
+        Ok(())
+    }
+
+    fn residual_key(&self, quote: &Self::Quote, _idx: usize) -> String {
+        format!(
+            "{}Y_{}_{:.6}",
+            quote.maturity,
+            if quote.is_cap { "cap" } else { "floor" },
+            quote.strike
+        )
+    }
+}
+
 /// Calibrate Hull-White 1-factor parameters to European swaption market data.
 ///
 /// Fits κ (mean reversion) and σ (short rate volatility) by minimising
@@ -291,7 +472,9 @@ impl SwapFrequency {
 ///
 /// 1. For each swaption quote, compute the market price from the quoted vol.
 /// 2. Model prices are computed analytically via the Jamshidian (1989) decomposition.
-/// 3. The Levenberg-Marquardt solver minimises the sum of squared price errors.
+/// 3. The Levenberg-Marquardt solver minimises the sum of squared price errors,
+///    routed through `GlobalFitOptimizer` so HW1F shares the same numeric
+///    plumbing (multi-start, diagnostics, error reporting) as curve calibration.
 /// 4. Uses the unconstrained parameterisation: `(ln κ, ln σ)`.
 ///
 /// # Errors
@@ -321,13 +504,6 @@ impl SwapFrequency {
 /// ).unwrap();
 /// assert!(report.success);
 /// ```
-// The borrowed-closure form `&residuals` below is intentional: the
-// inner `solve_system_with_dim_stats` moves its `Res: Fn(...)` argument
-// by value, so we must re-borrow for each multi-start iteration. Clippy
-// flags the `&` as needless because `&F: Fn(...)` and `F: Fn(...)` are
-// both acceptable for the generic — but dropping the `&` would move the
-// closure on the first call.
-#[allow(clippy::needless_borrows_for_generic_args)]
 pub fn calibrate_hull_white_to_swaptions(
     df: &dyn Fn(f64) -> f64,
     quotes: &[SwaptionQuote],
@@ -352,19 +528,9 @@ pub fn calibrate_hull_white_to_swaptions(
     let n_quotes = quotes.len();
     let ppy = frequency.periods_per_year();
 
-    let mut market_prices = Vec::with_capacity(n_quotes);
-    let mut annuities = Vec::with_capacity(n_quotes);
+    // Pre-compute market data once; the LM hot loop only does numeric ops.
+    let mut prepared = Vec::with_capacity(n_quotes);
     let mut fwd_swap_rates = Vec::with_capacity(n_quotes);
-    // Per-quote vega weights (∂price/∂σ) used to convert price
-    // residuals into dimensionless vol-residuals. The vega-weighted
-    // form prevents long-dated quotes (large annuities → large prices)
-    // from dominating the objective and pushing κ → 0 on mixed-expiry
-    // co-terminal grids.
-    let mut vegas = Vec::with_capacity(n_quotes);
-    // Vega floor: 1 bp of annuity-year. Protects against division by a
-    // near-zero vega at extreme expiries or zero quoted vol.
-    const VEGA_FLOOR: f64 = 1e-8;
-
     for q in quotes {
         let (annuity, fwd_rate) = compute_swap_annuity_and_rate(df, q.expiry, q.tenor, ppy);
         let market_price = compute_swaption_market_price(
@@ -375,11 +541,13 @@ pub fn calibrate_hull_white_to_swaptions(
             q.is_normal_vol,
         );
         let vega = swaption_atm_vega(annuity, fwd_rate, q.expiry, q.volatility, q.is_normal_vol)
-            .max(VEGA_FLOOR);
-        market_prices.push(market_price);
-        annuities.push(annuity);
+            .max(SWAPTION_VEGA_FLOOR);
+        prepared.push(PreparedSwaption {
+            market_price,
+            fwd_swap_rate: fwd_rate,
+            vega,
+        });
         fwd_swap_rates.push(fwd_rate);
-        vegas.push(vega);
     }
 
     let (default_kappa_init, default_sigma_init) = infer_hw_initial_guess(quotes, &fwd_swap_rates);
@@ -387,122 +555,63 @@ pub fn calibrate_hull_white_to_swaptions(
     let sigma_init: f64 = initial_guess.map(|p| p.sigma).unwrap_or(default_sigma_init);
     let x0 = [kappa_init.ln(), sigma_init.ln()];
 
-    let residuals = |x: &[f64], resid: &mut [f64]| {
-        let kappa = x[0].exp();
-        let sigma = x[1].exp();
-
-        for (idx, q) in quotes.iter().enumerate() {
-            let model_price = hw1f_swaption_price(
-                kappa,
-                sigma,
-                df,
-                q.expiry,
-                q.tenor,
-                fwd_swap_rates[idx],
-                ppy,
-            );
-            if model_price.is_finite() {
-                // Vega-weighted price residual: algebraically the
-                // first-order approximation to (σ_model − σ_market), so
-                // all quotes enter the objective on an implied-vol scale
-                // rather than a price scale. Gilli–Maringer–Schumann
-                // §13.4 prescribes exactly this form for industry-grade
-                // HW1F calibration.
-                resid[idx] = (model_price - market_prices[idx]) / vegas[idx];
-            } else {
-                resid[idx] = 1e6;
-            }
-        }
+    let target = HullWhiteSwaptionTarget {
+        df,
+        ppy,
+        initial_x0: x0,
+        prepared,
     };
 
-    let solver = LevenbergMarquardtSolver::new()
-        .with_tolerance(1e-12)
-        .with_max_iterations(300);
+    // Use solver tolerance 1e-12 (matches the prior hand-rolled LM
+    // settings) and validation tolerance 1e-6 (the historical
+    // accept/reject threshold for HW1F price residuals).
+    let mut config = CalibrationConfig::default();
+    config.solver = config.solver.with_tolerance(1e-12).with_max_iterations(300);
 
-    // Initial solve from the nominal guess.
-    let initial_solution = solver.solve_system_with_dim_stats(&residuals, &x0, n_quotes)?;
+    let multi_start = MultiStartConfig {
+        num_restarts: HW_NUM_RESTARTS,
+        perturbation_scale: HW_PERTURB_SCALE,
+    };
 
-    // Halton multi-start: 5 deterministic restarts around x0 with 50%
-    // perturbation scale. Keeps the solution with the lowest weighted
-    // residual norm, escaping local minima that a single LM run is
-    // prone to on HW1F's (κ, σ) objective surface.
-    use crate::calibration::solver::multi_start::perturb_initial_guess;
-    const NUM_RESTARTS: usize = 5;
-    const PERTURB_SCALE: f64 = 0.5;
+    let (params, mut report) = GlobalFitOptimizer::optimize_with_multi_start(
+        &target,
+        quotes,
+        &config,
+        Some(HW_VALIDATION_TOLERANCE),
+        Some(&multi_start),
+    )?;
 
-    let initial_norm = weighted_residual_norm(&initial_solution.params, &residuals, n_quotes);
-    let mut best_solution = initial_solution;
-    let mut best_norm = initial_norm;
+    // Override the report type tag (stored in metadata["type"]) and add
+    // HW-specific metadata. The framework reports a generic "global_fit"
+    // type; HW consumers expect "hull_white_1f" for serialization stability.
+    report = report
+        .with_model_version(finstack_core::versions::HULL_WHITE_1F)
+        .with_metadata("type", "hull_white_1f".to_string())
+        .with_metadata("kappa", format!("{:.6}", params.kappa))
+        .with_metadata("sigma", format!("{:.6}", params.sigma))
+        .with_metadata("initial_kappa", format!("{kappa_init:.6}"))
+        .with_metadata("initial_sigma", format!("{sigma_init:.6}"))
+        .with_metadata("multi_start_restarts", HW_NUM_RESTARTS.to_string())
+        .with_metadata(
+            "residual_weighting",
+            "1/vega (vega-weighted price residual)".to_string(),
+        )
+        .with_metadata("swap_frequency", format!("{frequency:?}"));
 
-    for restart_idx in 0..NUM_RESTARTS {
-        let perturbed = perturb_initial_guess(&x0, PERTURB_SCALE, restart_idx, None, None);
-        let probe_x0 = [perturbed[0], perturbed[1]];
-        if let Ok(sol) = solver.solve_system_with_dim_stats(&residuals, &probe_x0, n_quotes) {
-            let norm = weighted_residual_norm(&sol.params, &residuals, n_quotes);
-            if norm.is_finite() && norm < best_norm {
-                best_norm = norm;
-                best_solution = sol;
-            }
-        }
-    }
-
-    let solution = best_solution;
-    let kappa = solution.params[0].exp();
-    let sigma = solution.params[1].exp();
-
-    let mut residual_map = BTreeMap::new();
-    for (idx, q) in quotes.iter().enumerate() {
-        let model_price = hw1f_swaption_price(
-            kappa,
-            sigma,
-            df,
-            q.expiry,
-            q.tenor,
-            fwd_swap_rates[idx],
-            ppy,
-        );
-        let resid = model_price - market_prices[idx];
-        let label = format!("{}Yx{}Y", q.expiry, q.tenor);
-        residual_map.insert(label, resid);
-    }
-
-    let report = CalibrationReport::for_type_with_tolerance(
-        "hull_white_1f",
-        residual_map,
-        solution.stats.iterations,
-        1e-6,
-    )
-    .with_model_version(finstack_core::versions::HULL_WHITE_1F)
-    .with_metadata("kappa", format!("{kappa:.6}"))
-    .with_metadata("sigma", format!("{sigma:.6}"))
-    .with_metadata("initial_kappa", format!("{kappa_init:.6}"))
-    .with_metadata("initial_sigma", format!("{sigma_init:.6}"))
-    .with_metadata("multi_start_restarts", NUM_RESTARTS.to_string())
-    .with_metadata(
-        "residual_weighting",
-        "1/vega (vega-weighted price residual)".to_string(),
-    )
-    .with_metadata("swap_frequency", format!("{frequency:?}"));
-
-    // κ hard-bounds check: mean-reversion must lie in [1e-3, 1.0].
-    // Below 0.001 the half-life exceeds 693y and tree/bond price
-    // calculations become numerically unstable; above 1.0 the model
-    // effectively collapses to the instantaneous-rate level and no
-    // longer has meaningful term structure.
-    const KAPPA_MIN: f64 = 0.001;
-    const KAPPA_MAX: f64 = 1.0;
-    if !(KAPPA_MIN..=KAPPA_MAX).contains(&kappa) {
+    if !(KAPPA_MIN..=KAPPA_MAX).contains(&params.kappa) {
         return Err(finstack_core::Error::Validation(format!(
-            "Hull-White calibration produced κ = {kappa:.6} outside the \
+            "Hull-White calibration produced κ = {:.6} outside the \
              bounded range [{KAPPA_MIN}, {KAPPA_MAX}]. This typically \
              indicates an under-weighted, over-damped, or under-specified \
              swaption grid; review the quotes or supply a bounded \
-             `initial_guess`."
+             `initial_guess`.",
+            params.kappa
         )));
     }
 
-    let params = HullWhiteParams::new(kappa, sigma)?;
-
+    // Final validation of (κ, σ) > 0 — `HullWhiteParams::new` is the
+    // canonical gate.
+    let params = HullWhiteParams::new(params.kappa, params.sigma)?;
     Ok((params, report))
 }
 
@@ -574,7 +683,9 @@ pub fn calibrate_hull_white_to_cap_floors(
         })
         .collect();
 
-    let (kappa, sigma, iterations) = if let Some(fixed_kappa) = config.fixed_kappa {
+    if let Some(fixed_kappa) = config.fixed_kappa {
+        // Single-parameter (σ only) — keep the 1D Brent path. The
+        // generic LM machinery would add no value for a scalar root-find.
         let fixed = HullWhiteParams::new(fixed_kappa, 1e-4)?.kappa;
         let sigma = solve_cap_floor_sigma_for_fixed_kappa(
             fixed,
@@ -584,53 +695,99 @@ pub fn calibrate_hull_white_to_cap_floors(
             &market_prices,
             frequency,
         )?;
-        (fixed, sigma, 1)
-    } else {
-        solve_cap_floor_kappa_sigma(
-            discount_df,
-            forward_df,
-            quotes,
-            &market_prices,
-            &vegas,
-            frequency,
-            config.initial_guess,
-        )?
-    };
-
-    let mut residuals = BTreeMap::new();
-    for (idx, quote) in quotes.iter().enumerate() {
-        let spec = CapFloorPriceSpec::from_quote(quote, frequency);
-        let model_price = hw1f_cap_floor_price(kappa, sigma, discount_df, forward_df, spec);
-        residuals.insert(
-            format!(
-                "{}Y_{}_{:.6}",
-                quote.maturity,
-                if quote.is_cap { "cap" } else { "floor" },
-                quote.strike
-            ),
-            model_price - market_prices[idx],
-        );
+        let mut residuals = BTreeMap::new();
+        for (idx, quote) in quotes.iter().enumerate() {
+            let spec = CapFloorPriceSpec::from_quote(quote, frequency);
+            let model_price = hw1f_cap_floor_price(fixed, sigma, discount_df, forward_df, spec);
+            residuals.insert(
+                format!(
+                    "{}Y_{}_{:.6}",
+                    quote.maturity,
+                    if quote.is_cap { "cap" } else { "floor" },
+                    quote.strike
+                ),
+                model_price - market_prices[idx],
+            );
+        }
+        let report = CalibrationReport::for_type_with_tolerance(
+            "hull_white_1f_cap_floor",
+            residuals,
+            1,
+            HW_VALIDATION_TOLERANCE,
+        )
+        .with_model_version(finstack_core::versions::HULL_WHITE_1F)
+        .with_metadata("kappa", format!("{fixed:.6}"))
+        .with_metadata("sigma", format!("{sigma:.6}"))
+        .with_metadata("quote_count", quotes.len().to_string())
+        .with_metadata("fixed_kappa", "true".to_string())
+        .with_metadata(
+            "residual_weighting",
+            "1/vega (vega-weighted price residual)".to_string(),
+        )
+        .with_metadata("calibration_family", "cap_floor_hw1f".to_string())
+        .with_metadata("frequency", format!("{frequency:?}"));
+        return Ok((HullWhiteParams::new(fixed, sigma)?, report));
     }
 
-    let report = CalibrationReport::for_type_with_tolerance(
-        "hull_white_1f_cap_floor",
-        residuals,
-        iterations,
-        1e-6,
-    )
-    .with_model_version(finstack_core::versions::HULL_WHITE_1F)
-    .with_metadata("kappa", format!("{kappa:.6}"))
-    .with_metadata("sigma", format!("{sigma:.6}"))
-    .with_metadata("quote_count", quotes.len().to_string())
-    .with_metadata("fixed_kappa", config.fixed_kappa.is_some().to_string())
-    .with_metadata(
-        "residual_weighting",
-        "1/vega (vega-weighted price residual)".to_string(),
-    )
-    .with_metadata("calibration_family", "cap_floor_hw1f".to_string())
-    .with_metadata("frequency", format!("{frequency:?}"));
+    // Two-parameter (κ, σ) path via GlobalFitOptimizer.
+    let init = config.initial_guess.unwrap_or_default();
+    let x0 = [init.kappa.ln(), init.sigma.ln()];
 
-    Ok((HullWhiteParams::new(kappa, sigma)?, report))
+    let prepared: Vec<PreparedCapFloor> = market_prices
+        .iter()
+        .zip(vegas.iter())
+        .map(|(&market_price, &vega)| PreparedCapFloor { market_price, vega })
+        .collect();
+
+    let target = HullWhiteCapFloorTarget {
+        discount_df,
+        forward_df,
+        frequency,
+        initial_x0: x0,
+        prepared,
+    };
+
+    let mut config_lm = CalibrationConfig::default();
+    config_lm.solver = config_lm
+        .solver
+        .with_tolerance(1e-12)
+        .with_max_iterations(300);
+
+    let multi_start = MultiStartConfig {
+        num_restarts: HW_NUM_RESTARTS,
+        perturbation_scale: HW_PERTURB_SCALE,
+    };
+
+    let (params, mut report) = GlobalFitOptimizer::optimize_with_multi_start(
+        &target,
+        quotes,
+        &config_lm,
+        Some(HW_VALIDATION_TOLERANCE),
+        Some(&multi_start),
+    )?;
+
+    if !(KAPPA_MIN..=KAPPA_MAX).contains(&params.kappa) {
+        return Err(finstack_core::Error::Validation(format!(
+            "Hull-White cap/floor calibration produced κ = {:.6} outside the bounded range [{KAPPA_MIN}, {KAPPA_MAX}]",
+            params.kappa
+        )));
+    }
+
+    report = report
+        .with_model_version(finstack_core::versions::HULL_WHITE_1F)
+        .with_metadata("type", "hull_white_1f_cap_floor".to_string())
+        .with_metadata("kappa", format!("{:.6}", params.kappa))
+        .with_metadata("sigma", format!("{:.6}", params.sigma))
+        .with_metadata("quote_count", quotes.len().to_string())
+        .with_metadata("fixed_kappa", "false".to_string())
+        .with_metadata(
+            "residual_weighting",
+            "1/vega (vega-weighted price residual)".to_string(),
+        )
+        .with_metadata("calibration_family", "cap_floor_hw1f".to_string())
+        .with_metadata("frequency", format!("{frequency:?}"));
+
+    Ok((HullWhiteParams::new(params.kappa, params.sigma)?, report))
 }
 
 /// ATM vega for a swaption expressed in the same volatility units as the
@@ -710,52 +867,6 @@ fn solve_cap_floor_sigma_for_fixed_kappa(
 
     let solver = BrentSolver::new().tolerance(1e-12).bracket_bounds(lo, hi);
     solver.solve(residual, (lo + hi) * 0.5)
-}
-
-#[allow(clippy::needless_borrows_for_generic_args)]
-fn solve_cap_floor_kappa_sigma(
-    discount_df: &dyn Fn(f64) -> f64,
-    forward_df: &dyn Fn(f64) -> f64,
-    quotes: &[CapFloorQuote],
-    market_prices: &[f64],
-    vegas: &[f64],
-    frequency: SwapFrequency,
-    initial_guess: Option<HullWhiteParams>,
-) -> finstack_core::Result<(f64, f64, usize)> {
-    let init = initial_guess.unwrap_or_default();
-    let x0 = [init.kappa.ln(), init.sigma.ln()];
-    let n_quotes = quotes.len();
-
-    let residuals = |x: &[f64], resid: &mut [f64]| {
-        let kappa = x[0].exp();
-        let sigma = x[1].exp();
-        for (idx, quote) in quotes.iter().enumerate() {
-            let spec = CapFloorPriceSpec::from_quote(quote, frequency);
-            let model_price = hw1f_cap_floor_price(kappa, sigma, discount_df, forward_df, spec);
-            resid[idx] = if model_price.is_finite() {
-                (model_price - market_prices[idx]) / vegas[idx]
-            } else {
-                1e6
-            };
-        }
-    };
-
-    let solver = LevenbergMarquardtSolver::new()
-        .with_tolerance(1e-12)
-        .with_max_iterations(300);
-    let solution = solver.solve_system_with_dim_stats(&residuals, &x0, n_quotes)?;
-    let kappa = solution.params[0].exp();
-    let sigma = solution.params[1].exp();
-
-    const KAPPA_MIN: f64 = 0.001;
-    const KAPPA_MAX: f64 = 1.0;
-    if !(KAPPA_MIN..=KAPPA_MAX).contains(&kappa) {
-        return Err(finstack_core::Error::Validation(format!(
-            "Hull-White cap/floor calibration produced κ = {kappa:.6} outside the bounded range [{KAPPA_MIN}, {KAPPA_MAX}]"
-        )));
-    }
-    HullWhiteParams::new(kappa, sigma)?;
-    Ok((kappa, sigma, solution.stats.iterations))
 }
 
 /// Price a full cap/floor with a flat normal volatility quote.
@@ -955,20 +1066,6 @@ fn normal_caplet_vega(forward: f64, strike: f64, vol: f64, expiry: f64) -> f64 {
     }
     let d = (forward - strike) / (vol * expiry.sqrt());
     expiry.sqrt() * norm_pdf(d)
-}
-
-/// Compute √(Σ r_i²) for the vega-weighted residual vector at the given
-/// parameter vector. Used by the multi-start loop to compare candidates.
-fn weighted_residual_norm<F>(params: &[f64], residuals: &F, n: usize) -> f64
-where
-    F: Fn(&[f64], &mut [f64]),
-{
-    let mut buf = vec![0.0_f64; n];
-    residuals(params, &mut buf);
-    buf.iter()
-        .map(|r| if r.is_finite() { r * r } else { 1e18 })
-        .sum::<f64>()
-        .sqrt()
 }
 
 // =============================================================================
@@ -1235,6 +1332,14 @@ pub(crate) fn hw1f_swaption_price(
         }
     }
 
+    // r* solver failure (NaN) and pathological discount factors must propagate
+    // as NaN to the caller — `.max(0.0)` would silently turn NaN into 0.0
+    // because IEEE 754 `max(NaN, 0.0) == 0.0`, fooling the LM closure into
+    // treating the input as a legitimate zero-price swaption.
+    if !r_star.is_finite() {
+        return f64::NAN;
+    }
+
     // Compute strike prices K_i = A_i × exp(−B_i × r*)
     let k_strikes: Vec<f64> = (0..n_periods)
         .map(|i| (ln_a_vals[i] - b_vals[i] * r_star).exp())
@@ -1243,16 +1348,29 @@ pub(crate) fn hw1f_swaption_price(
     // Sum zero-coupon bond put prices (payer swaption = portfolio of bond puts)
     // ZBO_put(0, T₀, T_i, K_i) = K_i P(0,T₀) N(−d₂) − P(0,T_i) N(−d₁)
     let p0_t0 = df(t0);
+    if !(p0_t0 > 0.0 && p0_t0.is_finite()) {
+        return f64::NAN;
+    }
     let mut swaption_price = 0.0;
 
     for i in 0..n_periods {
         let t_i = payment_times[i];
         let p0_ti = df(t_i);
+        if !(p0_ti > 0.0 && p0_ti.is_finite()) {
+            return f64::NAN;
+        }
         let sigma_p = hw_bond_vol(kappa, sigma, 0.0, t0, t_i);
 
         if sigma_p < 1e-15 {
-            // Degenerate: intrinsic value
-            let put_intrinsic = (k_strikes[i] * p0_t0 - p0_ti).max(0.0);
+            // Degenerate: intrinsic value. `< 0.0` is false for NaN so NaN
+            // would propagate, but inputs are positive-finite by the checks
+            // above, so the subtraction is safe.
+            let put_intrinsic_raw = k_strikes[i] * p0_t0 - p0_ti;
+            let put_intrinsic = if put_intrinsic_raw < 0.0 {
+                0.0
+            } else {
+                put_intrinsic_raw
+            };
             swaption_price += cashflows[i] * put_intrinsic;
             continue;
         }
@@ -1261,10 +1379,17 @@ pub(crate) fn hw1f_swaption_price(
         let d2 = d1 - sigma_p;
 
         let put_price = k_strikes[i] * p0_t0 * norm_cdf(-d2) - p0_ti * norm_cdf(-d1);
-        swaption_price += cashflows[i] * put_price.max(0.0);
+        // Preserve NaN: `put_price < 0.0` is false for NaN, so NaN flows
+        // through; only genuinely-negative numerical noise gets clamped.
+        let put_price_clamped = if put_price < 0.0 { 0.0 } else { put_price };
+        swaption_price += cashflows[i] * put_price_clamped;
     }
 
-    swaption_price.max(0.0)
+    if swaption_price < 0.0 {
+        0.0
+    } else {
+        swaption_price
+    }
 }
 
 // =============================================================================

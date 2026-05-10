@@ -44,59 +44,59 @@
  * # }
  * ```
  */
-export type RateQuote = { "type": "deposit",
+export type RateQuote = { "type": "deposit", 
 /**
  * Unique identifier for the quote.
  */
-id: string,
+id: string, 
 /**
  * Rate index identifier (e.g. "USD-SOFR-3M").
  */
-index: string,
+index: string, 
 /**
  * Maturity pillar (e.g. Tenor("3M") or Date("2024-01-01")).
  */
-pillar: string,
+pillar: string, 
 /**
  * Rate value (decimal).
  */
-rate: number, } | { "type": "fra",
+rate: number, } | { "type": "fra", 
 /**
  * Unique identifier for the quote.
  */
-id: string,
+id: string, 
 /**
  * Rate index identifier.
  */
-index: string,
+index: string, 
 /**
  * Start date pillar.
  */
-start: string,
+start: string, 
 /**
  * End date pillar.
  */
-end: string,
+end: string, 
 /**
  * Rate value (decimal).
  */
-rate: number, } | { "type": "futures",
+rate: number, } | { "type": "futures", 
 /**
  * Unique identifier for the quote.
  */
-id: string,
+id: string, 
 /**
  * Future contract identifier (e.g. "CME:SR3").
  */
-contract: string,
+contract: string, 
 /**
  * Expiry date of the future.
  */
-expiry: string,
+expiry: string, 
 /**
  * Price of the future (e.g. 98.50).
  */
-price: number,
+price: number, 
 /**
  * Optional convexity adjustment (rate, decimal).
  *
@@ -104,7 +104,7 @@ price: number,
  * futures-quote calibration will fail closed rather than silently assume
  * zero or attempt an unwired dynamic lookup.
  */
-convexity_adjustment: number | null,
+convexity_adjustment: number | null, 
 /**
  * Optional volatility surface identifier for dynamic convexity adjustment.
  *
@@ -112,23 +112,23 @@ convexity_adjustment: number | null,
  * providing `vol_surface_id` without `convexity_adjustment` is treated as
  * an invalid quote shape during calibration.
  */
-vol_surface_id: string | null, } | { "type": "swap",
+vol_surface_id: string | null, } | { "type": "swap", 
 /**
  * Unique identifier for the quote.
  */
-id: string,
+id: string, 
 /**
  * Rate index identifier (floating leg).
  */
-index: string,
+index: string, 
 /**
  * Maturity pillar of the swap.
  */
-pillar: string,
+pillar: string, 
 /**
  * Fixed rate (decimal) making the swap PV=0.
  */
-rate: number,
+rate: number, 
 /**
  * Optional spread over the index in decimal format (e.g., 0.0010 for 10 basis points).
  *
