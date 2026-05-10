@@ -47,3 +47,38 @@ fn test_build_xccy_basis_swap() {
     assert_eq!(swap.leg2.reset_lag_days, Some(0));
     assert!(swap.leg2.end > swap.leg2.start);
 }
+
+#[cfg(test)]
+mod mtm_reset_builder_tests {
+    use super::*;
+    use crate::instruments::rates::xccy_swap::{NotionalExchange, ResettingSide};
+
+    #[test]
+    fn building_g10_pair_produces_mtm_resetting_swap() {
+        let base_date =
+            Date::from_calendar_date(2025, time::Month::January, 2).expect("valid base date");
+        let ctx = xccy_build_ctx(base_date);
+
+        let quote = XccyQuote::BasisSwap {
+            id: QuoteId::new("EUR/USD-5Y"),
+            convention: XccyConventionId::new("EUR/USD-XCCY"),
+            far_pillar: Pillar::Tenor("5Y".parse().expect("valid tenor")),
+            basis_spread_bp: -25.0,
+            spot_fx: Some(1.10),
+        };
+
+        let instrument = build_xccy_instrument(&quote, &ctx).expect("build succeeds");
+        let swap = instrument
+            .as_any()
+            .downcast_ref::<XccySwap>()
+            .expect("instrument is an XccySwap");
+
+        assert_eq!(
+            swap.notional_exchange,
+            NotionalExchange::MtmResetting {
+                resetting_side: ResettingSide::Leg1,
+            },
+            "G10 pair should default to MtM-resetting on leg1 (non-USD)"
+        );
+    }
+}

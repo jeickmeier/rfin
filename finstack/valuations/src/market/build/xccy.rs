@@ -1,7 +1,7 @@
 //! Builders for cross-currency swap instruments from market quotes.
 
 use crate::instruments::common_impl::fx_dates::{adjust_joint_calendar, roll_spot_date};
-use crate::instruments::rates::xccy_swap::{LegSide, NotionalExchange, XccySwap, XccySwapLeg};
+use crate::instruments::rates::xccy_swap::{LegSide, XccySwap, XccySwapLeg};
 use crate::instruments::DynInstrument;
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::ids::Pillar;
@@ -128,7 +128,7 @@ pub fn build_xccy_instrument(quote: &XccyQuote, ctx: &BuildCtx) -> Result<Box<Dy
             };
 
             let swap = XccySwap::new(id.as_str(), leg1, leg2, conv.quote_currency)
-                .with_notional_exchange(NotionalExchange::InitialAndFinal);
+                .with_notional_exchange(conv.notional_exchange);
 
             Ok(Box::new(swap))
         }
