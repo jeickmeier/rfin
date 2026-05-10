@@ -398,7 +398,12 @@ where
     let eval_counter: Cell<usize> = Cell::new(0);
 
     // Reuse a local buffer across LM residual evaluations when bounds
-    // clamping is active.
+    // clamping is active. SEQUENTIAL-ONLY: this `RefCell` assumes the
+    // residual closure is called from a single thread. The framework
+    // currently runs LM solves and multi-start restarts serially. If a
+    // future change parallelises restarts via `rayon::par_iter()` or moves
+    // the closure across threads, switch to `Mutex<Vec<f64>>` (or a
+    // per-thread local) — `RefCell` will panic on concurrent borrow_mut.
     let clamp_buffer: RefCell<Vec<f64>> = RefCell::new(Vec::with_capacity(initials.len()));
 
     let residuals_func = |params: &[f64], resid: &mut [f64]| {
