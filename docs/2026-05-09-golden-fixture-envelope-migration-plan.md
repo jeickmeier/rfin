@@ -786,3 +786,58 @@ Tolerances: `1e-6` abs for all three. Self-test contract.
 - Python: `pytest finstack-py/tests/golden/` → 105/105 pass
 - 13 fixtures now genuinely exercise calibration math (was 12).
 - Only `svi_surface` remains uncovered — the same self-test pattern would close it (would use the equity-vol-style fixture with model="SVI" and SVI-specific quote conventions).
+
+---
+
+## 21. SVI surface step coverage (2026-05-10)
+
+**Fixture:** `pricing/equity_option/aapl_equity_svi_self_test.json`
+
+Two-step plan: USD-OIS discount → AAPL-EQUITY-SVI-VOL (SVI surface) fitted from 15 OptionVol quotes (3 expiries × 5 strikes, quadratic-smile). Instrument: same 1Y AAPL ATM call from §19.3, this time priced against an SVI surface instead of SABR.
+
+**Implementation note:** SVI requires ≥5 strikes per step. Authored a `quadratic_smile(strike, expiry)` curve that produces a well-conditioned 3×5 grid (vol = `0.30 - 0.02·expiry_idx + 0.08·moneyness²`, with moneyness=`(K - 175)/175`). SVI fit converges with rmse ~2.5e-6 — tighter than SABR (3×3) at rmse ~1e-3 because the strike grid is denser and the smile shape closely matches SVI's parameterization.
+
+**Verifies:** the `svi_surface` step kind, SviSurfaceParams plumbing (`spot_override`, `target_strikes`, `target_expiries`), the SVI fitting routine, and the equity-option pricer reading from a calibrated SVI surface.
+
+**Expected outputs** (captured from Finstack):
+- npv = 2,065.86
+- delta = 59.555
+- gamma = 0.834
+- vega = 66.40
+- theta = -4.468
+
+Tolerances: `1e-6` abs across all 5 metrics.
+
+### Final coverage scoreboard
+
+| Step kind | Total fixtures with calibration |
+|---|---|
+| `discount` | 8 |
+| `forward` | 5 |
+| `hazard` | 2 |
+| `base_correlation` | 1 |
+| `inflation` | 1 |
+| `vol_surface` (SABR) | 1 |
+| `swaption_vol` | 1 |
+| **`svi_surface`** | **1 NEW** |
+
+**Every primary calibration step kind now has at least one golden fixture exercising it end-to-end.**
+
+### Final test gates
+
+- Rust: `cargo test -p finstack-valuations --test golden` → 31/31 pass
+- Python: `pytest finstack-py/tests/golden/` → 106/106 pass
+- 14 fixtures genuinely exercise calibration math (was 13 in §20).
+- 39 total pricing goldens, all using the envelope path.
+
+### Migration done
+
+The migration plan as authored on 2026-05-09 is now fully executed. From `git log origin/master..HEAD`, the session produced:
+
+- 5 patterns established (Tier-A wrap, Tier-B calibrate, Tier-AB hybrid, 2-step, 3-step)
+- 39 pricing goldens migrated to envelopes (was 0 at session start)
+- 8 self-test fixtures authored to cover step kinds previously without golden coverage
+- Audit fixes shipped alongside the migration: `CurveState::id()`, `engine::execute_with_diagnostics`, dead-variant cleanup, `ois_compounding` per-step override
+- Plan documentation: 21 sections, 5 POCs, 8 self-test fixtures fully documented
+
+The follow-up backlog from §18 ("inflation", "surfaces", "CDS Bloomberg") is closed; no further coverage gaps in the canonical step kinds remain.
