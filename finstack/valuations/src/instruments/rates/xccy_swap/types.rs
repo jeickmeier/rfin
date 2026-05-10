@@ -430,6 +430,11 @@ impl XccySwap {
     /// - The two legs must have different currencies (`partition_legs` guard).
     /// - Both legs must share the same coupon frequency so reset dates are unambiguous.
     /// - Both legs must share the same start and end dates (schedule alignment).
+    ///
+    /// FX-matrix reachability requires a runtime [`MarketContext`] and is therefore
+    /// checked separately by [`Self::validate_fx_reachable`] at the start of
+    /// `base_value`. A passing `validate()` does *not* imply the swap is priceable —
+    /// it only guarantees the static configuration is well-formed.
     pub fn validate(&self) -> Result<()> {
         self.validate_leg(&self.leg1)?;
         self.validate_leg(&self.leg2)?;
@@ -1363,5 +1368,16 @@ mod tests {
             msg.contains("MtmResetting") && msg.contains("frequency"),
             "expected MtM-reset frequency-mismatch error, got: {msg}"
         );
+    }
+
+    #[test]
+    fn validate_accepts_well_formed_mtm_resetting_swap() {
+        // The canonical example swap has aligned schedules, matching frequencies, and
+        // different currencies. Wrapping it in MtmResetting must pass `validate()`.
+        let swap = XccySwap::example().with_notional_exchange(NotionalExchange::MtmResetting {
+            resetting_side: ResettingSide::Leg2,
+        });
+        swap.validate()
+            .expect("well-formed MtmResetting swap should pass validate");
     }
 }
