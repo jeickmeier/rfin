@@ -772,6 +772,16 @@ impl crate::instruments::common_impl::traits::Instrument for XccySwap {
         // schedule loop, hiding which leg/pair was the offender.
         self.validate_fx_reachable(market)?;
 
+        // TODO Task 8: replace with dispatch to pricing_mtm::pv_mtm_reset
+        if matches!(self.notional_exchange, NotionalExchange::MtmResetting { .. }) {
+            return Err(finstack_core::Error::Validation(format!(
+                "XccySwap '{}': MtM-resetting PV is not yet implemented \
+                 (Task 8 of 11). For fixed-notional XCCY swaps use \
+                 NotionalExchange::InitialAndFinal.",
+                self.id
+            )));
+        }
+
         // pv_leg_in_reporting_ccy builds its own period schedule; no need to pre-build here.
         let pv1_rep = self.pv_leg_in_reporting_ccy(&self.leg1, market, as_of)?;
         let pv2_rep = self.pv_leg_in_reporting_ccy(&self.leg2, market, as_of)?;
@@ -792,6 +802,16 @@ impl CashflowProvider for XccySwap {
     ) -> finstack_core::Result<CashFlowSchedule> {
         self.validate_leg(&self.leg1)?;
         self.validate_leg(&self.leg2)?;
+
+        // TODO Task 8: replace with dispatch to pricing_mtm::pv_mtm_reset
+        if matches!(self.notional_exchange, NotionalExchange::MtmResetting { .. }) {
+            return Err(finstack_core::Error::Validation(format!(
+                "XccySwap '{}': MtM-resetting cashflow_schedule is not yet implemented \
+                 (Task 8 of 11). For fixed-notional XCCY swaps use \
+                 NotionalExchange::InitialAndFinal.",
+                self.id
+            )));
+        }
 
         let anchor = if as_of < self.leg1.start {
             as_of
@@ -1107,6 +1127,10 @@ mod tests {
             let parsed = NotionalExchange::from_str(&s).expect("roundtrip parse");
             assert_eq!(v, parsed, "roundtrip failed for '{s}'");
         }
+        // Negative cases: malformed mtm_resetting inputs must be rejected
+        assert!(NotionalExchange::from_str("mtm_resetting").is_err());
+        assert!(NotionalExchange::from_str("mtm_resetting:").is_err());
+        assert!(NotionalExchange::from_str("mtm_resetting:garbage").is_err());
     }
 
     #[test]
@@ -1115,8 +1139,7 @@ mod tests {
             resetting_side: ResettingSide::Leg1,
         };
         let json = serde_json::to_string(&original).expect("serialise");
-        assert!(json.contains("mtm_resetting"), "json: {json}");
-        assert!(json.contains("leg1"), "json: {json}");
+        assert_eq!(json, r#"{"mtm_resetting":{"resetting_side":"leg1"}}"#);
         let parsed: NotionalExchange = serde_json::from_str(&json).expect("deserialise");
         assert_eq!(original, parsed);
     }
