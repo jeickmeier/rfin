@@ -73,7 +73,7 @@ impl std::str::FromStr for LegSide {
 
 impl LegSide {
     #[inline]
-    fn coupon_sign(self) -> f64 {
+    pub(crate) fn coupon_sign(self) -> f64 {
         match self {
             Self::Receive => 1.0,
             Self::Pay => -1.0,
@@ -98,7 +98,7 @@ impl LegSide {
     /// This follows ISDA conventions where the receiver of a leg provides
     /// the initial funding in that currency.
     #[inline]
-    fn initial_principal_sign(self) -> f64 {
+    pub(crate) fn initial_principal_sign(self) -> f64 {
         match self {
             Self::Receive => -1.0,
             Self::Pay => 1.0,
@@ -107,7 +107,7 @@ impl LegSide {
 
     /// Returns the sign for final principal exchange (opposite of initial).
     #[inline]
-    fn final_principal_sign(self) -> f64 {
+    pub(crate) fn final_principal_sign(self) -> f64 {
         -self.initial_principal_sign()
     }
 }
@@ -387,6 +387,35 @@ impl XccySwap {
     pub fn with_notional_exchange(mut self, exchange: NotionalExchange) -> Self {
         self.notional_exchange = exchange;
         self
+    }
+
+    /// Returns `Some(resetting_side)` if the swap is configured as MtM-resetting,
+    /// `None` otherwise. Convenience over matching on `notional_exchange` directly.
+    pub fn is_mtm_resetting(&self) -> Option<ResettingSide> {
+        match self.notional_exchange {
+            NotionalExchange::MtmResetting { resetting_side } => Some(resetting_side),
+            _ => None,
+        }
+    }
+
+    /// Partition the two legs into `(constant_leg, resetting_leg)` based on the
+    /// given side. Errors if both legs share a currency (already guarded by
+    /// `validate_leg`, but this surfaces the intent explicitly).
+    pub(crate) fn partition_legs(
+        &self,
+        resetting_side: ResettingSide,
+    ) -> Result<(&XccySwapLeg, &XccySwapLeg)> {
+        let (constant, resetting) = match resetting_side {
+            ResettingSide::Leg1 => (&self.leg2, &self.leg1),
+            ResettingSide::Leg2 => (&self.leg1, &self.leg2),
+        };
+        if constant.currency == resetting.currency {
+            return Err(finstack_core::Error::Validation(format!(
+                "XccySwap '{}': MtM-reset partition requires different currencies on the two legs; both are {}",
+                self.id, constant.currency
+            )));
+        }
+        Ok((constant, resetting))
     }
 
     /// Pre-flight check that every leg whose currency differs from
@@ -1144,5 +1173,35 @@ mod tests {
         assert_eq!(json, r#"{"mtm_resetting":{"resetting_side":"leg1"}}"#);
         let parsed: NotionalExchange = serde_json::from_str(&json).expect("deserialise");
         assert_eq!(original, parsed);
+    }
+
+    #[test]
+    fn is_mtm_resetting_returns_correct_side() {
+        let mut swap = XccySwap::example();
+        assert_eq!(swap.is_mtm_resetting(), None);
+
+        swap = swap.with_notional_exchange(NotionalExchange::MtmResetting {
+            resetting_side: ResettingSide::Leg2,
+        });
+        assert_eq!(swap.is_mtm_resetting(), Some(ResettingSide::Leg2));
+    }
+
+    #[test]
+    fn partition_legs_returns_constant_then_resetting() {
+        let swap = XccySwap::example().with_notional_exchange(NotionalExchange::MtmResetting {
+            resetting_side: ResettingSide::Leg2, // EUR leg resets
+        });
+        let (constant, resetting) = swap
+            .partition_legs(ResettingSide::Leg2)
+            .expect("partition succeeds");
+        assert_eq!(constant.currency, Currency::USD);
+        assert_eq!(resetting.currency, Currency::EUR);
+
+        // Symmetrically, when leg1 resets, leg2 (EUR) is constant.
+        let (constant_l1, resetting_l1) = swap
+            .partition_legs(ResettingSide::Leg1)
+            .expect("partition succeeds");
+        assert_eq!(constant_l1.currency, Currency::EUR);
+        assert_eq!(resetting_l1.currency, Currency::USD);
     }
 }
