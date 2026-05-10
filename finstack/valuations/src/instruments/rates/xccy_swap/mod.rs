@@ -10,6 +10,7 @@
 
 /// XCCY swap metrics.
 pub(crate) mod metrics;
+pub(crate) mod pricing_mtm;
 mod types;
 
 pub use types::{LegSide, NotionalExchange, ResettingSide, XccySwap, XccySwapLeg};
