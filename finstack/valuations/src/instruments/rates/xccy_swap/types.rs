@@ -133,9 +133,17 @@ pub enum NotionalExchange {
     None,
     /// Exchange principal at maturity only.
     Final,
-    /// Exchange principal at start and maturity (typical for XCCY basis swaps).
+    /// Exchange principal at start and maturity (typical for fixed-notional XCCY basis swaps).
     #[default]
     InitialAndFinal,
+    /// Mark-to-market resetting. The notional of `resetting_side` is re-marked at each
+    /// of its coupon reset dates to match the constant leg's notional in current FX,
+    /// with a corresponding rebalancing cashflow exchanged in both currencies. Implies
+    /// initial AND final principal exchange.
+    MtmResetting {
+        /// Which leg (`Leg1` or `Leg2`) has its notional reset each period.
+        resetting_side: ResettingSide,
+    },
 }
 
 impl std::fmt::Display for NotionalExchange {
@@ -144,6 +152,9 @@ impl std::fmt::Display for NotionalExchange {
             Self::None => write!(f, "none"),
             Self::Final => write!(f, "final"),
             Self::InitialAndFinal => write!(f, "initial_and_final"),
+            Self::MtmResetting { resetting_side } => {
+                write!(f, "mtm_resetting:{resetting_side}")
+            }
         }
     }
 }
@@ -157,10 +168,16 @@ impl std::str::FromStr for NotionalExchange {
             "none" => Ok(Self::None),
             "final" | "final_only" => Ok(Self::Final),
             "initial_and_final" | "initialandfinal" | "both" => Ok(Self::InitialAndFinal),
-            other => Err(format!(
-                "Unknown notional exchange: '{}'. Valid: none, final, initial_and_final, both",
-                other
-            )),
+            other => {
+                if let Some(side_str) = other.strip_prefix("mtm_resetting:") {
+                    let resetting_side = side_str.parse::<ResettingSide>()?;
+                    Ok(Self::MtmResetting { resetting_side })
+                } else {
+                    Err(format!(
+                        "Unknown notional exchange: '{s}'. Valid: none, final, initial_and_final, both, mtm_resetting:leg1, mtm_resetting:leg2"
+                    ))
+                }
+            }
         }
     }
 }
@@ -504,7 +521,11 @@ impl XccySwap {
     fn leg_principal_schedule(&self, leg: &XccySwapLeg, anchor: Date) -> Result<CashFlowSchedule> {
         let mut builder = CashFlowSchedule::builder();
         let _ = builder.principal(Money::new(0.0, leg.currency), anchor, leg.end);
-        if matches!(self.notional_exchange, NotionalExchange::InitialAndFinal) {
+        // MtmResetting implies initial AND final exchange (handled in Task 8: dispatched to pricing_mtm::pv_mtm_reset)
+        if matches!(
+            self.notional_exchange,
+            NotionalExchange::InitialAndFinal | NotionalExchange::MtmResetting { .. }
+        ) {
             let initial_amount = leg.side.initial_principal_sign() * leg.notional.amount();
             let _ = builder.add_principal_event(
                 leg.start,
@@ -513,9 +534,10 @@ impl XccySwap {
                 CFKind::Notional,
             );
         }
+        // MtmResetting implies final exchange (handled in Task 8: dispatched to pricing_mtm::pv_mtm_reset)
         if matches!(
             self.notional_exchange,
-            NotionalExchange::Final | NotionalExchange::InitialAndFinal
+            NotionalExchange::Final | NotionalExchange::InitialAndFinal | NotionalExchange::MtmResetting { .. }
         ) {
             let final_amount = leg.side.final_principal_sign() * leg.notional.amount();
             let _ = builder.add_principal_event(
@@ -608,7 +630,11 @@ impl XccySwap {
 
         // Notional exchanges (principal)
         // Use robust_relative_df for numerical stability (validated against Bloomberg SWPM)
-        if matches!(self.notional_exchange, NotionalExchange::InitialAndFinal) && leg.start > as_of
+        // MtmResetting implies initial AND final exchange (handled in Task 8: dispatched to pricing_mtm::pv_mtm_reset)
+        if matches!(
+            self.notional_exchange,
+            NotionalExchange::InitialAndFinal | NotionalExchange::MtmResetting { .. }
+        ) && leg.start > as_of
         {
             let df = robust_relative_df(disc.as_ref(), as_of, leg.start)?;
             let cf_leg_ccy = leg.side.initial_principal_sign() * leg.notional.amount() * df;
@@ -616,9 +642,10 @@ impl XccySwap {
             pv.add(cf_rep);
         }
 
+        // MtmResetting implies final exchange (handled in Task 8: dispatched to pricing_mtm::pv_mtm_reset)
         if matches!(
             self.notional_exchange,
-            NotionalExchange::Final | NotionalExchange::InitialAndFinal
+            NotionalExchange::Final | NotionalExchange::InitialAndFinal | NotionalExchange::MtmResetting { .. }
         ) && leg.end > as_of
         {
             let df = robust_relative_df(disc.as_ref(), as_of, leg.end)?;
@@ -1062,5 +1089,35 @@ mod tests {
             "roundtrip failed for leg_2"
         );
         assert!(ResettingSide::from_str("garbage").is_err());
+    }
+
+    #[test]
+    fn notional_exchange_mtm_resetting_display_and_parse_roundtrip() {
+        use std::str::FromStr;
+        let variants = [
+            NotionalExchange::MtmResetting {
+                resetting_side: ResettingSide::Leg1,
+            },
+            NotionalExchange::MtmResetting {
+                resetting_side: ResettingSide::Leg2,
+            },
+        ];
+        for v in variants {
+            let s = v.to_string();
+            let parsed = NotionalExchange::from_str(&s).expect("roundtrip parse");
+            assert_eq!(v, parsed, "roundtrip failed for '{s}'");
+        }
+    }
+
+    #[test]
+    fn notional_exchange_serde_mtm_resetting_roundtrip() {
+        let original = NotionalExchange::MtmResetting {
+            resetting_side: ResettingSide::Leg1,
+        };
+        let json = serde_json::to_string(&original).expect("serialise");
+        assert!(json.contains("mtm_resetting"), "json: {json}");
+        assert!(json.contains("leg1"), "json: {json}");
+        let parsed: NotionalExchange = serde_json::from_str(&json).expect("deserialise");
+        assert_eq!(original, parsed);
     }
 }
