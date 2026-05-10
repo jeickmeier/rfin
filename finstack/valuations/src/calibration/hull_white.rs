@@ -709,23 +709,19 @@ pub fn calibrate_hull_white_to_cap_floors(
                 model_price - market_prices[idx],
             );
         }
-        let report = CalibrationReport::for_type_with_tolerance(
-            "hull_white_1f_cap_floor",
-            residuals,
-            1,
-            HW_VALIDATION_TOLERANCE,
-        )
-        .with_model_version(finstack_core::versions::HULL_WHITE_1F)
-        .with_metadata("kappa", format!("{fixed:.6}"))
-        .with_metadata("sigma", format!("{sigma:.6}"))
-        .with_metadata("quote_count", quotes.len().to_string())
-        .with_metadata("fixed_kappa", "true".to_string())
-        .with_metadata(
-            "residual_weighting",
-            "1/vega (vega-weighted price residual)".to_string(),
-        )
-        .with_metadata("calibration_family", "cap_floor_hw1f".to_string())
-        .with_metadata("frequency", format!("{frequency:?}"));
+        let report = enrich_cap_floor_report(
+            CalibrationReport::for_type_with_tolerance(
+                "hull_white_1f_cap_floor",
+                residuals,
+                1,
+                HW_VALIDATION_TOLERANCE,
+            ),
+            fixed,
+            sigma,
+            quotes.len(),
+            true,
+            frequency,
+        );
         return Ok((HullWhiteParams::new(fixed, sigma)?, report));
     }
 
@@ -758,7 +754,7 @@ pub fn calibrate_hull_white_to_cap_floors(
         perturbation_scale: HW_PERTURB_SCALE,
     };
 
-    let (params, mut report) = GlobalFitOptimizer::optimize_with_multi_start(
+    let (params, report) = GlobalFitOptimizer::optimize_with_multi_start(
         &target,
         quotes,
         &config_lm,
@@ -773,21 +769,39 @@ pub fn calibrate_hull_white_to_cap_floors(
         )));
     }
 
-    report = report
+    let report = enrich_cap_floor_report(
+        report.with_metadata("type", "hull_white_1f_cap_floor".to_string()),
+        params.kappa,
+        params.sigma,
+        quotes.len(),
+        false,
+        frequency,
+    );
+
+    Ok((HullWhiteParams::new(params.kappa, params.sigma)?, report))
+}
+
+/// Apply cap/floor metadata shared by the fixed-kappa and two-parameter paths.
+fn enrich_cap_floor_report(
+    report: CalibrationReport,
+    kappa: f64,
+    sigma: f64,
+    quote_count: usize,
+    fixed_kappa: bool,
+    frequency: SwapFrequency,
+) -> CalibrationReport {
+    report
         .with_model_version(finstack_core::versions::HULL_WHITE_1F)
-        .with_metadata("type", "hull_white_1f_cap_floor".to_string())
-        .with_metadata("kappa", format!("{:.6}", params.kappa))
-        .with_metadata("sigma", format!("{:.6}", params.sigma))
-        .with_metadata("quote_count", quotes.len().to_string())
-        .with_metadata("fixed_kappa", "false".to_string())
+        .with_metadata("kappa", format!("{kappa:.6}"))
+        .with_metadata("sigma", format!("{sigma:.6}"))
+        .with_metadata("quote_count", quote_count.to_string())
+        .with_metadata("fixed_kappa", fixed_kappa.to_string())
         .with_metadata(
             "residual_weighting",
             "1/vega (vega-weighted price residual)".to_string(),
         )
         .with_metadata("calibration_family", "cap_floor_hw1f".to_string())
-        .with_metadata("frequency", format!("{frequency:?}"));
-
-    Ok((HullWhiteParams::new(params.kappa, params.sigma)?, report))
+        .with_metadata("frequency", format!("{frequency:?}"))
 }
 
 /// ATM vega for a swaption expressed in the same volatility units as the

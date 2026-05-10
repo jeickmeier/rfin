@@ -268,9 +268,7 @@ impl GlobalFitOptimizer {
         }
 
         if !calibration_success {
-            // On failure, surface the worst-fit quotes inline so a 2 AM
-            // operator can see which instruments drove the calibration off
-            // without re-running with `compute_diagnostics=true`.
+            // Surface the worst-fit quotes without requiring diagnostics.
             let worst = top_k_worst_fits(target, &active_quotes, &resid_values, 3);
             if !worst.is_empty() {
                 report.convergence_reason.push_str(". Worst fits: ");
@@ -399,9 +397,8 @@ where
     let eval_diagnostics: RefCell<EvalDiagnostics> = RefCell::new(EvalDiagnostics::default());
     let eval_counter: Cell<usize> = Cell::new(0);
 
-    // Hoisted buffer reused across LM residual evaluations to avoid a
-    // per-iteration `Vec::new()` when bounds clamping is active. For
-    // unbounded targets the buffer stays empty (zero-cost).
+    // Reuse a local buffer across LM residual evaluations when bounds
+    // clamping is active.
     let clamp_buffer: RefCell<Vec<f64>> = RefCell::new(Vec::with_capacity(initials.len()));
 
     let residuals_func = |params: &[f64], resid: &mut [f64]| {

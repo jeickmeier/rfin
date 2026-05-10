@@ -108,6 +108,21 @@ let plan = CalibrationPlan {
 | Smooth curve fitting | `1e-10` | `1e-8` | GlobalSolve |
 | Distressed credit | `1e-10` | `1e-6` | Bootstrap |
 
+### `compute_diagnostics`
+
+`CalibrationConfig::compute_diagnostics` defaults to `false` to keep
+solver runs lean. Enable it for production calibrations that need the
+extra post-solve diagnostics:
+
+- **Per-quote sensitivity**: maximum |d residual / d param| for each quote.
+- **Condition number**: `cond(J^T J)` for the finite-difference Jacobian.
+- **RMS / max residual**: consistent residual reporting across solvers.
+
+The extra cost is one finite-difference Jacobian evaluation per parameter
+after convergence. The global-solve path still includes the top-3
+worst-fit quotes in `convergence_reason` on failure, even when
+`compute_diagnostics` is disabled.
+
 ## Adding New Features
 
 ### Adding a New Calibration Target

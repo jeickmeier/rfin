@@ -175,8 +175,9 @@ impl GlobalSolveTarget for ParametricCurveTarget {
         quotes: &[Self::Quote],
     ) -> Result<(Vec<f64>, Vec<f64>, Vec<Self::Quote>)> {
         let guesses = self.default_guesses();
-        // Dummy time grid - one entry per parameter
-        let times: Vec<f64> = (0..guesses.len()).map(|i| i as f64).collect();
+        // This target ignores `times`, but the shared input validation
+        // requires a positive, increasing grid.
+        let times: Vec<f64> = (1..=guesses.len()).map(|i| i as f64).collect();
         Ok((times, guesses, quotes.to_vec()))
     }
 
