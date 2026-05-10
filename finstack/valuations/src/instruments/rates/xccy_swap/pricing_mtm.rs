@@ -49,8 +49,10 @@ pub(crate) fn pv_mtm_reset(
     let n_c = constant_leg.notional.amount();
     let reporting_ccy = swap.reporting_currency;
 
-    // Spot FX (resetting -> constant) at `as_of`.
-    let spot_x = fx
+    // FX rate (resetting -> constant) at the valuation date. The forward FX at any
+    // curve-time T is derived as `spot_x_at_as_of * P_C(T) / P_R(T)` via CIP; the
+    // spec's `X_0` is this value at the swap's start date, NOT necessarily spot.
+    let spot_x_at_as_of = fx
         .rate(FxQuery::new(
             resetting_leg.currency,
             constant_leg.currency,
@@ -95,6 +97,22 @@ pub(crate) fn pv_mtm_reset(
             Ok(amount * rate)
         };
 
+    // Compute the per-period notional at T_start (the swap's start date). This is the
+    // resetting-leg principal amount exchanged at initial exchange AND seeded into the
+    // per-period loop. Distinct from `n_c / spot_x_at_as_of` for forward-starting swaps.
+    let df_c_t_start = disc_c.df_on_date_curve(constant_leg.start)?;
+    let df_c_t_start = require_positive_df(df_c_t_start, &swap.id, "constant-leg", constant_leg.start)?;
+    let df_r_t_start = disc_r.df_on_date_curve(constant_leg.start)?;
+    let df_r_t_start = require_positive_df(df_r_t_start, &swap.id, "resetting-leg", constant_leg.start)?;
+    let x_start = spot_x_at_as_of * (df_c_t_start / df_r_t_start);
+    if !x_start.is_finite() || x_start <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "XccySwap '{}': non-positive forward FX at swap start date {}",
+            swap.id, constant_leg.start
+        )));
+    }
+    let n_r_initial = n_c / x_start;
+
     // Initial principal exchange at start. We use `initial_principal_sign` exactly as the
     // existing fixed-notional path does (`pv_leg_in_reporting_ccy`): a `Receive` leg's
     // initial sign is -1, which yields a negative-PV cashflow (the leg "pays out" notional
@@ -106,51 +124,28 @@ pub(crate) fn pv_mtm_reset(
         let cf_c = constant_leg.side.initial_principal_sign() * n_c * df_c0;
         pv.add(convert(cf_c, constant_leg.currency, constant_leg.start)?);
 
-        let n_r0 = n_c / spot_x;
-        let cf_r = resetting_leg.side.initial_principal_sign() * n_r0 * df_r0;
+        let cf_r = resetting_leg.side.initial_principal_sign() * n_r_initial * df_r0;
         pv.add(convert(cf_r, resetting_leg.currency, resetting_leg.start)?);
     }
-
-    // Per-period processing. Use `disc_c.day_count()` as the time axis for the CIP
-    // forward FX formula; both curves share their own day-count under construction
-    // semantics, and we use the constant-leg discount curve as canonical reference.
-    let curve_base = disc_c.base_date();
-    let curve_dc = disc_c.day_count();
-    use finstack_core::dates::DayCountContext;
-
-    let yf_from_base = |d: Date| -> Result<f64> {
-        Ok(curve_dc.year_fraction(curve_base, d, DayCountContext::default())?)
-    };
-
-    let t_start = yf_from_base(constant_leg.start)?;
-    let p_c_t_start = disc_c.df(t_start);
-    let p_r_t_start = disc_r.df(t_start);
-    if p_r_t_start <= 0.0 {
-        return Err(finstack_core::Error::Validation(format!(
-            "XccySwap '{}': non-positive resetting-leg discount factor at start",
-            swap.id
-        )));
-    }
-    // Forward FX at start (used as the reference X_0 for the resetting notional).
-    let x_start = spot_x * (p_c_t_start / p_r_t_start);
-    let n_r_initial = n_c / x_start;
 
     let mut n_r_prev = n_r_initial;
     for (j, period) in periods.iter().enumerate() {
         if period.payment_date <= as_of {
             n_r_prev = compute_resetting_notional(
                 n_c,
-                spot_x,
-                yf_from_base(period.accrual_end)?,
+                spot_x_at_as_of,
+                period.accrual_end,
                 disc_c.as_ref(),
                 disc_r.as_ref(),
+                &swap.id,
             )?;
             continue;
         }
 
-        let t_pay = yf_from_base(period.payment_date)?;
-        let df_c_pay = disc_c.df(t_pay).max(0.0);
-        let df_r_pay = disc_r.df(t_pay).max(0.0);
+        let df_c_pay = disc_c.df_on_date_curve(period.payment_date)?;
+        let df_c_pay = require_positive_df(df_c_pay, &swap.id, "constant-leg", period.payment_date)?;
+        let df_r_pay = disc_r.df_on_date_curve(period.payment_date)?;
+        let df_r_pay = require_positive_df(df_r_pay, &swap.id, "resetting-leg", period.payment_date)?;
 
         // 1. Constant-leg floating coupon.
         let rate_c = rate_period_on_dates(
@@ -190,19 +185,23 @@ pub(crate) fn pv_mtm_reset(
         //    exchange of N_j^R). Net cashflow uses `initial_principal_sign` on the
         //    delta = N_j - N_{j-1}, which gives the correct sign for both Pay/Receive.
         if j > 0 {
-            let t_reset = yf_from_base(period.accrual_start)?;
-            let df_c_reset = disc_c.df(t_reset).max(0.0);
-            let df_r_reset = disc_r.df(t_reset).max(0.0);
-            let p_r_reset = disc_r.df(t_reset);
-            if p_r_reset <= 0.0 {
-                return Err(finstack_core::Error::Validation(format!(
-                    "XccySwap '{}': non-positive resetting-leg DF at reset date {}",
-                    swap.id, period.accrual_start
-                )));
-            }
-            let x_j = spot_x * (df_c_reset / p_r_reset);
-            let n_r_j = n_c / x_j;
+            let df_c_reset = disc_c.df_on_date_curve(period.accrual_start)?;
+            let df_c_reset = require_positive_df(df_c_reset, &swap.id, "constant-leg", period.accrual_start)?;
+            let df_r_reset = disc_r.df_on_date_curve(period.accrual_start)?;
+            let df_r_reset = require_positive_df(df_r_reset, &swap.id, "resetting-leg", period.accrual_start)?;
+
+            let n_r_j = compute_resetting_notional(
+                n_c,
+                spot_x_at_as_of,
+                period.accrual_start,
+                disc_c.as_ref(),
+                disc_r.as_ref(),
+                &swap.id,
+            )?;
             let delta_n_r = n_r_j - n_r_prev;
+
+            // Forward FX at reset date (for the constant-leg equivalent principal movement).
+            let x_j = spot_x_at_as_of * (df_c_reset / df_r_reset);
 
             // Resetting leg: principal-style movement of size delta_n_r at T_j.
             let rebal_r = resetting_leg.side.initial_principal_sign() * delta_n_r * df_r_reset;
@@ -226,9 +225,10 @@ pub(crate) fn pv_mtm_reset(
     }
 
     // Final principal exchange: constant leg receives N_C; resetting leg pays N_n^R = n_r_prev.
-    let t_end = yf_from_base(constant_leg.end)?;
-    let df_c_end = disc_c.df(t_end).max(0.0);
-    let df_r_end = disc_r.df(t_end).max(0.0);
+    let df_c_end = disc_c.df_on_date_curve(constant_leg.end)?;
+    let df_c_end = require_positive_df(df_c_end, &swap.id, "constant-leg", constant_leg.end)?;
+    let df_r_end = disc_r.df_on_date_curve(resetting_leg.end)?;
+    let df_r_end = require_positive_df(df_r_end, &swap.id, "resetting-leg", resetting_leg.end)?;
 
     let cf_c_final = constant_leg.side.final_principal_sign() * n_c * df_c_end;
     pv.add(convert(cf_c_final, constant_leg.currency, constant_leg.end)?);
@@ -243,28 +243,43 @@ pub(crate) fn pv_mtm_reset(
     Ok(Money::new(pv.total(), reporting_ccy))
 }
 
-/// CIP forward FX × N_C / X_0 == per-period resetting notional at curve time `t`.
+/// CIP forward FX × N_C / X_0 == per-period resetting notional at `date`.
+///
+/// Each curve uses its own day-count and base date via `df_on_date_curve`.
 fn compute_resetting_notional(
     n_constant: f64,
-    spot_x: f64,
-    t: f64,
+    spot_x_at_as_of: f64,
+    date: Date,
     disc_c: &finstack_core::market_data::term_structures::DiscountCurve,
     disc_r: &finstack_core::market_data::term_structures::DiscountCurve,
+    swap_id: &finstack_core::types::InstrumentId,
 ) -> Result<f64> {
-    let p_c = disc_c.df(t);
-    let p_r = disc_r.df(t);
-    if p_r <= 0.0 || p_c <= 0.0 {
+    let p_c = disc_c.df_on_date_curve(date)?;
+    let p_c = require_positive_df(p_c, swap_id, "constant-leg", date)?;
+    let p_r = disc_r.df_on_date_curve(date)?;
+    let p_r = require_positive_df(p_r, swap_id, "resetting-leg", date)?;
+    let x_t = spot_x_at_as_of * (p_c / p_r);
+    if !x_t.is_finite() || x_t <= 0.0 {
         return Err(finstack_core::Error::Validation(format!(
-            "MtM-reset: non-positive DF at curve-time {t:.6} (P_C={p_c}, P_R={p_r})"
-        )));
-    }
-    let x_t = spot_x * (p_c / p_r);
-    if x_t <= 0.0 {
-        return Err(finstack_core::Error::Validation(format!(
-            "MtM-reset: non-positive forward FX at curve-time {t:.6}"
+            "XccySwap '{swap_id}': non-positive forward FX at date {date}"
         )));
     }
     Ok(n_constant / x_t)
+}
+
+/// Guard that a discount factor is finite and strictly positive; returns the value on success.
+fn require_positive_df(
+    df: f64,
+    swap_id: &finstack_core::types::InstrumentId,
+    curve_role: &str,
+    date: Date,
+) -> Result<f64> {
+    if !df.is_finite() || df <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "XccySwap '{swap_id}': non-positive/non-finite {curve_role} DF at {date}: {df}"
+        )));
+    }
+    Ok(df)
 }
 
 #[cfg(test)]
@@ -275,7 +290,7 @@ mod tests {
     fn compute_resetting_notional_matches_formula() {
         use finstack_core::market_data::term_structures::DiscountCurve;
         use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
-        use finstack_core::types::CurveId;
+        use finstack_core::types::{CurveId, InstrumentId};
         use time::Month;
 
         let base = Date::from_calendar_date(2025, Month::January, 2).expect("date");
@@ -299,12 +314,17 @@ mod tests {
 
         let spot = 1.10_f64; // USD per EUR
         let n_c = 10_000_000.0;
-        let t = 2.5;
-        let p_c = disc_c.df(t);
-        let p_r = disc_r.df(t);
+        // Use a date 2.5 years from base (approximately, using Act/365F).
+        // 2.5 * 365.25 ≈ 913 days — round to 912 for even arithmetic.
+        let date = Date::from_calendar_date(2027, Month::July, 2).expect("date");
+        let swap_id = InstrumentId::new("TEST-XCCY-SWAP");
+
+        // Reference values computed via df_on_date_curve (each curve uses its own axis).
+        let p_c = disc_c.df_on_date_curve(date).expect("p_c");
+        let p_r = disc_r.df_on_date_curve(date).expect("p_r");
         let expected = n_c / (spot * p_c / p_r);
 
-        let actual = compute_resetting_notional(n_c, spot, t, &disc_c, &disc_r)
+        let actual = compute_resetting_notional(n_c, spot, date, &disc_c, &disc_r, &swap_id)
             .expect("formula ok");
         assert!(
             (actual - expected).abs() < 1e-6,
