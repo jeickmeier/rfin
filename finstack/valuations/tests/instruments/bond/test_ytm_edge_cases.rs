@@ -42,7 +42,6 @@ fn create_test_market(base_date: Date) -> MarketContext {
 ///       = 0.05 + 0.10 = 15%
 ///
 /// Actual YTM will be slightly different due to time value of money effects.
-#[ignore = "slow"]
 #[test]
 fn test_deep_discount_bond_ytm() {
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -84,7 +83,6 @@ fn test_deep_discount_bond_ytm() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_zero_coupon_bond_ytm() {
     // Zero-coupon bond: No coupons, only principal repayment
@@ -144,7 +142,6 @@ fn test_zero_coupon_bond_ytm() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_odd_first_coupon_ytm() {
     // Bond with odd first coupon (short stub)
@@ -209,7 +206,6 @@ fn test_odd_first_coupon_ytm() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_eom_february_maturity_ytm() {
     // EOM bond with February maturity (leap year handling)
@@ -267,7 +263,6 @@ fn test_eom_february_maturity_ytm() {
     assert!(ytm > 0.02, "YTM should be reasonable: got {:.4}", ytm);
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_long_first_coupon_ytm() {
     use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
@@ -328,7 +323,6 @@ fn test_long_first_coupon_ytm() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_premium_bond_ytm_solver_convergence() {
     // Test YTM solver with premium bond (price > par)
@@ -377,7 +371,6 @@ fn test_premium_bond_ytm_solver_convergence() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_ytm_price_roundtrip() {
     // Test that price → YTM → price roundtrips correctly
@@ -442,7 +435,6 @@ fn test_ytm_price_roundtrip() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_very_long_maturity_bond() {
     // 30-year bond
@@ -491,7 +483,6 @@ fn test_very_long_maturity_bond() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_near_maturity_bond_ytm() {
     // Bond very close to maturity (1 month)
@@ -540,7 +531,6 @@ fn test_near_maturity_bond_ytm() {
 ///
 /// Setup: 2-year bond with 0.5% coupon trading at 103 (extreme premium)
 /// Expected: YTM < 0 (negative yield)
-#[ignore = "slow"]
 #[test]
 fn test_negative_ytm_extreme_premium() {
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();

@@ -153,42 +153,36 @@ impl ParityTestCase {
     }
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_1y_into_5y_atm_payer() {
     let tc = ParityTestCase::new_1y_into_5y_atm();
     run_pricing_parity_test(&tc);
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_1y_into_5y_itm_payer() {
     let tc = ParityTestCase::new_1y_into_5y_itm_payer();
     run_pricing_parity_test(&tc);
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_1y_into_5y_otm_payer() {
     let tc = ParityTestCase::new_1y_into_5y_otm_payer();
     run_pricing_parity_test(&tc);
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_1y_into_5y_atm_receiver() {
     let tc = ParityTestCase::new_1y_into_5y_atm_receiver();
     run_pricing_parity_test(&tc);
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_3m_into_10y_atm() {
     let tc = ParityTestCase::new_3m_into_10y_atm();
     run_pricing_parity_test(&tc);
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_2y_into_2y_atm() {
     let tc = ParityTestCase::new_2y_into_2y_atm();
@@ -280,7 +274,6 @@ fn black76_pv(
 // Volatility Impact Tests
 // =============================================================================
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_vol_impact() {
     // Test that PV increases monotonically with volatility (vega > 0)
@@ -307,7 +300,6 @@ fn test_quantlib_parity_vol_impact() {
     }
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_vol_smile() {
     // Test that swaption pricing handles volatility smile correctly
@@ -350,7 +342,6 @@ fn test_quantlib_parity_vol_smile() {
 // Greeks / Sensitivities Tests
 // =============================================================================
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_vega() {
     // Test vega calculation matches QuantLib
@@ -394,7 +385,6 @@ fn test_quantlib_parity_vega() {
     assert_approx_eq(vega, vega_fd, 0.001, "Vega finite difference validation");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_delta() {
     // Test delta calculation
@@ -426,7 +416,6 @@ fn test_quantlib_parity_delta() {
     assert_reasonable(delta, 500_000.0, 3_000_000.0, "Delta magnitude");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_gamma() {
     // Test gamma calculation
@@ -475,7 +464,6 @@ fn test_quantlib_parity_gamma() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_rho() {
     // Test rho (interest rate sensitivity)
@@ -505,7 +493,6 @@ fn test_quantlib_parity_rho() {
     assert_reasonable(rho.abs(), 50.0, 200_000.0, "Rho magnitude");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_theta() {
     // Test theta (time decay)
@@ -551,7 +538,6 @@ fn test_quantlib_parity_theta() {
 // Implied Volatility Tests
 // =============================================================================
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_implied_vol_recovery() {
     // Test that implied vol recovers input vol
@@ -584,7 +570,6 @@ fn test_quantlib_parity_implied_vol_recovery() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_implied_vol_stability() {
     // Test implied vol across different strikes (flat surface)
@@ -624,7 +609,6 @@ fn test_quantlib_parity_implied_vol_stability() {
 // Settlement Type Tests
 // =============================================================================
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_physical_vs_cash_settlement() {
     // Note: For European swaptions, physical and cash settlement
@@ -660,7 +644,6 @@ fn test_quantlib_parity_physical_vs_cash_settlement() {
 // Extreme Cases / Edge Conditions
 // =============================================================================
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_deep_itm() {
     let as_of = date!(2024 - 01 - 01);
@@ -700,7 +683,6 @@ fn test_quantlib_parity_deep_itm() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_deep_otm() {
     let as_of = date!(2024 - 01 - 01);
@@ -724,7 +706,6 @@ fn test_quantlib_parity_deep_otm() {
     assert!(pv.is_finite(), "Deep OTM pricing should be stable");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_very_low_vol() {
     let as_of = date!(2024 - 01 - 01);
@@ -756,7 +737,6 @@ fn test_quantlib_parity_very_low_vol() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_very_high_vol() {
     let as_of = date!(2024 - 01 - 01);
@@ -784,7 +764,6 @@ fn test_quantlib_parity_very_high_vol() {
 // Put-Call Parity Tests
 // =============================================================================
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_put_call_relationship() {
     // For swaptions: Payer - Receiver = PV(Forward Swap)
@@ -828,7 +807,6 @@ fn test_quantlib_parity_put_call_relationship() {
 // Multiple Expiry/Tenor Combinations
 // =============================================================================
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_expiry_tenor_grid() {
     // Test various expiry/tenor combinations commonly used in practice
@@ -871,7 +849,6 @@ fn test_quantlib_parity_expiry_tenor_grid() {
 // Summary Test: Full Greeks Suite
 // =============================================================================
 
-#[ignore = "slow"]
 #[test]
 fn test_quantlib_parity_full_greeks_suite() {
     // Comprehensive test computing all Greeks for standard swaption

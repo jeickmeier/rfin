@@ -102,7 +102,6 @@ fn test_bond_valuator_creation() {
     assert!(market_context.get_discount("USD-OIS").is_ok());
 }
 #[test]
-#[ignore = "slow"]
 fn test_oas_calculator_plain_bond() {
     let bond = create_test_bond();
     let market_context = create_test_market_context();
@@ -115,7 +114,6 @@ fn test_oas_calculator_plain_bond() {
     assert!(oas_bp < 5000.0);
 }
 #[test]
-#[ignore = "slow"]
 fn test_oas_calculator_callable_bond() {
     let bond = create_callable_bond();
     let market_context = create_test_market_context();
@@ -227,7 +225,6 @@ fn test_bond_valuator_street_call_redemption_includes_accrued_interest() {
 }
 
 #[test]
-#[ignore = "slow"]
 fn test_rates_credit_default_lowers_price() {
     use crate::instruments::common_impl::models::trees::two_factor_rates_credit::{
         RatesCreditConfig, RatesCreditTree,

@@ -627,7 +627,6 @@ mod tests {
     use time::Month;
 
     #[test]
-    #[ignore = "slow"]
     fn fra_par_pv_near_zero_with_settlement_adjustment() {
         // Build simple flat curves: 5% forward, discount with reasonable decay
         let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
@@ -681,7 +680,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "slow"]
     fn fra_par_rate_metric() {
         // Build simple flat curves
         let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");

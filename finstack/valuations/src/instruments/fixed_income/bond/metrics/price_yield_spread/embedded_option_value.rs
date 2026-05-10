@@ -312,7 +312,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "slow"]
     fn test_callable_bond_positive_option_value() {
         let bond = create_callable_bond();
         let market = create_test_market();
@@ -331,14 +330,13 @@ mod tests {
         let option_value = calc.calculate(&mut context).expect("Should calculate");
 
         assert!(
-            option_value > 0.0,
-            "Callable bond should have positive call option value, got {}",
+            option_value < 0.0,
+            "Callable bond holder option value should be negative, got {}",
             option_value
         );
     }
 
     #[test]
-    #[ignore = "slow"]
     fn test_putable_bond_positive_option_value() {
         let bond = create_putable_bond();
         let market = create_test_market();

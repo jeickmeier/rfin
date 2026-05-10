@@ -1532,11 +1532,17 @@ fn full_sample_repaired_preserves_determinism() {
 // PR-5b Test 5: Golden artifact regression test
 // ---------------------------------------------------------------------------
 
+const REGEN_CREDIT_FACTOR_MODEL_GOLDEN_ENV: &str = "FINSTACK_REGEN_CREDIT_FACTOR_MODEL_GOLDEN";
+
 /// Generate (or regenerate) the golden artifact file.
-/// Run manually with: `cargo test -p finstack-valuations --test credit_calibration generate_golden_artifact -- --ignored --nocapture`
+/// Run manually with:
+/// `FINSTACK_REGEN_CREDIT_FACTOR_MODEL_GOLDEN=1 cargo test -p finstack-valuations --test credit_calibration generate_golden_artifact -- --nocapture`
 #[test]
-#[ignore]
 fn generate_golden_artifact() {
+    if std::env::var_os(REGEN_CREDIT_FACTOR_MODEL_GOLDEN_ENV).is_none() {
+        return;
+    }
+
     let golden_path = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/schema_fixtures/credit_factor_model_v1.json"
@@ -1605,13 +1611,13 @@ fn golden_credit_factor_model_matches_checked_in_json() {
 
     // Read the checked-in golden file. If it doesn't exist yet, the test fails
     // with a clear message telling the developer how to bootstrap it by running
-    // the dedicated #[ignore]d generator test.
+    // the env-gated generator test.
     let golden = std::fs::read_to_string(golden_path).unwrap_or_else(|e| {
         panic!(
             "Golden file not found at {golden_path}: {e}\n\
              Bootstrap it by running:\n  \
-             cargo test -p finstack-valuations --test credit_calibration \
-             generate_golden_artifact -- --ignored --nocapture"
+             {REGEN_CREDIT_FACTOR_MODEL_GOLDEN_ENV}=1 cargo test -p finstack-valuations \
+             --test credit_calibration generate_golden_artifact -- --nocapture"
         )
     });
 

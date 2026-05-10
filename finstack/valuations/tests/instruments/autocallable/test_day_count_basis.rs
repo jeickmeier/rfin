@@ -41,7 +41,6 @@ use time::macros::date;
 /// - PV within tolerance (reasonable range for autocallable)
 /// - CI width < 1e-4 relative error
 /// - Runtime ≤ 50ms for 50k paths (adjusted for test hardware)
-#[ignore = "slow"]
 #[test]
 fn test_autocallable_mismatched_day_count_bases() {
     let as_of = date!(2024 - 01 - 01);
@@ -114,7 +113,6 @@ fn test_autocallable_mismatched_day_count_bases() {
 ///
 /// The autocallable MC pricer should produce the same PV when given the same
 /// seed scenario, enabling reproducible scenario analysis.
-#[ignore = "slow"]
 #[test]
 fn test_autocallable_deterministic_seeding() {
     let as_of = date!(2024 - 01 - 01);
@@ -167,7 +165,6 @@ fn test_autocallable_deterministic_seeding() {
 ///
 /// When both vol surface assumption and discount curve use the same day count basis,
 /// the pricing should be stable and the time calculations should be internally consistent.
-#[ignore = "slow"]
 #[test]
 fn test_autocallable_same_day_count_basis() {
     let as_of = date!(2024 - 01 - 01);
@@ -235,7 +232,6 @@ fn test_autocallable_same_day_count_basis() {
 ///
 /// This is the core test for the bug fix: before the fix, observation_times used
 /// disc_dc but df_ratios used inst.day_count, causing inconsistent timing.
-#[ignore = "slow"]
 #[test]
 fn test_observation_times_consistent_with_df_ratios() {
     let as_of = date!(2024 - 01 - 01);

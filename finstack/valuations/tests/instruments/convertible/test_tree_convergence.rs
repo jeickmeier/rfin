@@ -106,7 +106,6 @@ fn create_test_market(base_date: Date) -> MarketContext {
         .insert_price("EQUITY-DIVYIELD", MarketScalar::Unitless(0.02)) // 2% div yield
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_tree_convergence_binomial() {
     let bond = create_test_convertible();
@@ -163,7 +162,6 @@ fn test_tree_convergence_binomial() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_tree_convergence_trinomial() {
     let bond = create_test_convertible();
@@ -220,7 +218,6 @@ fn test_tree_convergence_trinomial() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_binomial_trinomial_consistency() {
     let bond = create_test_convertible();
@@ -249,7 +246,6 @@ fn test_binomial_trinomial_consistency() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_convergence_rate_order_one() {
     // Richardson extrapolation test: For binomial trees, convergence is O(1/N).
@@ -292,7 +288,6 @@ fn test_convergence_rate_order_one() {
     }
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_price_bounds_validity() {
     // Verify price respects economic bounds

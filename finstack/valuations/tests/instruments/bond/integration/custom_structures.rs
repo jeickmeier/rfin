@@ -22,7 +22,6 @@ fn create_curve() -> MarketContext {
     MarketContext::new().insert(curve)
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_pik_bond() {
     let issue = date!(2025 - 01 - 01);
@@ -51,7 +50,6 @@ fn test_pik_bond() {
     assert!(pv.amount() > 0.0);
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_step_up_bond() {
     let issue = date!(2025 - 01 - 01);

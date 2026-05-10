@@ -7,7 +7,6 @@ use time::macros::date;
 
 // ==================== EXPIRY TESTS ====================
 
-#[ignore = "slow"]
 #[test]
 fn test_expired_itm_call_equals_intrinsic() {
     let as_of = date!(2024 - 01 - 01);
@@ -29,7 +28,6 @@ fn test_expired_itm_call_equals_intrinsic() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_expired_otm_call_is_worthless() {
     let as_of = date!(2024 - 01 - 01);
@@ -45,7 +43,6 @@ fn test_expired_otm_call_is_worthless() {
     assert_approx_eq_tol(pv.amount(), 0.0, TIGHT_TOL, "Expired OTM call");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_expired_itm_put_equals_intrinsic() {
     let as_of = date!(2024 - 01 - 01);
@@ -67,7 +64,6 @@ fn test_expired_itm_put_equals_intrinsic() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_expired_otm_put_is_worthless() {
     let as_of = date!(2024 - 01 - 01);
@@ -83,7 +79,6 @@ fn test_expired_otm_put_is_worthless() {
     assert_approx_eq_tol(pv.amount(), 0.0, TIGHT_TOL, "Expired OTM put");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_expired_option_greeks_are_static() {
     let as_of = date!(2024 - 01 - 01);
@@ -128,7 +123,6 @@ fn test_expired_option_greeks_are_static() {
 
 // ==================== EXTREME STRIKES ====================
 
-#[ignore = "slow"]
 #[test]
 fn test_very_deep_itm_call() {
     let as_of = date!(2024 - 01 - 01);
@@ -149,7 +143,6 @@ fn test_very_deep_itm_call() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_very_deep_otm_call() {
     let as_of = date!(2024 - 01 - 01);
@@ -173,7 +166,6 @@ fn test_very_deep_otm_call() {
 
 // ==================== EXTREME VOLATILITY ====================
 
-#[ignore = "slow"]
 #[test]
 fn test_very_high_volatility() {
     let as_of = date!(2024 - 01 - 01);
@@ -197,7 +189,6 @@ fn test_very_high_volatility() {
 
 // ==================== EXTREME RATES ====================
 
-#[ignore = "slow"]
 #[test]
 fn test_negative_interest_rate() {
     let as_of = date!(2024 - 01 - 01);
@@ -214,7 +205,6 @@ fn test_negative_interest_rate() {
     assert_positive(pv.amount(), "Negative rate call PV");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_very_high_interest_rate() {
     let as_of = date!(2024 - 01 - 01);
@@ -233,7 +223,6 @@ fn test_very_high_interest_rate() {
 
 // ==================== VERY SHORT/LONG MATURITY ====================
 
-#[ignore = "slow"]
 #[test]
 fn test_very_short_maturity() {
     let as_of = date!(2024 - 01 - 01);
@@ -254,7 +243,6 @@ fn test_very_short_maturity() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_very_long_maturity() {
     let as_of = date!(2024 - 01 - 01);
@@ -284,7 +272,6 @@ fn test_very_long_maturity() {
 
 // ==================== SPOT EDGE CASES ====================
 
-#[ignore = "slow"]
 #[test]
 fn test_very_low_spot_price() {
     let as_of = date!(2024 - 01 - 01);
@@ -301,7 +288,6 @@ fn test_very_low_spot_price() {
     assert_non_negative(pv.amount(), "Low spot call PV");
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_very_high_spot_price() {
     let as_of = date!(2024 - 01 - 01);
@@ -324,7 +310,6 @@ fn test_very_high_spot_price() {
 
 // ==================== HIGH DIVIDEND YIELD ====================
 
-#[ignore = "slow"]
 #[test]
 fn test_high_dividend_yield() {
     let as_of = date!(2024 - 01 - 01);

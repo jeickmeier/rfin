@@ -101,7 +101,6 @@ fn create_floor(as_of: Date, end: Date, strike: f64) -> CapFloor {
     }
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_cap_floor_parity_atm() {
     // Cap - Floor ≈ 0 when strike = forward (ATM)
@@ -137,7 +136,6 @@ fn test_cap_floor_parity_atm() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_cap_floor_parity_itm_cap() {
     // Cap - Floor > 0 when strike < forward (ITM cap)
@@ -169,7 +167,6 @@ fn test_cap_floor_parity_itm_cap() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_cap_floor_parity_otm_cap() {
     // Cap - Floor < 0 when strike > forward (OTM cap, ITM floor)
@@ -201,7 +198,6 @@ fn test_cap_floor_parity_otm_cap() {
     );
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_parity_with_different_vols() {
     // Parity should hold regardless of vol level
@@ -239,7 +235,6 @@ fn test_parity_with_different_vols() {
     }
 }
 
-#[ignore = "slow"]
 #[test]
 fn test_caplet_floorlet_parity() {
     let as_of = date!(2024 - 01 - 01);

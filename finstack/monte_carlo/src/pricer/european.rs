@@ -245,7 +245,6 @@ mod tests {
         assert_eq!(result.num_paths, 1000);
     }
 
-    #[ignore = "slow"]
     #[test]
     fn test_european_pricer_atm_call() {
         let pricer = EuropeanPricer::new(10000)
@@ -263,7 +262,6 @@ mod tests {
         assert!(result.mean.amount() > 5.0);
     }
 
-    #[ignore = "slow"]
     #[test]
     fn test_european_pricer_deep_itm() {
         let pricer = EuropeanPricer::new(10000)
