@@ -3,12 +3,13 @@
 use crate::calibration::api::schema::ForwardCurveParams;
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::config::CalibrationMethod;
-use crate::calibration::prepared::CalibrationQuote;
 use crate::calibration::solver::bootstrap::SequentialBootstrapper;
 use crate::calibration::solver::traits::BootstrapTarget;
-use crate::calibration::targets::util::curve_day_count_from_quotes;
+use crate::calibration::targets::util::{
+    discount_and_forward_curve_ids, prepare_rate_calibration_quotes, ContextScratch,
+};
 use crate::calibration::CalibrationReport;
-use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
+use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
@@ -16,7 +17,6 @@ use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
-use std::cell::RefCell;
 
 /// Parameters for constructing a `ForwardCurveTarget`.
 #[derive(Clone)]
@@ -63,20 +63,14 @@ pub(crate) struct ForwardCurveTarget {
     pub(crate) config: CalibrationConfig,
     /// Day count convention for time calculations.
     pub(crate) time_day_count: DayCount,
-    /// Baseline market context.
-    pub(crate) base_context: MarketContext,
-    /// Optional reusable context for sequential solvers to reduce memory pressure.
-    reuse_context: Option<RefCell<MarketContext>>,
+    /// Reusable scratch context (see [`ContextScratch`]).
+    scratch: ContextScratch,
 }
 
 impl ForwardCurveTarget {
     /// Create a new `ForwardCurveTarget` from parameters.
     pub(crate) fn new(params: ForwardCurveTargetParams) -> Self {
-        let reuse_context = if params.config.use_parallel {
-            None
-        } else {
-            Some(RefCell::new(params.base_context.clone()))
-        };
+        let scratch = ContextScratch::from_config(params.base_context, &params.config);
         Self {
             base_date: params.base_date,
             currency: params.currency,
@@ -86,23 +80,7 @@ impl ForwardCurveTarget {
             solve_interp: params.solve_interp,
             config: params.config,
             time_day_count: params.time_day_count,
-            base_context: params.base_context,
-            reuse_context,
-        }
-    }
-
-    fn with_temp_context<F, T>(&self, curve: &ForwardCurve, op: F) -> Result<T>
-    where
-        F: FnOnce(&MarketContext) -> Result<T>,
-    {
-        if let Some(ctx_cell) = &self.reuse_context {
-            let mut ctx = ctx_cell.borrow_mut();
-            *ctx = std::mem::take(&mut *ctx).insert(curve.clone());
-            op(&ctx)
-        } else {
-            let mut temp_context = self.base_context.clone();
-            temp_context = temp_context.insert(curve.clone());
-            op(&temp_context)
+            scratch,
         }
     }
 
@@ -113,35 +91,21 @@ impl ForwardCurveTarget {
         context: &MarketContext,
         global_config: &CalibrationConfig,
     ) -> Result<(MarketContext, CalibrationReport)> {
-        let rates_quotes: Vec<crate::market::quotes::rates::RateQuote> = quotes.extract_quotes();
-
-        if rates_quotes.is_empty() {
-            return Err(finstack_core::Error::Input(
-                finstack_core::InputError::TooFewPoints,
-            ));
-        }
-
-        let curve_dc = curve_day_count_from_quotes(&rates_quotes)?;
-
-        let mut curve_ids = finstack_core::HashMap::default();
-        curve_ids.insert("discount".to_string(), params.discount_curve_id.to_string());
-        curve_ids.insert("forward".to_string(), params.curve_id.to_string());
-
-        let build_ctx =
-            crate::market::build::context::BuildCtx::new(params.base_date, 1.0, curve_ids);
-
-        let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(rates_quotes.len());
-
-        for q in rates_quotes {
-            let prepared = crate::market::build::prepared::prepare_rate_quote(
-                q,
-                &build_ctx,
-                curve_dc,
-                params.base_date,
-                true,
-            )?;
-            prepared_quotes.push(CalibrationQuote::Rates(prepared));
-        }
+        // Forward-curve preflight: prepare quotes; both the discount curve (already in
+        // `context`) and the forward curve being built are registered so projected legs
+        // price against the right curves.
+        let prepared = prepare_rate_calibration_quotes(
+            quotes,
+            params.base_date,
+            discount_and_forward_curve_ids(
+                params.discount_curve_id.as_ref(),
+                params.curve_id.as_ref(),
+            ),
+            None,
+            1.0,
+        )?;
+        let prepared_quotes = prepared.quotes;
+        let curve_dc = prepared.curve_day_count;
 
         let mut config = global_config.clone();
         config.calibration_method = params.method.clone();
@@ -171,9 +135,11 @@ impl ForwardCurveTarget {
                 None,
             )?,
             CalibrationMethod::GlobalSolve { .. } => {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::InputError::Invalid,
-                ));
+                return Err(finstack_core::Error::Validation(format!(
+                    "Forward curve {} only supports CalibrationMethod::Bootstrap; \
+                     GlobalSolve is not implemented for this target.",
+                    params.curve_id
+                )));
             }
         };
 
@@ -191,9 +157,10 @@ impl BootstrapTarget for ForwardCurveTarget {
     fn quote_time(&self, quote: &Self::Quote) -> Result<f64> {
         match quote {
             crate::calibration::prepared::CalibrationQuote::Rates(pq) => Ok(pq.pillar_time),
-            _ => Err(finstack_core::Error::Input(
-                finstack_core::InputError::Invalid,
-            )),
+            other => Err(finstack_core::Error::Validation(format!(
+                "Forward curve calibration accepts Rates quotes only; got {:?}",
+                std::mem::discriminant(other)
+            ))),
         }
     }
 
@@ -233,25 +200,26 @@ impl BootstrapTarget for ForwardCurveTarget {
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
         let pq = match quote {
             crate::calibration::prepared::CalibrationQuote::Rates(pq) => pq,
-            _ => {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::InputError::Invalid,
-                ))
+            other => {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Forward curve calibration accepts Rates quotes only; got {:?}",
+                    std::mem::discriminant(other)
+                )));
             }
         };
-        self.with_temp_context(curve, |ctx| {
-            let pv = pq.instrument.value_raw(ctx, self.base_date)?;
-            Ok(pv / 1.0)
+        self.scratch.with_curve(curve, |ctx| {
+            pq.instrument.value_raw(ctx, self.base_date)
         })
     }
 
     fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
         let pq = match quote {
             crate::calibration::prepared::CalibrationQuote::Rates(pq) => pq,
-            _ => {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::InputError::Invalid,
-                ))
+            other => {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Forward curve calibration accepts Rates quotes only; got {:?}",
+                    std::mem::discriminant(other)
+                )));
             }
         };
         let q = pq.quote.as_ref();
@@ -280,16 +248,19 @@ impl BootstrapTarget for ForwardCurveTarget {
             }
             RateQuote::Swap { rate, .. } => Ok(*rate),
             _ => {
+                let pillar_t = pq.pillar_time;
                 let g = previous_knots.last().map(|(_, fwd)| *fwd).or_else(|| {
-                    // Fallback to discount curve zero rate if available
-                    let t = self.tenor_years.max(1.0 / 12.0);
-                    self.base_context
+                    // Fallback to the discount curve's zero rate at this quote's pillar time.
+                    self.scratch.base()
                         .get_discount(self.discount_curve_id.as_ref())
                         .ok()
-                        .map(|disc_curve| disc_curve.zero(t))
+                        .map(|disc_curve| disc_curve.zero(pillar_t.max(1.0 / 12.0)))
                 });
                 g.ok_or_else(|| finstack_core::Error::Calibration {
-                    message: "Unable to derive initial forward rate guess".into(),
+                    message: format!(
+                        "Unable to derive initial forward rate guess for {} at t={pillar_t:.6}",
+                        self.fwd_curve_id
+                    ),
                     category: "bootstrapping".to_string(),
                 })
             }
@@ -427,12 +398,7 @@ mod tests {
                     .with_tolerance(tolerance),
                 ..CalibrationConfig::default()
             };
-            let reuse_context = if config.use_parallel {
-                None
-            } else {
-                Some(RefCell::new(base_context.clone()))
-            };
-            ForwardCurveTarget {
+            ForwardCurveTarget::new(ForwardCurveTargetParams {
                 base_date,
                 currency,
                 fwd_curve_id: fwd_curve_id.clone(),
@@ -442,8 +408,7 @@ mod tests {
                 config,
                 time_day_count: DayCount::Act365F,
                 base_context,
-                reuse_context,
-            }
+            })
         };
 
         // Choose a small but realistic first time > 0; old code would conditionally add the
@@ -464,7 +429,7 @@ mod tests {
     #[test]
     fn futures_initial_guess_subtracts_convexity_adjustment() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
-        let target = ForwardCurveTarget {
+        let target = ForwardCurveTarget::new(ForwardCurveTargetParams {
             base_date,
             currency: Currency::USD,
             fwd_curve_id: CurveId::new("fwd"),
@@ -474,8 +439,7 @@ mod tests {
             config: CalibrationConfig::default(),
             time_day_count: DayCount::Act365F,
             base_context: MarketContext::new(),
-            reuse_context: Some(RefCell::new(MarketContext::new())),
-        };
+        });
 
         let quote = CalibrationQuote::Rates(PreparedQuote::new(
             Arc::new(RateQuote::Futures {
@@ -498,7 +462,7 @@ mod tests {
     #[test]
     fn futures_initial_guess_rejects_unwired_dynamic_convexity_shape() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
-        let target = ForwardCurveTarget {
+        let target = ForwardCurveTarget::new(ForwardCurveTargetParams {
             base_date,
             currency: Currency::USD,
             fwd_curve_id: CurveId::new("fwd"),
@@ -508,8 +472,7 @@ mod tests {
             config: CalibrationConfig::default(),
             time_day_count: DayCount::Act365F,
             base_context: MarketContext::new(),
-            reuse_context: Some(RefCell::new(MarketContext::new())),
-        };
+        });
 
         let quote = CalibrationQuote::Rates(PreparedQuote::new(
             Arc::new(RateQuote::Futures {

@@ -30,8 +30,8 @@
 //! path sets or complement this estimator with a dual upper bound.
 
 use crate::calibration::hull_white::HullWhiteParams;
-use crate::instruments::rates::shared::exercise::ExerciseBoundaryPayoff;
-use crate::instruments::rates::shared::mc_config::RateExoticMcConfig;
+use crate::instruments::rates::exotics_shared::exercise::ExerciseBoundaryPayoff;
+use crate::instruments::rates::exotics_shared::mc_config::RateExoticMcConfig;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 use finstack_monte_carlo::discretization::exact_hw1f::ExactHullWhite1F;
@@ -349,7 +349,7 @@ fn build_grid_with_exercise_map(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::rates::shared::standard_basis;
+    use crate::instruments::rates::exotics_shared::standard_basis;
     use finstack_core::money::Money;
     use finstack_monte_carlo::traits::Payoff;
 

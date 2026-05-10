@@ -5,7 +5,7 @@ use finstack_core::money::Money;
 use finstack_monte_carlo::traits::Payoff;
 
 /// Additional contract a `Payoff` must implement to be priced via LSMC
-/// in [`crate::instruments::rates::shared::hw1f_lsmc::RateExoticHw1fLsmcPricer`].
+/// in [`crate::instruments::rates::exotics_shared::hw1f_lsmc::RateExoticHw1fLsmcPricer`].
 ///
 /// The harness handles path simulation, discounting, and backward regression;
 /// each product implements the three product-specific hooks below.

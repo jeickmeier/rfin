@@ -418,8 +418,8 @@ impl CmsSwap {
             let swap_tenor_months = (self.cms_tenor * 12.0).round() as i32;
             let swap_end = swap_start.add_months(swap_tenor_months);
             let (forward_swap_rate, _) =
-                crate::instruments::rates::shared::forward_swap_rate::calculate_forward_swap_rate(
-                    crate::instruments::rates::shared::forward_swap_rate::ForwardSwapRateInputs {
+                crate::instruments::rates::exotics_shared::forward_swap_rate::calculate_forward_swap_rate(
+                    crate::instruments::rates::exotics_shared::forward_swap_rate::ForwardSwapRateInputs {
                         market,
                         discount_curve_id: &self.discount_curve_id,
                         forward_curve_id: &self.forward_curve_id,

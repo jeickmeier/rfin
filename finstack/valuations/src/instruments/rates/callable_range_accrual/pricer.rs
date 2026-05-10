@@ -5,7 +5,7 @@ use crate::instruments::common_impl::pricing::time::relative_df_discount_curve;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::callable_range_accrual::CallableRangeAccrual;
 use crate::instruments::rates::range_accrual::BoundsType;
-use crate::instruments::rates::shared::{
+use crate::instruments::rates::exotics_shared::{
     standard_basis, ExerciseBoundaryPayoff, RateExoticHw1fLsmcPricer, RateExoticHw1fMcPricer,
     RateExoticMcConfig,
 };
@@ -492,7 +492,7 @@ fn zero_estimate(currency: finstack_core::currency::Currency) -> MoneyEstimate {
 mod tests {
     use super::*;
     use crate::instruments::rates::range_accrual::RangeAccrual;
-    use crate::instruments::rates::shared::bermudan_call::BermudanCallProvision;
+    use crate::instruments::rates::exotics_shared::bermudan_call::BermudanCallProvision;
     use crate::instruments::PricingOverrides;
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;

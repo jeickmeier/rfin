@@ -96,8 +96,8 @@ impl CmsSwapPricer {
             let swap_end = swap_start.add_months(swap_tenor_months);
 
             let (forward_swap_rate, _annuity) =
-                crate::instruments::rates::shared::forward_swap_rate::calculate_forward_swap_rate(
-                    crate::instruments::rates::shared::forward_swap_rate::ForwardSwapRateInputs {
+                crate::instruments::rates::exotics_shared::forward_swap_rate::calculate_forward_swap_rate(
+                    crate::instruments::rates::exotics_shared::forward_swap_rate::ForwardSwapRateInputs {
                         market,
                         discount_curve_id: &inst.discount_curve_id,
                         forward_curve_id: &inst.forward_curve_id,

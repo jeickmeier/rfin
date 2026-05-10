@@ -188,20 +188,6 @@ impl Default for HazardCurveSolveConfig {
     }
 }
 
-impl HazardCurveSolveConfig {
-    /// Create a configuration suitable for distressed debt scenarios.
-    ///
-    /// Increases the hazard rate cap to 100.0, allowing calibration of
-    /// credit curves for entities with very high default probabilities
-    /// (e.g., distressed sovereigns, near-default corporates).
-    pub fn distressed() -> Self {
-        Self {
-            hazard_hard_max: 100.0,
-            validation_tolerance: 1e-6, // Slightly relaxed for distressed
-            ..Self::default()
-        }
-    }
-}
 
 /// Inflation-curve specific numerical solver configuration.
 ///
@@ -259,20 +245,6 @@ impl Default for InflationCurveSolveConfig {
     }
 }
 
-impl InflationCurveSolveConfig {
-    /// Configuration suitable for hyperinflation currencies (TRY, ARS, VES, etc.).
-    ///
-    /// Widens CPI bounds to accommodate very high index levels and relaxes
-    /// the validation tolerance for noisier inflation markets.
-    pub fn hyperinflation() -> Self {
-        Self {
-            validation_tolerance: 1e-6,
-            cpi_hard_min: 0.01,
-            cpi_hard_max: 1e9,
-            ..Self::default()
-        }
-    }
-}
 
 /// Discount-curve specific numerical solver configuration.
 ///
@@ -415,9 +387,6 @@ impl Default for DiscountCurveSolveConfig {
 ///
 /// // Create a default config
 /// let config = CalibrationConfig::default();
-///
-/// // Create a conservative config for high-precision risk systems
-/// let conservative = CalibrationConfig::conservative();
 ///
 /// // Customize tolerance settings
 /// let custom = CalibrationConfig::default()
@@ -585,20 +554,6 @@ impl CalibrationConfig {
         }
     }
 
-    /// Enable explanation tracing with default settings.
-    #[must_use]
-    pub fn with_explain(mut self) -> Self {
-        self.explain = ExplainOpts::enabled();
-        self
-    }
-
-    /// Set custom explanation options.
-    #[must_use]
-    pub fn with_explain_opts(mut self, opts: ExplainOpts) -> Self {
-        self.explain = opts;
-        self
-    }
-
     /// Set custom rate bounds for calibration.
     ///
     /// # Example
@@ -623,29 +578,6 @@ impl CalibrationConfig {
         self
     }
 
-    /// Set rate bounds appropriate for the given currency.
-    ///
-    /// Automatically selects bounds based on market conventions:
-    /// - EUR/JPY/CHF: Extended negative rate support
-    /// - TRY/ARS/BRL: Emerging market bounds (up to 200%)
-    /// - USD/GBP/etc: Standard developed market bounds
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use finstack_valuations::calibration::CalibrationConfig;
-    /// use finstack_core::currency::Currency;
-    ///
-    /// let config = CalibrationConfig::default()
-    ///     .with_rate_bounds_for_currency(Currency::TRY);
-    /// ```
-    #[must_use]
-    pub fn with_rate_bounds_for_currency(mut self, currency: Currency) -> Self {
-        self.rate_bounds_policy = RateBoundsPolicy::Explicit;
-        self.rate_bounds = RateBounds::for_currency(currency);
-        self
-    }
-
     /// Set the solver tolerance.
     #[must_use]
     pub fn with_tolerance(mut self, tolerance: f64) -> Self {
@@ -660,13 +592,6 @@ impl CalibrationConfig {
         self
     }
 
-    /// Enable or disable verbose logging.
-    #[must_use]
-    pub fn with_verbose(mut self, verbose: bool) -> Self {
-        self.verbose = verbose;
-        self
-    }
-
     /// Enable or disable detailed calibration diagnostics.
     ///
     /// When enabled, the solver will compute condition number, per-quote
@@ -675,105 +600,6 @@ impl CalibrationConfig {
     pub fn with_compute_diagnostics(mut self, enabled: bool) -> Self {
         self.compute_diagnostics = enabled;
         self
-    }
-
-    /// Create a conservative calibration configuration.
-    ///
-    /// Conservative settings prioritize stability and robustness over speed:
-    /// - Higher tolerance for better accuracy (1e-12)
-    /// - Moderate iteration limit (100)
-    /// - Wide rate bounds to handle edge cases
-    /// - Regularization enabled to prevent overfitting
-    ///
-    /// Use this for:
-    /// - Production risk systems requiring high precision
-    /// - Illiquid instruments with sparse quotes
-    /// - When calibration stability is more important than speed
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use finstack_valuations::calibration::CalibrationConfig;
-    ///
-    /// let config = CalibrationConfig::conservative();
-    /// assert_eq!(config.solver.tolerance(), 1e-12);
-    /// ```
-    pub fn conservative() -> Self {
-        Self {
-            solver: SolverConfig::brent_default()
-                .with_tolerance(1e-12)
-                .with_max_iterations(100),
-            rate_bounds_policy: RateBoundsPolicy::Explicit,
-            rate_bounds: RateBounds {
-                min_rate: -0.05,
-                max_rate: 1.00, // Allow up to 100% for conservative edge cases
-            },
-            ..Self::default()
-        }
-    }
-
-    /// Create an aggressive calibration configuration.
-    ///
-    /// Aggressive settings prioritize speed and will tolerate looser fits:
-    /// - Relaxed tolerance for faster convergence (1e-6)
-    /// - Higher iteration limit (1000) for difficult problems
-    /// - Standard rate bounds
-    /// - No regularization for exact fit to quotes
-    ///
-    /// Use this for:
-    /// - Real-time pricing applications
-    /// - Liquid instruments with tight bid/ask spreads
-    /// - When speed is critical and small fitting errors are acceptable
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use finstack_valuations::calibration::CalibrationConfig;
-    ///
-    /// let config = CalibrationConfig::aggressive();
-    /// assert_eq!(config.solver.max_iterations(), 1000);
-    /// ```
-    pub fn aggressive() -> Self {
-        Self {
-            solver: SolverConfig::brent_default()
-                .with_tolerance(1e-6)
-                .with_max_iterations(1000),
-            validation_mode: ValidationMode::Warn,
-            rate_bounds_policy: RateBoundsPolicy::Explicit,
-            ..Self::default()
-        }
-    }
-
-    /// Create a fast calibration configuration for interactive use.
-    ///
-    /// Fast settings sacrifice some accuracy for speed:
-    /// - Very relaxed tolerance (1e-4)
-    /// - Low iteration limit (50)
-    /// - Brent solver (faster for simple curves)
-    /// - No regularization
-    ///
-    /// Use this for:
-    /// - Interactive exploration and what-if scenarios
-    /// - Approximate pricing where precision isn't critical
-    /// - Quick sanity checks during development
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use finstack_valuations::calibration::CalibrationConfig;
-    ///
-    /// let config = CalibrationConfig::fast();
-    /// assert_eq!(config.solver.max_iterations(), 50);
-    /// ```
-    pub fn fast() -> Self {
-        Self {
-            solver: SolverConfig::brent_default()
-                .with_tolerance(1e-4)
-                .with_max_iterations(50),
-            validation_mode: ValidationMode::Warn,
-            rate_bounds_policy: RateBoundsPolicy::Explicit,
-            ..Self::default()
-        }
     }
 
     /// Create a Levenberg-Marquardt solver with current config settings.

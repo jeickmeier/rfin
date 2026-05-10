@@ -6,7 +6,7 @@
 //! `priceInstrument` / `priceInstrumentWithMetrics` pipeline.
 
 use crate::utils::to_js_err;
-use finstack_valuations::instruments::rates::shared::cumulative_coupon::CumulativeCouponTracker;
+use finstack_valuations::instruments::rates::exotics_shared::cumulative_coupon::CumulativeCouponTracker;
 use wasm_bindgen::prelude::*;
 
 /// Simulated TARN coupon profile along a deterministic floating-rate path.

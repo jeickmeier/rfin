@@ -226,7 +226,7 @@ fn rate_quote_pillar_date(
                 Pillar::Date(d) => adjust(*d, conv.market_business_day_convention, cal)?,
             };
             if swap_use_payment_delay {
-                crate::instruments::rates::irs::dates::add_payment_delay(
+                crate::instruments::common_impl::pricing::swap_legs::add_payment_delay(
                     maturity,
                     conv.default_payment_lag_days,
                     Some(&conv.market_calendar_id),

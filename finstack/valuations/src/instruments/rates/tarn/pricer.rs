@@ -5,9 +5,9 @@ use crate::instruments::common_impl::pricing::time::{
     rate_period_on_dates, relative_df_discount_curve,
 };
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::rates::shared::cumulative_coupon::CumulativeCouponTracker;
-use crate::instruments::rates::shared::hw1f_mc::RateExoticHw1fMcPricer;
-use crate::instruments::rates::shared::mc_config::RateExoticMcConfig;
+use crate::instruments::rates::exotics_shared::cumulative_coupon::CumulativeCouponTracker;
+use crate::instruments::rates::exotics_shared::hw1f_mc::RateExoticHw1fMcPricer;
+use crate::instruments::rates::exotics_shared::mc_config::RateExoticMcConfig;
 use crate::instruments::rates::tarn::Tarn;
 use crate::metrics::MetricId;
 use crate::pricer::{

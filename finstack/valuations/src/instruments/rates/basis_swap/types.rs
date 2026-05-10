@@ -23,7 +23,7 @@
 #[allow(unused_imports)] // Used in doc examples and tests
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::{
-    dates::{Date, Schedule},
+    dates::Date,
     market_data::context::MarketContext,
     money::Money,
     types::InstrumentId,
@@ -346,26 +346,6 @@ impl BasisSwap {
         Ok(())
     }
 
-    /// Builds a period schedule for the specified leg using shared schedule utilities.
-    pub fn leg_schedule(&self, leg: &BasisSwapLeg) -> Result<Schedule> {
-        let sched = crate::cashflow::builder::build_dates(
-            leg.start,
-            leg.end,
-            leg.frequency,
-            leg.stub,
-            leg.bdc,
-            false,
-            leg.payment_lag_days,
-            leg.calendar_id
-                .as_deref()
-                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
-        )?;
-        Ok(Schedule {
-            dates: sched.dates,
-            warnings: Vec::new(),
-        })
-    }
-
     /// Calculates the present value of a floating rate leg.
     ///
     /// This method uses the shared swap leg pricing infrastructure for
@@ -373,16 +353,9 @@ impl BasisSwap {
     pub fn pv_float_leg(
         &self,
         leg: &BasisSwapLeg,
-        schedule: &Schedule,
         context: &MarketContext,
         valuation_date: Date,
     ) -> Result<Money> {
-        if schedule.dates.is_empty() {
-            return Err(finstack_core::Error::Validation(
-                "BasisSwap leg schedule must contain at least 1 date".to_string(),
-            ));
-        }
-
         if leg.payment_lag_days < 0 || leg.reset_lag_days < 0 {
             return Err(finstack_core::Error::Validation(
                 "BasisSwap leg lags must be non-negative".to_string(),
@@ -484,16 +457,9 @@ impl BasisSwap {
     pub fn annuity_for_leg(
         &self,
         leg: &BasisSwapLeg,
-        schedule: &Schedule,
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
-        if schedule.dates.len() < 2 {
-            return Err(finstack_core::Error::Validation(
-                "BasisSwap leg schedule must contain at least 2 dates".to_string(),
-            ));
-        }
-
         if leg.payment_lag_days < 0 {
             return Err(finstack_core::Error::Validation(
                 "BasisSwap payment lag must be non-negative".to_string(),
@@ -607,14 +573,10 @@ impl crate::instruments::common_impl::traits::Instrument for BasisSwap {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        // Build schedules
-        let primary_schedule = self.leg_schedule(&self.primary_leg)?;
-        let reference_schedule = self.leg_schedule(&self.reference_leg)?;
-
-        // Calculate PV for each leg
-        let primary_pv = self.pv_float_leg(&self.primary_leg, &primary_schedule, curves, as_of)?;
-        let reference_pv =
-            self.pv_float_leg(&self.reference_leg, &reference_schedule, curves, as_of)?;
+        // pv_float_leg builds its own period schedule internally; computing leg_schedule
+        // here would be redundant work on the calibration hot path.
+        let primary_pv = self.pv_float_leg(&self.primary_leg, curves, as_of)?;
+        let reference_pv = self.pv_float_leg(&self.reference_leg, curves, as_of)?;
 
         // NPV from perspective of receiving primary leg (with spread), paying reference leg
         primary_pv.checked_sub(reference_pv)

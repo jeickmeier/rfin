@@ -9,7 +9,7 @@ use crate::instruments::common_impl::pricing::time::relative_df_discount_curve;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::cms_option::pricer::convexity_adjustment;
 use crate::instruments::rates::cms_spread_option::{CmsSpreadOption, CmsSpreadOptionType};
-use crate::instruments::rates::shared::forward_swap_rate::{
+use crate::instruments::rates::exotics_shared::forward_swap_rate::{
     calculate_forward_swap_rate, ForwardSwapRateInputs,
 };
 use crate::metrics::MetricId;

@@ -8,9 +8,11 @@ use crate::calibration::config::CalibrationConfig;
 use crate::calibration::prepared::CalibrationQuote;
 use crate::calibration::solver::global::GlobalFitOptimizer;
 use crate::calibration::solver::traits::GlobalSolveTarget;
+use crate::calibration::targets::util::{
+    discount_only_curve_ids, prepare_rate_calibration_quotes, ContextScratch,
+};
 use crate::calibration::CalibrationReport;
-use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
-use crate::market::quotes::rates::RateQuote;
+use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{NelsonSiegelModel, NsVariant, ParametricCurve};
@@ -43,14 +45,22 @@ pub(crate) struct ParametricCurveTarget {
     /// Computed once from quote pillars in [`Self::solve`] to avoid
     /// re-sorting/deduplicating on every LM iteration.
     sample_times: Vec<f64>,
+    /// Reusable scratch context (see [`ContextScratch`]).
+    scratch: ContextScratch,
 }
 
 impl ParametricCurveTarget {
     /// Create a new parametric curve target with pre-computed sample times.
-    pub(crate) fn new(params: ParametricCurveTargetParams, sample_times: Vec<f64>) -> Self {
+    pub(crate) fn new(
+        params: ParametricCurveTargetParams,
+        sample_times: Vec<f64>,
+        config: &CalibrationConfig,
+    ) -> Self {
+        let scratch = ContextScratch::from_config(params.base_context.clone(), config);
         Self {
             params,
             sample_times,
+            scratch,
         }
     }
 
@@ -63,7 +73,7 @@ impl ParametricCurveTarget {
                 times.push(t);
             }
         }
-        times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        times.sort_by(|a, b| a.total_cmp(b));
         times.dedup_by(|a, b| (*a - *b).abs() < 1e-10);
         let max_t = times.last().copied().unwrap_or(30.0);
         let mut t = 0.5;
@@ -71,9 +81,39 @@ impl ParametricCurveTarget {
             times.push(t);
             t += 0.5;
         }
-        times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        times.sort_by(|a, b| a.total_cmp(b));
         times.dedup_by(|a, b| (*a - *b).abs() < 1e-10);
         times
+    }
+
+    /// Clamp NS/NSS parameters to feasible region. Used by both solver-curve and
+    /// final-curve builders so the reported curve matches what was priced.
+    fn clamp_params(&self, params: &[f64]) -> Vec<f64> {
+        const TAU_LO: f64 = 0.01;
+        const TAU_HI: f64 = 30.0;
+        const TAU_MIN_SEPARATION: f64 = 0.01;
+        let mut p = params.to_vec();
+        match self.params.variant {
+            NsVariant::Ns => {
+                if p.len() == 4 {
+                    p[3] = p[3].clamp(TAU_LO, TAU_HI);
+                }
+            }
+            NsVariant::Nss => {
+                if p.len() == 6 {
+                    p[4] = p[4].clamp(TAU_LO, TAU_HI);
+                    p[5] = p[5].clamp(TAU_LO, TAU_HI);
+                    if (p[4] - p[5]).abs() < TAU_MIN_SEPARATION {
+                        // Push tau2 above tau1, but stay inside [TAU_LO, TAU_HI].
+                        p[5] = (p[4] + 0.5).min(TAU_HI);
+                        if (p[4] - p[5]).abs() < TAU_MIN_SEPARATION {
+                            p[4] = (p[5] - 0.5).max(TAU_LO);
+                        }
+                    }
+                }
+            }
+        }
+        p
     }
 
     /// Execute the full calibration for a parametric curve step.
@@ -83,38 +123,18 @@ impl ParametricCurveTarget {
         context: &MarketContext,
         global_config: &CalibrationConfig,
     ) -> Result<(MarketContext, CalibrationReport)> {
-        let rates_quotes: Vec<RateQuote> = quotes.extract_quotes();
-        if rates_quotes.is_empty() {
-            return Err(finstack_core::Error::Input(
-                finstack_core::InputError::TooFewPoints,
-            ));
-        }
-
-        let curve_dc = finstack_core::dates::DayCount::Act365F;
-        let mut curve_ids = finstack_core::HashMap::default();
         let discount_id = schema_params
             .discount_curve_id
             .as_ref()
             .unwrap_or(&schema_params.curve_id);
-        curve_ids.insert("discount".to_string(), discount_id.to_string());
-
-        let build_ctx = crate::market::build::context::BuildCtx::new(
+        let prepared = prepare_rate_calibration_quotes(
+            quotes,
             schema_params.base_date,
+            discount_only_curve_ids(discount_id.as_ref()),
+            None,
             1_000_000.0,
-            curve_ids,
-        );
-
-        let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(rates_quotes.len());
-        for q in rates_quotes {
-            let prepared = crate::market::build::prepared::prepare_rate_quote(
-                q,
-                &build_ctx,
-                curve_dc,
-                schema_params.base_date,
-                true,
-            )?;
-            prepared_quotes.push(CalibrationQuote::Rates(prepared));
-        }
+        )?;
+        let prepared_quotes = prepared.quotes;
 
         let initial_params = schema_params.initial_params.clone().or_else(|| {
             Some(match schema_params.model {
@@ -135,6 +155,7 @@ impl ParametricCurveTarget {
             })
         });
 
+        let config = global_config.clone();
         let target = Self::new(
             ParametricCurveTargetParams {
                 base_date: schema_params.base_date,
@@ -144,9 +165,8 @@ impl ParametricCurveTarget {
                 base_context: context.clone(),
             },
             Self::build_sample_times(&prepared_quotes),
+            &config,
         );
-
-        let config = global_config.clone();
         let success_tolerance = Some(config.discount_curve.validation_tolerance);
         let (curve, report) =
             GlobalFitOptimizer::optimize(&target, &prepared_quotes, &config, success_tolerance)?;
@@ -182,7 +202,10 @@ impl GlobalSolveTarget for ParametricCurveTarget {
     }
 
     fn build_curve_from_params(&self, _times: &[f64], params: &[f64]) -> Result<Self::Curve> {
-        let model = NelsonSiegelModel::from_params_vec(self.params.variant, params)?;
+        // Clamp the same way as the solver curve so the final reported curve
+        // matches what the LM iterations actually priced against.
+        let p = self.clamp_params(params);
+        let model = NelsonSiegelModel::from_params_vec(self.params.variant, &p)?;
         ParametricCurve::builder(self.params.curve_id.clone())
             .base_date(self.params.base_date)
             .model(model)
@@ -194,25 +217,7 @@ impl GlobalSolveTarget for ParametricCurveTarget {
         _times: &[f64],
         params: &[f64],
     ) -> Result<Self::Curve> {
-        // For NS/NSS, clamp tau values to avoid invalid parameters during solver iterations
-        let mut p = params.to_vec();
-        match self.params.variant {
-            NsVariant::Ns => {
-                if p.len() == 4 {
-                    p[3] = p[3].max(0.01);
-                }
-            }
-            NsVariant::Nss => {
-                if p.len() == 6 {
-                    p[4] = p[4].max(0.01);
-                    p[5] = p[5].max(0.01);
-                    // Ensure tau1 != tau2
-                    if (p[4] - p[5]).abs() < 0.01 {
-                        p[5] = p[4] + 0.5;
-                    }
-                }
-            }
-        }
+        let p = self.clamp_params(params);
         let model = NelsonSiegelModel::from_params_vec(self.params.variant, &p)?;
         ParametricCurve::builder(self.params.curve_id.clone())
             .base_date(self.params.base_date)
@@ -239,15 +244,12 @@ impl GlobalSolveTarget for ParametricCurveTarget {
         .allow_non_monotonic()
         .build_for_solver()?;
 
-        let temp_context = self.params.base_context.clone().insert(disc_curve);
-
-        for (i, q) in quotes.iter().enumerate() {
-            let pv = q
-                .get_instrument()
-                .value_raw(&temp_context, self.params.base_date)?;
-            residuals[i] = pv;
-        }
-        Ok(())
+        self.scratch.with_curve(&disc_curve, |ctx| {
+            for (i, q) in quotes.iter().enumerate() {
+                residuals[i] = q.get_instrument().value_raw(ctx, self.params.base_date)?;
+            }
+            Ok(())
+        })
     }
 
     fn lower_bounds(&self) -> Option<Vec<f64>> {

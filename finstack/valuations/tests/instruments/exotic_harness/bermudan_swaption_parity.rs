@@ -26,11 +26,11 @@
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_monte_carlo::traits::{PathState, Payoff};
-use finstack_valuations::instruments::rates::shared::exercise::{
+use finstack_valuations::instruments::rates::exotics_shared::exercise::{
     standard_basis, ExerciseBoundaryPayoff,
 };
-use finstack_valuations::instruments::rates::shared::hw1f_lsmc::RateExoticHw1fLsmcPricer;
-use finstack_valuations::instruments::rates::shared::mc_config::RateExoticMcConfig;
+use finstack_valuations::instruments::rates::exotics_shared::hw1f_lsmc::RateExoticHw1fLsmcPricer;
+use finstack_valuations::instruments::rates::exotics_shared::mc_config::RateExoticMcConfig;
 use finstack_valuations::instruments::rates::swaption::HullWhiteParams;
 
 /// Simplified swaption-proxy payoff: records no path-dependent cashflows

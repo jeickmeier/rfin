@@ -6,6 +6,7 @@ use crate::calibration::prepared::CalibrationQuote;
 use crate::calibration::solver::bootstrap::SequentialBootstrapper;
 use crate::calibration::solver::global::GlobalFitOptimizer;
 use crate::calibration::solver::traits::{BootstrapTarget, GlobalSolveTarget};
+use crate::calibration::targets::util::ContextScratch;
 use crate::calibration::validation::RateBoundsPolicy;
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::ExtractQuotes;
@@ -20,7 +21,6 @@ use finstack_core::market_data::term_structures::{
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use finstack_core::types::CurveId;
 use finstack_core::Result;
-use std::cell::RefCell;
 
 /// Parameters for constructing a [`DiscountCurveTarget`].
 ///
@@ -36,9 +36,6 @@ pub(crate) struct DiscountCurveTargetParams {
     pub(crate) curve_id: CurveId,
     /// Effective ID for pricing (usually same as curve_id).
     pub(crate) discount_curve_id: CurveId,
-    /// Effective ID for pricing forward rates.
-    #[allow(dead_code)]
-    pub(crate) forward_curve_id: CurveId,
     /// Interpolation style for solving.
     pub(crate) solve_interp: InterpStyle,
     /// Extrapolation policy.
@@ -49,8 +46,6 @@ pub(crate) struct DiscountCurveTargetParams {
     pub(crate) curve_day_count: DayCount,
     /// Optional spot knot (t_spot, 1.0) if enabled.
     pub(crate) spot_knot: Option<(f64, f64)>,
-    /// Settlement date (T+lag).
-    pub(crate) settlement_date: Date,
     /// Residual normalization notional (used to scale PV residuals to per-unit notional).
     ///
     /// Calibration tolerances are interpreted in **per-notional** residual units, so
@@ -86,9 +81,6 @@ pub(crate) struct DiscountCurveTarget {
     pub(crate) curve_id: CurveId,
     /// Effective ID for pricing (usually same as curve_id).
     pub(crate) discount_curve_id: CurveId,
-    /// Effective ID for pricing forward rates.
-    #[allow(dead_code)]
-    pub(crate) forward_curve_id: CurveId,
     /// Interpolation style for solving.
     pub(crate) solve_interp: InterpStyle,
     /// Extrapolation policy.
@@ -99,15 +91,12 @@ pub(crate) struct DiscountCurveTarget {
     pub(crate) curve_day_count: DayCount,
     /// Optional spot knot (t_spot, 1.0) if enabled.
     pub(crate) spot_knot: Option<(f64, f64)>,
-    /// Settlement date.
-    #[allow(dead_code)]
-    pub(crate) settlement_date: Date,
     /// Residual normalization notional.
     pub(crate) residual_notional: f64,
-    /// Context needed for pricing against OTHER curves (if any).
-    pub(crate) base_context: MarketContext,
-    /// Optional reusable context for sequential solvers to reduce memory pressure.
-    reuse_context: Option<RefCell<MarketContext>>,
+    /// Reusable scratch context: holds the base market data plus a slot for the
+    /// in-progress curve so each residual evaluation does not have to clone the
+    /// full `MarketContext`.
+    scratch: ContextScratch,
     /// Optional seed curve used to initialize global solves.
     initial_curve: Option<DiscountCurve>,
 }
@@ -115,26 +104,19 @@ pub(crate) struct DiscountCurveTarget {
 impl DiscountCurveTarget {
     /// Create a new [`DiscountCurveTarget`] from parameters.
     pub(crate) fn new(params: DiscountCurveTargetParams) -> Self {
-        let reuse_context = if params.config.use_parallel {
-            None
-        } else {
-            Some(RefCell::new(params.base_context.clone()))
-        };
+        let scratch = ContextScratch::from_config(params.base_context, &params.config);
         Self {
             base_date: params.base_date,
             currency: params.currency,
             curve_id: params.curve_id,
             discount_curve_id: params.discount_curve_id,
-            forward_curve_id: params.forward_curve_id,
             solve_interp: params.solve_interp,
             extrapolation: params.extrapolation,
             config: params.config,
             curve_day_count: params.curve_day_count,
-            settlement_date: params.settlement_date,
             residual_notional: params.residual_notional,
             spot_knot: params.spot_knot,
-            base_context: params.base_context,
-            reuse_context,
+            scratch,
             initial_curve: None,
         }
     }
@@ -278,21 +260,6 @@ impl DiscountCurveTarget {
         (log_lo + t * (log_hi - log_lo)).exp()
     }
 
-    fn with_temp_context<F, T>(&self, curve: &DiscountCurve, op: F) -> Result<T>
-    where
-        F: FnOnce(&MarketContext) -> Result<T>,
-    {
-        if let Some(ctx_cell) = &self.reuse_context {
-            let mut ctx = ctx_cell.borrow_mut();
-            *ctx = std::mem::take(&mut *ctx).insert(curve.clone());
-            op(&ctx)
-        } else {
-            let mut temp_context = self.base_context.clone();
-            temp_context = temp_context.insert(curve.clone());
-            op(&temp_context)
-        }
-    }
-
     fn knots_from_params(&self, times: &[f64], params: &[f64]) -> Result<Vec<(f64, f64)>> {
         if times.len() != params.len() {
             return Err(finstack_core::Error::Calibration {
@@ -380,7 +347,6 @@ Global solve requires strictly increasing times.",
             .conventions
             .curve_day_count
             .unwrap_or(finstack_core::dates::DayCount::Act365F);
-        let settlement = params.base_date;
 
         let mut curve_ids = finstack_core::HashMap::default();
         let discount_id = params
@@ -423,16 +389,11 @@ Global solve requires strictly increasing times.",
                 .pricing_discount_id
                 .clone()
                 .unwrap_or(params.curve_id.clone()),
-            forward_curve_id: params
-                .pricing_forward_id
-                .clone()
-                .unwrap_or(params.curve_id.clone()),
             solve_interp: params.interpolation,
             extrapolation: params.extrapolation,
             config: config.clone(),
             curve_day_count: curve_dc,
             spot_knot: None,
-            settlement_date: settlement,
             residual_notional: build_ctx.notional(),
             base_context: context.clone(),
         });
@@ -711,7 +672,7 @@ Disable allow_non_monotonic_final or choose a compatible interpolation style."
     }
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
-        self.with_temp_context(curve, |ctx| {
+        self.scratch.with_curve(curve, |ctx| {
             let pv = quote.get_instrument().value_raw(ctx, self.base_date)?;
             if !self.residual_notional.is_finite() || self.residual_notional <= 0.0 {
                 return Err(finstack_core::Error::Validation(format!(
@@ -888,20 +849,7 @@ impl GlobalSolveTarget for DiscountCurveTarget {
             entries.push((t, z, quote));
         }
 
-        // Note: we can't clone CalibrationQuote easily as it contains Box<dyn>.
-        // BUT GlobalSolveTarget requires returning Vec<Self::Quote>.
-        // CalibrationQuote currently derives Debug but not Clone.
-        // We need to implement Clone for it? PreparedQuote implementation details...
-        // Wait, PreparedQuote<Q> contains Box<dyn Instrument>. Instrument requires clone_box.
-        // So we can implement Clone for CalibrationQuote easily if we add it.
-        // OR we can change the signature to return indices? No, the trait requires Quotes.
-        // Let's verify CalibrationQuote clonability.
-        // PreparedQuote wraps Box<dyn Instrument>, which has clone_box.
-
-        // For now, let's assume we sort, and we have to return NEW vector of quotes.
-        // This suggests we need Clone on CalibrationQuote.
-
-        // Sort by time
+        // Sort entries by pillar time so the global solver sees a strictly increasing knot grid.
         entries.sort_by(|a, b| a.0.total_cmp(&b.0));
 
         let mut times = Vec::with_capacity(entries.len());
@@ -955,7 +903,7 @@ Ensure quotes map to strictly increasing year fractions.",
         quotes: &[Self::Quote],
         residuals: &mut [f64],
     ) -> Result<()> {
-        self.with_temp_context(curve, |ctx| {
+        self.scratch.with_curve(curve, |ctx| {
             for (i, quote) in quotes.iter().enumerate() {
                 if i >= residuals.len() {
                     break;
@@ -1062,7 +1010,7 @@ Ensure quotes map to strictly increasing year fractions.",
         // Central finite differences: O(h^2) accuracy vs O(h) for forward FD.
         let fd_eps = self.config.discount_curve.jacobian_step_size;
         let mut params_bumped = params.to_vec();
-        let mut temp_context = self.base_context.clone();
+        let mut temp_context = self.scratch.base().clone();
 
         for j in 0..params.len() {
             let p_orig = params[j];
@@ -1159,7 +1107,11 @@ mod tests {
         let delay = 2;
         let cal_id = "usny";
         let pay_date =
-            crate::instruments::rates::irs::dates::add_payment_delay(maturity, delay, Some(cal_id))
+            crate::instruments::common_impl::pricing::swap_legs::add_payment_delay(
+                maturity,
+                delay,
+                Some(cal_id),
+            )
                 .expect("payment delay with usny calendar");
 
         let expected_yf = DayCount::Act365F
@@ -1171,13 +1123,11 @@ mod tests {
             currency: Currency::USD,
             curve_id: CurveId::new("USD-OIS"),
             discount_curve_id: CurveId::new("USD-OIS"),
-            forward_curve_id: CurveId::new("USD-OIS"),
             solve_interp: InterpStyle::Linear,
             extrapolation: ExtrapolationPolicy::FlatZero,
             config: CalibrationConfig::default(),
             curve_day_count: DayCount::Act365F,
             spot_knot: None,
-            settlement_date: base_date,
             residual_notional: 1.0,
             base_context: MarketContext::new(),
         });
@@ -1225,13 +1175,11 @@ mod tests {
             currency: Currency::USD,
             curve_id: CurveId::new("USD-OIS"),
             discount_curve_id: CurveId::new("USD-OIS"),
-            forward_curve_id: CurveId::new("USD-OIS"),
             solve_interp: InterpStyle::Linear,
             extrapolation: ExtrapolationPolicy::FlatZero,
             config: config.clone(),
             curve_day_count: DayCount::Act365F,
             spot_knot: None,
-            settlement_date: base_date,
             residual_notional: 1.0,
             base_context: MarketContext::new(),
         });
@@ -1292,13 +1240,11 @@ mod tests {
                 currency: Currency::USD,
                 curve_id: CurveId::new("USD-OIS"),
                 discount_curve_id: CurveId::new("USD-OIS"),
-                forward_curve_id: CurveId::new("USD-OIS"),
                 solve_interp: InterpStyle::Linear,
                 extrapolation: ExtrapolationPolicy::FlatZero,
                 config: config.clone(),
                 curve_day_count: DayCount::Act365F,
                 spot_knot: None,
-                settlement_date: base_date,
                 residual_notional: notional, // Different notionals
                 base_context: MarketContext::new(),
             });
@@ -1395,13 +1341,11 @@ mod tests {
             currency: Currency::USD,
             curve_id: CurveId::new("USD-OIS"),
             discount_curve_id: CurveId::new("USD-OIS"),
-            forward_curve_id: CurveId::new("USD-OIS"),
             solve_interp: InterpStyle::Linear,
             extrapolation: ExtrapolationPolicy::FlatZero,
             config: config.clone(),
             curve_day_count: DayCount::Act365F,
             spot_knot: None,
-            settlement_date: base_date,
             residual_notional: 1.0,
             base_context: MarketContext::new(),
         });

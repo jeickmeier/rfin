@@ -19,7 +19,7 @@ pub struct RateExoticMcConfig {
     /// observation/coupon dates. Ensures accurate short-rate dynamics.
     pub min_steps_between_events: usize,
     /// Polynomial basis degree for LSMC regression (only used by
-    /// [`crate::instruments::rates::shared::hw1f_lsmc`]).
+    /// [`crate::instruments::rates::exotics_shared::hw1f_lsmc`]).
     pub basis_degree: usize,
 }
 

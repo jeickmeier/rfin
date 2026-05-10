@@ -97,15 +97,9 @@ fn validate_time_ordering(time: f64, last_time: f64, original_idx: usize) -> Res
     Ok(())
 }
 
-/// Maximum half-width of the geometric scan grid relative to the initial
-/// guess magnitude. Prevents the geometric ×2 expansion from producing
-/// scan points that are tens of orders of magnitude beyond any sensible
-/// rate / hazard / spread value (e.g. with default
-/// `scan_grid_points = 48` and `scan_grid_step = 1e-4` an unbounded scan
-/// reaches ~3e10 × center, which only wastes evaluations and produces NaN
-/// in pricers). The cap of `100 × max(|center|, 1.0)` still admits
-/// distressed-credit-style wide scans (hazard rates up to ~10000% from a
-/// sub-percent guess) but rejects pathological growth.
+/// Cap on the geometric scan-grid half-width as a multiple of `max(|center|, 1.0)`.
+/// Wider scans waste evaluations and risk NaN in pricers; tighter scans miss distressed
+/// regimes (e.g. hazard rates up to ~10000% from a sub-percent guess).
 const SCAN_GRID_HALF_WIDTH_CAP: f64 = 100.0;
 
 /// Build the default geometric scan grid around an initial guess.
@@ -484,7 +478,7 @@ where
     T::Quote: std::fmt::Debug,
 {
     let n = resid_values.len();
-    let bump_h = config.discount_curve.jacobian_step_size.max(1e-8);
+    let bump_h = super::helpers::diagnostics_bump_h(config);
 
     let mut per_quote = Vec::with_capacity(n);
 
@@ -546,12 +540,7 @@ where
         });
     }
 
-    let max_residual = resid_values.iter().map(|r| r.abs()).fold(0.0_f64, f64::max);
-    let rms_residual = if n > 0 {
-        (resid_values.iter().map(|r| r * r).sum::<f64>() / n as f64).sqrt()
-    } else {
-        0.0
-    };
+    let (max_residual, rms_residual) = super::helpers::residual_stats(resid_values);
 
     CalibrationDiagnostics {
         per_quote,

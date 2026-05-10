@@ -9,9 +9,11 @@ use crate::calibration::config::CalibrationConfig;
 use crate::calibration::prepared::CalibrationQuote;
 use crate::calibration::solver::bootstrap::SequentialBootstrapper;
 use crate::calibration::solver::traits::BootstrapTarget;
+use crate::calibration::targets::util::{
+    discount_only_curve_ids, prepare_rate_calibration_quotes, ContextScratch,
+};
 use crate::calibration::CalibrationReport;
-use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
-use crate::market::quotes::rates::RateQuote;
+use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{BasisSpreadCurve, DiscountCurve};
@@ -43,12 +45,14 @@ pub(crate) struct XccyBasisTargetParams {
 /// or XCCY basis swaps given a known domestic discount curve and FX spot.
 pub(crate) struct XccyBasisTarget {
     params: XccyBasisTargetParams,
+    scratch: ContextScratch,
 }
 
 impl XccyBasisTarget {
     /// Create a new cross-currency basis target.
-    pub(crate) fn new(params: XccyBasisTargetParams) -> Self {
-        Self { params }
+    pub(crate) fn new(params: XccyBasisTargetParams, config: &CalibrationConfig) -> Self {
+        let scratch = ContextScratch::from_config(params.base_context.clone(), config);
+        Self { params, scratch }
     }
 
     /// Execute the full calibration for a cross-currency basis step.
@@ -63,47 +67,26 @@ impl XccyBasisTarget {
         let mut config = global_config.clone();
         config.calibration_method = schema_params.method.clone();
 
-        let rates_quotes: Vec<RateQuote> = quotes.extract_quotes();
-        if rates_quotes.is_empty() {
-            return Err(finstack_core::Error::Input(
-                finstack_core::InputError::TooFewPoints,
-            ));
-        }
-
-        let curve_dc = schema_params
-            .conventions
-            .curve_day_count
-            .unwrap_or(finstack_core::dates::DayCount::Act365F);
-
-        let mut curve_ids = finstack_core::HashMap::default();
-        curve_ids.insert("discount".to_string(), schema_params.curve_id.to_string());
-
-        let build_ctx = crate::market::build::context::BuildCtx::new(
+        let prepared = prepare_rate_calibration_quotes(
+            quotes,
             schema_params.base_date,
+            discount_only_curve_ids(schema_params.curve_id.as_ref()),
+            schema_params.conventions.curve_day_count,
             1_000_000.0,
-            curve_ids,
+        )?;
+        let prepared_quotes = prepared.quotes;
+
+        let target = Self::new(
+            XccyBasisTargetParams {
+                base_date: schema_params.base_date,
+                curve_id: schema_params.curve_id.clone(),
+                domestic_discount: Arc::clone(&domestic_discount),
+                solve_interp: schema_params.interpolation,
+                extrapolation: schema_params.extrapolation,
+                base_context: context.clone(),
+            },
+            &config,
         );
-
-        let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(rates_quotes.len());
-        for q in rates_quotes {
-            let prepared = crate::market::build::prepared::prepare_rate_quote(
-                q,
-                &build_ctx,
-                curve_dc,
-                schema_params.base_date,
-                true,
-            )?;
-            prepared_quotes.push(CalibrationQuote::Rates(prepared));
-        }
-
-        let target = Self::new(XccyBasisTargetParams {
-            base_date: schema_params.base_date,
-            curve_id: schema_params.curve_id.clone(),
-            domestic_discount: Arc::clone(&domestic_discount),
-            solve_interp: schema_params.interpolation,
-            extrapolation: schema_params.extrapolation,
-            base_context: context.clone(),
-        });
 
         let success_tolerance = Some(config.discount_curve.validation_tolerance);
 
@@ -129,20 +112,42 @@ impl XccyBasisTarget {
                     spread_knots.push((t, 0.0));
                     continue;
                 }
-                let z_foreign = -(foreign_dfs[i].ln()) / t;
-                let z_domestic = -(domestic_discount.df(t).ln()) / t;
+                let df_foreign = foreign_dfs[i];
+                let df_domestic = domestic_discount.df(t);
+                if !df_foreign.is_finite() || df_foreign <= 0.0 {
+                    return Err(finstack_core::Error::Calibration {
+                        message: format!(
+                            "Spread curve {spread_id}: foreign DF at t={t:.6} is non-positive or non-finite ({df_foreign})"
+                        ),
+                        category: "xccy_basis".to_string(),
+                    });
+                }
+                if !df_domestic.is_finite() || df_domestic <= 0.0 {
+                    return Err(finstack_core::Error::Calibration {
+                        message: format!(
+                            "Spread curve {spread_id}: domestic DF at t={t:.6} is non-positive or non-finite ({df_domestic})"
+                        ),
+                        category: "xccy_basis".to_string(),
+                    });
+                }
+                let z_foreign = -df_foreign.ln() / t;
+                let z_domestic = -df_domestic.ln() / t;
                 spread_knots.push((t, z_foreign - z_domestic));
             }
 
-            if let Ok(spread_curve) = BasisSpreadCurve::builder(spread_id.clone())
+            let spread_curve = BasisSpreadCurve::builder(spread_id.clone())
                 .base_date(schema_params.base_date)
                 .knots(spread_knots)
                 .interp(schema_params.interpolation)
                 .extrapolation(schema_params.extrapolation)
                 .build()
-            {
-                new_context = new_context.insert(spread_curve);
-            }
+                .map_err(|e| finstack_core::Error::Calibration {
+                    message: format!(
+                        "Failed to build basis spread curve {spread_id}: {e}"
+                    ),
+                    category: "xccy_basis".to_string(),
+                })?;
+            new_context = new_context.insert(spread_curve);
         }
 
         Ok((new_context, report))
@@ -186,11 +191,9 @@ impl BootstrapTarget for XccyBasisTarget {
     }
 
     fn calculate_residual(&self, curve: &Self::Curve, quote: &Self::Quote) -> Result<f64> {
-        let ctx = self.params.base_context.clone().insert(curve.clone());
-        let pv = quote
-            .get_instrument()
-            .value_raw(&ctx, self.params.base_date)?;
-        Ok(pv)
+        self.scratch.with_curve(curve, |ctx| {
+            quote.get_instrument().value_raw(ctx, self.params.base_date)
+        })
     }
 
     fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
@@ -207,11 +210,15 @@ impl BootstrapTarget for XccyBasisTarget {
         }
     }
 
-    fn validate_knot(&self, _time: f64, value: f64) -> Result<()> {
-        if value <= 0.0 || value > 1.5 {
-            return Err(finstack_core::Error::Validation(format!(
-                "Foreign discount factor out of range: {value:.8}"
-            )));
+    fn validate_knot(&self, time: f64, value: f64) -> Result<()> {
+        if !value.is_finite() || value <= 0.0 || value > 1.5 {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Foreign discount factor out of range for {} at t={:.6}: {:.8}",
+                    self.params.curve_id, time, value
+                ),
+                category: "xccy_basis".to_string(),
+            });
         }
         Ok(())
     }

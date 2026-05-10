@@ -124,7 +124,7 @@ pub mod range_accrual;
 /// Repo module - Repurchase agreements.
 pub mod repo;
 /// Shared rates pricing utilities.
-pub mod shared;
+pub mod exotics_shared;
 /// Snowball / Inverse Floater structured note module.
 pub mod snowball;
 /// Swaption module - Options on interest rate swaps.

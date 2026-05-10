@@ -5,8 +5,8 @@ use crate::instruments::common_impl::pricing::time::{
     rate_period_on_dates, relative_df_discount_curve,
 };
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::rates::shared::hw1f_mc::RateExoticHw1fMcPricer;
-use crate::instruments::rates::shared::mc_config::RateExoticMcConfig;
+use crate::instruments::rates::exotics_shared::hw1f_mc::RateExoticHw1fMcPricer;
+use crate::instruments::rates::exotics_shared::mc_config::RateExoticMcConfig;
 use crate::instruments::rates::snowball::{Snowball, SnowballVariant};
 use crate::metrics::MetricId;
 use crate::pricer::{
@@ -509,7 +509,7 @@ fn first_future_period(inst: &Snowball, as_of: Date) -> Result<(Date, Date)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::rates::shared::bermudan_call::BermudanCallProvision;
+    use crate::instruments::rates::exotics_shared::bermudan_call::BermudanCallProvision;
     use crate::instruments::PricingOverrides;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{Date, DayCount, Tenor};

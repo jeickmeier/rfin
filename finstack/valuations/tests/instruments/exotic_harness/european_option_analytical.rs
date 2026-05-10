@@ -21,8 +21,8 @@ use finstack_core::currency::Currency;
 use finstack_core::math::special_functions::norm_cdf;
 use finstack_core::money::Money;
 use finstack_monte_carlo::traits::{PathState, Payoff, StateKey};
-use finstack_valuations::instruments::rates::shared::hw1f_mc::RateExoticHw1fMcPricer;
-use finstack_valuations::instruments::rates::shared::mc_config::RateExoticMcConfig;
+use finstack_valuations::instruments::rates::exotics_shared::hw1f_mc::RateExoticHw1fMcPricer;
+use finstack_valuations::instruments::rates::exotics_shared::mc_config::RateExoticMcConfig;
 use finstack_valuations::instruments::rates::swaption::HullWhiteParams;
 
 /// Standard-normal PDF φ(x) = exp(−x²/2) / √(2π).

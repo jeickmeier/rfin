@@ -11,7 +11,7 @@
 //! variates, and cross-path averaging with 95% CIs.
 
 use crate::calibration::hull_white::HullWhiteParams;
-use crate::instruments::rates::shared::mc_config::RateExoticMcConfig;
+use crate::instruments::rates::exotics_shared::mc_config::RateExoticMcConfig;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 use finstack_monte_carlo::discretization::exact_hw1f::ExactHullWhite1F;

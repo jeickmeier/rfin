@@ -307,7 +307,7 @@ mod tests {
         use finstack_core::types::{CurveId, InstrumentId};
         use finstack_valuations::instruments::rates::callable_range_accrual::CallableRangeAccrual;
         use finstack_valuations::instruments::rates::range_accrual::{BoundsType, RangeAccrual};
-        use finstack_valuations::instruments::rates::shared::bermudan_call::BermudanCallProvision;
+        use finstack_valuations::instruments::rates::exotics_shared::bermudan_call::BermudanCallProvision;
         use finstack_valuations::instruments::{InstrumentJson, PricingOverrides};
         use time::Month;
 

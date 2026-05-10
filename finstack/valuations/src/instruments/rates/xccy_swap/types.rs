@@ -19,7 +19,7 @@ use crate::cashflow::CashflowProvider;
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::pricing::swap_legs::robust_relative_df;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Schedule, StubKind, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::NeumaierAccumulator;
 use finstack_core::money::fx::FxQuery;
@@ -408,25 +408,6 @@ impl XccySwap {
         Ok(())
     }
 
-    fn leg_schedule(&self, leg: &XccySwapLeg) -> Result<Schedule> {
-        let sched = crate::cashflow::builder::build_dates(
-            leg.start,
-            leg.end,
-            leg.frequency,
-            leg.stub,
-            leg.bdc,
-            false,
-            leg.payment_lag_days,
-            leg.calendar_id
-                .as_deref()
-                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
-        )?;
-        Ok(Schedule {
-            dates: sched.dates,
-            warnings: Vec::new(),
-        })
-    }
-
     fn leg_coupon_schedule(
         &self,
         leg: &XccySwapLeg,
@@ -520,17 +501,10 @@ impl XccySwap {
     fn pv_leg_in_reporting_ccy(
         &self,
         leg: &XccySwapLeg,
-        schedule: &Schedule,
         context: &MarketContext,
         as_of: Date,
     ) -> Result<Money> {
         use crate::instruments::common_impl::pricing::time::rate_period_on_dates;
-
-        if schedule.dates.is_empty() {
-            return Err(finstack_core::Error::Validation(
-                "XccySwap leg schedule must contain at least 2 dates".to_string(),
-            ));
-        }
 
         self.validate_leg(leg)?;
 
@@ -725,12 +699,9 @@ impl crate::instruments::common_impl::traits::Instrument for XccySwap {
         // schedule loop, hiding which leg/pair was the offender.
         self.validate_fx_reachable(market)?;
 
-        let s1 = self.leg_schedule(&self.leg1)?;
-        let s2 = self.leg_schedule(&self.leg2)?;
-
-        // Each leg's PV is computed and converted to reporting currency per-cashflow
-        let pv1_rep = self.pv_leg_in_reporting_ccy(&self.leg1, &s1, market, as_of)?;
-        let pv2_rep = self.pv_leg_in_reporting_ccy(&self.leg2, &s2, market, as_of)?;
+        // pv_leg_in_reporting_ccy builds its own period schedule; no need to pre-build here.
+        let pv1_rep = self.pv_leg_in_reporting_ccy(&self.leg1, market, as_of)?;
+        let pv2_rep = self.pv_leg_in_reporting_ccy(&self.leg2, market, as_of)?;
 
         pv1_rep.checked_add(pv2_rep)
     }

@@ -13,20 +13,50 @@ use finstack_core::Result;
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 
-fn penalty_residual_value(params: &[f64]) -> f64 {
-    // Avoid a perfectly flat penalty surface: add a small, scale-aware component
-    // so LM has a direction to move toward feasible regions.
-    let mut norm2 = 0.0_f64;
-    for &p in params {
-        if p.is_finite() {
-            norm2 += p * p;
+/// Fill `resid` with a penalty term that gives LM a direction pointing back into the
+/// feasible bound box. The previous implementation added a `‖p‖²`-dependent term, which
+/// makes the LM normal equations minimize `‖p‖` rather than push toward feasibility — for
+/// a NS τ above the upper bound, that meant LM happily walked toward zero (also infeasible).
+///
+/// When bounds are provided we use signed distance to the nearest violated bound,
+/// scaled by `PENALTY`, broadcast equally to all residuals. When no bounds are provided
+/// we emit a flat `PENALTY` (J^T r ≈ 0 from a constant, so LM falls back on its
+/// trust-region step without a misleading gradient toward the origin).
+fn fill_penalty(
+    resid: &mut [f64],
+    n_residuals: usize,
+    params: &[f64],
+    lb: Option<&[f64]>,
+    ub: Option<&[f64]>,
+) {
+    let mut signed_outside = 0.0_f64;
+    let mut any_violated = false;
+    if let Some(lo) = lb {
+        for (&p, &b) in params.iter().zip(lo.iter()) {
+            if p.is_finite() && p < b {
+                signed_outside += (b - p) * (b - p);
+                any_violated = true;
+            }
         }
     }
-    PENALTY + (norm2.min(PENALTY))
-}
+    if let Some(hi) = ub {
+        for (&p, &b) in params.iter().zip(hi.iter()) {
+            if p.is_finite() && p > b {
+                signed_outside += (p - b) * (p - b);
+                any_violated = true;
+            }
+        }
+    }
 
-fn fill_penalty(resid: &mut [f64], n_residuals: usize, params: &[f64]) {
-    let v = penalty_residual_value(params);
+    let v = if any_violated {
+        // Strictly increasing in the bound-violation distance, capped at `PENALTY` so the
+        // Jacobian numerical step stays sensible. LM minimises this by moving back inside
+        // the box.
+        PENALTY * (signed_outside.sqrt() / (1.0 + signed_outside.sqrt()))
+    } else {
+        PENALTY
+    };
+
     for r in resid.iter_mut().take(n_residuals) {
         *r = v;
     }
@@ -130,8 +160,13 @@ impl GlobalFitOptimizer {
         let lb = target.lower_bounds();
         let ub = target.upper_bounds();
 
-        // Run the primary solve from the original initial guess.
-        let (mut best_result, mut best_weighted_l2) = run_single_solve(
+        // Run the primary solve from the original initial guess. A hard LM error is
+        // logged but does *not* short-circuit multi-start: if perturbed restarts exist
+        // they may succeed where the primary failed (e.g. the initial guess landed in a
+        // region where the curve builder rejected the params). The original error is
+        // returned only if every attempt fails.
+        let mut primary_error: Option<finstack_core::Error> = None;
+        let mut best: Option<(SingleSolveResult, f64)> = match run_single_solve(
             target,
             &active_quotes,
             &times,
@@ -140,7 +175,17 @@ impl GlobalFitOptimizer {
             &lb,
             &ub,
             config,
-        )?;
+        ) {
+            Ok(v) => Some(v),
+            Err(err) => {
+                tracing::warn!(
+                    error = %err,
+                    "GlobalFitOptimizer: primary LM solve failed; will attempt multi-start if configured"
+                );
+                primary_error = Some(err);
+                None
+            }
+        };
 
         // Multi-start: run additional solves from perturbed starting points.
         if let Some(ms) = multi_start {
@@ -172,30 +217,41 @@ impl GlobalFitOptimizer {
                     config,
                 ) {
                     Ok((result, wl2)) => {
-                        if wl2 < best_weighted_l2 {
+                        let improved = best.as_ref().is_none_or(|(_, prev)| wl2 < *prev);
+                        if improved {
                             if config.verbose {
                                 tracing::info!(
-                                    "GlobalFitOptimizer: restart {} improved weighted L2: {:.4e} -> {:.4e}",
+                                    "GlobalFitOptimizer: restart {} improved weighted L2: {:?} -> {:.4e}",
                                     restart_idx,
-                                    best_weighted_l2,
+                                    best.as_ref().map(|(_, l)| *l),
                                     wl2,
                                 );
                             }
-                            best_weighted_l2 = wl2;
-                            best_result = result;
+                            best = Some((result, wl2));
                         }
                     }
-                    Err(_) => {
-                        if config.verbose {
-                            tracing::warn!(
-                                "GlobalFitOptimizer: restart {} failed, skipping",
-                                restart_idx,
-                            );
-                        }
+                    Err(err) => {
+                        tracing::warn!(
+                            restart = restart_idx,
+                            error = %err,
+                            "GlobalFitOptimizer: multi-start restart failed, skipping",
+                        );
                     }
                 }
             }
         }
+
+        // If the primary solve failed and no restart rescued it, propagate the original
+        // error rather than feeding a sentinel into the final-curve build.
+        let (best_result, _best_weighted_l2) = match best {
+            Some(b) => b,
+            None => {
+                return Err(primary_error.unwrap_or_else(|| finstack_core::Error::Calibration {
+                    message: "GlobalFitOptimizer: every solve attempt failed".to_string(),
+                    category: "global_solve".to_string(),
+                }));
+            }
+        };
 
         let (solved_params, stats, eval_counter_val, eval_diagnostics_val) = best_result;
 
@@ -225,12 +281,8 @@ impl GlobalFitOptimizer {
             .map(|(r, w)| (r * w).abs())
             .fold(0.0_f64, f64::max);
 
-        // Two distinct tolerances are in play (see calibration/README.md):
-        //   * `config.solver.tolerance()` — LM convergence tolerance, already
-        //      wired into the solver via `config.create_lm_solver()`.
-        //   * `validation_tolerance` — accept/reject threshold on the final
-        //      residual. Falls back to `discount_curve.validation_tolerance`
-        //      for legacy callers that did not pass `success_tolerance`.
+        // `validation_tolerance` is the accept/reject threshold for the final residual,
+        // distinct from the LM solver convergence tolerance. See calibration/README.md.
         let validation_tolerance =
             success_tolerance.unwrap_or(config.discount_curve.validation_tolerance);
 
@@ -422,7 +474,7 @@ where
                     n_residuals
                 ),
             );
-            fill_penalty(resid, resid.len(), params);
+            fill_penalty(resid, resid.len(), params, lb.as_deref(), ub.as_deref());
             return;
         }
 
@@ -457,7 +509,7 @@ where
                     params_ref,
                     &format!("{}", e),
                 );
-                fill_penalty(resid, n_residuals, params_ref);
+                fill_penalty(resid, n_residuals, params_ref, lb.as_deref(), ub.as_deref());
                 return;
             }
         };
@@ -471,7 +523,7 @@ where
                 params_ref,
                 &format!("while evaluating {} quotes: {}", active_quotes.len(), e),
             );
-            fill_penalty(resid, n_residuals, params_ref);
+            fill_penalty(resid, n_residuals, params_ref, lb.as_deref(), ub.as_deref());
             return;
         }
 
@@ -796,7 +848,7 @@ where
     let n_params = solved_params.len();
 
     // 1. Compute per-quote quality with finite-difference sensitivities.
-    let bump_h = config.discount_curve.jacobian_step_size.max(1e-8);
+    let bump_h = super::helpers::diagnostics_bump_h(config);
     let mut per_quote = Vec::with_capacity(n_residuals);
 
     // Build Jacobian via finite differences (n_params bumps, each producing n_residuals).
@@ -864,13 +916,8 @@ where
         None
     };
 
-    // 3. Basic residual stats.
-    let max_residual = resid_values.iter().map(|r| r.abs()).fold(0.0_f64, f64::max);
-    let rms_residual = if n_residuals > 0 {
-        (resid_values.iter().map(|r| r * r).sum::<f64>() / n_residuals as f64).sqrt()
-    } else {
-        0.0
-    };
+    // 3. Basic residual stats (shared with bootstrap so both paths report identically).
+    let (max_residual, rms_residual) = super::helpers::residual_stats(resid_values);
 
     CalibrationDiagnostics {
         per_quote,
@@ -882,64 +929,67 @@ where
     }
 }
 
-/// Estimate the condition number of J^T * J using a simple power-iteration
-/// approach for the largest eigenvalue, and inverse power iteration for the smallest.
+/// Estimate the 2-norm condition number of the weighted normal equations matrix
+/// `J^T W J` via power iteration for the largest eigenvalue and Cholesky-based
+/// inverse iteration for the smallest.
 ///
-/// For small matrices this is exact via explicit construction of J^T * J.
-/// Returns `None` if the computation fails or the matrix is degenerate.
+/// Both eigenvalue solves are correct for symmetric positive (semi-)definite matrices;
+/// the smallest-eigenvalue path uses `cholesky_solve` for exact back-substitution rather
+/// than Gauss-Seidel sweeps. Returns `None` if `J^T W J` is singular (Cholesky factor not
+/// PD) or has a non-finite largest eigenvalue — the caller treats `None` as "report
+/// `cond=N/A`".
 fn compute_condition_number(
     jacobian: &[Vec<f64>],
     n_params: usize,
     weight_scales: &[f64],
 ) -> Option<f64> {
+    use finstack_core::math::linalg::{cholesky_decomposition, cholesky_solve};
+
     if n_params == 0 {
         return None;
     }
 
-    // Build J^T * W * J (normal equations matrix), where W_i = weight_scales[i]^2.
-    let mut jtj = vec![vec![0.0_f64; n_params]; n_params];
+    // Build J^T W J row-major as flat Vec<f64> (n×n), W = diag(weight_scales^2).
+    let mut jtj = vec![0.0_f64; n_params * n_params];
     for (i, row) in jacobian.iter().enumerate() {
         let w2 = weight_scales.get(i).copied().unwrap_or(1.0).powi(2);
         for j in 0..n_params {
+            let rj = row[j];
             for k in j..n_params {
-                let val = w2 * row[j] * row[k];
-                jtj[j][k] += val;
+                let val = w2 * rj * row[k];
+                jtj[j * n_params + k] += val;
                 if k != j {
-                    jtj[k][j] += val;
+                    jtj[k * n_params + j] += val;
                 }
             }
         }
     }
 
-    // For a 1x1 matrix, condition number is 1.0 (if non-zero).
     if n_params == 1 {
-        return if jtj[0][0].abs() > 1e-30 {
+        return if jtj[0].abs() > 1e-30 {
             Some(1.0)
         } else {
             None
         };
     }
 
-    // Power iteration for largest eigenvalue.
+    // λ_max via power iteration on J^T W J.
+    let mat_vec_flat = |m: &[f64], x: &[f64], out: &mut [f64]| {
+        for (i, oi) in out.iter_mut().enumerate() {
+            let row = &m[i * n_params..(i + 1) * n_params];
+            *oi = row.iter().zip(x.iter()).map(|(a, b)| a * b).sum();
+        }
+    };
+
     let max_iter = 100;
     let tol = 1e-10;
     let mut v = vec![1.0 / (n_params as f64).sqrt(); n_params];
-
-    let mat_vec = |m: &[Vec<f64>], x: &[f64]| -> Vec<f64> {
-        let mut result = vec![0.0; x.len()];
-        for (i, row) in m.iter().enumerate() {
-            for (j, &val) in row.iter().enumerate() {
-                result[i] += val * x[j];
-            }
-        }
-        result
-    };
-
+    let mut w = vec![0.0_f64; n_params];
     let mut lambda_max = 0.0_f64;
     for _ in 0..max_iter {
-        let w = mat_vec(&jtj, &v);
+        mat_vec_flat(&jtj, &v, &mut w);
         let norm = w.iter().map(|x| x * x).sum::<f64>().sqrt();
-        if norm < 1e-30 {
+        if !norm.is_finite() || norm < 1e-30 {
             return None;
         }
         let new_lambda = w.iter().zip(v.iter()).map(|(a, b)| a * b).sum::<f64>();
@@ -952,61 +1002,46 @@ fn compute_condition_number(
         }
         lambda_max = new_lambda;
     }
-
-    // Inverse power iteration for smallest eigenvalue.
-    // Shift by lambda_max * epsilon to avoid singularity on the dominant eigenvalue.
-    let shift = lambda_max * 1e-12;
-    let mut shifted = jtj.clone();
-    for (i, row) in shifted.iter_mut().enumerate() {
-        row[i] += shift;
+    if !lambda_max.is_finite() || lambda_max <= 0.0 {
+        return None;
     }
 
-    // Simple Cholesky-free approach: use Gauss-Seidel iteration to approximate
-    // the smallest eigenvalue. For small n_params this is acceptable.
+    // λ_min via inverse power iteration: x_{k+1} = A^{-1} x_k, Rayleigh = x^T A x / x^T x.
+    // A^{-1} application uses Cholesky factorisation of J^T W J. If the matrix is
+    // singular, Cholesky fails and we report `cond = N/A` rather than a misleading
+    // huge number.
+    let chol = match cholesky_decomposition(&jtj, n_params) {
+        Ok(c) => c,
+        Err(_) => return None,
+    };
+
     let mut v_min = vec![1.0 / (n_params as f64).sqrt(); n_params];
-    let mut lambda_min = lambda_max; // Start from max and converge down.
+    let mut x_solve = vec![0.0_f64; n_params];
+    let mut lambda_min = lambda_max;
 
     for _ in 0..max_iter {
-        // Solve shifted * w = v_min approximately using a few Gauss-Seidel steps.
-        let mut w = v_min.clone();
-        for _ in 0..20 {
-            for i in 0..n_params {
-                let mut s = v_min[i];
-                for (j, wj) in w.iter().enumerate() {
-                    if j != i {
-                        s -= shifted[i][j] * wj;
-                    }
-                }
-                if shifted[i][i].abs() > 1e-30 {
-                    w[i] = s / shifted[i][i];
-                }
-            }
-        }
-
-        let norm = w.iter().map(|x| x * x).sum::<f64>().sqrt();
-        if norm < 1e-30 {
+        if cholesky_solve(&chol, &v_min, &mut x_solve).is_err() {
             return None;
         }
-        let rayleigh = w.iter().zip(v_min.iter()).map(|(a, b)| a * b).sum::<f64>();
-        for (vi, wi) in v_min.iter_mut().zip(w.iter()) {
-            *vi = wi / norm;
+        let norm = x_solve.iter().map(|x| x * x).sum::<f64>().sqrt();
+        if !norm.is_finite() || norm < 1e-30 {
+            return None;
         }
-
-        // The Rayleigh quotient of the inverse gives 1/lambda_min.
-        // Subtract the shift to recover the eigenvalue of the original (unshifted) matrix.
-        let candidate = if rayleigh.abs() > 1e-30 {
-            1.0 / rayleigh - shift
-        } else {
-            lambda_min
-        };
-        if (candidate - lambda_min).abs() < tol * lambda_min.abs().max(1.0) {
-            lambda_min = candidate;
+        // Rayleigh quotient on the normalized x: x^T A x / x^T x = λ_min once x converges
+        // to the smallest eigenvector. We compute it directly via mat-vec.
+        for (vi, xi) in v_min.iter_mut().zip(x_solve.iter()) {
+            *vi = xi / norm;
+        }
+        mat_vec_flat(&jtj, &v_min, &mut w);
+        let rayleigh: f64 = w.iter().zip(v_min.iter()).map(|(a, b)| a * b).sum();
+        if (rayleigh - lambda_min).abs() < tol * lambda_min.abs().max(1.0) {
+            lambda_min = rayleigh;
             break;
         }
-        lambda_min = candidate;
+        lambda_min = rayleigh;
     }
 
-    if lambda_min.abs() < 1e-30 {
+    if !lambda_min.is_finite() || lambda_min.abs() < 1e-30 {
         return None;
     }
 

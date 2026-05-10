@@ -94,7 +94,6 @@
 
 pub(crate) mod cashflow;
 pub mod compounding;
-pub mod dates;
 pub(crate) mod metrics;
 /// Interest rate swap pricer implementation
 pub(crate) mod pricer;

@@ -316,14 +316,12 @@ impl InterestRateSwap {
         if is_eom_swap && !fixed.end_of_month {
             fixed.end_of_month = true;
         }
-        if let Some(conv) = self.rate_index_conventions() {
-            // Note: calendar_id: None is intentionally NOT overridden.
-            // None means "no calendar" (weekends-only), which is a valid explicit choice.
-            // Users wanting convention calendars should set calendar_id explicitly.
-
-            // Use negative values as sentinel for "apply convention default".
-            // Zero is a valid explicit value meaning "no payment delay".
-            if fixed.payment_lag_days < 0 {
+        // Hit the convention registry only when a sentinel (`< 0`) actually needs
+        // resolution. Calibration calls this repeatedly on the hot path, and the common
+        // case (lags resolved at construction time) should not pay for a registry lookup
+        // and `RateIndexConventions` clone.
+        if fixed.payment_lag_days < 0 {
+            if let Some(conv) = self.rate_index_conventions() {
                 fixed.payment_lag_days = conv.default_payment_lag_days;
             }
         }
@@ -337,21 +335,16 @@ impl InterestRateSwap {
         if is_eom_swap && !float.end_of_month {
             float.end_of_month = true;
         }
-        if let Some(conv) = self.rate_index_conventions() {
-            // Note: calendar_id and fixing_calendar_id: None are intentionally NOT overridden.
-            // None means "no calendar" (weekends-only), which is a valid explicit choice.
-            // Users wanting convention calendars should set these explicitly.
-
-            // Use negative values as sentinel for "apply convention default".
-            // Zero is a valid explicit value meaning "spot reset" (no reset lag).
-            // This fixes test failures where reset_lag_days: 0 was being overridden
-            // to convention defaults, causing unexpected seasoned swap behavior.
-            if float.reset_lag_days < 0 {
-                float.reset_lag_days = conv.default_reset_lag_days;
-            }
-            // Same for payment_lag_days: 0 means "no delay", negative means "use default".
-            if float.payment_lag_days < 0 {
-                float.payment_lag_days = conv.default_payment_lag_days;
+        // Same short-circuit as `resolved_fixed_leg`: skip the registry hit unless we
+        // actually need to apply a default.
+        if float.reset_lag_days < 0 || float.payment_lag_days < 0 {
+            if let Some(conv) = self.rate_index_conventions() {
+                if float.reset_lag_days < 0 {
+                    float.reset_lag_days = conv.default_reset_lag_days;
+                }
+                if float.payment_lag_days < 0 {
+                    float.payment_lag_days = conv.default_payment_lag_days;
+                }
             }
         }
         float

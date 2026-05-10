@@ -15,7 +15,7 @@
 //! # See Also
 //!
 //! - [`Tarn`] for instrument definition
-//! - [`crate::instruments::rates::shared::cumulative_coupon`] for the
+//! - [`crate::instruments::rates::exotics_shared::cumulative_coupon`] for the
 //!   cumulative coupon tracker used during MC simulation
 
 pub(crate) mod metrics;

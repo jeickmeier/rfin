@@ -6,7 +6,7 @@
 //!
 //! * [`tarn_coupon_profile`] — TARN coupon accrual with target-redemption
 //!   knockout, using the shared
-//!   [`CumulativeCouponTracker`](finstack_valuations::instruments::rates::shared::cumulative_coupon::CumulativeCouponTracker).
+//!   [`CumulativeCouponTracker`](finstack_valuations::instruments::rates::exotics_shared::cumulative_coupon::CumulativeCouponTracker).
 //! * [`snowball_coupon_profile`] — snowball / inverse-floater coupon
 //!   schedule, mirroring the formula in
 //!   [`Snowball::compute_coupon`](finstack_valuations::instruments::rates::snowball::Snowball::compute_coupon).
@@ -21,7 +21,7 @@
 //! require market data and are exposed via the standard
 //! ``price_instrument`` / ``price_instrument_with_metrics`` pipeline.
 
-use finstack_valuations::instruments::rates::shared::cumulative_coupon::CumulativeCouponTracker;
+use finstack_valuations::instruments::rates::exotics_shared::cumulative_coupon::CumulativeCouponTracker;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;

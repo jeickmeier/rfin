@@ -4,6 +4,25 @@
 //! re-exports. Keeping it here allows `mod.rs` to stay export-only.
 
 use crate::calibration::constants::OBJECTIVE_VALID_ABS_MAX;
+use crate::calibration::CalibrationConfig;
+
+/// Finite-difference bump step used by both bootstrap and global diagnostics.
+/// Returns `max(config.discount_curve.jacobian_step_size, 1e-8)`.
+pub(crate) fn diagnostics_bump_h(config: &CalibrationConfig) -> f64 {
+    config.discount_curve.jacobian_step_size.max(1e-8)
+}
+
+/// `(max_abs_residual, rms_residual)` over a residual vector — shared between the
+/// bootstrap and global diagnostics computations so the two paths cannot drift.
+pub(crate) fn residual_stats(resid_values: &[f64]) -> (f64, f64) {
+    let max_residual = resid_values.iter().map(|r| r.abs()).fold(0.0_f64, f64::max);
+    let rms_residual = if resid_values.is_empty() {
+        0.0
+    } else {
+        (resid_values.iter().map(|r| r * r).sum::<f64>() / resid_values.len() as f64).sqrt()
+    };
+    (max_residual, rms_residual)
+}
 #[cfg(test)]
 use crate::calibration::constants::PENALTY;
 use finstack_core::Result;
@@ -179,7 +198,6 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
     // We prefer a simple bisection on the bracket to guarantee reduction in |f|
     // for well-behaved monotone objectives. If midpoints become invalid/penalized,
     // we fall back to Brent+Newton.
-    let mut bisection_ok = true;
     for _ in 0..max_iters.max(50) {
         let m = 0.5 * (a + b);
         let fm = objective(m);
@@ -191,7 +209,9 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
         }
 
         if !fm.is_finite() || fm.abs() >= OBJECTIVE_VALID_ABS_MAX {
-            bisection_ok = false;
+            // Midpoint produced a penalized/infeasible value. Stop bisecting; leave
+            // (a,fa,b,fb) at their last good values so the false-position fallback
+            // below still has a valid sign-changing bracket.
             break;
         }
 
@@ -204,14 +224,24 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
         }
     }
 
-    if bisection_ok {
-        // If we didn't meet tol, return best observed point (if any).
-        if let (Some(best_point), Some(best_value)) = (diag.best_point, diag.best_value) {
-            if best_value.is_finite() && best_value.abs() < tol {
-                diag.bracket_found = true;
-                return Ok((Some(best_point), diag));
-            }
+    // If we already met tolerance, return the best observed point.
+    if let (Some(best_point), Some(best_value)) = (diag.best_point, diag.best_value) {
+        if best_value.is_finite() && best_value.abs() < tol {
+            diag.bracket_found = true;
+            return Ok((Some(best_point), diag));
         }
+    }
+
+    // The false-position fallback requires a valid sign-changing bracket. After bisection
+    // either: (a) we converged (handled above), (b) bisection_ok = false because a midpoint
+    // produced |f| >= OBJECTIVE_VALID_ABS_MAX and `(a,fa,b,fb)` are last-known-good, or
+    // (c) we ran out of iterations with a still-valid bracket. In all three cases the
+    // invariant `fa.signum() != fb.signum()` should hold; guard explicitly so that an
+    // edge case (e.g. fa or fb became NaN upstream) cannot drive FP on a stale bracket.
+    let bracket_valid =
+        fa.is_finite() && fb.is_finite() && fa.signum() != fb.signum() && a < b;
+    if !bracket_valid {
+        return Ok((diag.best_point, diag));
     }
 
     // Fallback: stay inside the discovered bracket with bounded false-position updates.

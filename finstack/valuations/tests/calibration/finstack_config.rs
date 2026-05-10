@@ -12,7 +12,7 @@ fn calibration_config_applies_extension_overrides() {
         CALIBRATION_CONFIG_KEY,
         json!({
             "solver": {
-                "method": "newton",
+                "method": "brent",
                 "tolerance": 1e-8,
                 "max_iterations": 250
             },
@@ -28,7 +28,7 @@ fn calibration_config_applies_extension_overrides() {
     assert_eq!(cfg_out.solver.tolerance(), 1e-8);
     assert_eq!(cfg_out.solver.max_iterations(), 250);
     assert!(cfg_out.use_parallel);
-    assert!(matches!(cfg_out.solver, SolverConfig::Newton { .. }));
+    assert!(matches!(cfg_out.solver, SolverConfig::Brent { .. }));
     assert_eq!(cfg_out.rate_bounds_policy, RateBoundsPolicy::Explicit);
     assert_eq!(
         cfg_out.rate_bounds,

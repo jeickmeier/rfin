@@ -341,8 +341,8 @@ impl CmsReplicationPricer {
         start: Date,
         end: Date,
     ) -> Result<(f64, f64)> {
-        crate::instruments::rates::shared::forward_swap_rate::calculate_forward_swap_rate(
-            crate::instruments::rates::shared::forward_swap_rate::ForwardSwapRateInputs {
+        crate::instruments::rates::exotics_shared::forward_swap_rate::calculate_forward_swap_rate(
+            crate::instruments::rates::exotics_shared::forward_swap_rate::ForwardSwapRateInputs {
                 market,
                 discount_curve_id: &inst.discount_curve_id,
                 forward_curve_id: &inst.forward_curve_id,

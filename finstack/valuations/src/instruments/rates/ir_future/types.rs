@@ -414,20 +414,30 @@ impl InterestRateFuture {
 
     /// Calculate convexity adjusted rate using volatility surface.
     ///
-    /// Uses the Hull-White 1-factor model approximation:
+    /// Uses the Hull-White 1-factor model approximation in the zero-mean-reversion
+    /// limit (a → 0):
     /// ```text
-    /// Convexity Adjustment ≈ 0.5 × σ² × T_fixing × (T_fixing + τ)
+    /// Convexity Adjustment ≈ 0.5 × σ² × T_start × T_end
     /// ```
     ///
-    /// This assumes zero mean reversion (a → 0). The full HW formula is:
+    /// This is Hull (10th ed., eq. 6.3) for the difference between futures-implied
+    /// and forward rates of the underlying interest-rate period `[T_start, T_end]`.
+    /// `T_fixing` (the reset date) is only used to look up the vol surface — it does
+    /// not appear in the convexity formula itself, which depends on the underlying
+    /// period endpoints, not the reset date. Previous versions of this code used
+    /// `T_fixing × (T_fixing + τ)`, which silently embedded an error proportional
+    /// to the reset lag (≈ 2 business days for IBOR, an entire accrual period for
+    /// SOFR-style backward-looking futures where the fixing date is at period end).
+    ///
+    /// The full HW formula is:
     /// ```text
-    /// CA = σ² × B(0,T₁) × B(0,T₂) where B(0,T) = (1 - exp(-aT)) / a
+    /// CA = σ² × B(0,T_start) × B(0,T_end), B(0,T) = (1 - exp(-aT)) / a
     /// ```
-    /// For a → 0, B(0,T) → T, giving the simplified formula above.
+    /// which reduces to `0.5 σ² T_start T_end` as a → 0.
     ///
     /// # Arguments
     /// * `forward_rate` - The unadjusted forward rate from the curve
-    /// * `t_fixing` - Time to fixing date in years (from curve base)
+    /// * `t_fixing` - Time to fixing date in years (used only for vol lookup)
     /// * `t_start` - Time to period start in years
     /// * `t_end` - Time to period end in years (must be >= t_start)
     fn calculate_convexity_adjusted_rate(
@@ -439,9 +449,8 @@ impl InterestRateFuture {
         t_end: f64,
     ) -> finstack_core::Result<f64> {
         let vol_estimate = if let Some(vol_id) = &self.vol_surface_id {
-            // Use provided volatility surface
-            // Strike for vol lookup is the forward rate (ATM)
             let surface = context.get_surface(vol_id)?;
+            // Vol surface is keyed by time-to-fixing and strike (ATM = forward).
             surface.value_checked(t_fixing, forward_rate)?
         } else {
             return Err(finstack_core::Error::Input(
@@ -454,12 +463,10 @@ impl InterestRateFuture {
             ));
         };
 
-        // Validate period dates are not inverted (t_end should be >= t_start after clamping)
-        let tau_len = (t_end - t_start).max(0.0);
-
-        // Convexity adjustment ≈ 0.5 × σ² × T₁ × T₂
-        // where T₁ = time to fixing, T₂ = time to maturity (fixing + accrual period)
-        let convexity = 0.5 * vol_estimate * vol_estimate * t_fixing * (t_fixing + tau_len);
+        // Hull-White zero-mean-reversion convexity adjustment: 0.5 σ² T_start T_end.
+        let t1 = t_start.max(0.0);
+        let t2 = t_end.max(t1);
+        let convexity = 0.5 * vol_estimate * vol_estimate * t1 * t2;
         Ok(forward_rate + convexity)
     }
 }

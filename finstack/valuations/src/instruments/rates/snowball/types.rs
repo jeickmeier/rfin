@@ -3,7 +3,7 @@
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
-use crate::instruments::rates::shared::bermudan_call::BermudanCallProvision;
+use crate::instruments::rates::exotics_shared::bermudan_call::BermudanCallProvision;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
