@@ -784,6 +784,8 @@ pub(crate) fn full_signed_schedule_with_curves_as_of(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::calibration::api::engine;
+    use crate::calibration::api::schema::CalibrationEnvelope;
     use finstack_core::cashflow::CFKind;
     use finstack_core::market_data::context::MarketContext;
 
@@ -796,7 +798,7 @@ mod tests {
     struct GoldenFixtureInputs {
         valuation_date: String,
         instrument_json: serde_json::Value,
-        market: MarketContext,
+        market_envelope: CalibrationEnvelope,
         source_reference: GoldenSourceReference,
     }
 
@@ -987,7 +989,10 @@ mod tests {
     }
 
     fn load_fixture_market(fixture: &GoldenFixtureEnvelope) -> MarketContext {
-        fixture.inputs.market.clone()
+        let result = engine::execute_with_diagnostics(&fixture.inputs.market_envelope)
+            .expect("fixture market envelope calibrates");
+        MarketContext::try_from(result.result.final_market)
+            .expect("fixture calibrated market rehydrates")
     }
 
     fn coupon_only_fixed_amount(cashflow: &BloombergCashflow) -> f64 {
