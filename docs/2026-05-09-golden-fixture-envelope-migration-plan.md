@@ -670,3 +670,80 @@ The OIS compounding override (`RatesStepConventions.ois_compounding`) is the key
 - All Bloomberg parity contracts preserved (deposit, FRA, IRS SWPM, swaption, cap_floor, bonds ×2, CDS).
 - All formula self-test contracts preserved (equity_options, fx_options, etc.).
 - 9 fixtures genuinely exercise calibration math via real bootstrap (1378+ iterations, residuals ~1e-13).
+
+---
+
+## 19. Follow-up coverage (2026-05-09): inflation, hazard, and surface step kinds
+
+After completing the 100% migration in §18, the three documented coverage gaps were closed by authoring fresh self-test fixtures. Each follows the POC #4 pattern (§16): synthetic but self-consistent calibration, expected outputs captured from Finstack's own pipeline, bit-stable round-trip contract.
+
+### 19.1 Inflation step coverage
+
+**Fixture:** `pricing/inflation_swap/usd_5y_zcis_self_test.json`
+
+Two-step plan: USD-OIS discount (12 SOFR OIS quotes with rate-cutoff override) → US-CPI inflation curve (6 ZCIS quotes 1Y-10Y, ~2.0-2.4% rising). Instrument: 5Y zero-coupon inflation swap, receive-fixed at 2.20% against US-CPI, 10MM USD notional. The forward CPI curve is calibrated against the prior discount curve; the inflation swap pricer projects the inflation index path and discounts the inflation-vs-fixed difference.
+
+**Verifies:** the `inflation` step kind, ZCIS quote handling, the `InflationCurveParams` schema (`base_cpi`, `observation_lag`), inflation registry conventions (USD-CPI), and the inflation-swap pricing kernel.
+
+**Expected outputs** (captured from Finstack):
+- npv = -91501.4714497153
+- dv01 = 45.77580653056066
+
+Tolerances: `1e-6` abs for both. Self-test contract.
+
+### 19.2 Hazard step coverage on single-name CDS
+
+**Fixture:** `pricing/cds/usd_5y_cds_self_test.json`
+
+Two-step plan: USD-OIS discount → ACME-HZD hazard curve (5 CDS par-spread quotes 1Y-10Y, 60-150 bp rising). Instrument: 5Y single-name CDS (pay-protection) at 100 bp running on synthetic ACME-CORP issuer, ISDA NA convention.
+
+Prior hazard-step coverage was only via CDX IG 46 (a CDS option fixture). This adds genuine single-name-CDS hazard calibration coverage.
+
+**Verifies:** the `hazard` step kind on a single-name (vs index) CDS, the CDS par-spread quote shape, the hazard step's `recovery_rate` / `doc_clause` plumbing, and the CDS pricing kernel against a calibrated hazard curve.
+
+**Expected outputs** (captured from Finstack):
+- npv = 38800.84804454475
+- dv01 = -10.632060529809678
+- cs01 = 4337.206909633183
+
+Tolerances: `1e-6` abs across npv/dv01/cs01.
+
+### 19.3 Surface step coverage (SABR)
+
+**Fixture:** `pricing/equity_option/aapl_equity_vol_self_test.json`
+
+Two-step plan: USD-OIS discount → AAPL-EQUITY-VOL SABR vol surface (9 OptionVol quotes, 3 expiries × 3 strikes, beta=0.5). Instrument: 1Y AAPL ATM call option on 100 shares, priced via Black76 against the calibrated surface and the AAPL-SPOT / AAPL-DIVYIELD prices in `initial_market`.
+
+The SABR fit converges with rmse ~1e-3 (typical for vol-surface calibration across a 3×3 grid). The self-test contract is bit-stable round-trip reproduction of the *priced* metrics (npv/delta/gamma/vega/theta), not zero rmse on the calibration residuals.
+
+**Verifies:** the `vol_surface` (SABR) step kind, OptionVol quote shape with `convention`/`option_type`/`strike`/`expiry`, the `target_expiries` × `target_strikes` grid configuration, and the equity-option pricer reading from a calibrated SABR surface.
+
+**Expected outputs** (captured from Finstack):
+- npv = 1851.3423860430435
+- delta = 59.670220906135896
+- gamma = 0.9515132005368704
+- vega = 66.34621887368557
+- theta = -4.0849442049804665
+
+Tolerances: `1e-6` abs across all 5 metrics.
+
+### Updated coverage scoreboard
+
+| Step kind | Production fixtures | Self-test fixtures |
+|---|---|---|
+| `discount` | 7 | 1 (irs self_test) |
+| `forward` | 4 | 1 (irs self_test) |
+| `hazard` | 1 (CDX IG 46) | **1 NEW (cds self_test)** |
+| `base_correlation` | 1 (CDX IG 46) | 0 |
+| **`inflation`** | 0 | **1 NEW (zcis self_test)** |
+| **`vol_surface`** | 0 | **1 NEW (aapl SABR self_test)** |
+| `swaption_vol` | 0 | 0 (still uncovered) |
+| `svi_surface` | 0 | 0 |
+
+Every primary calibration step kind now has at least one golden fixture exercising it, except `swaption_vol` and `svi_surface` (those would follow the same pattern — left as the next obvious follow-up).
+
+### Final test gates after follow-ups
+
+- Rust: `cargo test -p finstack-valuations --test golden` → 31/31 pass
+- Python: `pytest finstack-py/tests/golden/` → 104/104 pass (was 101 before this batch; +3 self-test fixtures)
+- 12 fixtures now genuinely exercise calibration math (was 9 in §18).
