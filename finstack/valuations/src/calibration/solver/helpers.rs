@@ -198,6 +198,13 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
     // We prefer a simple bisection on the bracket to guarantee reduction in |f|
     // for well-behaved monotone objectives. If midpoints become invalid/penalized,
     // we fall back to Brent+Newton.
+    //
+    // X-space early-break: when the bracket width collapses to machine precision
+    // bisection cannot further improve the candidate, but the false-position
+    // fallback below may still reduce |f| via secant-style updates inside the
+    // tight bracket. So we `break` (don't return) and let the fallback polish.
+    let x_tol_abs = 1e-14_f64;
+    let x_tol_rel = 1e-12_f64;
     for _ in 0..max_iters.max(50) {
         let m = 0.5 * (a + b);
         let fm = objective(m);
@@ -221,6 +228,12 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
         } else {
             a = m;
             fa = fm;
+        }
+
+        let bracket_width = b - a;
+        let x_tol = x_tol_abs.max(x_tol_rel * (a.abs().max(b.abs())));
+        if bracket_width <= x_tol {
+            break;
         }
     }
 
