@@ -29,6 +29,34 @@ use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
+/// Build the shared accrual schedule for both legs of an MtM-resetting XCCY swap.
+///
+/// `XccySwap::validate` aligns the two leg schedules, so both call sites (PV and
+/// cashflow-schedule builders) compute the same periods. This helper centralises
+/// the field-by-field mapping from a leg into `BuildPeriodsParams` so the two
+/// paths can never drift (e.g. one forgetting to disable `adjust_accrual_dates`).
+fn build_xccy_mtm_periods(
+    leg: &crate::instruments::rates::xccy_swap::XccySwapLeg,
+) -> Result<Vec<crate::cashflow::builder::periods::SchedulePeriod>> {
+    let cal_id = leg
+        .calendar_id
+        .as_deref()
+        .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID);
+    build_periods(BuildPeriodsParams {
+        start: leg.start,
+        end: leg.end,
+        frequency: leg.frequency,
+        stub: leg.stub,
+        bdc: leg.bdc,
+        calendar_id: cal_id,
+        end_of_month: false,
+        day_count: leg.day_count,
+        payment_lag_days: leg.payment_lag_days,
+        reset_lag_days: leg.reset_lag_days,
+        adjust_accrual_dates: false,
+    })
+}
+
 /// Compute the PV of an MtM-resetting XCCY swap in reporting currency.
 ///
 /// Dispatched from `XccySwap::base_value` when `notional_exchange` is `MtmResetting`.
@@ -69,23 +97,7 @@ pub(crate) fn pv_mtm_reset(
         .rate;
 
     // Build the shared schedule (aligned per `XccySwap::validate`).
-    let leg_cal_id = constant_leg
-        .calendar_id
-        .as_deref()
-        .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID);
-    let periods = build_periods(BuildPeriodsParams {
-        start: constant_leg.start,
-        end: constant_leg.end,
-        frequency: constant_leg.frequency,
-        stub: constant_leg.stub,
-        bdc: constant_leg.bdc,
-        calendar_id: leg_cal_id,
-        end_of_month: false,
-        day_count: constant_leg.day_count,
-        payment_lag_days: constant_leg.payment_lag_days,
-        reset_lag_days: constant_leg.reset_lag_days,
-        adjust_accrual_dates: false,
-    })?;
+    let periods = build_xccy_mtm_periods(constant_leg)?;
 
     if periods.is_empty() {
         return Ok(Money::new(0.0, reporting_ccy));
@@ -316,25 +328,7 @@ pub(crate) fn mtm_resetting_leg_schedule(
         ))?
         .rate;
 
-    let leg_cal_id = constant_leg
-        .calendar_id
-        .as_deref()
-        .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID);
-    let periods = crate::cashflow::builder::periods::build_periods(
-        crate::cashflow::builder::periods::BuildPeriodsParams {
-            start: constant_leg.start,
-            end: constant_leg.end,
-            frequency: constant_leg.frequency,
-            stub: constant_leg.stub,
-            bdc: constant_leg.bdc,
-            calendar_id: leg_cal_id,
-            end_of_month: false,
-            day_count: constant_leg.day_count,
-            payment_lag_days: constant_leg.payment_lag_days,
-            reset_lag_days: constant_leg.reset_lag_days,
-            adjust_accrual_dates: false,
-        },
-    )?;
+    let periods = build_xccy_mtm_periods(constant_leg)?;
 
     let mut flows: Vec<CashFlow> = Vec::with_capacity(periods.len() * 2 + 2);
 
