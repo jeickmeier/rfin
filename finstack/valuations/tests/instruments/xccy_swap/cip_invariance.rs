@@ -150,8 +150,11 @@ fn cip_invariance_mtm_reset_equals_fixed_notional_when_spread_zero() {
     let pv_fixed = fixed.base_value(&ctx, as_of).expect("fixed PV").amount();
     let pv_mtm = mtm.base_value(&ctx, as_of).expect("mtm PV").amount();
 
-    // Tolerance: ~1e-4 absolute (= 1e-11 relative for N_USD=1e7). Calendar/day-count
-    // noise from the schedule builder can introduce O(1e-5)-scale fluctuations.
+    // Tolerance: 1e-4 × N_USD = $1000 absolute = 1e-4 relative. The dominant source of
+    // residual is the curve-construction interpolation mismatch (linear-in-DF discount
+    // curves vs. flat-zero forward curves are not exactly CIP-consistent at every quarter),
+    // which produces O($100s) of structural noise even with spread=0. A textbook-pure
+    // identity would land near 1e-12 relative; the real-world tolerance reflects that.
     let tol = 1e-4 * N_USD;
     assert!(
         (pv_fixed - pv_mtm).abs() < tol,

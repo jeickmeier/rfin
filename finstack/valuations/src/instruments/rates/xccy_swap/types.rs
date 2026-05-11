@@ -140,9 +140,14 @@ pub enum NotionalExchange {
     #[default]
     InitialAndFinal,
     /// Mark-to-market resetting. The notional of `resetting_side` is re-marked at each
-    /// of its coupon reset dates to match the constant leg's notional in current FX,
-    /// with a corresponding rebalancing cashflow exchanged in both currencies. Implies
-    /// initial AND final principal exchange.
+    /// of its coupon reset dates to match the constant leg's notional in current FX.
+    /// A rebalancing cashflow is paid on the resetting leg only — the constant leg's
+    /// principal-and-coupon schedule is unchanged, matching standard MtM-XCCY market
+    /// convention (QuantLib's `MtMCrossCurrencyBasisSwap` follows the same pattern).
+    /// Under CIP no-FX-vol the constant-currency leg of the FX swap that funds the
+    /// rebalancing is PV-fair from today's perspective, so the resetting-leg flow is
+    /// the only cashflow that needs to be emitted explicitly. Implies initial AND
+    /// final principal exchange.
     MtmResetting {
         /// Which leg (`Leg1` or `Leg2`) has its notional reset each period.
         resetting_side: ResettingSide,

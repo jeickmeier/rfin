@@ -1,14 +1,22 @@
 //! MtM-resetting cross-currency swap PV path.
 //!
-//! Implements the cashflow stream in `docs/superpowers/specs/2026-05-10-xccy-mtm-reset-design.md`
-//! under the CIP no-FX-vol approximation. The constant leg behaves like a vanilla fixed-notional
-//! XCCY leg; the resetting leg's notional is re-marked at each accrual-period start using
-//! `N_j^R = N_C / X_j^FRA` where `X_j^FRA = X_0 * P_C(T_j) / P_R(T_j)`. Rebalancing cashflows
-//! are emitted in both currencies on each reset date.
+//! Implements the cashflow stream under the CIP no-FX-vol approximation. The constant leg
+//! behaves like a vanilla fixed-notional XCCY leg (initial exchange, periodic coupons on
+//! `N_C`, final exchange). The resetting leg's notional is re-marked at each accrual-period
+//! start using `N_j^R = N_C / X_j^FRA` where `X_j^FRA = X_0 * P_C(T_j) / P_R(T_j)`, with
+//! coupons accruing on the new notional and a rebalancing cashflow paid on the resetting
+//! leg only to fund the notional change.
 //!
-//! The whole PV reduces to a single Neumaier-accumulated sum of reporting-currency-converted
-//! discounted cashflows, with no additional FX surface required beyond what
+//! The constant leg has **no** rebalancing cashflow — this matches standard MtM-XCCY market
+//! convention (QuantLib's `MtMCrossCurrencyBasisSwap` is structured the same way). Under
+//! CIP no-FX-vol, the constant-currency half of the FX swap that funds the rebalancing is
+//! PV-fair from today's perspective, so emitting it explicitly would double-count.
+//!
+//! The whole PV reduces to a Neumaier-accumulated sum of reporting-currency-converted
+//! discounted cashflows, requiring no additional FX surface beyond what
 //! `pv_leg_in_reporting_ccy` already needs for fixed-notional XCCY.
+//!
+//! See `docs/superpowers/specs/2026-05-10-xccy-mtm-reset-design.md` for the spec.
 
 use crate::cashflow::builder::periods::{build_periods, BuildPeriodsParams};
 use crate::instruments::common_impl::pricing::swap_legs::robust_relative_df;
