@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import re
 from pathlib import Path
 import tomllib
@@ -138,4 +139,63 @@ def test_pyi_top_level_matches_contract() -> None:
         f"finstack.__all__ diverged from contract.\n"
         f"  missing from finstack.__all__: {sorted(contract - finstack_all)}\n"
         f"  unlisted in contract: {sorted(finstack_all - contract)}"
+    )
+
+
+def _symbol_entries() -> list[tuple[str, str, str]]:
+    """Yield (crate_name, package_path, symbol_name) for every contract symbol."""
+    entries: list[tuple[str, str, str]] = []
+    for crate_name, crate in CONTRACT["crates"].items():
+        symbols = crate.get("symbols", {})
+        for sym in symbols.get("public", []):
+            entries.append((crate_name, crate["python_package"], sym))
+    return entries
+
+
+SYMBOL_ENTRIES = _symbol_entries()
+
+
+@pytest.mark.parametrize(
+    ("crate_name", "package_path", "symbol_name"),
+    SYMBOL_ENTRIES,
+)
+def test_contract_symbols_are_importable(
+    crate_name: str,
+    package_path: str,
+    symbol_name: str,
+) -> None:
+    """Every contract symbol must resolve as an attribute of its package."""
+    assert crate_name
+    module = importlib.import_module(package_path)
+    assert hasattr(module, symbol_name), (
+        f"{package_path} does not expose `{symbol_name}` "
+        f"(listed in parity contract under `{crate_name}.symbols.public`)"
+    )
+
+
+def test_contract_symbols_match_live_surface() -> None:
+    """The `valuations.symbols.public` list must match the live public surface.
+
+    Catches both directions: a public name added without contract update, and
+    a contract entry that no longer exists in Python.
+    """
+    crate = CONTRACT["crates"]["valuations"]
+    if "symbols" not in crate:
+        pytest.skip("valuations has no symbols block")
+    expected = set(crate["symbols"]["public"])
+    module = importlib.import_module(crate["python_package"])
+    submodule_names = {
+        m for m, spec in crate.get("modules", {}).items()
+        if spec["status"] in {"exists", "flattened"}
+    }
+    actual = {
+        n for n in dir(module)
+        if not n.startswith("_")
+        and n not in submodule_names
+        and not inspect.ismodule(getattr(module, n))
+    }
+    assert actual == expected, (
+        f"finstack.valuations public surface diverged from contract.\n"
+        f"  missing from Python: {sorted(expected - actual)}\n"
+        f"  unlisted in contract: {sorted(actual - expected)}"
     )
