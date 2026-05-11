@@ -83,11 +83,11 @@ pub enum MarketDatum {
 pub struct FxSpotDatum {
     /// Stable identifier for this datum.
     pub id: String,
-    /// Quote currency (numerator of `to / from`).
+    /// Base currency (e.g. `EUR` in `EUR/USD`).
     pub from: Currency,
-    /// Base currency (denominator of `to / from`).
+    /// Quote currency (e.g. `USD` in `EUR/USD`).
     pub to: Currency,
-    /// Spot rate value (1 `from` = `rate` `to`).
+    /// Rate such that `1 from = rate to`.
     pub rate: FxRate,
 }
 
@@ -134,6 +134,10 @@ mod tests {
         let json = serde_json::to_string(&datum).unwrap();
         assert!(json.contains(r#""kind":"price""#));
         let back: MarketDatum = serde_json::from_str(&json).unwrap();
-        assert!(matches!(back, MarketDatum::Price(_)));
+        let MarketDatum::Price(p) = back else {
+            panic!("expected Price variant");
+        };
+        assert_eq!(p.id, "AAPL");
+        assert!(matches!(p.scalar, MarketScalar::Unitless(v) if (v - 175.42).abs() < 1e-12));
     }
 }
