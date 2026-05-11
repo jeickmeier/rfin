@@ -15,11 +15,11 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor};
-use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::Seniority;
 use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::types::CurveId;
 use finstack_core::HashMap;
+use finstack_valuations::calibration::api::market_datum::MarketDatum;
 use finstack_valuations::calibration::api::{
     engine,
     schema::{
@@ -35,6 +35,27 @@ use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
 use std::hint::black_box;
 use time::Month;
+
+/// Extract the QuoteId of each MarketQuote.
+fn quote_set_ids(quotes: &[MarketQuote]) -> Vec<QuoteId> {
+    quotes
+        .iter()
+        .map(|q| match q {
+            MarketQuote::Rates(q) => q.id().clone(),
+            MarketQuote::Cds(q) => q.id().clone(),
+            MarketQuote::CDSTranche(q) => q.id().clone(),
+            MarketQuote::Fx(q) => q.id().clone(),
+            MarketQuote::Inflation(q) => q.id().clone(),
+            MarketQuote::Vol(q) => q.id().clone(),
+            MarketQuote::Xccy(q) => q.id().clone(),
+            MarketQuote::Bond(q) => q.id().clone(),
+        })
+        .collect()
+}
+
+fn quotes_to_data(quotes: &[MarketQuote]) -> Vec<MarketDatum> {
+    quotes.iter().cloned().map(MarketDatum::from).collect()
+}
 
 // ---------------------------------------------------------------------------
 // Helpers — rate quote builders
@@ -142,14 +163,17 @@ fn discount_envelope(
     curve_suffix: &str,
 ) -> CalibrationEnvelope {
     let base = base_date();
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("disc".to_string(), quotes);
+    let market_data = quotes_to_data(&quotes);
+    let ids = quote_set_ids(&quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("disc".to_string(), ids);
 
     let curve_id = CurveId::from(format!("USD-OIS-{curve_suffix}"));
     CalibrationEnvelope {
         schema: CALIBRATION_SCHEMA.to_string(),
         schema_url: None,
-        initial_market: Some((&MarketContext::new()).into()),
+        market_data,
+        prior_market: Vec::new(),
         plan: CalibrationPlan {
             id: format!("global_disc_{curve_suffix}"),
             description: None,
@@ -182,9 +206,13 @@ fn hazard_envelope(
 ) -> CalibrationEnvelope {
     let base = base_date();
     let currency = Currency::USD;
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("disc".to_string(), disc_quotes);
-    quote_sets.insert("cds".to_string(), cds_quotes);
+    let mut market_data = quotes_to_data(&disc_quotes);
+    market_data.extend(quotes_to_data(&cds_quotes));
+    let disc_ids = quote_set_ids(&disc_quotes);
+    let cds_ids = quote_set_ids(&cds_quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("disc".to_string(), disc_ids);
+    quote_sets.insert("cds".to_string(), cds_ids);
 
     let disc_curve = CurveId::from(format!("USD-OIS-{suffix}"));
     let haz_curve = CurveId::from(format!("BENCH-ENTITY-HZD-{suffix}"));
@@ -192,7 +220,8 @@ fn hazard_envelope(
     CalibrationEnvelope {
         schema: CALIBRATION_SCHEMA.to_string(),
         schema_url: None,
-        initial_market: Some((&MarketContext::new()).into()),
+        market_data,
+        prior_market: Vec::new(),
         plan: CalibrationPlan {
             id: format!("global_hazard_{suffix}"),
             description: None,
