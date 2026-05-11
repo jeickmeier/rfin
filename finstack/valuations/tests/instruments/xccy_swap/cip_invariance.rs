@@ -276,10 +276,10 @@ fn mtm_reset_cashflow_schedule_npv_matches_base_value() {
     );
 
     let usd_disc = ctx
-        .get_discount(&finstack_core::types::CurveId::new("USD-OIS"))
+        .get_discount(finstack_core::types::CurveId::new("USD-OIS"))
         .expect("USD curve");
     let eur_disc = ctx
-        .get_discount(&finstack_core::types::CurveId::new("EUR-OIS"))
+        .get_discount(finstack_core::types::CurveId::new("EUR-OIS"))
         .expect("EUR curve");
     let fx = ctx.fx().expect("FX matrix");
 

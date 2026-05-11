@@ -405,7 +405,7 @@ mod xccy_quote_calibration_tests {
         );
 
         let calibrated = new_ctx
-            .get_discount(&CurveId::new("EUR-OIS"))
+            .get_discount(CurveId::new("EUR-OIS"))
             .expect("calibrated EUR-OIS curve should be present in the new context");
         assert!(
             calibrated.df(5.0) > 0.0 && calibrated.df(5.0) < 1.0,
