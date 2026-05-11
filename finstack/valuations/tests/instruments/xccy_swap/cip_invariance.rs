@@ -127,6 +127,76 @@ fn build_swap(notional_exchange: NotionalExchange, spread_bp: Decimal) -> XccySw
         .with_notional_exchange(notional_exchange)
 }
 
+/// CIP invariance with `as_of` STRICTLY AFTER the curve base date.
+///
+/// Regression test for the bug where `pv_mtm_reset` used absolute `df_on_date_curve(t)`
+/// instead of `robust_relative_df(curve, as_of, t)` — producing identical results only
+/// when `as_of == curve.base_date` (i.e., the calibration date itself) and silently
+/// biasing every intraday revaluation against the calibrated curves.
+///
+/// Using a base_date *earlier* than `as_of` (3 months earlier) tests that the relative
+/// DFs from `as_of` are correctly used in both the initial / final principal exchanges
+/// and the per-period coupons + rebalancing flows. If any DF lookup in `pv_mtm_reset`
+/// drops back to absolute-from-curve-base, the CIP-invariance identity breaks by a
+/// factor of `P_C(as_of) / P_R(as_of)` and this test catches it.
+#[test]
+fn cip_invariance_holds_when_as_of_after_curve_base_date() {
+    use finstack_core::math::interp::InterpStyle;
+
+    // Build curves with base = 2024-10-01, then revalue on 2025-01-02 (90 days later).
+    let curve_base = Date::from_calendar_date(2024, Month::October, 1).expect("curve base");
+    let usd_disc = DiscountCurve::builder(CurveId::new("USD-OIS"))
+        .base_date(curve_base)
+        .day_count(DayCount::Act365F)
+        .knots([(0.0, 1.0), (TENOR_YEARS + 0.25, (-USD_ZERO * (TENOR_YEARS + 0.25)).exp())])
+        .interp(InterpStyle::Linear)
+        .extrapolation(ExtrapolationPolicy::FlatZero)
+        .build()
+        .expect("USD disc");
+    let eur_disc = DiscountCurve::builder(CurveId::new("EUR-OIS"))
+        .base_date(curve_base)
+        .day_count(DayCount::Act365F)
+        .knots([(0.0, 1.0), (TENOR_YEARS + 0.25, (-EUR_ZERO * (TENOR_YEARS + 0.25)).exp())])
+        .interp(InterpStyle::Linear)
+        .extrapolation(ExtrapolationPolicy::FlatZero)
+        .build()
+        .expect("EUR disc");
+    let usd_fwd = build_forward("USD-SOFR-3M", curve_base, USD_ZERO);
+    let eur_fwd = build_forward("EUR-EURIBOR-3M", curve_base, EUR_ZERO);
+
+    let ctx = MarketContext::new()
+        .insert(usd_disc)
+        .insert(eur_disc)
+        .insert(usd_fwd)
+        .insert(eur_fwd)
+        .insert_fx(build_fx_matrix(SPOT_USD_PER_EUR));
+
+    // `as_of` is 90 days AFTER the curve base date. With the bug, MtM-reset PV picks up
+    // a multiplicative factor of `P_C_base(as_of) / P_R_base(as_of)` ≈ exp(-(USD-EUR)·90/365)
+    // ≈ 0.9975 — small but trivially observable on $10M notional ($25k+).
+    let as_of = base_date(); // 2025-01-02
+    let fixed = build_swap(NotionalExchange::InitialAndFinal, Decimal::ZERO);
+    let mtm = build_swap(
+        NotionalExchange::MtmResetting {
+            resetting_side: ResettingSide::Leg1,
+        },
+        Decimal::ZERO,
+    );
+
+    let pv_fixed = fixed.base_value(&ctx, as_of).expect("fixed PV").amount();
+    let pv_mtm = mtm.base_value(&ctx, as_of).expect("mtm PV").amount();
+
+    let tol = 1e-4 * N_USD;
+    assert!(
+        (pv_fixed - pv_mtm).abs() < tol,
+        "CIP invariance failed with as_of != curve.base_date: pv_fixed={pv_fixed:.4}, \
+         pv_mtm={pv_mtm:.4}, diff={:.4e}, tol={tol:.4e}. This indicates a DF discounting \
+         bug — pricing_mtm.rs must use robust_relative_df(curve, as_of, t), not absolute \
+         df_on_date_curve(t).",
+        pv_fixed - pv_mtm
+    );
+}
+
 /// CIP invariance: with spread = 0 and CIP-consistent curves, MtM-reset and fixed-notional
 /// XCCY swap PVs must agree. This is the textbook result and the load-bearing check that
 /// our implementation is correct.
