@@ -23,7 +23,6 @@ use std::collections::{BTreeSet, HashSet};
 
 use crate::calibration::api::errors::EnvelopeError;
 use crate::calibration::api::schema::{CalibrationEnvelope, CalibrationStep, StepParams};
-use finstack_core::market_data::context::MarketContextState;
 
 /// Result of [`validate`]. Always contains the dependency graph; `errors` is
 /// empty when the envelope is structurally valid.
@@ -68,10 +67,12 @@ pub struct DependencyNode {
 /// pre-flight check before invoking [`engine::execute`](super::engine::execute).
 pub fn validate(envelope: &CalibrationEnvelope) -> ValidationReport {
     let mut errors = Vec::new();
-    let initial_ids = collect_initial_ids(envelope.initial_market.as_ref());
+    let initial_ids = collect_initial_ids(envelope);
     let nodes = build_nodes(&envelope.plan.steps);
 
     check_quote_sets(envelope, &mut errors);
+    check_market_data_uniqueness(envelope, &mut errors);
+    check_quote_sets_resolve(envelope, &mut errors);
     check_dependencies(&initial_ids, &nodes, &mut errors);
 
     let mut sorted_initial: Vec<String> = initial_ids.into_iter().collect();
@@ -100,9 +101,7 @@ pub fn dry_run(envelope_json: &str) -> Result<String, EnvelopeError> {
 pub fn dependency_graph_json(envelope_json: &str) -> Result<String, EnvelopeError> {
     let envelope = parse_envelope(envelope_json)?;
     let nodes = build_nodes(&envelope.plan.steps);
-    let mut sorted_initial: Vec<String> = collect_initial_ids(envelope.initial_market.as_ref())
-        .into_iter()
-        .collect();
+    let mut sorted_initial: Vec<String> = collect_initial_ids(&envelope).into_iter().collect();
     sorted_initial.sort();
     let graph = DependencyGraph {
         initial_ids: sorted_initial,
@@ -123,15 +122,10 @@ fn parse_envelope(json: &str) -> Result<CalibrationEnvelope, EnvelopeError> {
     })
 }
 
-fn collect_initial_ids(state: Option<&MarketContextState>) -> HashSet<String> {
+fn collect_initial_ids(envelope: &CalibrationEnvelope) -> HashSet<String> {
     let mut ids = HashSet::new();
-    let Some(state) = state else { return ids };
-
-    for curve in &state.curves {
-        ids.insert(curve.id().to_string());
-    }
-    for surface in &state.surfaces {
-        ids.insert(surface.id().to_string());
+    for obj in &envelope.prior_market {
+        ids.insert(obj.id().to_string());
     }
     ids
 }
@@ -275,6 +269,50 @@ fn check_quote_sets(envelope: &CalibrationEnvelope, errors: &mut Vec<EnvelopeErr
     }
 }
 
+fn check_market_data_uniqueness(
+    envelope: &CalibrationEnvelope,
+    errors: &mut Vec<EnvelopeError>,
+) {
+    use std::collections::HashMap;
+    let mut seen: HashMap<&str, BTreeSet<String>> = HashMap::new();
+    for datum in &envelope.market_data {
+        let key = if datum.is_quote() {
+            "quote"
+        } else {
+            datum.kind_name()
+        };
+        if !seen
+            .entry(key)
+            .or_default()
+            .insert(datum.id().to_string())
+        {
+            errors.push(EnvelopeError::DuplicateMarketDatumId {
+                datum_kind: key.to_string(),
+                id: datum.id().to_string(),
+            });
+        }
+    }
+}
+
+fn check_quote_sets_resolve(envelope: &CalibrationEnvelope, errors: &mut Vec<EnvelopeError>) {
+    let quote_ids: HashSet<&str> = envelope
+        .market_data
+        .iter()
+        .filter(|d| d.is_quote())
+        .map(|d| d.id())
+        .collect();
+    for (set_name, ids) in &envelope.plan.quote_sets {
+        for qid in ids {
+            if !quote_ids.contains(qid.as_str()) {
+                errors.push(EnvelopeError::QuoteIdNotInMarketData {
+                    quote_set: set_name.clone(),
+                    id: qid.to_string(),
+                });
+            }
+        }
+    }
+}
+
 fn check_dependencies(
     initial_ids: &HashSet<String>,
     nodes: &[DependencyNode],
@@ -352,7 +390,8 @@ mod tests {
                 steps: Vec::new(),
                 settings: Default::default(),
             },
-            initial_market: None,
+            market_data: Vec::new(),
+            prior_market: Vec::new(),
         }
     }
 
@@ -471,5 +510,80 @@ mod tests {
             }
             _ => panic!("expected JsonParse"),
         }
+    }
+}
+
+#[cfg(test)]
+mod v3_validation_tests {
+    use super::*;
+    use crate::calibration::api::market_datum::{MarketDatum, PriceDatum};
+    use crate::calibration::api::schema::{CalibrationPlan, CALIBRATION_SCHEMA};
+    use finstack_core::market_data::scalars::MarketScalar;
+    use finstack_core::HashMap;
+
+    #[test]
+    fn duplicate_price_id_is_flagged() {
+        let envelope = CalibrationEnvelope {
+            schema_url: None,
+            schema: CALIBRATION_SCHEMA.to_string(),
+            plan: CalibrationPlan {
+                id: "t".into(),
+                description: None,
+                quote_sets: HashMap::default(),
+                steps: vec![],
+                settings: Default::default(),
+            },
+            market_data: vec![
+                MarketDatum::Price(PriceDatum {
+                    id: "AAPL".into(),
+                    scalar: MarketScalar::Unitless(100.0),
+                }),
+                MarketDatum::Price(PriceDatum {
+                    id: "AAPL".into(),
+                    scalar: MarketScalar::Unitless(101.0),
+                }),
+            ],
+            prior_market: vec![],
+        };
+        let report = validate(&envelope);
+        assert!(
+            report.errors.iter().any(|e| matches!(
+                e,
+                EnvelopeError::DuplicateMarketDatumId { datum_kind, id }
+                    if datum_kind == "price" && id == "AAPL"
+            )),
+            "expected DuplicateMarketDatumId, got: {:?}",
+            report.errors
+        );
+    }
+
+    #[test]
+    fn unresolved_quote_id_is_flagged() {
+        use crate::market::quotes::ids::QuoteId;
+        let mut quote_sets = HashMap::default();
+        quote_sets.insert("usd".to_string(), vec![QuoteId::new("MISSING")]);
+        let envelope = CalibrationEnvelope {
+            schema_url: None,
+            schema: CALIBRATION_SCHEMA.to_string(),
+            plan: CalibrationPlan {
+                id: "t".into(),
+                description: None,
+                quote_sets,
+                steps: vec![],
+                settings: Default::default(),
+            },
+            market_data: vec![],
+            prior_market: vec![],
+        };
+        let report = validate(&envelope);
+        assert!(
+            report.errors.iter().any(|e| matches!(
+                e,
+                EnvelopeError::QuoteIdNotInMarketData { quote_set, id }
+                    if quote_set == "usd" && id == "MISSING"
+            )),
+            "expected QuoteIdNotInMarketData, got: {:?}",
+            report.errors
+        );
     }
 }

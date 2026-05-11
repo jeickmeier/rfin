@@ -99,6 +99,26 @@ pub enum EnvelopeError {
         /// Human-readable reason describing the validation failure.
         reason: String,
     },
+    /// Two entries in `market_data` share the same `(kind, id)` (or same id
+    /// within the quote namespace shared by the eight `*_quote` kinds).
+    DuplicateMarketDatumId {
+        /// `"quote"` (shared namespace for the eight `*_quote` variants) or
+        /// the specific datum kind name for non-quote variants.
+        ///
+        /// Renamed to `datum_kind` in the Rust struct because the enum's serde
+        /// tag is already named `kind`; the JSON payload uses `datum_kind`.
+        datum_kind: String,
+        /// The duplicated identifier.
+        id: String,
+    },
+    /// A quote ID listed in `plan.quote_sets[name]` doesn't resolve to any
+    /// quote-kind entry in `market_data`.
+    QuoteIdNotInMarketData {
+        /// The named quote set in `plan.quote_sets`.
+        quote_set: String,
+        /// The unresolved quote identifier.
+        id: String,
+    },
 }
 
 impl fmt::Display for EnvelopeError {
@@ -199,6 +219,14 @@ impl fmt::Display for EnvelopeError {
                 f,
                 "step '{step_id}': quote '{quote_id}' is invalid: {reason}"
             ),
+            EnvelopeError::DuplicateMarketDatumId { datum_kind, id } => write!(
+                f,
+                "market_data contains duplicate id '{id}' within kind '{datum_kind}'"
+            ),
+            EnvelopeError::QuoteIdNotInMarketData { quote_set, id } => write!(
+                f,
+                "quote_set '{quote_set}' references id '{id}', which is not present in market_data as a quote"
+            ),
         }
     }
 }
@@ -219,6 +247,8 @@ impl EnvelopeError {
             EnvelopeError::QuoteClassMismatch { .. } => "quote_class_mismatch",
             EnvelopeError::SolverNotConverged { .. } => "solver_not_converged",
             EnvelopeError::QuoteDataInvalid { .. } => "quote_data_invalid",
+            EnvelopeError::DuplicateMarketDatumId { .. } => "duplicate_market_datum_id",
+            EnvelopeError::QuoteIdNotInMarketData { .. } => "quote_id_not_in_market_data",
         }
     }
 
@@ -234,7 +264,9 @@ impl EnvelopeError {
             | EnvelopeError::QuoteClassMismatch { step_id, .. }
             | EnvelopeError::SolverNotConverged { step_id, .. }
             | EnvelopeError::QuoteDataInvalid { step_id, .. } => Some(step_id),
-            EnvelopeError::JsonParse { .. } => None,
+            EnvelopeError::JsonParse { .. }
+            | EnvelopeError::DuplicateMarketDatumId { .. }
+            | EnvelopeError::QuoteIdNotInMarketData { .. } => None,
         }
     }
 
