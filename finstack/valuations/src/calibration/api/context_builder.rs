@@ -217,7 +217,7 @@ mod tests {
         // No public field accessors; use the stats helper for a coarse-grained
         // emptiness check.
         let stats = ctx.stats();
-        assert_eq!(stats.curve_count, 0);
+        assert_eq!(stats.total_curves, 0);
         assert_eq!(stats.surface_count, 0);
         assert!(ctx.fx().is_none());
         assert!(ctx.hierarchy().is_none());

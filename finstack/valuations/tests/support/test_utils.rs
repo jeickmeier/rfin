@@ -524,14 +524,16 @@ pub fn flat_vol_surface(id: &str, expiries: &[f64], strikes: &[f64], vol: f64) -
 
 /// Calibration-specific helpers for integration tests.
 pub mod calibration {
-    use finstack_core::market_data::context::MarketContextState;
     use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::context::MarketContextState;
     use finstack_core::Result;
     use finstack_valuations::calibration::api::engine;
+    use finstack_valuations::calibration::api::market_datum::{MarketContextSplit, MarketDatum};
     use finstack_valuations::calibration::api::schema::{
         CalibrationEnvelope, CalibrationPlan, CalibrationStep, StepParams, CALIBRATION_SCHEMA,
     };
     use finstack_valuations::calibration::{CalibrationConfig, CalibrationReport};
+    use finstack_valuations::market::quotes::ids::QuoteId;
     use finstack_valuations::market::quotes::market_quote::MarketQuote;
 
     /// Execute a single calibration step for tests/benchmarks without engaging the full plan engine.
@@ -541,8 +543,31 @@ pub mod calibration {
         context: &MarketContext,
         global_config: &CalibrationConfig,
     ) -> Result<(MarketContext, CalibrationReport)> {
+        // Split the legacy market context snapshot into the v3 envelope
+        // inputs: pre-built calibrated objects (`prior`) and flat market data
+        // (`data`).
+        let MarketContextSplit { prior, mut data } =
+            MarketContextState::from(context).into();
+
+        // Build the `default` quote set: append each quote's `MarketDatum` to
+        // `market_data` and collect the `QuoteId`s by reference.
+        let ids: Vec<QuoteId> = quotes
+            .iter()
+            .map(|q| match q {
+                MarketQuote::Rates(q) => q.id().clone(),
+                MarketQuote::Cds(q) => q.id().clone(),
+                MarketQuote::CDSTranche(q) => q.id().clone(),
+                MarketQuote::Fx(q) => q.id().clone(),
+                MarketQuote::Inflation(q) => q.id().clone(),
+                MarketQuote::Vol(q) => q.id().clone(),
+                MarketQuote::Xccy(q) => q.id().clone(),
+                MarketQuote::Bond(q) => q.id().clone(),
+            })
+            .collect();
+        data.extend(quotes.iter().cloned().map(MarketDatum::from));
+
         let mut quote_sets = finstack_core::HashMap::default();
-        quote_sets.insert("default".to_string(), quotes.to_vec());
+        quote_sets.insert("default".to_string(), ids);
 
         let plan = CalibrationPlan {
             id: "test-plan".to_string(),
@@ -558,10 +583,10 @@ pub mod calibration {
 
         let envelope = CalibrationEnvelope {
             schema_url: None,
-
             schema: CALIBRATION_SCHEMA.to_string(),
             plan,
-            initial_market: Some(MarketContextState::from(context)),
+            market_data: data,
+            prior_market: prior,
         };
 
         let result = engine::execute(&envelope)?;
