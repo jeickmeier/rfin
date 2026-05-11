@@ -9,7 +9,9 @@
 #![allow(clippy::result_large_err)]
 
 use super::schema::{CalibrationEnvelope, CalibrationPlan};
+use crate::calibration::api::context_builder;
 use crate::calibration::api::errors::EnvelopeError;
+use crate::calibration::api::market_datum::MarketDatum;
 use crate::calibration::api::schema::CalibrationStep;
 use crate::calibration::api::schema::{CalibrationResult, CalibrationResultEnvelope};
 use crate::calibration::config::CalibrationConfig;
@@ -68,10 +70,53 @@ impl From<ExecuteError> for finstack_core::Error {
 // Helper Types
 // =============================================================================
 
+/// Resolve the [`MarketQuote`] list for a step by looking up its `quote_set` in
+/// the plan and then materializing each [`QuoteId`](crate::market::quotes::ids::QuoteId)
+/// out of the envelope's flat `market_data` list.
+///
+/// Returns an `ExecuteError::Other(NotFound)` for a missing quote set or any
+/// referenced quote id that is absent from `market_data`. Non-quote data
+/// (prices, surfaces, etc.) is filtered out via [`MarketDatum::as_quote`].
+fn resolve_step_quotes(
+    plan: &CalibrationPlan,
+    market_data: &[MarketDatum],
+    step: &CalibrationStep,
+) -> std::result::Result<Vec<MarketQuote>, ExecuteError> {
+    let ids = plan.quote_sets.get(&step.quote_set).ok_or_else(|| {
+        ExecuteError::Other(finstack_core::Error::Input(
+            finstack_core::InputError::NotFound {
+                id: format!("Quote set '{}' not found", step.quote_set),
+            },
+        ))
+    })?;
+    let by_id: std::collections::HashMap<&str, MarketQuote> = market_data
+        .iter()
+        .filter_map(|d| d.as_quote().map(|q| (d.id(), q)))
+        .collect();
+    ids.iter()
+        .map(|qid| {
+            by_id.get(qid.as_str()).cloned().ok_or_else(|| {
+                ExecuteError::Other(finstack_core::Error::Input(
+                    finstack_core::InputError::NotFound {
+                        id: format!(
+                            "Quote ID '{}' (referenced by quote_set '{}') not in market_data",
+                            qid, step.quote_set
+                        ),
+                    },
+                ))
+            })
+        })
+        .collect()
+}
+
 /// A step with its associated quotes, ready for batch execution.
+///
+/// Holds an owned `Vec<MarketQuote>` because quotes are resolved on demand
+/// from the envelope's flat `market_data` list per step (rather than being
+/// pre-materialized on the plan as in v2).
 struct StepBatchItem<'a> {
     step: &'a CalibrationStep,
-    quotes: &'a [MarketQuote],
+    quotes: Vec<MarketQuote>,
 }
 
 /// Result of trying to add a step to a parallel batch.
@@ -87,6 +132,7 @@ enum BatchAddResult {
 /// Builder for accumulating steps that can execute in parallel.
 struct ParallelBatchBuilder<'a> {
     plan: &'a CalibrationPlan,
+    market_data: &'a [MarketDatum],
     curve_outputs: HashSet<finstack_core::types::CurveId>,
     surface_outputs: HashSet<finstack_core::types::CurveId>,
     scalar_outputs: HashSet<String>,
@@ -94,9 +140,10 @@ struct ParallelBatchBuilder<'a> {
 }
 
 impl<'a> ParallelBatchBuilder<'a> {
-    fn new(plan: &'a CalibrationPlan) -> Self {
+    fn new(plan: &'a CalibrationPlan, market_data: &'a [MarketDatum]) -> Self {
         Self {
             plan,
+            market_data,
             curve_outputs: HashSet::default(),
             surface_outputs: HashSet::default(),
             scalar_outputs: HashSet::default(),
@@ -106,13 +153,14 @@ impl<'a> ParallelBatchBuilder<'a> {
 
     /// Try to add a step to the batch.
     fn try_add(&mut self, step: &'a CalibrationStep, context: &MarketContext) -> BatchAddResult {
-        let quotes = match self.get_quotes(step) {
+        let quotes = match resolve_step_quotes(self.plan, self.market_data, step) {
             Ok(q) => q,
-            Err(e) => return BatchAddResult::Error(e),
+            Err(ExecuteError::Other(e)) => return BatchAddResult::Error(e),
+            Err(ExecuteError::Envelope(e)) => return BatchAddResult::Error(e.into()),
         };
 
         // Preflight validation
-        if let Err(err) = preflight_step(step, quotes, context, &self.plan.settings) {
+        if let Err(err) = preflight_step(step, &quotes, context, &self.plan.settings) {
             return if self.batch.is_empty() {
                 BatchAddResult::Error(err)
             } else {
@@ -125,10 +173,7 @@ impl<'a> ParallelBatchBuilder<'a> {
             return BatchAddResult::Stop;
         }
 
-        self.batch.push(StepBatchItem {
-            step,
-            quotes: quotes.as_slice(),
-        });
+        self.batch.push(StepBatchItem { step, quotes });
         BatchAddResult::Added
     }
 
@@ -139,15 +184,6 @@ impl<'a> ParallelBatchBuilder<'a> {
             OutputKey::Surface(id) => !self.surface_outputs.insert(id),
             OutputKey::Scalar(key) => !self.scalar_outputs.insert(key),
         }
-    }
-
-    /// Get quotes for a step from the plan.
-    fn get_quotes(&self, step: &CalibrationStep) -> Result<&'a Vec<MarketQuote>> {
-        self.plan.quote_sets.get(&step.quote_set).ok_or_else(|| {
-            finstack_core::Error::Input(finstack_core::InputError::NotFound {
-                id: format!("Quote set '{}' not found", step.quote_set),
-            })
-        })
     }
 
     /// Take the accumulated batch, resetting internal state for next batch.
@@ -283,13 +319,13 @@ fn execute_batch(
 ) -> Result<Vec<StepOutcome>> {
     if batch.len() == 1 {
         let item = &batch[0];
-        let outcome = step_runtime::execute(item.step, item.quotes, context, settings)?;
+        let outcome = step_runtime::execute(item.step, &item.quotes, context, settings)?;
         return Ok(vec![outcome]);
     }
 
     batch
         .par_iter()
-        .map(|item| step_runtime::execute(item.step, item.quotes, context, settings))
+        .map(|item| step_runtime::execute(item.step, &item.quotes, context, settings))
         .collect()
 }
 
@@ -331,12 +367,13 @@ fn apply_batch_results(
 /// Execute steps in parallel mode.
 fn execute_parallel(
     plan: &CalibrationPlan,
+    market_data: &[MarketDatum],
     context: &mut MarketContext,
     state: &mut ExecutionState,
 ) -> std::result::Result<(), ExecuteError> {
     let mut index = 0;
     while index < plan.steps.len() {
-        let mut builder = ParallelBatchBuilder::new(plan);
+        let mut builder = ParallelBatchBuilder::new(plan, market_data);
 
         // Build batch of independent steps
         while index < plan.steps.len() {
@@ -372,22 +409,17 @@ fn execute_parallel(
 /// Execute steps in sequential mode.
 fn execute_sequential(
     plan: &CalibrationPlan,
+    market_data: &[MarketDatum],
     context: &mut MarketContext,
     state: &mut ExecutionState,
 ) -> std::result::Result<(), ExecuteError> {
     for step in &plan.steps {
-        let quotes = plan.quote_sets.get(&step.quote_set).ok_or_else(|| {
-            ExecuteError::Other(finstack_core::Error::Input(
-                finstack_core::InputError::NotFound {
-                    id: format!("Quote set '{}' not found", step.quote_set),
-                },
-            ))
-        })?;
+        let quotes = resolve_step_quotes(plan, market_data, step)?;
 
-        preflight_step(step, quotes, context, &plan.settings)?;
+        preflight_step(step, &quotes, context, &plan.settings)?;
 
         tracing::debug!(step_id = %step.id, quotes = quotes.len(), "executing calibration step");
-        let outcome = step_runtime::execute(step, quotes, context, &plan.settings)?;
+        let outcome = step_runtime::execute(step, &quotes, context, &plan.settings)?;
         let StepOutcome {
             output,
             report,
@@ -458,18 +490,19 @@ pub fn execute_with_diagnostics(
     )
     .entered();
 
-    let mut context: MarketContext = match &envelope.initial_market {
-        Some(state) => MarketContext::try_from(state.clone())
-            .map_err(|e| ExecuteError::Other(finstack_core::Error::Validation(e.to_string())))?,
-        None => MarketContext::new(),
-    };
     let plan = &envelope.plan;
+    let mut context = context_builder::build_initial_context(
+        &envelope.prior_market,
+        &envelope.market_data,
+        &plan.settings,
+    )
+    .map_err(ExecuteError::Other)?;
     let mut state = ExecutionState::new();
 
     if plan.settings.use_parallel {
-        execute_parallel(plan, &mut context, &mut state)?;
+        execute_parallel(plan, &envelope.market_data, &mut context, &mut state)?;
     } else {
-        execute_sequential(plan, &mut context, &mut state)?;
+        execute_sequential(plan, &envelope.market_data, &mut context, &mut state)?;
     }
 
     let step_reports = state.step_reports.clone();
