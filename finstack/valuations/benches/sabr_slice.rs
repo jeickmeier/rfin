@@ -6,6 +6,7 @@ use finstack_valuations::calibration::api::schema::{StepParams, VolSurfaceParams
 use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::instruments::OptionType;
 use finstack_valuations::market::conventions::ids::OptionConventionId;
+use finstack_valuations::market::quotes::ids::QuoteId;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::vol::VolQuote;
 #[allow(dead_code, unused_imports, clippy::expect_used, clippy::unwrap_used)]
@@ -23,6 +24,7 @@ fn bench_sabr_slice(c: &mut Criterion) {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let quotes = [
         VolQuote::OptionVol {
+            id: QuoteId::new("SPY-VOL-30D-95"),
             underlying: "SPY".to_string().into(),
             expiry: base_date + time::Duration::days(30),
             strike: 95.0,
@@ -31,6 +33,7 @@ fn bench_sabr_slice(c: &mut Criterion) {
             convention: OptionConventionId::new("USD-Option"),
         },
         VolQuote::OptionVol {
+            id: QuoteId::new("SPY-VOL-30D-100"),
             underlying: "SPY".to_string().into(),
             expiry: base_date + time::Duration::days(30),
             strike: 100.0,
@@ -39,6 +42,7 @@ fn bench_sabr_slice(c: &mut Criterion) {
             convention: OptionConventionId::new("USD-Option"),
         },
         VolQuote::OptionVol {
+            id: QuoteId::new("SPY-VOL-30D-105"),
             underlying: "SPY".to_string().into(),
             expiry: base_date + time::Duration::days(30),
             strike: 105.0,

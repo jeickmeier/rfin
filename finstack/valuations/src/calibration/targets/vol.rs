@@ -379,6 +379,7 @@ mod tests {
     use crate::instruments::common_impl::models::SABRParameters;
     use crate::instruments::OptionType;
     use crate::market::conventions::ids::OptionConventionId;
+    use crate::market::quotes::ids::QuoteId;
     use finstack_core::dates::{Date, DateExt};
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::DiscountCurve;
@@ -515,6 +516,7 @@ mod tests {
         // One valid expiry (all strikes > 0), one invalid expiry (strike=0 triggers SABR error).
         let quotes = vec![
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new("SPX-VOL-1Y-90"),
                 underlying: "SPX".to_string().into(),
                 expiry: expiry_1y,
                 strike: 90.0,
@@ -524,6 +526,7 @@ mod tests {
                 convention: OptionConventionId::new("USD-Option"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new("SPX-VOL-1Y-100"),
                 underlying: "SPX".to_string().into(),
                 expiry: expiry_1y,
                 strike: 100.0,
@@ -533,6 +536,7 @@ mod tests {
                 convention: OptionConventionId::new("USD-Option"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new("SPX-VOL-1Y-110"),
                 underlying: "SPX".to_string().into(),
                 expiry: expiry_1y,
                 strike: 110.0,
@@ -542,6 +546,7 @@ mod tests {
                 convention: OptionConventionId::new("USD-Option"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new("SPX-VOL-2Y-0"),
                 underlying: "SPX".to_string().into(),
                 expiry: expiry_2y,
                 strike: 0.0,
@@ -551,6 +556,7 @@ mod tests {
                 convention: OptionConventionId::new("USD-Option"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new("SPX-VOL-2Y-100"),
                 underlying: "SPX".to_string().into(),
                 expiry: expiry_2y,
                 strike: 100.0,
@@ -560,6 +566,7 @@ mod tests {
                 convention: OptionConventionId::new("USD-Option"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new("SPX-VOL-2Y-110"),
                 underlying: "SPX".to_string().into(),
                 expiry: expiry_2y,
                 strike: 110.0,

@@ -214,6 +214,7 @@
             {
               "class": "inflation",
               "inflation_swap": {
+                "id": "US-CPI-ZCIS-20270430",
                 "maturity": "2027-04-30",
                 "rate": 0.02,
                 "index": "US-CPI",
@@ -223,6 +224,7 @@
             {
               "class": "inflation",
               "inflation_swap": {
+                "id": "US-CPI-ZCIS-20280430",
                 "maturity": "2028-04-30",
                 "rate": 0.021,
                 "index": "US-CPI",
@@ -232,6 +234,7 @@
             {
               "class": "inflation",
               "inflation_swap": {
+                "id": "US-CPI-ZCIS-20290430",
                 "maturity": "2029-04-30",
                 "rate": 0.022,
                 "index": "US-CPI",
@@ -241,6 +244,7 @@
             {
               "class": "inflation",
               "inflation_swap": {
+                "id": "US-CPI-ZCIS-20310430",
                 "maturity": "2031-04-30",
                 "rate": 0.0225,
                 "index": "US-CPI",
@@ -250,6 +254,7 @@
             {
               "class": "inflation",
               "inflation_swap": {
+                "id": "US-CPI-ZCIS-20330430",
                 "maturity": "2033-04-30",
                 "rate": 0.023,
                 "index": "US-CPI",
@@ -259,6 +264,7 @@
             {
               "class": "inflation",
               "inflation_swap": {
+                "id": "US-CPI-ZCIS-20360430",
                 "maturity": "2036-04-30",
                 "rate": 0.024,
                 "index": "US-CPI",

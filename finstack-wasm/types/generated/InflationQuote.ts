@@ -12,10 +12,12 @@
  * Zero-coupon inflation swap:
  * ```rust
  * use finstack_valuations::market::quotes::inflation::InflationQuote;
+ * use finstack_valuations::market::quotes::ids::QuoteId;
  * use finstack_valuations::market::conventions::ids::InflationSwapConventionId;
  * use finstack_core::dates::Date;
  *
  * let quote = InflationQuote::InflationSwap {
+ *     id: QuoteId::new("USA-CPI-U-ZCIS-5Y"),
  *     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
  *     rate: 0.025, // 2.5% fixed rate
  *     index: "US-CPI-U".to_string(),
@@ -26,11 +28,13 @@
  * Year-on-year inflation swap:
  * ```rust
  * use finstack_valuations::market::quotes::inflation::InflationQuote;
+ * use finstack_valuations::market::quotes::ids::QuoteId;
  * use finstack_valuations::market::conventions::ids::InflationSwapConventionId;
  * use finstack_core::dates::{Date, Tenor};
  *
  * # fn example() -> finstack_core::Result<()> {
  * let quote = InflationQuote::YoYInflationSwap {
+ *     id: QuoteId::new("USA-CPI-U-YOY-5Y"),
  *     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
  *     rate: 0.025,
  *     index: "US-CPI-U".to_string(),
@@ -42,6 +46,10 @@
  * ```
  */
 export type InflationQuote = { "inflation_swap": { 
+/**
+ * Unique identifier for the quote.
+ */
+id: string, 
 /**
  * Swap maturity
  */
@@ -58,6 +66,10 @@ index: string,
  * Per-instrument conventions
  */
 convention: string, } } | { "yo_y_inflation_swap": { 
+/**
+ * Unique identifier for the quote.
+ */
+id: string, 
 /**
  * Swap maturity
  */

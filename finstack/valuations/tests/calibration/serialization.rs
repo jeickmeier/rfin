@@ -241,6 +241,7 @@ fn market_quote_roundtrip_smoke() {
     let _ = roundtrip_json(&cq);
 
     let vq = MarketQuote::Vol(VolQuote::SwaptionVol {
+        id: QuoteId::new("USD-SWPTN-VOL-1Yx5Y-0.04"),
         expiry: base_date + time::Duration::days(365),
         maturity: base_date + time::Duration::days(365 * 5),
         strike: 0.04,

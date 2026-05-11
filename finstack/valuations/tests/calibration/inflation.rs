@@ -11,6 +11,7 @@ use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelope, CalibrationPlan, CalibrationStep, InflationCurveParams, StepParams,
 };
 use finstack_valuations::market::conventions::ids::InflationSwapConventionId;
+use finstack_valuations::market::quotes::ids::QuoteId;
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use time::Month;
@@ -74,6 +75,7 @@ fn inflation_quote_time_uses_lagged_fixing_date() {
         .expect("t");
 
     let quotes = vec![MarketQuote::Inflation(InflationQuote::InflationSwap {
+        id: QuoteId::new("USA-CPI-U-ZCIS-20300115"),
         maturity,
         rate: 0.02,
         index: "USA-CPI-U".to_string(),
@@ -135,6 +137,7 @@ fn inflation_preflight_rejects_base_cpi_mismatch_with_fixings() {
     let maturity = Date::from_calendar_date(2030, Month::January, 15).expect("maturity");
 
     let quotes = vec![MarketQuote::Inflation(InflationQuote::InflationSwap {
+        id: QuoteId::new("USA-CPI-U-ZCIS-20300115"),
         maturity,
         rate: 0.02,
         index: "USA-CPI-U".to_string(),

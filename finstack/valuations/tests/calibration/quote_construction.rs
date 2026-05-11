@@ -96,12 +96,14 @@ fn test_all_quote_types_instrument_construction() {
     // 4. Inflation Quotes (ZCIS)
     let inflation_quotes = vec![
         MarketQuote::Inflation(InflationQuote::InflationSwap {
+            id: QuoteId::new("USA-CPI-U-ZCIS-1Y"),
             maturity: base_date.add_months(12),
             rate: 0.02,
             index: "USA-CPI-U".to_string(),
             convention: InflationSwapConventionId::new("USD"),
         }),
         MarketQuote::Inflation(InflationQuote::InflationSwap {
+            id: QuoteId::new("USA-CPI-U-ZCIS-5Y"),
             maturity: base_date.add_months(60),
             rate: 0.025,
             index: "USA-CPI-U".to_string(),

@@ -693,6 +693,7 @@ mod tests {
 
         let quotes = vec![
             MarketQuote::Vol(VolQuote::SwaptionVol {
+                id: QuoteId::new("USD-SWPTN-VOL-1Yx5Y-ATM"),
                 expiry: Date::from_calendar_date(2026, Month::January, 1).expect("expiry"),
                 maturity: Date::from_calendar_date(2031, Month::January, 1).expect("maturity"),
                 strike: 0.03,
@@ -701,6 +702,7 @@ mod tests {
                 convention: SwaptionConventionId::new("USD"),
             }),
             MarketQuote::Vol(VolQuote::SwaptionVol {
+                id: QuoteId::new("USD-SWPTN-VOL-2Yx5Y-ATM"),
                 expiry: Date::from_calendar_date(2027, Month::January, 1).expect("expiry"),
                 maturity: Date::from_calendar_date(2032, Month::January, 1).expect("maturity"),
                 strike: 0.03,
@@ -709,6 +711,7 @@ mod tests {
                 convention: SwaptionConventionId::new("USD"),
             }),
             MarketQuote::Vol(VolQuote::SwaptionVol {
+                id: QuoteId::new("USD-SWPTN-VOL-5Yx5Y-ATM"),
                 expiry: Date::from_calendar_date(2030, Month::January, 1).expect("expiry"),
                 maturity: Date::from_calendar_date(2035, Month::January, 1).expect("maturity"),
                 strike: 0.03,
@@ -770,6 +773,7 @@ mod tests {
             ),
         );
         let quotes = vec![MarketQuote::Vol(VolQuote::CapFloorVol {
+            id: QuoteId::new("USD-CAP-VOL-20300101-0.0365"),
             expiry: Date::from_calendar_date(2030, Month::January, 1).expect("expiry"),
             strike: 0.0365,
             vol,
@@ -827,6 +831,7 @@ mod tests {
 
         let quotes = vec![
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new("SPX-VOL-1-80"),
                 underlying: UnderlyingId::new("SPX"),
                 expiry: expiry_1,
                 strike: 80.0,
@@ -835,6 +840,7 @@ mod tests {
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new("SPX-VOL-1-90"),
                 underlying: UnderlyingId::new("SPX"),
                 expiry: expiry_1,
                 strike: 90.0,
@@ -843,6 +849,7 @@ mod tests {
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new("SPX-VOL-1-100"),
                 underlying: UnderlyingId::new("SPX"),
                 expiry: expiry_1,
                 strike: 100.0,
@@ -851,6 +858,7 @@ mod tests {
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new("SPX-VOL-1-110"),
                 underlying: UnderlyingId::new("SPX"),
                 expiry: expiry_1,
                 strike: 110.0,
@@ -859,6 +867,7 @@ mod tests {
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new("SPX-VOL-1-120"),
                 underlying: UnderlyingId::new("SPX"),
                 expiry: expiry_1,
                 strike: 120.0,
@@ -867,6 +876,7 @@ mod tests {
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new("SPX-VOL-2-80"),
                 underlying: UnderlyingId::new("SPX"),
                 expiry: expiry_2,
                 strike: 80.0,
@@ -875,6 +885,7 @@ mod tests {
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new("SPX-VOL-2-90"),
                 underlying: UnderlyingId::new("SPX"),
                 expiry: expiry_2,
                 strike: 90.0,
@@ -883,6 +894,7 @@ mod tests {
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new("SPX-VOL-2-100"),
                 underlying: UnderlyingId::new("SPX"),
                 expiry: expiry_2,
                 strike: 100.0,
@@ -891,6 +903,7 @@ mod tests {
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new("SPX-VOL-2-110"),
                 underlying: UnderlyingId::new("SPX"),
                 expiry: expiry_2,
                 strike: 110.0,
@@ -899,6 +912,7 @@ mod tests {
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new("SPX-VOL-2-120"),
                 underlying: UnderlyingId::new("SPX"),
                 expiry: expiry_2,
                 strike: 120.0,

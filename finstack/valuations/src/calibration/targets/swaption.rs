@@ -910,6 +910,7 @@ fn to_basis_points(value: f64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::market::quotes::ids::QuoteId;
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
     use finstack_core::market_data::context::MarketContext;
@@ -1020,6 +1021,7 @@ mod tests {
             let vol_dec = model.implied_volatility(fwd, k, t_exp).expect("true vol");
             let vol_bp = vol_dec * 10_000.0;
             quotes.push(MarketQuote::Vol(VolQuote::SwaptionVol {
+                id: QuoteId::new(format!("USD-SWPTN-VOL-1Yx5Y-{k}")),
                 expiry: expiry_date,
                 maturity: maturity_date,
                 strike: k,
@@ -1100,6 +1102,7 @@ mod tests {
             let vol_dec = model.implied_volatility(fwd, k, t_exp).expect("true vol");
             let vol_pct = vol_dec * 100.0;
             quotes.push(MarketQuote::Vol(VolQuote::SwaptionVol {
+                id: QuoteId::new(format!("USD-SWPTN-VOL-LN-1Yx5Y-{k}")),
                 expiry: expiry_date,
                 maturity: maturity_date,
                 strike: k,
@@ -1182,6 +1185,7 @@ mod tests {
         for &k in &strikes {
             // Percent-quoted; exact values don't matter for this check (shift is insufficient).
             quotes.push(MarketQuote::Vol(VolQuote::SwaptionVol {
+                id: QuoteId::new(format!("USD-SWPTN-VOL-SLN-1Yx5Y-{k}")),
                 expiry: expiry_date,
                 maturity: maturity_date,
                 strike: k,

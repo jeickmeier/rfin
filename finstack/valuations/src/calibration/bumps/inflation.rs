@@ -7,6 +7,7 @@ use crate::calibration::config::CalibrationMethod;
 use crate::calibration::step_runtime;
 use crate::calibration::CalibrationConfig;
 use crate::market::conventions::ids::InflationSwapConventionId;
+use crate::market::quotes::ids::QuoteId;
 use crate::market::quotes::inflation::InflationQuote;
 use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::currency::Currency;
@@ -97,7 +98,9 @@ pub fn bump_inflation_rates(
         let maturity_days = (t * 365.25).round() as i64;
         let maturity = base_date + time::Duration::days(maturity_days);
 
+        let id = QuoteId::new(format!("{}-ZCIS-{}", curve_id.as_str(), maturity));
         quotes.push(InflationQuote::InflationSwap {
+            id,
             maturity,
             rate: bumped_rate,
             index: curve_id.as_str().to_string(), // Use curve ID as index name? Or generic?

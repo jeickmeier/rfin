@@ -93,6 +93,7 @@ impl InflationCurveTarget {
                 rate,
                 index,
                 convention,
+                ..
             } => (*maturity, *rate, index.as_str(), None, convention),
             InflationQuote::YoYInflationSwap {
                 maturity,
@@ -100,6 +101,7 @@ impl InflationCurveTarget {
                 index,
                 frequency,
                 convention,
+                ..
             } => (
                 *maturity,
                 *rate,

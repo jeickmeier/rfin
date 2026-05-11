@@ -841,12 +841,14 @@ fn inflation_curve_swap_repricing() {
 
     let infl_quotes: Vec<InflationQuote> = vec![
         InflationQuote::InflationSwap {
+            id: QuoteId::new("USD-CPI-ZCIS-20270115"),
             maturity: Date::from_calendar_date(2027, Month::January, 15).unwrap(),
             rate: 0.02,
             index: "USD-CPI".to_string(),
             convention: InflationSwapConventionId::new("USD"),
         },
         InflationQuote::InflationSwap {
+            id: QuoteId::new("USD-CPI-ZCIS-20300115"),
             maturity: Date::from_calendar_date(2030, Month::January, 15).unwrap(),
             rate: 0.025,
             index: "USD-CPI".to_string(),

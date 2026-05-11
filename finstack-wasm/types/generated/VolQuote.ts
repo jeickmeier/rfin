@@ -13,12 +13,14 @@ import type { OptionType } from "./OptionType";
  * Option volatility quote:
  * ```rust
  * use finstack_valuations::market::quotes::vol::VolQuote;
+ * use finstack_valuations::market::quotes::ids::QuoteId;
  * use finstack_valuations::market::conventions::ids::OptionConventionId;
  * use finstack_valuations::instruments::OptionType;
  * use finstack_core::dates::Date;
  * use finstack_core::types::UnderlyingId;
  *
  * let quote = VolQuote::OptionVol {
+ *     id: QuoteId::new("SPX-VOL-20241220-4500"),
  *     underlying: UnderlyingId::new("SPX"),
  *     expiry: Date::from_calendar_date(2024, time::Month::December, 20).unwrap(),
  *     strike: 4500.0,
@@ -31,10 +33,12 @@ import type { OptionType } from "./OptionType";
  * Swaption volatility quote:
  * ```rust
  * use finstack_valuations::market::quotes::vol::VolQuote;
+ * use finstack_valuations::market::quotes::ids::QuoteId;
  * use finstack_valuations::market::conventions::ids::SwaptionConventionId;
  * use finstack_core::dates::Date;
  *
  * let quote = VolQuote::SwaptionVol {
+ *     id: QuoteId::new("USD-SWPTN-VOL-1Yx5Y-ATM"),
  *     expiry: Date::from_calendar_date(2025, time::Month::June, 20).unwrap(),
  *     maturity: Date::from_calendar_date(2030, time::Month::June, 20).unwrap(),
  *     strike: 0.045, // 4.5% strike rate
@@ -45,6 +49,10 @@ import type { OptionType } from "./OptionType";
  * ```
  */
 export type VolQuote = { "option_vol": { 
+/**
+ * Unique identifier for the quote.
+ */
+id: string, 
 /**
  * Underlying identifier
  */
@@ -70,6 +78,10 @@ option_type: OptionType,
  */
 convention: string, } } | { "swaption_vol": { 
 /**
+ * Unique identifier for the quote.
+ */
+id: string, 
+/**
  * Option expiry
  */
 expiry: string, 
@@ -93,6 +105,10 @@ quote_type: string,
  * Option exercise conventions
  */
 convention: string, } } | { "cap_floor_vol": { 
+/**
+ * Unique identifier for the quote.
+ */
+id: string, 
 /**
  * Cap/floor maturity or caplet expiry.
  */

@@ -186,6 +186,7 @@ fn spread_bump_bp_decimal_parity_for_cds_and_tranche() {
 #[test]
 fn inflation_quote_maturity_and_bump() {
     let zcis = InflationQuote::InflationSwap {
+        id: QuoteId::new("USA-CPI-U-ZCIS-5Y"),
         maturity: d(2029, time::Month::June, 20),
         rate: 0.025,
         index: "US-CPI-U".to_string(),
@@ -205,6 +206,7 @@ fn inflation_quote_maturity_and_bump() {
     }
 
     let yoy = InflationQuote::YoYInflationSwap {
+        id: QuoteId::new("USA-CPI-U-YOY-5Y"),
         maturity: d(2029, time::Month::June, 20),
         rate: 0.03,
         index: "US-CPI-U".to_string(),
@@ -233,6 +235,7 @@ fn inflation_quote_maturity_and_bump() {
 #[test]
 fn vol_quote_bump_and_swaption_maturity_alias() {
     let opt = VolQuote::OptionVol {
+        id: QuoteId::new("SPX-VOL-20241220-4500"),
         underlying: UnderlyingId::new("SPX"),
         expiry: d(2024, time::Month::December, 20),
         strike: 4500.0,
@@ -255,6 +258,7 @@ fn vol_quote_bump_and_swaption_maturity_alias() {
     let json_with_tenor = r#"
     {
       "swaption_vol": {
+        "id": "USD-SWPTN-VOL-1Yx5Y-0.045",
         "expiry": "2025-06-20",
         "tenor": "2030-06-20",
         "strike": 0.045,
@@ -270,6 +274,7 @@ fn vol_quote_bump_and_swaption_maturity_alias() {
     let json_with_maturity = r#"
     {
       "swaption_vol": {
+        "id": "USD-SWPTN-VOL-1Yx5Y-0.045",
         "expiry": "2025-06-20",
         "maturity": "2030-06-20",
         "strike": 0.045,
@@ -344,6 +349,7 @@ fn quote_serialization_roundtrip() {
     );
 
     let infl = InflationQuote::InflationSwap {
+        id: QuoteId::new("USA-CPI-U-ZCIS-5Y-RT"),
         maturity: d(2029, time::Month::June, 20),
         rate: 0.025,
         index: "US-CPI-U".to_string(),
@@ -363,6 +369,7 @@ fn quote_serialization_roundtrip() {
     }
 
     let vol = VolQuote::OptionVol {
+        id: QuoteId::new("SPX-VOL-20241220-4500-RT"),
         underlying: UnderlyingId::new("SPX"),
         expiry: d(2024, time::Month::December, 20),
         strike: 4500.0,

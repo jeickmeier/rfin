@@ -3,6 +3,7 @@
 //! Inflation instrument quotes for CPI and inflation curve calibration. Supports both
 //! zero-coupon inflation swaps (ZCIS) and year-on-year (YoY) inflation swaps.
 
+use super::ids::QuoteId;
 use crate::market::conventions::ids::InflationSwapConventionId;
 use finstack_core::dates::{Date, Tenor};
 #[cfg(feature = "ts_export")]
@@ -19,10 +20,12 @@ use ts_rs::TS;
 /// Zero-coupon inflation swap:
 /// ```rust
 /// use finstack_valuations::market::quotes::inflation::InflationQuote;
+/// use finstack_valuations::market::quotes::ids::QuoteId;
 /// use finstack_valuations::market::conventions::ids::InflationSwapConventionId;
 /// use finstack_core::dates::Date;
 ///
 /// let quote = InflationQuote::InflationSwap {
+///     id: QuoteId::new("USA-CPI-U-ZCIS-5Y"),
 ///     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
 ///     rate: 0.025, // 2.5% fixed rate
 ///     index: "US-CPI-U".to_string(),
@@ -33,11 +36,13 @@ use ts_rs::TS;
 /// Year-on-year inflation swap:
 /// ```rust
 /// use finstack_valuations::market::quotes::inflation::InflationQuote;
+/// use finstack_valuations::market::quotes::ids::QuoteId;
 /// use finstack_valuations::market::conventions::ids::InflationSwapConventionId;
 /// use finstack_core::dates::{Date, Tenor};
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let quote = InflationQuote::YoYInflationSwap {
+///     id: QuoteId::new("USA-CPI-U-YOY-5Y"),
 ///     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
 ///     rate: 0.025,
 ///     index: "US-CPI-U".to_string(),
@@ -56,6 +61,9 @@ use ts_rs::TS;
 pub enum InflationQuote {
     /// Zero-coupon inflation swap (ZCIS) quote.
     InflationSwap {
+        /// Unique identifier for the quote.
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
+        id: QuoteId,
         /// Swap maturity
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         #[schemars(with = "String")]
@@ -70,6 +78,9 @@ pub enum InflationQuote {
     },
     /// Year-on-year (YoY) inflation swap quote.
     YoYInflationSwap {
+        /// Unique identifier for the quote.
+        #[cfg_attr(feature = "ts_export", ts(type = "string"))]
+        id: QuoteId,
         /// Swap maturity
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         #[schemars(with = "String")]
@@ -88,6 +99,14 @@ pub enum InflationQuote {
 }
 
 impl InflationQuote {
+    /// Get the unique identifier of the quote.
+    pub fn id(&self) -> &QuoteId {
+        match self {
+            InflationQuote::InflationSwap { id, .. } => id,
+            InflationQuote::YoYInflationSwap { id, .. } => id,
+        }
+    }
+
     /// Get maturity date for this quote if applicable.
     ///
     /// # Returns
@@ -98,10 +117,12 @@ impl InflationQuote {
     ///
     /// ```rust
     /// use finstack_valuations::market::quotes::inflation::InflationQuote;
+    /// use finstack_valuations::market::quotes::ids::QuoteId;
     /// use finstack_valuations::market::conventions::ids::InflationSwapConventionId;
     /// use finstack_core::dates::Date;
     ///
     /// let quote = InflationQuote::InflationSwap {
+    ///     id: QuoteId::new("USA-CPI-U-ZCIS-5Y"),
     ///     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
     ///     rate: 0.025,
     ///     index: "US-CPI-U".to_string(),
@@ -131,10 +152,12 @@ impl InflationQuote {
     ///
     /// ```rust
     /// use finstack_valuations::market::quotes::inflation::InflationQuote;
+    /// use finstack_valuations::market::quotes::ids::QuoteId;
     /// use finstack_valuations::market::conventions::ids::InflationSwapConventionId;
     /// use finstack_core::dates::Date;
     ///
     /// let quote = InflationQuote::InflationSwap {
+    ///     id: QuoteId::new("USA-CPI-U-ZCIS-5Y"),
     ///     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
     ///     rate: 0.025,
     ///     index: "US-CPI-U".to_string(),
@@ -147,23 +170,27 @@ impl InflationQuote {
     pub fn bump_rate_decimal(&self, rate_bump: f64) -> Self {
         match self {
             InflationQuote::InflationSwap {
+                id,
                 maturity,
                 rate,
                 index,
                 convention,
             } => InflationQuote::InflationSwap {
+                id: id.clone(),
                 maturity: *maturity,
                 rate: rate + rate_bump,
                 index: index.clone(),
                 convention: convention.clone(),
             },
             InflationQuote::YoYInflationSwap {
+                id,
                 maturity,
                 rate,
                 index,
                 frequency,
                 convention,
             } => InflationQuote::YoYInflationSwap {
+                id: id.clone(),
                 maturity: *maturity,
                 rate: rate + rate_bump,
                 index: index.clone(),

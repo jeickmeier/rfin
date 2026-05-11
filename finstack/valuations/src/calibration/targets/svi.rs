@@ -328,6 +328,7 @@ mod tests {
     use crate::calibration::api::schema::SviSurfaceParams;
     use crate::instruments::OptionType;
     use crate::market::conventions::ids::OptionConventionId;
+    use crate::market::quotes::ids::QuoteId;
     use crate::market::quotes::market_quote::MarketQuote;
     use crate::market::quotes::vol::VolQuote;
     use finstack_core::dates::Date;
@@ -362,6 +363,7 @@ mod tests {
         .into_iter()
         .map(|(strike, vol)| {
             MarketQuote::Vol(VolQuote::OptionVol {
+                id: QuoteId::new(format!("SPX-VOL-20250702-{strike}")),
                 underlying: UnderlyingId::new("SPX"),
                 expiry,
                 strike,
@@ -377,6 +379,7 @@ mod tests {
     fn solve_rejects_non_positive_quote_strike() {
         let mut quotes = sample_quotes();
         quotes[0] = MarketQuote::Vol(VolQuote::OptionVol {
+            id: QuoteId::new("SPX-VOL-20250702-0"),
             underlying: UnderlyingId::new("SPX"),
             expiry: Date::from_calendar_date(2025, Month::July, 2).expect("valid expiry"),
             strike: 0.0,

@@ -126,6 +126,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20290508-0.045",
             "expiry": "2027-05-08",
             "maturity": "2029-05-08",
             "strike": 0.045,
@@ -137,6 +138,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20290508-0.05",
             "expiry": "2027-05-08",
             "maturity": "2029-05-08",
             "strike": 0.05,
@@ -148,6 +150,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20290508-0.055",
             "expiry": "2027-05-08",
             "maturity": "2029-05-08",
             "strike": 0.055,
@@ -159,6 +162,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20320508-0.045",
             "expiry": "2027-05-08",
             "maturity": "2032-05-08",
             "strike": 0.045,
@@ -170,6 +174,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20320508-0.05",
             "expiry": "2027-05-08",
             "maturity": "2032-05-08",
             "strike": 0.05,
@@ -181,6 +186,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20320508-0.055",
             "expiry": "2027-05-08",
             "maturity": "2032-05-08",
             "strike": 0.055,
@@ -192,6 +198,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20370508-0.045",
             "expiry": "2027-05-08",
             "maturity": "2037-05-08",
             "strike": 0.045,
@@ -203,6 +210,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20370508-0.05",
             "expiry": "2027-05-08",
             "maturity": "2037-05-08",
             "strike": 0.05,
@@ -214,6 +222,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20370508-0.055",
             "expiry": "2027-05-08",
             "maturity": "2037-05-08",
             "strike": 0.055,
@@ -225,6 +234,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20300508-0.045",
             "expiry": "2028-05-08",
             "maturity": "2030-05-08",
             "strike": 0.045,
@@ -236,6 +246,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20300508-0.05",
             "expiry": "2028-05-08",
             "maturity": "2030-05-08",
             "strike": 0.05,
@@ -247,6 +258,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20300508-0.055",
             "expiry": "2028-05-08",
             "maturity": "2030-05-08",
             "strike": 0.055,
@@ -258,6 +270,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20330508-0.045",
             "expiry": "2028-05-08",
             "maturity": "2033-05-08",
             "strike": 0.045,
@@ -269,6 +282,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20330508-0.05",
             "expiry": "2028-05-08",
             "maturity": "2033-05-08",
             "strike": 0.05,
@@ -280,6 +294,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20330508-0.055",
             "expiry": "2028-05-08",
             "maturity": "2033-05-08",
             "strike": 0.055,
@@ -291,6 +306,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20380508-0.045",
             "expiry": "2028-05-08",
             "maturity": "2038-05-08",
             "strike": 0.045,
@@ -302,6 +318,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20380508-0.05",
             "expiry": "2028-05-08",
             "maturity": "2038-05-08",
             "strike": 0.05,
@@ -313,6 +330,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20380508-0.055",
             "expiry": "2028-05-08",
             "maturity": "2038-05-08",
             "strike": 0.055,
@@ -324,6 +342,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20330508-0.045",
             "expiry": "2031-05-08",
             "maturity": "2033-05-08",
             "strike": 0.045,
@@ -335,6 +354,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20330508-0.05",
             "expiry": "2031-05-08",
             "maturity": "2033-05-08",
             "strike": 0.05,
@@ -346,6 +366,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20330508-0.055",
             "expiry": "2031-05-08",
             "maturity": "2033-05-08",
             "strike": 0.055,
@@ -357,6 +378,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20360508-0.045",
             "expiry": "2031-05-08",
             "maturity": "2036-05-08",
             "strike": 0.045,
@@ -368,6 +390,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20360508-0.05",
             "expiry": "2031-05-08",
             "maturity": "2036-05-08",
             "strike": 0.05,
@@ -379,6 +402,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20360508-0.055",
             "expiry": "2031-05-08",
             "maturity": "2036-05-08",
             "strike": 0.055,
@@ -390,6 +414,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20410508-0.045",
             "expiry": "2031-05-08",
             "maturity": "2041-05-08",
             "strike": 0.045,
@@ -401,6 +426,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20410508-0.05",
             "expiry": "2031-05-08",
             "maturity": "2041-05-08",
             "strike": 0.05,
@@ -412,6 +438,7 @@
         {
           "class": "vol",
           "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20410508-0.055",
             "expiry": "2031-05-08",
             "maturity": "2041-05-08",
             "strike": 0.055,

@@ -112,6 +112,7 @@ fn inflation_preflight_rejects_invalid_observation_lag() {
     let initial_market = MarketContext::new().insert(discount);
 
     let quote = MarketQuote::Inflation(InflationQuote::InflationSwap {
+        id: QuoteId::new("USA-CPI-U-ZCIS-20300102"),
         maturity: Date::from_calendar_date(2030, Month::January, 2).expect("maturity"),
         rate: 0.02,
         index: "USA-CPI-U".to_string(),
@@ -436,6 +437,7 @@ fn inflation_preflight_rejects_lag_mismatch_with_index() {
         .insert_inflation_index("USD-CPI", index);
 
     let quote = MarketQuote::Inflation(InflationQuote::InflationSwap {
+        id: QuoteId::new("USD-CPI-ZCIS-20300102"),
         maturity: Date::from_calendar_date(2030, Month::January, 2).expect("maturity"),
         rate: 0.02,
         index: "USD-CPI".to_string(),

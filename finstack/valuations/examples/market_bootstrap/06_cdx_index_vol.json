@@ -151,6 +151,7 @@
         {
           "class": "vol",
           "option_vol": {
+            "id": "CDX-NA-IG-46-VOL-20260617-0.004",
             "underlying": "CDX-NA-IG-46",
             "expiry": "2026-06-17",
             "strike": 0.004,
@@ -162,6 +163,7 @@
         {
           "class": "vol",
           "option_vol": {
+            "id": "CDX-NA-IG-46-VOL-20260617-0.0100",
             "underlying": "CDX-NA-IG-46",
             "expiry": "2026-06-17",
             "strike": 0.0100,
@@ -173,6 +175,7 @@
         {
           "class": "vol",
           "option_vol": {
+            "id": "CDX-NA-IG-46-VOL-20260617-0.0125",
             "underlying": "CDX-NA-IG-46",
             "expiry": "2026-06-17",
             "strike": 0.0125,
@@ -184,6 +187,7 @@
         {
           "class": "vol",
           "option_vol": {
+            "id": "CDX-NA-IG-46-VOL-20260917-0.004",
             "underlying": "CDX-NA-IG-46",
             "expiry": "2026-09-17",
             "strike": 0.004,
@@ -195,6 +199,7 @@
         {
           "class": "vol",
           "option_vol": {
+            "id": "CDX-NA-IG-46-VOL-20260917-0.0100",
             "underlying": "CDX-NA-IG-46",
             "expiry": "2026-09-17",
             "strike": 0.0100,
@@ -206,6 +211,7 @@
         {
           "class": "vol",
           "option_vol": {
+            "id": "CDX-NA-IG-46-VOL-20260917-0.0125",
             "underlying": "CDX-NA-IG-46",
             "expiry": "2026-09-17",
             "strike": 0.0125,
@@ -217,6 +223,7 @@
         {
           "class": "vol",
           "option_vol": {
+            "id": "CDX-NA-IG-46-VOL-20261217-0.004",
             "underlying": "CDX-NA-IG-46",
             "expiry": "2026-12-17",
             "strike": 0.004,
@@ -228,6 +235,7 @@
         {
           "class": "vol",
           "option_vol": {
+            "id": "CDX-NA-IG-46-VOL-20261217-0.0100",
             "underlying": "CDX-NA-IG-46",
             "expiry": "2026-12-17",
             "strike": 0.0100,
@@ -239,6 +247,7 @@
         {
           "class": "vol",
           "option_vol": {
+            "id": "CDX-NA-IG-46-VOL-20261217-0.0125",
             "underlying": "CDX-NA-IG-46",
             "expiry": "2026-12-17",
             "strike": 0.0125,

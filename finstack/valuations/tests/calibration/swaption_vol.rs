@@ -19,6 +19,7 @@ use finstack_valuations::instruments::rates::swaption::{
 use finstack_valuations::instruments::OptionType;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::market::conventions::ids::SwaptionConventionId;
+use finstack_valuations::market::quotes::ids::QuoteId;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::vol::VolQuote;
 use rust_decimal::Decimal;
@@ -45,6 +46,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
     vec![
         // 1Y x 1Y bucket (5 strikes)
         MarketQuote::Vol(VolQuote::SwaptionVol {
+            id: QuoteId::new("USD-SWPTN-VOL-1Yx1Y-0.035"),
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             maturity: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             strike: 0.035,
@@ -53,6 +55,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             convention: SwaptionConventionId::new("USD"),
         }),
         MarketQuote::Vol(VolQuote::SwaptionVol {
+            id: QuoteId::new("USD-SWPTN-VOL-1Yx1Y-0.040"),
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             maturity: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             strike: 0.040,
@@ -61,6 +64,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             convention: SwaptionConventionId::new("USD"),
         }),
         MarketQuote::Vol(VolQuote::SwaptionVol {
+            id: QuoteId::new("USD-SWPTN-VOL-1Yx1Y-0.043"),
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             maturity: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             strike: 0.043,
@@ -69,6 +73,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             convention: SwaptionConventionId::new("USD"),
         }),
         MarketQuote::Vol(VolQuote::SwaptionVol {
+            id: QuoteId::new("USD-SWPTN-VOL-1Yx1Y-0.046"),
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             maturity: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             strike: 0.046,
@@ -77,6 +82,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             convention: SwaptionConventionId::new("USD"),
         }),
         MarketQuote::Vol(VolQuote::SwaptionVol {
+            id: QuoteId::new("USD-SWPTN-VOL-1Yx1Y-0.050"),
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             maturity: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
             strike: 0.050,
@@ -86,6 +92,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
         }),
         // 1Y x 5Y bucket (5 strikes)
         MarketQuote::Vol(VolQuote::SwaptionVol {
+            id: QuoteId::new("USD-SWPTN-VOL-1Yx5Y-0.038"),
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             maturity: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
             strike: 0.038,
@@ -94,6 +101,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             convention: SwaptionConventionId::new("USD"),
         }),
         MarketQuote::Vol(VolQuote::SwaptionVol {
+            id: QuoteId::new("USD-SWPTN-VOL-1Yx5Y-0.042"),
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             maturity: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
             strike: 0.042,
@@ -102,6 +110,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             convention: SwaptionConventionId::new("USD"),
         }),
         MarketQuote::Vol(VolQuote::SwaptionVol {
+            id: QuoteId::new("USD-SWPTN-VOL-1Yx5Y-0.045"),
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             maturity: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
             strike: 0.045,
@@ -110,6 +119,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             convention: SwaptionConventionId::new("USD"),
         }),
         MarketQuote::Vol(VolQuote::SwaptionVol {
+            id: QuoteId::new("USD-SWPTN-VOL-1Yx5Y-0.048"),
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             maturity: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
             strike: 0.048,
@@ -118,6 +128,7 @@ fn create_test_swaption_quotes() -> Vec<MarketQuote> {
             convention: SwaptionConventionId::new("USD"),
         }),
         MarketQuote::Vol(VolQuote::SwaptionVol {
+            id: QuoteId::new("USD-SWPTN-VOL-1Yx5Y-0.052"),
             expiry: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             maturity: Date::from_calendar_date(2031, Month::January, 1).unwrap(),
             strike: 0.052,
