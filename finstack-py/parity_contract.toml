@@ -366,3 +366,18 @@ namespaces = [
     "statements_analytics",
     "valuations",
 ]
+
+# ---------------------------------------------------------------------------
+# Intentionally NOT covered by parity tests
+#
+# - Rust public surface. The umbrella `finstack/src/lib.rs` is short enough
+#   that PR review is sufficient. If drift becomes a recurring problem here,
+#   revisit by adding a `cargo public-api` snapshot test under
+#   `finstack/tests/`.
+# - `.pyi` symbol-level signatures. Stub-checker tools (`mypy --strict`,
+#   `pyright`) already exercise these from the consumer side.
+# - WASM `index.d.ts` signature shape. Covered by the existing
+#   `finstack-wasm/tests/dts_contract.rs` for the high-value entries.
+#   (Note: that test's runnability is being tracked separately.)
+# - README namespace tables. Doc hygiene, not API parity.
+# ---------------------------------------------------------------------------

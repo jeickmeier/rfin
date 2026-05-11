@@ -233,7 +233,13 @@ def test_wasm_top_level_matches_contract() -> None:
 
 
 def test_wasm_top_level_has_exports_files() -> None:
-    """Every namespace listed in the contract must have a corresponding exports/*.js file."""
+    """Each contract namespace must have a corresponding ``exports/<name>.js`` file.
+
+    Unique failure mode this catches: contract and ``index.js`` agree on a
+    namespace, but the underlying ``exports/<name>.js`` was deleted. The
+    matches-contract test would still pass (the regex match in ``index.js``
+    still resolves the name) but JS consumers would error at runtime.
+    """
     block = CONTRACT["wasm_top_level"]
     exports_dir = (CONTRACT_PATH.parent / block["file"]).resolve().parent / "exports"
     missing = [
