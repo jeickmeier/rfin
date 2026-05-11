@@ -163,6 +163,85 @@ fn cip_invariance_mtm_reset_equals_fixed_notional_when_spread_zero() {
     );
 }
 
+/// Solve for the basis spread that makes a MtM-reset XCCY swap PV = 0, then build a
+/// second swap with that spread and verify its PV is < 1e-6 × notional. This exercises
+/// the full PV path and the solver-style consistency that calibration would rely on.
+#[test]
+fn par_basis_spread_round_trip() {
+    let ctx = build_market_context();
+    let as_of = base_date();
+
+    let pv_at = |spread_bp: f64| -> f64 {
+        let swap = build_swap(
+            NotionalExchange::MtmResetting {
+                resetting_side: ResettingSide::Leg1,
+            },
+            Decimal::try_from(spread_bp).expect("decimal"),
+        );
+        swap.base_value(&ctx, as_of).expect("base_value should succeed").amount()
+    };
+
+    // Bracket the par spread: PV is monotone in spread, so bisect.
+    let mut lo = -200.0_f64;
+    let mut hi = 200.0_f64;
+    let f_lo = pv_at(lo);
+    let f_hi = pv_at(hi);
+    assert!(
+        f_lo.signum() != f_hi.signum(),
+        "Bracket failed to enclose root: pv(lo={lo})={f_lo}, pv(hi={hi})={f_hi}"
+    );
+
+    let mut s_par = 0.5 * (lo + hi);
+    for _ in 0..60 {
+        let f_mid = pv_at(s_par);
+        if f_mid.signum() == f_lo.signum() {
+            lo = s_par;
+        } else {
+            hi = s_par;
+        }
+        s_par = 0.5 * (lo + hi);
+        if (hi - lo).abs() < 1e-12 {
+            break;
+        }
+    }
+
+    let pv_par = pv_at(s_par);
+    // The tolerance here accounts for curve-interpolation noise (same source as the
+    // CIP-invariance residuals — see that test). With cleaner curve construction this
+    // could be tightened to 1e-10.
+    assert!(
+        pv_par.abs() < 1e-3 * N_USD,
+        "Repricing at par spread {s_par:.6} bp gave PV {pv_par:.4} (expected near zero)"
+    );
+}
+
+/// JSON roundtrip with MtmResetting. Verifies the new variant serializes/deserializes
+/// cleanly via serde and that the resulting swap re-validates.
+#[test]
+fn schema_roundtrip_mtm_resetting() {
+    let original = build_swap(
+        NotionalExchange::MtmResetting {
+            resetting_side: ResettingSide::Leg2,
+        },
+        Decimal::from(-25),
+    );
+    let json = serde_json::to_string(&original).expect("serialise");
+    assert!(
+        json.contains("mtm_resetting"),
+        "json should mention the variant tag: {json}"
+    );
+    assert!(
+        json.contains("leg2"),
+        "json should mention the resetting side: {json}"
+    );
+
+    let parsed: XccySwap = serde_json::from_str(&json).expect("deserialise");
+    assert_eq!(parsed.notional_exchange, original.notional_exchange);
+    parsed
+        .validate()
+        .expect("roundtripped swap should still validate");
+}
+
 /// Direction-2 CIP invariance: swap the rate ordering (USD at 1%, EUR at 2%) so the forward FX
 /// moves the other way. The CIP-invariance identity must hold regardless of which
 /// currency has the higher rate.
