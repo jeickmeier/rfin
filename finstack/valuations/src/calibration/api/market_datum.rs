@@ -195,6 +195,24 @@ impl MarketDatum {
     }
 }
 
+/// Convert any [`MarketQuote`] into the matching `MarketDatum::*Quote` variant.
+///
+/// Inverse of [`MarketDatum::as_quote`] for the eight quote-bearing variants.
+impl From<MarketQuote> for MarketDatum {
+    fn from(q: MarketQuote) -> Self {
+        match q {
+            MarketQuote::Rates(q) => MarketDatum::RateQuote(q),
+            MarketQuote::Cds(q) => MarketDatum::CdsQuote(q),
+            MarketQuote::CDSTranche(q) => MarketDatum::CdsTrancheQuote(q),
+            MarketQuote::Fx(q) => MarketDatum::FxQuote(q),
+            MarketQuote::Inflation(q) => MarketDatum::InflationQuote(q),
+            MarketQuote::Vol(q) => MarketDatum::VolQuote(q),
+            MarketQuote::Xccy(q) => MarketDatum::XccyQuote(q),
+            MarketQuote::Bond(q) => MarketDatum::BondQuote(q),
+        }
+    }
+}
+
 /// Result of splitting a legacy [`MarketContextState`] into v3 envelope inputs.
 ///
 /// Wraps the `(prior, market_data)` pair produced by

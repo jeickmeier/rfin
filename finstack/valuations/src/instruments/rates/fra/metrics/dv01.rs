@@ -1,6 +1,7 @@
 //! FRA quote-shock DV01.
 
 use crate::calibration::api::engine;
+use crate::calibration::api::market_datum::{MarketContextSplit, MarketDatum};
 use crate::calibration::api::schema::{
     CalibrationEnvelope, CalibrationPlan, CalibrationStep, DiscountCurveParams, ForwardCurveParams,
     StepParams, CALIBRATION_SCHEMA,
@@ -92,16 +93,32 @@ fn rebootstrap_market(
         ))
     })?;
 
+    let discount_data: Vec<MarketDatum> = discount_quotes(discount_cal, bump_bp)?
+        .into_iter()
+        .map(MarketDatum::from)
+        .collect();
+    let discount_quote_ids: Vec<QuoteId> = discount_data
+        .iter()
+        .map(|d| QuoteId::new(d.id()))
+        .collect();
+
+    let forward_data: Vec<MarketDatum> = if !uses_basis_quotes(forward_cal) {
+        forward_quotes(forward_cal, bump_bp)?
+            .into_iter()
+            .map(MarketDatum::from)
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let forward_quote_ids: Vec<QuoteId> = forward_data
+        .iter()
+        .map(|d| QuoteId::new(d.id()))
+        .collect();
+
     let mut quote_sets = HashMap::default();
-    quote_sets.insert(
-        DISCOUNT_QUOTE_SET.to_string(),
-        discount_quotes(discount_cal, bump_bp)?,
-    );
+    quote_sets.insert(DISCOUNT_QUOTE_SET.to_string(), discount_quote_ids);
     if !uses_basis_quotes(forward_cal) {
-        quote_sets.insert(
-            FORWARD_QUOTE_SET.to_string(),
-            forward_quotes(forward_cal, bump_bp)?,
-        );
+        quote_sets.insert(FORWARD_QUOTE_SET.to_string(), forward_quote_ids);
     }
 
     let mut steps = vec![CalibrationStep {
@@ -152,11 +169,18 @@ fn rebootstrap_market(
         forward_cal,
     )?;
 
+    let split: MarketContextSplit = MarketContextState::from(&initial_market).into();
+    let MarketContextSplit { prior, data } = split;
+    let mut market_data = data;
+    market_data.extend(discount_data);
+    market_data.extend(forward_data);
+
     let envelope = CalibrationEnvelope {
         schema_url: None,
         schema: CALIBRATION_SCHEMA.to_string(),
         plan,
-        initial_market: Some(MarketContextState::from(&initial_market)),
+        market_data,
+        prior_market: prior,
     };
 
     let result = engine::execute(&envelope)?;
