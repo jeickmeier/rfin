@@ -6,7 +6,7 @@ Bindings for the ``finstack-valuations`` Rust crate.
 from __future__ import annotations
 
 import json as _json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING as _TYPE_CHECKING, Any as _Any
 
 from finstack.finstack import valuations as _valuations
 from finstack.valuations import (
@@ -32,7 +32,7 @@ from finstack.valuations.envelope import (
     VolSurfaceStep as VolSurfaceStep,
 )
 
-if TYPE_CHECKING:
+if _TYPE_CHECKING:
     import pandas as pd
 
 ValuationResult = _valuations.ValuationResult
@@ -90,7 +90,7 @@ decompose_period = _valuations.decompose_period
 
 def instrument_cashflows(
     instrument_json: str,
-    market: Any,
+    market: _Any,
     as_of: str,
     *,
     model: str = "discounting",

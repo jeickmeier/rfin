@@ -155,7 +155,6 @@ credit_factor_model = { python = "finstack.valuations", status = "exists", note 
 # the Python surface without listing it here fails the parity test.
 [crates.valuations.symbols]
 public = [
-    "Any",
     "CalibrationEnvelope",
     "CalibrationEnvelopeError",
     "CalibrationPlan",
@@ -181,11 +180,9 @@ public = [
     "SabrParameters",
     "SabrSmile",
     "SensitivityMatrix",
-    "TYPE_CHECKING",
     "Tenor",
     "ValuationResult",
     "VolSurfaceStep",
-    "annotations",
     "asian_option_price",
     "attribute_pnl",
     "attribute_pnl_from_spec",

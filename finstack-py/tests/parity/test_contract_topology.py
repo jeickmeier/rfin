@@ -193,6 +193,7 @@ def test_contract_symbols_match_live_surface() -> None:
         if not n.startswith("_")
         and n not in submodule_names
         and not inspect.ismodule(getattr(module, n))
+        and type(getattr(module, n)).__name__ != "_Feature"
     }
     assert actual == expected, (
         f"finstack.valuations public surface diverged from contract.\n"
