@@ -173,30 +173,29 @@ def test_contract_symbols_are_importable(
     )
 
 
-def test_contract_symbols_match_live_surface() -> None:
-    """The `valuations.symbols.public` list must match the live public surface.
+CRATES_WITH_SYMBOLS = [
+    (crate_name, crate)
+    for crate_name, crate in CONTRACT["crates"].items()
+    if "symbols" in crate
+]
+
+
+@pytest.mark.parametrize(("crate_name", "crate"), CRATES_WITH_SYMBOLS)
+def test_contract_symbols_match_live_surface(crate_name: str, crate: dict[str, Any]) -> None:
+    """The contract's `symbols.public` list must match the live public surface.
 
     Catches both directions: a public name added without contract update, and
     a contract entry that no longer exists in Python.
     """
-    crate = CONTRACT["crates"]["valuations"]
-    if "symbols" not in crate:
-        pytest.skip("valuations has no symbols block")
     expected = set(crate["symbols"]["public"])
     module = importlib.import_module(crate["python_package"])
-    submodule_names = {
-        m for m, spec in crate.get("modules", {}).items()
-        if spec["status"] in {"exists", "flattened"}
-    }
     actual = {
         n for n in dir(module)
         if not n.startswith("_")
-        and n not in submodule_names
         and not inspect.ismodule(getattr(module, n))
-        and type(getattr(module, n)).__name__ != "_Feature"
     }
     assert actual == expected, (
-        f"finstack.valuations public surface diverged from contract.\n"
+        f"finstack.{crate_name} public surface diverged from contract.\n"
         f"  missing from Python: {sorted(expected - actual)}\n"
         f"  unlisted in contract: {sorted(actual - expected)}"
     )

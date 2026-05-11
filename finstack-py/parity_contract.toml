@@ -139,7 +139,8 @@ status = "exists"
 # instrument helpers now also live under the dedicated `instruments` submodule.
 
 [crates.valuations.modules]
-# Top-level public modules — detailed symbol mapping to follow in Wave 3
+# Top-level public modules. Symbol-level pinning for non-submodule public names
+# lives in [crates.valuations.symbols] below.
 attribution  = { python = "finstack.valuations",              status = "exists", note = "JSON-first helpers and the PnlAttribution wrapper are flattened onto finstack.valuations" }
 instruments  = { python = "finstack.valuations.instruments",  status = "exists", note = "Instrument JSON validation and pricing helpers live under finstack.valuations.instruments; root aliases remain for compatibility" }
 fx           = { python = "finstack.valuations.fx",           status = "exists", note = "Direct FX instrument wrappers for Rust/WASM-supported FX instruments; no JSON-only workflow required" }
@@ -148,7 +149,6 @@ correlation  = { python = "finstack.valuations.correlation",  status = "exists",
 credit       = { python = "finstack.valuations.credit",       status = "exists", note = "Structural credit models and PIK toggle helpers" }
 credit_derivatives = { python = "finstack.valuations.credit_derivatives", status = "exists", note = "Typed wrappers for CDS, CDS index, tranche, and option JSON pricing" }
 credit_factor_model = { python = "finstack.valuations", status = "exists", note = "CreditFactorModel, CreditCalibrator, LevelsAtDate, PeriodDecomposition, FactorCovarianceForecast, decompose_levels, decompose_period exposed flat on finstack.valuations" }
-# All other valuations submodules are deferred pending detailed lib.rs audit (Wave 3)
 
 # Symbol-level pinning for the valuations domain. Names listed here MUST
 # resolve when imported from `finstack.valuations`. Adding a public name to

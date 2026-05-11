@@ -3,8 +3,6 @@
 Bindings for the ``finstack-valuations`` Rust crate.
 """
 
-from __future__ import annotations
-
 import json as _json
 from typing import TYPE_CHECKING as _TYPE_CHECKING, Any as _Any
 
@@ -94,7 +92,7 @@ def instrument_cashflows(
     as_of: str,
     *,
     model: str = "discounting",
-) -> tuple[dict, pd.DataFrame]:
+) -> tuple[dict, "pd.DataFrame"]:
     """Per-flow DF / survival / PV DataFrame for a discountable instrument.
 
     Supports ``model in {"discounting", "hazard_rate"}``. The returned
