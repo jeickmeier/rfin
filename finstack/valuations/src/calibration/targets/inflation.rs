@@ -559,10 +559,6 @@ Global solve requires strictly increasing times.",
             .build()
     }
 
-    fn build_curve_final_from_params(&self, times: &[f64], params: &[f64]) -> Result<Self::Curve> {
-        self.build_curve_for_solver_from_params(times, params)
-    }
-
     fn calculate_residuals(
         &self,
         curve: &Self::Curve,
