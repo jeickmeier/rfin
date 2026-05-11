@@ -24,6 +24,7 @@ use finstack_valuations::market::BuildCtx;
 use time::Month;
 
 use crate::common::fixtures;
+use crate::finstack_test_utils::calibration as cal_utils;
 
 fn create_test_discount_curve(base: Date) -> DiscountCurve {
     DiscountCurve::builder("TEST-DISC")
@@ -107,8 +108,10 @@ fn hazard_calibration_positive_rates() {
         }),
     ];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("credit".to_string(), quotes);
+    let (prior, mut market_data) = cal_utils::split_initial_market(&initial_market);
+    cal_utils::extend_market_data(&mut market_data, &quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("credit".to_string(), cal_utils::quote_set_ids(&quotes));
 
     let hazard_id: CurveId = "ACME-Corp-SENIOR".into();
 
@@ -143,7 +146,8 @@ fn hazard_calibration_positive_rates() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&initial_market).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let result = engine::execute(&envelope).expect("execute");
@@ -180,8 +184,10 @@ fn hazard_calibration_rejects_zero_spread() {
         },
     })];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("credit".to_string(), quotes);
+    let (prior, mut market_data) = cal_utils::split_initial_market(&initial_market);
+    cal_utils::extend_market_data(&mut market_data, &quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("credit".to_string(), cal_utils::quote_set_ids(&quotes));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -214,7 +220,8 @@ fn hazard_calibration_rejects_zero_spread() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&initial_market).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let err = engine::execute(&envelope).expect_err("zero spread should be invalid");
@@ -249,8 +256,10 @@ fn hazard_calibration_rejects_negative_spread() {
         },
     })];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("credit".to_string(), quotes);
+    let (prior, mut market_data) = cal_utils::split_initial_market(&initial_market);
+    cal_utils::extend_market_data(&mut market_data, &quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("credit".to_string(), cal_utils::quote_set_ids(&quotes));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -283,7 +292,8 @@ fn hazard_calibration_rejects_negative_spread() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&initial_market).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let err = engine::execute(&envelope).expect_err("negative spread should be invalid");
@@ -316,8 +326,10 @@ fn hazard_calibration_rejects_non_standard_upfront_running_coupon() {
         },
     })];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("credit".to_string(), quotes);
+    let (prior, mut market_data) = cal_utils::split_initial_market(&initial_market);
+    cal_utils::extend_market_data(&mut market_data, &quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("credit".to_string(), cal_utils::quote_set_ids(&quotes));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -350,7 +362,8 @@ fn hazard_calibration_rejects_non_standard_upfront_running_coupon() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&initial_market).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let err = engine::execute(&envelope)
@@ -418,8 +431,10 @@ fn hazard_calibration_handles_extreme_high_spread() {
         }),
     ];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("credit".to_string(), quotes);
+    let (prior, mut market_data) = cal_utils::split_initial_market(&initial_market);
+    cal_utils::extend_market_data(&mut market_data, &quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("credit".to_string(), cal_utils::quote_set_ids(&quotes));
 
     let hazard_id: CurveId = "DISTRESSED-CORP-SENIOR".into();
 
@@ -454,7 +469,8 @@ fn hazard_calibration_handles_extreme_high_spread() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&initial_market).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let result = engine::execute(&envelope).expect("high spread calibration should succeed");
@@ -539,8 +555,10 @@ fn hazard_calibration_global_solve_sqrt_time_is_not_rougher_than_bootstrap() {
         }),
     ];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("credit".to_string(), quotes.clone());
+    let (prior, mut market_data) = cal_utils::split_initial_market(&initial_market);
+    cal_utils::extend_market_data(&mut market_data, &quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("credit".to_string(), cal_utils::quote_set_ids(&quotes));
 
     let hazard_id_boot: CurveId = "ACME-Corp-BOOT".into();
     let hazard_id_global: CurveId = "ACME-Corp-GLOBAL".into();
@@ -576,7 +594,8 @@ fn hazard_calibration_global_solve_sqrt_time_is_not_rougher_than_bootstrap() {
 
         schema: "finstack.calibration/2".to_string(),
         plan: bootstrap_plan,
-        initial_market: Some((&initial_market).into()),
+        market_data: market_data.clone(),
+        prior_market: prior.clone(),
     };
 
     let bootstrap_result = engine::execute(&bootstrap_env).expect("bootstrap execute");
@@ -632,7 +651,8 @@ fn hazard_calibration_global_solve_sqrt_time_is_not_rougher_than_bootstrap() {
 
         schema: "finstack.calibration/2".to_string(),
         plan: global_plan,
-        initial_market: Some((&initial_market).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let global_result = engine::execute(&global_env).expect("global execute");
@@ -689,10 +709,13 @@ fn hazard_calibration_reprices_par_spread() {
         },
     };
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+    let credit_quotes = vec![MarketQuote::Cds(cds_quote.clone())];
+    let (prior, mut market_data) = cal_utils::split_initial_market(&initial_market);
+    cal_utils::extend_market_data(&mut market_data, &credit_quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
     quote_sets.insert(
         "credit".to_string(),
-        vec![MarketQuote::Cds(cds_quote.clone())],
+        cal_utils::quote_set_ids(&credit_quotes),
     );
 
     let hazard_id: CurveId = "APPROX-REF-SENIOR".into();
@@ -728,7 +751,8 @@ fn hazard_calibration_reprices_par_spread() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&initial_market).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let result = engine::execute(&envelope).expect("execute");
