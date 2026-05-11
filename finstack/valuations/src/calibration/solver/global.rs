@@ -166,6 +166,11 @@ impl GlobalFitOptimizer {
         // region where the curve builder rejected the params). The original error is
         // returned only if every attempt fails.
         let mut primary_error: Option<finstack_core::Error> = None;
+        // Tracks which start produced the best result so far: None = primary solve,
+        // Some(i) = multi-start restart i. Recorded in the calibration report so a
+        // user can see whether the answer came from the originally-supplied initial
+        // guess or required a perturbation to escape a bad region.
+        let mut winning_start: Option<usize> = None;
         let mut best: Option<(SingleSolveResult, f64)> = match run_single_solve(
             target,
             &active_quotes,
@@ -228,6 +233,7 @@ impl GlobalFitOptimizer {
                                 );
                             }
                             best = Some((result, wl2));
+                            winning_start = Some(restart_idx);
                         }
                     }
                     Err(err) => {
@@ -373,6 +379,13 @@ impl GlobalFitOptimizer {
 
         if let Some(ms) = multi_start {
             report = report.with_metadata("multi_start_restarts", ms.num_restarts.to_string());
+            // Surface which start produced the best result so users can tell whether
+            // the primary initial guess won or a perturbation rescued it.
+            let winner_label = match winning_start {
+                None => "primary".to_string(),
+                Some(i) => format!("restart_{}", i),
+            };
+            report = report.with_metadata("multi_start_winner", winner_label);
         }
 
         // Attach diagnostics from any infeasible evaluations encountered during solving.
