@@ -55,6 +55,17 @@ risk calculation with a standard reference.
   discounting, term-structure construction, and interest-rate modeling
   conventions.
 
+<a id="andersen-piterbarg-xccy-mtm-reset"></a>
+
+### MtM-Resetting Cross-Currency Swaps
+
+- Andersen & Piterbarg, *Interest Rate Modeling Vol. III: Products and Risk Management*, §16.2 (Cross-Currency Swaps), §16.4 (MtM-Resetting Notionals).
+- See `docs/superpowers/specs/2026-05-10-xccy-mtm-reset-design.md` for the implementation spec.
+- The implementation uses CIP forward FX without FX-rate correlation convexity; suitable
+  for vanilla G10 basis curve construction and position pricing. Per market convention
+  (matching QuantLib's `MtMCrossCurrencyBasisSwap`), the rebalancing cashflow is emitted
+  on the resetting leg only — the constant leg's principal-and-coupon schedule is unchanged.
+
 <a id="arrc-sofr-users-guide"></a>
 
 ### ARRC SOFR Users Guide
