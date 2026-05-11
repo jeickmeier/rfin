@@ -53,8 +53,16 @@ use finstack_core::dates::Date;
 /// - Term-style floating leg (`Simple`) with **no spread**
 /// - No payment delays on either leg (otherwise numerator dates don't align with payment DFs)
 fn discount_ratio_allowed(irs: &InterestRateSwap, as_of: Date) -> bool {
-    let fixed = irs.resolved_fixed_leg();
-    let float = irs.resolved_float_leg();
+    // `resolved_*_leg` errors only if a sentinel needs registry resolution and the
+    // registry is missing the index. In that case the discount-ratio shortcut is
+    // disqualified (we can't be sure the schedule conventions are well-formed),
+    // so return false rather than panic.
+    let Ok(fixed) = irs.resolved_fixed_leg() else {
+        return false;
+    };
+    let Ok(float) = irs.resolved_float_leg() else {
+        return false;
+    };
     if as_of > fixed.start {
         return false;
     }
@@ -105,7 +113,7 @@ impl MetricCalculator for ParRateCalculator {
                     return par_rate_pv_based(irs, context);
                 }
                 let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
-                let fixed = irs.resolved_fixed_leg();
+                let fixed = irs.resolved_fixed_leg()?;
                 let sched = crate::cashflow::builder::build_dates(
                     fixed.start,
                     fixed.end,

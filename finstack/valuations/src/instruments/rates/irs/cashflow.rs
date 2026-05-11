@@ -189,7 +189,7 @@ fn builder_overnight_method(
 fn resolve_compounded_fixing_calendar(
     irs: &InterestRateSwap,
 ) -> Result<Option<&'static dyn finstack_core::dates::HolidayCalendar>> {
-    let float = irs.resolved_float_leg();
+    let float = irs.resolved_float_leg()?;
     let calendar_id = float
         .fixing_calendar_id
         .as_deref()
@@ -291,7 +291,7 @@ pub(crate) fn projected_compounded_float_leg_schedule(
 ) -> Result<CashFlowSchedule> {
     use finstack_core::cashflow::{CFKind, CashFlow};
 
-    let float = irs.resolved_float_leg();
+    let float = irs.resolved_float_leg()?;
     let periods = build_periods(BuildPeriodsParams {
         start: float.start,
         end: float.end,
@@ -513,7 +513,7 @@ pub(crate) fn projected_compounded_float_leg_schedule(
 pub(crate) fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
     use finstack_core::cashflow::{CFKind, CashFlow};
 
-    let fixed = irs.resolved_fixed_leg();
+    let fixed = irs.resolved_fixed_leg()?;
     let calendar_id = fixed
         .calendar_id
         .as_deref()
@@ -591,7 +591,7 @@ pub(crate) fn float_leg_schedule_with_curves_as_of(
     curves: Option<&MarketContext>,
     as_of: Option<Date>,
 ) -> Result<CashFlowSchedule> {
-    let float = irs.resolved_float_leg();
+    let float = irs.resolved_float_leg()?;
     if matches!(
         float.compounding,
         FloatingLegCompounding::CompoundedInArrears { .. }

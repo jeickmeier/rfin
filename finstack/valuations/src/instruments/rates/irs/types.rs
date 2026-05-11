@@ -303,13 +303,24 @@ const NOTIONAL_EPSILON: f64 = 1e-6;
 const MAX_RATE_MAGNITUDE: f64 = 100.0;
 
 impl InterestRateSwap {
-    fn rate_index_conventions(&self) -> Option<crate::market::conventions::RateIndexConventions> {
-        let registry = ConventionRegistry::try_global().ok()?;
+    /// Look up the rate-index conventions used by the float leg. Returns `Ok(None)` if
+    /// the global registry is initialized but does not contain the index (legitimate for
+    /// curves whose forward_curve_id isn't a registered convention key); returns `Err`
+    /// only if the registry itself isn't initialized. Callers that need to RESOLVE a
+    /// sentinel value MUST treat the `None` case as a hard error.
+    fn rate_index_conventions(
+        &self,
+    ) -> finstack_core::Result<Option<crate::market::conventions::RateIndexConventions>> {
+        let registry = ConventionRegistry::try_global()?;
         let idx = IndexId::new(self.float.forward_curve_id.as_str());
-        registry.require_rate_index(&idx).ok().cloned()
+        Ok(registry.require_rate_index(&idx).ok().cloned())
     }
 
-    pub(crate) fn resolved_fixed_leg(&self) -> FixedLegSpec {
+    /// Resolve the fixed leg, applying convention defaults for any sentinel values.
+    /// Returns `Err` if a sentinel (e.g. `payment_lag_days < 0`) is present and the
+    /// registry cannot provide a default — previously this silently left the sentinel
+    /// in place, producing wildly wrong schedules downstream.
+    pub(crate) fn resolved_fixed_leg(&self) -> finstack_core::Result<FixedLegSpec> {
         let mut fixed = self.fixed.clone();
         let is_eom_swap =
             fixed.start.end_of_month() == fixed.start && fixed.end.end_of_month() == fixed.end;
@@ -321,14 +332,21 @@ impl InterestRateSwap {
         // case (lags resolved at construction time) should not pay for a registry lookup
         // and `RateIndexConventions` clone.
         if fixed.payment_lag_days < 0 {
-            if let Some(conv) = self.rate_index_conventions() {
-                fixed.payment_lag_days = conv.default_payment_lag_days;
-            }
+            let conv = self.rate_index_conventions()?.ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "IRS '{}': fixed-leg payment_lag_days sentinel {} requires resolution \
+                     but rate index '{}' is not registered in the convention registry",
+                    self.id, fixed.payment_lag_days, self.float.forward_curve_id
+                ))
+            })?;
+            fixed.payment_lag_days = conv.default_payment_lag_days;
         }
-        fixed
+        Ok(fixed)
     }
 
-    pub(crate) fn resolved_float_leg(&self) -> FloatLegSpec {
+    /// Resolve the float leg, applying convention defaults for any sentinel values.
+    /// Errors loudly if a sentinel can't be resolved — see [`Self::resolved_fixed_leg`].
+    pub(crate) fn resolved_float_leg(&self) -> finstack_core::Result<FloatLegSpec> {
         let mut float = self.float.clone();
         let is_eom_swap =
             float.start.end_of_month() == float.start && float.end.end_of_month() == float.end;
@@ -338,16 +356,24 @@ impl InterestRateSwap {
         // Same short-circuit as `resolved_fixed_leg`: skip the registry hit unless we
         // actually need to apply a default.
         if float.reset_lag_days < 0 || float.payment_lag_days < 0 {
-            if let Some(conv) = self.rate_index_conventions() {
-                if float.reset_lag_days < 0 {
-                    float.reset_lag_days = conv.default_reset_lag_days;
-                }
-                if float.payment_lag_days < 0 {
-                    float.payment_lag_days = conv.default_payment_lag_days;
-                }
+            let conv = self.rate_index_conventions()?.ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "IRS '{}': float-leg sentinel(s) (reset_lag={}, payment_lag={}) require \
+                     resolution but rate index '{}' is not registered in the convention registry",
+                    self.id,
+                    float.reset_lag_days,
+                    float.payment_lag_days,
+                    self.float.forward_curve_id
+                ))
+            })?;
+            if float.reset_lag_days < 0 {
+                float.reset_lag_days = conv.default_reset_lag_days;
+            }
+            if float.payment_lag_days < 0 {
+                float.payment_lag_days = conv.default_payment_lag_days;
             }
         }
-        float
+        Ok(float)
     }
 
     /// Validate swap parameters for market-standard compliance.

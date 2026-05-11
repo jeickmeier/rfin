@@ -64,7 +64,7 @@ impl MetricCalculator for AnnuityCalculator {
 
         let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
 
-        let fixed = irs.resolved_fixed_leg();
+        let fixed = irs.resolved_fixed_leg()?;
         let periods = crate::cashflow::builder::periods::build_periods(
             crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: fixed.start,

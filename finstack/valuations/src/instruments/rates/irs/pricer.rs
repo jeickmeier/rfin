@@ -735,7 +735,7 @@ mod tests {
             .build()
             .expect("swap");
 
-        let resolved = swap.resolved_float_leg();
+        let resolved = swap.resolved_float_leg().expect("resolved float leg");
         // calendar_id: None stays None (no longer overridden by convention).
         // Users wanting convention calendars should set them explicitly.
         assert_eq!(resolved.calendar_id.as_deref(), None);
