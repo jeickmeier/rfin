@@ -344,3 +344,25 @@ names = [
     "statements_analytics",
     "valuations",
 ]
+
+# ---------------------------------------------------------------------------
+# WASM top-level parity
+#
+# `finstack-wasm/index.js` must re-export exactly these namespaces from
+# `./exports/*.js`. Adding or removing a namespace without updating this list
+# fails the namespace_parity test in finstack-wasm/tests/.
+# ---------------------------------------------------------------------------
+[wasm_top_level]
+file = "../finstack-wasm/index.js"
+namespaces = [
+    "analytics",
+    "cashflows",
+    "core",
+    "margin",
+    "monte_carlo",
+    "portfolio",
+    "scenarios",
+    "statements",
+    "statements_analytics",
+    "valuations",
+]

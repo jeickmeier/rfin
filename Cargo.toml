@@ -59,6 +59,7 @@ criterion = { version = "0.8", features = ["html_reports"] }
 strum = "0.28"
 strum_macros = "0.28"
 rustc-hash = "2.1"
+toml = "0.8"
 
 # Build profiles
 [profile.dev]
