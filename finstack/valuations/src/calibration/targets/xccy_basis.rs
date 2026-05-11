@@ -9,11 +9,8 @@
 //! `XccySwap` instances priced through `value_raw` honour `NotionalExchange::MtmResetting`
 //! transparently — the per-period notional and resetting-leg rebalancing cashflows are
 //! computed via the CIP no-FX-vol approximation in `crate::instruments::rates::xccy_swap::pricing_mtm`.
-//! Calibration against dealer-screen MtM-reset basis quotes (a new `XccyQuote::BasisSwap`
-//! calibration variant) is a follow-on PR; today the `XccyBasisTarget` consumes generic
-//! `RateQuote::{Deposit, Fra, Swap}` to build a foreign discount curve.
-//!
-//! See `docs/superpowers/specs/2026-05-10-xccy-mtm-reset-design.md` for the spec.
+//! Today the `XccyBasisTarget` consumes generic `RateQuote::{Deposit, Fra, Swap}` to build
+//! a foreign discount curve.
 
 use crate::calibration::api::schema::XccyBasisParams;
 use crate::calibration::config::CalibrationConfig;

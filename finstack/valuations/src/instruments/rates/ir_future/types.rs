@@ -20,19 +20,13 @@
 //! 1. **Fixed adjustment**: Set `convexity_adjustment` in [`FutureContractSpecs`] to
 //!    a pre-computed value (e.g., from broker quotes or historical analysis)
 //! 2. **Model-based**: Provide a `vol_surface_id` to compute the adjustment using
-//!    the Hull-White approximation: CA ≈ 0.5 × σ² × T₁ × T₂
+//!    the Hull-White zero-mean-reversion approximation. See
+//!    [`InterestRateFuture::calculate_convexity_adjusted_rate`] for the exact
+//!    formula and references; in short the adjustment depends on the underlying
+//!    period endpoints `[T_start, T_end]`, not the fixing date.
 //!
-//! ## Market Practice
-//!
-//! The Hull-White 1-factor model approximation is standard:
-//!
-//! ```text
-//! Convexity Adjustment ≈ 0.5 × σ² × T_fixing × (T_fixing + τ)
-//! ```
-//!
-//! where σ is short-rate volatility, T_fixing is time to fixing, and τ is the
-//! accrual period length. For STIR futures on SOFR, adjustments are typically
-//! sourced from broker screens or implied from listed options.
+//! For STIR futures on SOFR, adjustments are typically sourced from broker screens
+//! or implied from listed options.
 use crate::cashflow::traits::CashflowProvider;
 use crate::constants::ONE_BASIS_POINT;
 // Params-based constructor removed; build via builder instead.
