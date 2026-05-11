@@ -2,11 +2,13 @@
 //!
 //! Defines the JSON contract for plan-driven calibration.
 
+use crate::calibration::api::market_datum::MarketDatum;
+use crate::calibration::api::prior_market::PriorMarketObject;
 use crate::calibration::config::{CalibrationConfig, CalibrationMethod, RatesStepConventions};
 use crate::calibration::hull_white::SwapFrequency;
 use crate::calibration::CalibrationReport;
 use crate::instruments::credit_derivatives::cds::CdsValuationConvention;
-use crate::market::quotes::market_quote::MarketQuote;
+use crate::market::quotes::ids::QuoteId;
 use finstack_core::config::ResultsMeta;
 use finstack_core::currency::Currency;
 use finstack_core::dates::BusinessDayConvention;
@@ -76,8 +78,8 @@ impl CalibrationResultEnvelope {
 /// Top-level envelope for calibration requests.
 ///
 /// This is the outer-most structure for a calibration request. It includes
-/// the schema version, the plan to execute, and an optional initial market state
-/// to build upon.
+/// the schema version, the plan to execute, and the flat market-data inputs
+/// (plus optional pre-built prior calibrated objects) to build upon.
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -90,15 +92,16 @@ pub struct CalibrationEnvelope {
     pub schema_url: Option<String>,
     /// Schema version identifier (must be [`CALIBRATION_SCHEMA`]).
     pub schema: String,
-    /// The calibration plan containing steps and quote data.
+    /// The calibration plan containing steps and quote-set references.
     pub plan: CalibrationPlan,
-    /// Optional initial market context (e.g., existing curves) to use as a baseline.
-    // MarketContextState is from finstack-core which does not carry ts_export yet.
-    // Using `unknown` as a placeholder until finstack-core adds TS support.
-    #[serde(default)]
-    #[schemars(with = "Option<serde_json::Value>")]
-    #[cfg_attr(feature = "ts_export", ts(type = "unknown | null"))]
-    pub initial_market: Option<MarketContextState>,
+
+    /// Flat, id-addressable market data inputs.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub market_data: Vec<MarketDatum>,
+
+    /// Pre-built calibrated objects from a prior run.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub prior_market: Vec<PriorMarketObject>,
 }
 
 /// A calibration plan containing quote sets and execution steps.
@@ -115,10 +118,9 @@ pub struct CalibrationPlan {
     /// Optional human-readable description of the plan's purpose.
     #[serde(default)]
     pub description: Option<String>,
-    /// Market data organized by set name (referenced by steps).
-    #[schemars(with = "HashMap<String, Vec<serde_json::Value>>")]
-    #[cfg_attr(feature = "ts_export", ts(type = "Record<string, Array<unknown>>"))]
-    pub quote_sets: HashMap<String, Vec<MarketQuote>>,
+    /// Named ID lists; each ID must resolve to a quote in `market_data`.
+    #[serde(default)]
+    pub quote_sets: HashMap<String, Vec<QuoteId>>,
     /// Sequence of calibration steps to execute.
     pub steps: Vec<CalibrationStep>,
     /// Global settings for the calibration process.
