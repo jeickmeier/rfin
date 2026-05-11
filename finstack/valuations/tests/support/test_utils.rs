@@ -529,12 +529,50 @@ pub mod calibration {
     use finstack_core::Result;
     use finstack_valuations::calibration::api::engine;
     use finstack_valuations::calibration::api::market_datum::{MarketContextSplit, MarketDatum};
+    use finstack_valuations::calibration::api::prior_market::PriorMarketObject;
     use finstack_valuations::calibration::api::schema::{
         CalibrationEnvelope, CalibrationPlan, CalibrationStep, StepParams, CALIBRATION_SCHEMA,
     };
     use finstack_valuations::calibration::{CalibrationConfig, CalibrationReport};
     use finstack_valuations::market::quotes::ids::QuoteId;
     use finstack_valuations::market::quotes::market_quote::MarketQuote;
+
+    /// Extract the `QuoteId` of each [`MarketQuote`] in the slice.
+    ///
+    /// Used to build v3 `quote_sets: HashMap<String, Vec<QuoteId>>` from the
+    /// legacy `Vec<MarketQuote>` form. Pair with [`extend_market_data`] to
+    /// also flatten the quotes onto `market_data`.
+    pub fn quote_set_ids(quotes: &[MarketQuote]) -> Vec<QuoteId> {
+        quotes
+            .iter()
+            .map(|q| match q {
+                MarketQuote::Rates(q) => q.id().clone(),
+                MarketQuote::Cds(q) => q.id().clone(),
+                MarketQuote::CDSTranche(q) => q.id().clone(),
+                MarketQuote::Fx(q) => q.id().clone(),
+                MarketQuote::Inflation(q) => q.id().clone(),
+                MarketQuote::Vol(q) => q.id().clone(),
+                MarketQuote::Xccy(q) => q.id().clone(),
+                MarketQuote::Bond(q) => q.id().clone(),
+            })
+            .collect()
+    }
+
+    /// Append the `MarketDatum::from(quote)` projection of every quote in
+    /// `quotes` to `market_data`. Companion to [`quote_set_ids`].
+    pub fn extend_market_data(market_data: &mut Vec<MarketDatum>, quotes: &[MarketQuote]) {
+        market_data.extend(quotes.iter().cloned().map(MarketDatum::from));
+    }
+
+    /// Split a [`MarketContext`] into the v3 envelope's `(prior_market,
+    /// market_data)` pair. Pure-Rust convenience for tests that historically
+    /// built `initial_market: Some((&ctx).into())`.
+    pub fn split_initial_market(
+        ctx: &MarketContext,
+    ) -> (Vec<PriorMarketObject>, Vec<MarketDatum>) {
+        let split: MarketContextSplit = MarketContextState::from(ctx).into();
+        (split.prior, split.data)
+    }
 
     /// Execute a single calibration step for tests/benchmarks without engaging the full plan engine.
     pub fn execute_step(

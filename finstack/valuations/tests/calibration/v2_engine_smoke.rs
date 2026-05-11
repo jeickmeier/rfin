@@ -3,12 +3,14 @@
 //! Not a parity test against external references. See `tests/golden/calibration/`
 //! for external-reference goldens.
 
+use crate::finstack_test_utils::calibration as cal_utils;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor};
-use finstack_core::market_data::context::{MarketContext, MarketContextState};
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::HashMap;
 use finstack_valuations::calibration::api::engine;
+use finstack_valuations::calibration::api::market_datum::MarketDatum;
 use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelope, CalibrationPlan, CalibrationStep, DiscountCurveParams, ForwardCurveParams,
     StepParams,
@@ -68,9 +70,12 @@ fn test_v2_simple_usd_calibration() {
         }),
     ];
 
-    let mut quote_sets = HashMap::default();
-    quote_sets.insert("usd_ois".to_string(), quotes);
-    quote_sets.insert("usd_3m".to_string(), fwd_quotes);
+    let mut market_data: Vec<MarketDatum> = Vec::new();
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("usd_ois".to_string(), cal_utils::quote_set_ids(&quotes));
+    quote_sets.insert("usd_3m".to_string(), cal_utils::quote_set_ids(&fwd_quotes));
+    cal_utils::extend_market_data(&mut market_data, &quotes);
+    cal_utils::extend_market_data(&mut market_data, &fwd_quotes);
 
     // 2. Build Plan
     let plan = CalibrationPlan {
@@ -121,7 +126,8 @@ fn test_v2_simple_usd_calibration() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some(MarketContextState::from(&MarketContext::new())),
+        market_data,
+        prior_market: Vec::new(),
     };
 
     // 3. Execute

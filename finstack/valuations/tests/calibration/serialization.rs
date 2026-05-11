@@ -12,6 +12,8 @@ use finstack_core::market_data::term_structures::Seniority;
 use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::types::CurveId;
 use finstack_core::HashMap;
+use crate::finstack_test_utils::calibration as cal_utils;
+use finstack_valuations::calibration::api::market_datum::MarketDatum;
 use finstack_valuations::calibration::api::schema::{
     BaseCorrelationParams, CalibrationEnvelope, CalibrationPlan, CalibrationStep,
     DiscountCurveParams, ForwardCurveParams, HazardCurveParams, HullWhiteStepParams,
@@ -49,16 +51,17 @@ fn envelope_v2_roundtrips() {
     let base_date = Date::from_calendar_date(2025, Month::January, 2).unwrap();
     let currency = Currency::USD;
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert(
-        "rates".to_string(),
-        vec![MarketQuote::Rates(RateQuote::Deposit {
-            id: QuoteId::new(format!("DEP-{:?}", base_date + time::Duration::days(30))),
-            index: IndexId::new("USD-Deposit"),
-            pillar: Pillar::Date(base_date + time::Duration::days(30)),
-            rate: 0.05,
-        })],
-    );
+    let rates_quotes = vec![MarketQuote::Rates(RateQuote::Deposit {
+        id: QuoteId::new(format!("DEP-{:?}", base_date + time::Duration::days(30))),
+        index: IndexId::new("USD-Deposit"),
+        pillar: Pillar::Date(base_date + time::Duration::days(30)),
+        rate: 0.05,
+    })];
+
+    let mut market_data: Vec<MarketDatum> = Vec::new();
+    cal_utils::extend_market_data(&mut market_data, &rates_quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("rates".to_string(), cal_utils::quote_set_ids(&rates_quotes));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -87,7 +90,8 @@ fn envelope_v2_roundtrips() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: None,
+        market_data,
+        prior_market: Vec::new(),
     };
 
     let decoded = roundtrip_json(&envelope);

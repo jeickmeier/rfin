@@ -19,7 +19,8 @@ fn empty_envelope(id: &str) -> CalibrationEnvelope {
             steps: Vec::new(),
             settings: Default::default(),
         },
-        initial_market: None,
+        market_data: Vec::new(),
+        prior_market: Vec::new(),
     }
 }
 

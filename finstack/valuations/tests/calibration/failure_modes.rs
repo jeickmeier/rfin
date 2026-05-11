@@ -1,6 +1,7 @@
 //! Failure mode coverage for plan-driven calibration preflight checks.
 
 use crate::common::fixtures;
+use crate::finstack_test_utils::calibration as cal_utils;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -42,8 +43,10 @@ fn envelope_for_step(
     quotes: Vec<MarketQuote>,
     initial_market: MarketContext,
 ) -> CalibrationEnvelope {
-    let mut quote_sets = HashMap::default();
-    quote_sets.insert(step.quote_set.clone(), quotes);
+    let (prior, mut market_data) = cal_utils::split_initial_market(&initial_market);
+    cal_utils::extend_market_data(&mut market_data, &quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert(step.quote_set.clone(), cal_utils::quote_set_ids(&quotes));
     let plan = CalibrationPlan {
         id: "plan".to_string(),
         description: None,
@@ -57,7 +60,8 @@ fn envelope_for_step(
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&initial_market).into()),
+        market_data,
+        prior_market: prior,
     }
 }
 
