@@ -850,14 +850,16 @@ impl crate::instruments::common_impl::traits::Instrument for XccySwap {
         // schedule loop, hiding which leg/pair was the offender.
         self.validate_fx_reachable(market)?;
 
-        // TODO Task 8: replace with dispatch to pricing_mtm::pv_mtm_reset
-        if matches!(self.notional_exchange, NotionalExchange::MtmResetting { .. }) {
-            return Err(finstack_core::Error::Validation(format!(
-                "XccySwap '{}': MtM-resetting PV is not yet implemented \
-                 (Task 8 of 11). For fixed-notional XCCY swaps use \
-                 NotionalExchange::InitialAndFinal.",
-                self.id
-            )));
+        if let NotionalExchange::MtmResetting { resetting_side } = self.notional_exchange {
+            // Static-config validation is the caller's responsibility per ISDA contract;
+            // we run it here as belt-and-braces before descending into the per-period math.
+            self.validate()?;
+            return crate::instruments::rates::xccy_swap::pricing_mtm::pv_mtm_reset(
+                self,
+                resetting_side,
+                market,
+                as_of,
+            );
         }
 
         // pv_leg_in_reporting_ccy builds its own period schedule; no need to pre-build here.
@@ -881,12 +883,11 @@ impl CashflowProvider for XccySwap {
         self.validate_leg(&self.leg1)?;
         self.validate_leg(&self.leg2)?;
 
-        // TODO Task 8: replace with dispatch to pricing_mtm::pv_mtm_reset
         if matches!(self.notional_exchange, NotionalExchange::MtmResetting { .. }) {
             return Err(finstack_core::Error::Validation(format!(
-                "XccySwap '{}': MtM-resetting cashflow_schedule is not yet implemented \
-                 (Task 8 of 11). For fixed-notional XCCY swaps use \
-                 NotionalExchange::InitialAndFinal.",
+                "XccySwap '{}': MtM-resetting cashflow_schedule enumeration is a follow-on; \
+                 PV via base_value() is fully supported. Use base_value() / npv() for pricing, \
+                 or call cashflow_schedule with a fixed-notional NotionalExchange variant.",
                 self.id
             )));
         }
@@ -1379,5 +1380,66 @@ mod tests {
         });
         swap.validate()
             .expect("well-formed MtmResetting swap should pass validate");
+    }
+
+    #[test]
+    fn base_value_dispatches_mtm_resetting_to_pricing_mtm() {
+        use finstack_core::market_data::term_structures::ForwardCurve;
+        use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
+        use std::sync::Arc;
+        use time::Month;
+
+        let base = Date::from_calendar_date(2024, Month::January, 3).expect("base date");
+
+        // Build minimal curves matching the IDs used by XccySwap::example().
+        let usd_disc = DiscountCurve::builder(CurveId::new("USD-OIS"))
+            .base_date(base)
+            .knots(vec![(0.0, 1.0), (5.0, (-0.02_f64 * 5.0).exp())])
+            .build()
+            .expect("usd disc");
+        let eur_disc = DiscountCurve::builder(CurveId::new("EUR-OIS"))
+            .base_date(base)
+            .knots(vec![(0.0, 1.0), (5.0, (-0.01_f64 * 5.0).exp())])
+            .build()
+            .expect("eur disc");
+        let usd_fwd = ForwardCurve::builder(CurveId::new("USD-SOFR-3M"), 0.25)
+            .base_date(base)
+            .knots(vec![(0.0, 0.02), (5.0, 0.02)])
+            .build()
+            .expect("usd fwd");
+        let eur_fwd = ForwardCurve::builder(CurveId::new("EUR-EURIBOR-3M"), 0.25)
+            .base_date(base)
+            .knots(vec![(0.0, 0.01), (5.0, 0.01)])
+            .build()
+            .expect("eur fwd");
+
+        let provider = Arc::new(SimpleFxProvider::new());
+        provider
+            .set_quote(Currency::EUR, Currency::USD, 1.10)
+            .expect("set EUR/USD rate");
+        let fx = FxMatrix::new(provider);
+
+        let ctx = MarketContext::new()
+            .insert(usd_disc)
+            .insert(eur_disc)
+            .insert(usd_fwd)
+            .insert(eur_fwd)
+            .insert_fx(fx);
+
+        let swap = XccySwap::example().with_notional_exchange(NotionalExchange::MtmResetting {
+            resetting_side: ResettingSide::Leg2,
+        });
+
+        // The PV should be a finite number; we are not asserting the exact value here.
+        // Task 9 will do CIP-invariance.
+        let pv = swap
+            .base_value(&ctx, base)
+            .expect("MtM-reset PV should compute");
+        assert!(
+            pv.amount().is_finite(),
+            "MtM-reset PV must be finite, got {}",
+            pv.amount()
+        );
+        assert_eq!(pv.currency(), Currency::USD);
     }
 }
