@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import re
 from pathlib import Path
 import tomllib
 from typing import Any
@@ -100,3 +101,29 @@ def test_contract_missing_modules_are_not_importable(
     missing_name = exc_info.value.name
     assert missing_name is not None
     assert module_path == missing_name or module_path.startswith(f"{missing_name}.")
+
+
+def _pyi_top_level_names(pyi_path: Path) -> set[str]:
+    """Extract module-level names declared in a .pyi stub."""
+    source = pyi_path.read_text()
+    # Match `name: <type>` at the start of a line (no indentation).
+    # Excludes `__all__: list[str]` because the dunder isn't a public name.
+    names: set[str] = set()
+    for m in re.finditer(r"^([a-z_][a-zA-Z0-9_]*)\s*:\s*\w", source, re.MULTILINE):
+        name = m.group(1)
+        if not name.startswith("_"):
+            names.add(name)
+    return names
+
+
+def test_pyi_top_level_matches_contract() -> None:
+    """The `.pyi` stub root must declare exactly the names listed in the contract."""
+    block = CONTRACT["pyi_top_level"]
+    pyi_path = CONTRACT_PATH.parent / block["file"]
+    expected = set(block["names"])
+    actual = _pyi_top_level_names(pyi_path)
+    assert actual == expected, (
+        f"finstack.pyi top-level names diverged from contract.\n"
+        f"  missing from .pyi: {sorted(expected - actual)}\n"
+        f"  unlisted in contract: {sorted(actual - expected)}"
+    )

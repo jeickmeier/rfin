@@ -251,3 +251,25 @@ utils     = { python = "finstack.scenarios.utils",     status = "missing" }
 "finstack_statements::utils"     = "Internal utilities; not part of public Python surface"
 "finstack_portfolio::scenarios"  = "Feature-gated `scenarios`; available through finstack.scenarios instead"
 "finstack-valuations-macros"     = "Proc-macro crate; compile-time only, no Python surface"
+
+# ---------------------------------------------------------------------------
+# `.pyi` top-level parity
+#
+# The compiled extension stub at `finstack-py/finstack/finstack.pyi` must
+# declare exactly these names at module level. Adding a name to the stub
+# without listing it here (or vice versa) fails the parity test.
+# ---------------------------------------------------------------------------
+[pyi_top_level]
+file = "finstack/finstack.pyi"
+names = [
+    "analytics",
+    "cashflows",
+    "core",
+    "margin",
+    "monte_carlo",
+    "portfolio",
+    "scenarios",
+    "statements",
+    "statements_analytics",
+    "valuations",
+]
