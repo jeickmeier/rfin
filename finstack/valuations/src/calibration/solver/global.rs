@@ -693,7 +693,7 @@ fn validate_global_inputs(times: &[f64], initials: &[f64], n_residuals: usize) -
                 "Global fit requires at least one parameter; got n_params=0 and n_residuals={}.",
                 n_residuals
             ),
-            category: "global_fit".to_string(),
+            category: "global_solve".to_string(),
         });
     }
 
@@ -704,7 +704,7 @@ fn validate_global_inputs(times: &[f64], initials: &[f64], n_residuals: usize) -
                 n_residuals,
                 initials.len()
             ),
-            category: "global_fit".to_string(),
+            category: "global_solve".to_string(),
         });
     }
 
@@ -715,7 +715,7 @@ fn validate_global_inputs(times: &[f64], initials: &[f64], n_residuals: usize) -
                     "Global solve requires strictly positive finite times; got {} at index {}.",
                     t, idx
                 ),
-                category: "global_fit".to_string(),
+                category: "global_solve".to_string(),
             });
         }
     }
@@ -727,7 +727,7 @@ fn validate_global_inputs(times: &[f64], initials: &[f64], n_residuals: usize) -
                     "Global solve requires finite initial guesses; got {} at index {}.",
                     init, idx
                 ),
-                category: "global_fit".to_string(),
+                category: "global_solve".to_string(),
             });
         }
     }
@@ -744,7 +744,7 @@ fn validate_global_inputs(times: &[f64], initials: &[f64], n_residuals: usize) -
                     prev,
                     next
                 ),
-                category: "global_fit".to_string(),
+                category: "global_solve".to_string(),
             });
         }
     }
