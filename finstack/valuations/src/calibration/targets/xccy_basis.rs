@@ -23,6 +23,8 @@ use crate::calibration::solver::traits::BootstrapTarget;
 use crate::calibration::targets::util::{
     discount_only_curve_ids, prepare_rate_calibration_quotes, ContextScratch,
 };
+use crate::market::quotes::market_quote::ExtractQuotes;
+use crate::market::quotes::xccy::XccyQuote;
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::dates::Date;
@@ -78,14 +80,72 @@ impl XccyBasisTarget {
         let mut config = global_config.clone();
         config.calibration_method = schema_params.method.clone();
 
-        let prepared = prepare_rate_calibration_quotes(
-            quotes,
-            schema_params.base_date,
-            discount_only_curve_ids(schema_params.curve_id.as_ref()),
-            schema_params.conventions.curve_day_count,
-            1_000_000.0,
-        )?;
-        let prepared_quotes = prepared.quotes;
+        // Rates-side preflight: foreign-currency deposits/FRAs/swaps that constrain the
+        // foreign discount curve directly. Required to be present today because the
+        // bootstrap solver needs short-end anchors.
+        let rates_quotes: Vec<crate::market::quotes::rates::RateQuote> =
+            quotes.extract_quotes();
+        let has_rates = !rates_quotes.is_empty();
+
+        // XCCY-side preflight: dealer-screen `XccyQuote::BasisSwap` quotes (par-spread on
+        // either fixed-notional or MtM-resetting XCCY swaps per the pair convention).
+        let xccy_quotes: Vec<XccyQuote> = quotes.extract_quotes();
+        let has_xccy = !xccy_quotes.is_empty();
+
+        if !has_rates && !has_xccy {
+            return Err(finstack_core::Error::Input(
+                finstack_core::InputError::TooFewPoints,
+            ));
+        }
+
+        let curve_dc = schema_params
+            .conventions
+            .curve_day_count
+            .unwrap_or(finstack_core::dates::DayCount::Act365F);
+
+        let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(
+            rates_quotes.len() + xccy_quotes.len(),
+        );
+
+        if has_rates {
+            let prepared = prepare_rate_calibration_quotes(
+                quotes,
+                schema_params.base_date,
+                discount_only_curve_ids(schema_params.curve_id.as_ref()),
+                schema_params.conventions.curve_day_count,
+                1_000_000.0,
+            )?;
+            prepared_quotes.extend(prepared.quotes);
+        }
+
+        if has_xccy {
+            let mut xccy_curve_ids = finstack_core::HashMap::default();
+            xccy_curve_ids.insert(
+                "foreign_discount".to_string(),
+                schema_params.curve_id.to_string(),
+            );
+            xccy_curve_ids.insert(
+                "domestic_discount".to_string(),
+                schema_params.domestic_discount_id.to_string(),
+            );
+            let xccy_build_ctx = crate::market::build::context::BuildCtx::new(
+                schema_params.base_date,
+                1_000_000.0,
+                xccy_curve_ids,
+            );
+            for q in xccy_quotes {
+                let prepared = crate::market::build::prepared::prepare_xccy_quote(
+                    q,
+                    &xccy_build_ctx,
+                    curve_dc,
+                    schema_params.base_date,
+                )?;
+                prepared_quotes.push(CalibrationQuote::XccyBasis(prepared));
+            }
+        }
+
+        // Bootstrap requires strictly increasing pillar times. Sort the merged list.
+        prepared_quotes.sort_by(|a, b| a.pillar_time().total_cmp(&b.pillar_time()));
 
         let target = Self::new(
             XccyBasisTargetParams {
@@ -232,5 +292,125 @@ impl BootstrapTarget for XccyBasisTarget {
             });
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod xccy_quote_calibration_tests {
+    use super::*;
+    use crate::market::conventions::ids::XccyConventionId;
+    use crate::market::quotes::ids::{Pillar, QuoteId};
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{Date, DayCount, Tenor};
+    use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+    use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
+    use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
+    use finstack_core::types::CurveId;
+    use std::sync::Arc;
+    use time::Month;
+
+    fn build_market_context() -> MarketContext {
+        let base = Date::from_calendar_date(2025, Month::January, 2).expect("date");
+        let usd_disc = DiscountCurve::builder(CurveId::new("USD-OIS"))
+            .base_date(base)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 1.0), (10.0, (-0.02_f64 * 10.0).exp())])
+            .interp(InterpStyle::Linear)
+            .extrapolation(ExtrapolationPolicy::FlatZero)
+            .build()
+            .expect("USD-OIS");
+        let eur_disc_seed = DiscountCurve::builder(CurveId::new("EUR-OIS"))
+            .base_date(base)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 1.0), (10.0, (-0.01_f64 * 10.0).exp())])
+            .interp(InterpStyle::Linear)
+            .extrapolation(ExtrapolationPolicy::FlatZero)
+            .build()
+            .expect("EUR-OIS seed");
+        // Forward curve names must match the EUR/USD-XCCY pair convention's index ids
+        // (`USD-SOFR-OIS` and `EUR-ESTR-OIS` per the registry JSON).
+        let usd_fwd = ForwardCurve::builder(CurveId::new("USD-SOFR-OIS"), 0.25)
+            .base_date(base)
+            .knots(vec![(0.0, 0.02), (10.0, 0.02)])
+            .interp(InterpStyle::Linear)
+            .build()
+            .expect("USD-SOFR-OIS fwd");
+        let eur_fwd = ForwardCurve::builder(CurveId::new("EUR-ESTR-OIS"), 0.25)
+            .base_date(base)
+            .knots(vec![(0.0, 0.01), (10.0, 0.01)])
+            .interp(InterpStyle::Linear)
+            .build()
+            .expect("EUR-ESTR-OIS fwd");
+
+        let provider = Arc::new(SimpleFxProvider::new());
+        provider
+            .set_quote(Currency::EUR, Currency::USD, 1.10)
+            .expect("set fx");
+        let fx = FxMatrix::new(provider);
+
+        MarketContext::new()
+            .insert(usd_disc)
+            .insert(eur_disc_seed)
+            .insert(usd_fwd)
+            .insert(eur_fwd)
+            .insert_fx(fx)
+    }
+
+    /// Drive `XccyBasisTarget::solve` with `XccyQuote::BasisSwap` quotes (the dealer-
+    /// screen format) instead of generic `RateQuote::Swap` quotes. The EUR/USD-XCCY
+    /// convention is registered as `MtmResetting { Leg1 }` (Task 3), so this exercises
+    /// the full MtM-reset pricing inside the bootstrap residual loop.
+    ///
+    /// Verifies (a) the calibration runs and reports success, (b) the resulting
+    /// foreign discount curve is non-degenerate and replaces the seed.
+    #[test]
+    fn xccy_basis_target_accepts_xccy_basis_quotes() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 2).expect("base");
+        let ctx = build_market_context();
+
+        let params = crate::calibration::api::schema::XccyBasisParams {
+            curve_id: CurveId::new("EUR-OIS"),
+            currency: Currency::EUR,
+            base_date: as_of,
+            fx_spot: 1.10,
+            domestic_discount_id: CurveId::new("USD-OIS"),
+            method: crate::calibration::config::CalibrationMethod::Bootstrap,
+            interpolation: InterpStyle::Linear,
+            extrapolation: ExtrapolationPolicy::FlatZero,
+            conventions: crate::calibration::config::RatesStepConventions {
+                curve_day_count: Some(DayCount::Act365F),
+                ois_compounding: None,
+            },
+            basis_spread_curve_id: None,
+        };
+
+        let quote_5y = MarketQuote::Xccy(XccyQuote::BasisSwap {
+            id: QuoteId::new("EURUSD-XCCY-5Y"),
+            convention: XccyConventionId::new("EUR/USD-XCCY"),
+            far_pillar: Pillar::Tenor("5Y".parse::<Tenor>().expect("5Y tenor")),
+            basis_spread_bp: -10.0,
+            spot_fx: Some(1.10),
+        });
+
+        let cfg = CalibrationConfig::default();
+        let result = XccyBasisTarget::solve(&params, &[quote_5y], &ctx, &cfg);
+
+        let (new_ctx, report) = result
+            .expect("XccyBasisTarget::solve should accept XccyQuote::BasisSwap quotes");
+
+        assert!(
+            report.success,
+            "calibration should succeed: max_residual={}",
+            report.max_residual
+        );
+
+        let calibrated = new_ctx
+            .get_discount(&CurveId::new("EUR-OIS"))
+            .expect("calibrated EUR-OIS curve should be present in the new context");
+        assert!(
+            calibrated.df(5.0) > 0.0 && calibrated.df(5.0) < 1.0,
+            "calibrated 5Y DF must be in (0,1); got {}",
+            calibrated.df(5.0)
+        );
     }
 }

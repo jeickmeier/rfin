@@ -4,10 +4,12 @@ use crate::instruments::DynInstrument;
 use crate::market::build::cds::{build_cds_instrument, resolve_cds_quote_dates};
 use crate::market::build::helpers::{resolve_calendar, resolve_spot_date};
 use crate::market::build::rates::build_rate_instrument;
+use crate::market::build::xccy::build_xccy_instrument;
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::cds::CdsQuote;
 use crate::market::quotes::ids::Pillar;
 use crate::market::quotes::rates::RateQuote;
+use crate::market::quotes::xccy::XccyQuote;
 use crate::market::BuildCtx;
 use finstack_core::dates::{adjust, Date, DateExt};
 use finstack_core::dates::{DayCount, DayCountContext, TenorUnit};
@@ -236,6 +238,54 @@ fn rate_quote_pillar_date(
             }
         }
     }
+}
+
+/// Prepare an XCCY basis-swap quote into an instrument + pillar time.
+///
+/// Uses the pair convention (registered via `XccyConventionId`) to construct the
+/// underlying [`crate::instruments::rates::xccy_swap::XccySwap`]. The pillar date is
+/// the swap's maturity (far date of the basis-swap quote). The convention's
+/// `notional_exchange` field determines whether the resulting swap is fixed-notional
+/// or `MtmResetting` — G10 pairs default to MtM-resetting per dealer convention.
+pub(crate) fn prepare_xccy_quote(
+    quote: XccyQuote,
+    build_ctx: &BuildCtx,
+    curve_day_count: DayCount,
+    base_date: Date,
+) -> Result<PreparedQuote<XccyQuote>> {
+    let instrument: Box<DynInstrument> = build_xccy_instrument(&quote, build_ctx)?;
+    let instrument_arc: Arc<DynInstrument> = instrument.into();
+    let maturity_date = xccy_quote_pillar_date(&quote, instrument_arc.as_ref())?;
+    let pillar_time =
+        curve_day_count.year_fraction(base_date, maturity_date, DayCountContext::default())?;
+
+    Ok(PreparedQuote::new(
+        Arc::new(quote),
+        instrument_arc,
+        maturity_date,
+        pillar_time,
+    ))
+}
+
+/// Resolve the maturity (far) date for an `XccyQuote::BasisSwap`. The cleanest path is
+/// to call `build_xccy_instrument` (which already does all the date math + convention
+/// resolution) and read `leg1.end` off the constructed swap — both legs share the same
+/// end date by builder construction.
+fn xccy_quote_pillar_date(
+    quote: &XccyQuote,
+    instrument: &DynInstrument,
+) -> Result<Date> {
+    use crate::instruments::rates::xccy_swap::XccySwap;
+    let swap = instrument
+        .as_any()
+        .downcast_ref::<XccySwap>()
+        .ok_or_else(|| {
+            finstack_core::Error::Validation(format!(
+                "Built instrument for XccyQuote '{}' is not an XccySwap",
+                quote.id().as_str()
+            ))
+        })?;
+    Ok(swap.leg1.end)
 }
 
 /// Prepare a CDS quote into an instrument + pillar time.

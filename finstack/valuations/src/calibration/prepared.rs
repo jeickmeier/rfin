@@ -8,6 +8,7 @@ use crate::market::quotes::cds::CdsQuote;
 use crate::market::quotes::cds_tranche::CDSTrancheQuote;
 use crate::market::quotes::inflation::InflationQuote;
 use crate::market::quotes::rates::RateQuote;
+use crate::market::quotes::xccy::XccyQuote;
 use finstack_core::money::Money;
 
 /// A prepared CDS tranche quote ready for use in calibration.
@@ -35,7 +36,9 @@ pub(crate) enum CalibrationQuote {
     CDSTranche(CDSTrancheCalibrationQuote),
     /// Inflation quote (ZCIS)
     Inflation(PreparedQuote<InflationQuote>),
-    // Add Vol later
+    /// Cross-currency basis swap quote (par spread on a fixed-notional or MtM-resetting
+    /// XCCY swap). Constructed via `prepare_xccy_quote` in `market::build::prepared`.
+    XccyBasis(PreparedQuote<XccyQuote>),
 }
 
 impl CalibrationQuote {
@@ -46,6 +49,7 @@ impl CalibrationQuote {
             CalibrationQuote::Cds(q) => q.instrument.as_ref(),
             CalibrationQuote::CDSTranche(q) => q.prepared.instrument.as_ref(),
             CalibrationQuote::Inflation(q) => q.instrument.as_ref(),
+            CalibrationQuote::XccyBasis(q) => q.instrument.as_ref(),
         }
     }
 
@@ -56,6 +60,7 @@ impl CalibrationQuote {
             CalibrationQuote::Cds(q) => q.pillar_time,
             CalibrationQuote::CDSTranche(q) => q.prepared.pillar_time,
             CalibrationQuote::Inflation(q) => q.pillar_time,
+            CalibrationQuote::XccyBasis(q) => q.pillar_time,
         }
     }
 }

@@ -65,5 +65,4 @@ pub(crate) mod prepared;
 /// Builders for rates instruments.
 pub(crate) mod rates;
 /// Builders for cross-currency swap instruments.
-#[cfg(test)]
 pub(crate) mod xccy;

@@ -362,3 +362,4 @@ fn cip_invariance_holds_under_reversed_rate_ordering() {
         pv_fixed - pv_mtm
     );
 }
+
