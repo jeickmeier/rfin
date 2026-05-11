@@ -529,6 +529,25 @@ where
             return;
         }
 
+        // Guard against NaN/Inf in residual values. LM consumes residuals as f64 and
+        // does not natively reject non-finite entries: a single NaN poisons the entire
+        // Jacobian step and can cause the solver to stall or accept a bogus minimum.
+        // Treat non-finite as evaluation failure and substitute the penalty pattern.
+        if let Some(bad_idx) = resid[..n_residuals].iter().position(|r| !r.is_finite()) {
+            record_eval_error(
+                &eval_diagnostics,
+                eval_idx,
+                "residual evaluation",
+                params_ref,
+                &format!(
+                    "non-finite residual at index {} (value {:?}); substituting penalty",
+                    bad_idx, resid[bad_idx]
+                ),
+            );
+            fill_penalty(resid, n_residuals, params_ref, lb.as_deref(), ub.as_deref());
+            return;
+        }
+
         for (r, w) in resid[..n_residuals].iter_mut().zip(weight_scales.iter()) {
             *r *= *w;
         }
@@ -616,6 +635,19 @@ where
     let final_curve = target.build_curve_for_solver_from_params(times, &solved_params)?;
     let mut resid_values = vec![0.0; n_residuals];
     target.calculate_residuals(&final_curve, active_quotes, &mut resid_values)?;
+
+    // Reject solves that produced non-finite residuals at the optimum: the solver may
+    // have stalled at a degenerate point and any reported L2 norm would be unreliable.
+    if let Some(bad_idx) = resid_values.iter().position(|r| !r.is_finite()) {
+        return Err(finstack_core::Error::Calibration {
+            message: format!(
+                "Global solve converged with non-finite residual at index {} (value {:?}); \
+                 final point is unusable.",
+                bad_idx, resid_values[bad_idx]
+            ),
+            category: "global_solve".to_string(),
+        });
+    }
 
     let weighted_l2: f64 = resid_values
         .iter()
