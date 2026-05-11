@@ -13,6 +13,7 @@ fn main() -> io::Result<()> {
     println!("cargo:rerun-if-changed=data/calendars");
     println!("cargo:rerun-if-changed=build/currency_build.rs");
     println!("cargo:rerun-if-changed=build/generate_calendars.rs");
+    println!("cargo:rerun-if-changed=src/generated/currency_generated.rs");
     currency_build::generate()?;
     generate_calendars::generate()
 }

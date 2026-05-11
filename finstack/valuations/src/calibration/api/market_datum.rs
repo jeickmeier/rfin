@@ -10,6 +10,7 @@ use crate::market::quotes::cds::CdsQuote;
 use crate::market::quotes::cds_tranche::CDSTrancheQuote;
 use crate::market::quotes::fx::FxQuote;
 use crate::market::quotes::inflation::InflationQuote;
+use crate::market::quotes::market_quote::MarketQuote;
 use crate::market::quotes::rates::RateQuote;
 use crate::market::quotes::vol::VolQuote;
 use crate::market::quotes::xccy::XccyQuote;
@@ -121,6 +122,78 @@ pub struct CollateralEntry {
     pub csa_currency: Currency,
 }
 
+impl MarketDatum {
+    /// Stable identifier for this datum, borrowed as a string slice.
+    ///
+    /// For quote variants this delegates to the inner `QuoteId`. For snapshot
+    /// variants it returns the wrapped struct's `id` field.
+    pub fn id(&self) -> &str {
+        match self {
+            MarketDatum::RateQuote(q) => q.id().as_str(),
+            MarketDatum::CdsQuote(q) => q.id().as_str(),
+            MarketDatum::CdsTrancheQuote(q) => q.id().as_str(),
+            MarketDatum::FxQuote(q) => q.id().as_str(),
+            MarketDatum::InflationQuote(q) => q.id().as_str(),
+            MarketDatum::VolQuote(q) => q.id().as_str(),
+            MarketDatum::XccyQuote(q) => q.id().as_str(),
+            MarketDatum::BondQuote(q) => q.id().as_str(),
+            MarketDatum::FxSpot(d) => &d.id,
+            MarketDatum::Price(d) => &d.id,
+            MarketDatum::DividendSchedule(d) => d.schedule.id.as_str(),
+            MarketDatum::FixingSeries(s) => s.id().as_str(),
+            MarketDatum::InflationFixings(i) => i.id.as_str(),
+            MarketDatum::CreditIndex(c) => c.id.as_str(),
+            MarketDatum::FxVolSurface(s) => s.id().as_str(),
+            MarketDatum::VolCube(c) => c.id().as_str(),
+            MarketDatum::Collateral(c) => c.id.as_ref(),
+        }
+    }
+
+    /// Serde discriminator tag for this variant (matches the `kind` field).
+    pub fn kind_name(&self) -> &'static str {
+        match self {
+            MarketDatum::RateQuote(_) => "rate_quote",
+            MarketDatum::CdsQuote(_) => "cds_quote",
+            MarketDatum::CdsTrancheQuote(_) => "cds_tranche_quote",
+            MarketDatum::FxQuote(_) => "fx_quote",
+            MarketDatum::InflationQuote(_) => "inflation_quote",
+            MarketDatum::VolQuote(_) => "vol_quote",
+            MarketDatum::XccyQuote(_) => "xccy_quote",
+            MarketDatum::BondQuote(_) => "bond_quote",
+            MarketDatum::FxSpot(_) => "fx_spot",
+            MarketDatum::Price(_) => "price",
+            MarketDatum::DividendSchedule(_) => "dividend_schedule",
+            MarketDatum::FixingSeries(_) => "fixing_series",
+            MarketDatum::InflationFixings(_) => "inflation_fixings",
+            MarketDatum::CreditIndex(_) => "credit_index",
+            MarketDatum::FxVolSurface(_) => "fx_vol_surface",
+            MarketDatum::VolCube(_) => "vol_cube",
+            MarketDatum::Collateral(_) => "collateral",
+        }
+    }
+
+    /// If this datum is a quote variant, wrap it in a `MarketQuote`.
+    /// Returns `None` for snapshot variants (prices, surfaces, etc.).
+    pub fn as_quote(&self) -> Option<MarketQuote> {
+        match self {
+            MarketDatum::RateQuote(q) => Some(MarketQuote::Rates(q.clone())),
+            MarketDatum::CdsQuote(q) => Some(MarketQuote::Cds(q.clone())),
+            MarketDatum::CdsTrancheQuote(q) => Some(MarketQuote::CDSTranche(q.clone())),
+            MarketDatum::FxQuote(q) => Some(MarketQuote::Fx(q.clone())),
+            MarketDatum::InflationQuote(q) => Some(MarketQuote::Inflation(q.clone())),
+            MarketDatum::VolQuote(q) => Some(MarketQuote::Vol(q.clone())),
+            MarketDatum::XccyQuote(q) => Some(MarketQuote::Xccy(q.clone())),
+            MarketDatum::BondQuote(q) => Some(MarketQuote::Bond(q.clone())),
+            _ => None,
+        }
+    }
+
+    /// Convenience: returns `true` if this datum is a quote variant.
+    pub fn is_quote(&self) -> bool {
+        self.as_quote().is_some()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,5 +212,60 @@ mod tests {
         };
         assert_eq!(p.id, "AAPL");
         assert!(matches!(p.scalar, MarketScalar::Unitless(v) if (v - 175.42).abs() < 1e-12));
+    }
+
+    #[test]
+    fn rate_quote_id_kind_and_as_quote() {
+        use crate::market::conventions::ids::IndexId;
+        use crate::market::quotes::ids::{Pillar, QuoteId};
+        use crate::market::quotes::rates::RateQuote;
+        use finstack_core::dates::{Tenor, TenorUnit};
+
+        let rq = RateQuote::Deposit {
+            id: QuoteId::new("USD-DEP-1M"),
+            index: IndexId::new("USD-SOFR"),
+            pillar: Pillar::Tenor(Tenor::new(1, TenorUnit::Months)),
+            rate: 0.0525,
+        };
+        let datum = MarketDatum::RateQuote(rq);
+        assert_eq!(datum.id(), "USD-DEP-1M");
+        assert_eq!(datum.kind_name(), "rate_quote");
+        assert!(datum.as_quote().is_some());
+        assert!(datum.is_quote());
+    }
+
+    #[test]
+    fn price_is_not_a_quote() {
+        let datum = MarketDatum::Price(PriceDatum {
+            id: "AAPL".into(),
+            scalar: MarketScalar::Unitless(175.42),
+        });
+        assert_eq!(datum.id(), "AAPL");
+        assert_eq!(datum.kind_name(), "price");
+        assert!(datum.as_quote().is_none());
+        assert!(!datum.is_quote());
+    }
+
+    #[test]
+    fn fx_spot_id_and_kind() {
+        let datum = MarketDatum::FxSpot(FxSpotDatum {
+            id: "EUR/USD".into(),
+            from: Currency::EUR,
+            to: Currency::USD,
+            rate: 1.085,
+        });
+        assert_eq!(datum.id(), "EUR/USD");
+        assert_eq!(datum.kind_name(), "fx_spot");
+        assert!(datum.as_quote().is_none());
+    }
+
+    #[test]
+    fn collateral_id_returns_currency_string() {
+        let datum = MarketDatum::Collateral(CollateralEntry {
+            id: Currency::USD,
+            csa_currency: Currency::USD,
+        });
+        assert_eq!(datum.id(), "USD");
+        assert_eq!(datum.kind_name(), "collateral");
     }
 }
