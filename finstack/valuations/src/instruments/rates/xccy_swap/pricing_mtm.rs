@@ -106,6 +106,16 @@ pub(crate) fn pv_mtm_reset(
     let mut pv = NeumaierAccumulator::new();
 
     // Helper: convert a cashflow at `payment_date` to reporting currency.
+    //
+    // The FxQuery passes `payment_date` so providers with an FX term structure
+    // (e.g. one calibrated to FX forwards) can return a date-specific forward
+    // rate. The most commonly used provider in tests and basic calibration
+    // setups, `SimpleFxProvider`, is spot-only: it returns the same rate
+    // regardless of `payment_date`. With a spot-only provider, all in-period
+    // and rebalancing flows are converted at the same FX, which is internally
+    // consistent but ignores the CIP-implied forward-FX path. Callers that
+    // require date-aware conversion (e.g. for accurate forward-PV in highly
+    // term-structured FX markets) must inject a forward-aware provider.
     let convert = |amount: f64,
                    from_ccy: finstack_core::currency::Currency,
                    payment_date: Date|
@@ -163,11 +173,15 @@ pub(crate) fn pv_mtm_reset(
     //     emits rebalancing only on the resetting leg.)
     let mut n_r_prev = n_r_initial;
     for (j, period) in periods.iter().enumerate() {
-        // Notional captured at the start of THIS period (T_j) = N_j^R.
-        let n_r_j = if j == 0 {
-            n_r_initial
+        // Notional captured at the start of THIS period (T_j) = N_j^R. Also returns
+        // P_R(as_of, accrual_start) so the rebalancing block below can reuse it
+        // without a second curve lookup.
+        let (n_r_j, df_r_at_period_start) = if j == 0 {
+            // Initial period: notional already computed; rebalancing skipped, so no
+            // need for the DF. Use NAN as a sentinel — it must never be read.
+            (n_r_initial, f64::NAN)
         } else {
-            compute_resetting_notional(
+            compute_resetting_notional_and_df_r(
                 n_c,
                 spot_x_at_as_of,
                 as_of,
@@ -238,9 +252,10 @@ pub(crate) fn pv_mtm_reset(
         //    the correct sign for both Pay/Receive resetting sides. The constant leg has no
         //    corresponding rebalancing cashflow (see comment above).
         if j > 0 && period.accrual_start > as_of {
-            let df_r_reset = robust_relative_df(disc_r.as_ref(), as_of, period.accrual_start)?;
-            let df_r_reset =
-                require_positive_df(df_r_reset, &swap.id, "resetting-leg", period.accrual_start)?;
+            // Reuse the resetting-leg DF already computed inside
+            // compute_resetting_notional_and_df_r above. require_positive_df has
+            // already vetted it for finiteness/positivity.
+            let df_r_reset = df_r_at_period_start;
             let delta_n_r = n_r_j - n_r_prev;
             let rebal_r = resetting_leg.side.initial_principal_sign() * delta_n_r * df_r_reset;
             pv.add(convert(
@@ -441,7 +456,10 @@ pub(crate) fn mtm_resetting_leg_schedule(
 /// with the spot rate observed at `as_of`. Using absolute DFs from each curve's base
 /// date would only agree when `as_of == curve.base_date` — i.e., the same day the
 /// curves were calibrated — and would silently bias every intraday revaluation.
-fn compute_resetting_notional(
+///
+/// Returns `(notional, p_r)` so the caller can reuse the resetting-leg DF at `date`
+/// for the rebalancing cashflow without a second curve lookup.
+fn compute_resetting_notional_and_df_r(
     n_constant: f64,
     spot_x_at_as_of: f64,
     as_of: Date,
@@ -449,7 +467,7 @@ fn compute_resetting_notional(
     disc_c: &finstack_core::market_data::term_structures::DiscountCurve,
     disc_r: &finstack_core::market_data::term_structures::DiscountCurve,
     swap_id: &finstack_core::types::InstrumentId,
-) -> Result<f64> {
+) -> Result<(f64, f64)> {
     let p_c = robust_relative_df(disc_c, as_of, date)?;
     let p_c = require_positive_df(p_c, swap_id, "constant-leg", date)?;
     let p_r = robust_relative_df(disc_r, as_of, date)?;
@@ -460,7 +478,30 @@ fn compute_resetting_notional(
             "XccySwap '{swap_id}': non-positive forward FX at date {date}"
         )));
     }
-    Ok(n_constant / x_t)
+    Ok((n_constant / x_t, p_r))
+}
+
+/// Thin wrapper retained for call sites that only need the notional (initial principal
+/// exchange, final exchange, schedule-builder pre-loop).
+fn compute_resetting_notional(
+    n_constant: f64,
+    spot_x_at_as_of: f64,
+    as_of: Date,
+    date: Date,
+    disc_c: &finstack_core::market_data::term_structures::DiscountCurve,
+    disc_r: &finstack_core::market_data::term_structures::DiscountCurve,
+    swap_id: &finstack_core::types::InstrumentId,
+) -> Result<f64> {
+    let (n_r, _) = compute_resetting_notional_and_df_r(
+        n_constant,
+        spot_x_at_as_of,
+        as_of,
+        date,
+        disc_c,
+        disc_r,
+        swap_id,
+    )?;
+    Ok(n_r)
 }
 
 /// Guard that a discount factor is finite and strictly positive; returns the value on success.

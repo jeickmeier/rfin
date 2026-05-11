@@ -429,6 +429,16 @@ impl XccySwap {
     /// - Both legs must share the same coupon frequency so reset dates are unambiguous.
     /// - Both legs must share the same start and end dates (schedule alignment).
     ///
+    /// **BDC alignment is not explicitly checked.** The MtM-reset pricer builds a
+    /// single shared period schedule from the *constant* leg's BDC/stub/calendar
+    /// and prices both legs against it; if the resetting leg were configured with
+    /// a divergent BDC the user would silently see the constant leg's roll
+    /// convention applied to both. Callers must ensure both legs share the same
+    /// `bdc`, `stub`, `calendar_id`, and `payment_lag_days` when using
+    /// `MtmResetting`. The common case (matched conventions for a USD-EUR
+    /// MtM-reset basis swap) is unaffected; the silent override only matters if
+    /// a caller deliberately mismatches these fields.
+    ///
     /// FX-matrix reachability requires a runtime [`MarketContext`] and is therefore
     /// checked separately by [`Self::validate_fx_reachable`] at the start of
     /// `base_value`. A passing `validate()` does *not* imply the swap is priceable —
