@@ -128,17 +128,36 @@ pub(crate) fn pv_mtm_reset(
         pv.add(convert(cf_r, resetting_leg.currency, resetting_leg.start)?);
     }
 
+    // Per-period loop. For each accrual period [T_j, T_{j+1}]:
+    //   - Constant leg accrues a coupon on its fixed notional `N_C`.
+    //   - Resetting leg accrues a coupon on `N_j^R = N_C / X_j^FRA`, the notional captured at
+    //     the START of the period (i.e. at accrual_start = T_j).
+    //   - At each interior reset T_j (j = 1..n-1), the resetting leg emits a rebalancing
+    //     cashflow of `(N_j^R - N_{j-1}^R)` in its own currency. There is NO corresponding
+    //     constant-leg rebalancing: under CIP-no-vol the FX swap that funds the notional
+    //     change is PV-fair from today's perspective, and the constant leg's net
+    //     contribution is implicit in its unchanged principal-and-coupon schedule.
+    //     (Cross-check: QuantLib's MtM-XCCY example
+    //     https://www.implementingquantlib.com/2023/09/cross-currency-swaps.html
+    //     emits rebalancing only on the resetting leg.)
     let mut n_r_prev = n_r_initial;
     for (j, period) in periods.iter().enumerate() {
-        if period.payment_date <= as_of {
-            n_r_prev = compute_resetting_notional(
+        // Notional captured at the start of THIS period (T_j) = N_j^R.
+        let n_r_j = if j == 0 {
+            n_r_initial
+        } else {
+            compute_resetting_notional(
                 n_c,
                 spot_x_at_as_of,
-                period.accrual_end,
+                period.accrual_start,
                 disc_c.as_ref(),
                 disc_r.as_ref(),
                 &swap.id,
-            )?;
+            )?
+        };
+
+        if period.payment_date <= as_of {
+            n_r_prev = n_r_j;
             continue;
         }
 
@@ -147,7 +166,7 @@ pub(crate) fn pv_mtm_reset(
         let df_r_pay = disc_r.df_on_date_curve(period.payment_date)?;
         let df_r_pay = require_positive_df(df_r_pay, &swap.id, "resetting-leg", period.payment_date)?;
 
-        // 1. Constant-leg floating coupon.
+        // 1. Constant-leg floating coupon (notional N_C).
         let rate_c = rate_period_on_dates(
             fwd_c.as_ref(),
             period.reset_date.unwrap_or(period.accrual_start),
@@ -160,8 +179,8 @@ pub(crate) fn pv_mtm_reset(
             * df_c_pay;
         pv.add(convert(coupon_c, constant_leg.currency, period.payment_date)?);
 
-        // 2. Resetting-leg floating coupon (uses N_{j-1}^R — the notional captured at the
-        //    start of the period). Includes the basis spread on the resetting leg.
+        // 2. Resetting-leg floating coupon on N_j^R (notional captured at this period's start,
+        //    NOT n_r_prev which is the prior period's notional). Includes the basis spread.
         let rate_r = rate_period_on_dates(
             fwd_r.as_ref(),
             period.reset_date.unwrap_or(period.accrual_start),
@@ -172,56 +191,27 @@ pub(crate) fn pv_mtm_reset(
             "XccySwap resetting leg spread_bp",
         )? / 10_000.0;
         let coupon_r = resetting_leg.side.coupon_sign()
-            * n_r_prev
+            * n_r_j
             * (rate_r + spread_decimal)
             * period.accrual_year_fraction
             * df_r_pay;
         pv.add(convert(coupon_r, resetting_leg.currency, period.payment_date)?);
 
-        // 3. Rebalancing at the START of this period (i.e. at T_j for period j+1).
+        // 3. Rebalancing on the resetting leg only, at the START of this period (T_j).
         //    Skip the very first period — no rebalancing before initial exchange.
-        //    The economic model: at each reset the resetting leg ends its old notional
-        //    (final-style exchange of N_{j-1}^R) and starts a fresh one (initial-style
-        //    exchange of N_j^R). Net cashflow uses `initial_principal_sign` on the
-        //    delta = N_j - N_{j-1}, which gives the correct sign for both Pay/Receive.
+        //    The resetting leg ends its old notional (`N_{j-1}^R`) and starts a fresh one
+        //    (`N_j^R`). Net cashflow uses `initial_principal_sign` on the delta, which gives
+        //    the correct sign for both Pay/Receive resetting sides. The constant leg has no
+        //    corresponding rebalancing cashflow (see comment above).
         if j > 0 {
-            let df_c_reset = disc_c.df_on_date_curve(period.accrual_start)?;
-            let df_c_reset = require_positive_df(df_c_reset, &swap.id, "constant-leg", period.accrual_start)?;
             let df_r_reset = disc_r.df_on_date_curve(period.accrual_start)?;
             let df_r_reset = require_positive_df(df_r_reset, &swap.id, "resetting-leg", period.accrual_start)?;
-
-            let n_r_j = compute_resetting_notional(
-                n_c,
-                spot_x_at_as_of,
-                period.accrual_start,
-                disc_c.as_ref(),
-                disc_r.as_ref(),
-                &swap.id,
-            )?;
             let delta_n_r = n_r_j - n_r_prev;
-
-            // Forward FX at reset date (for the constant-leg equivalent principal movement).
-            let x_j = spot_x_at_as_of * (df_c_reset / df_r_reset);
-
-            // Resetting leg: principal-style movement of size delta_n_r at T_j.
             let rebal_r = resetting_leg.side.initial_principal_sign() * delta_n_r * df_r_reset;
-            pv.add(convert(
-                rebal_r,
-                resetting_leg.currency,
-                period.accrual_start,
-            )?);
-
-            // Constant leg: corresponding FX-equivalent principal movement.
-            let rebal_c =
-                constant_leg.side.initial_principal_sign() * x_j * delta_n_r * df_c_reset;
-            pv.add(convert(
-                rebal_c,
-                constant_leg.currency,
-                period.accrual_start,
-            )?);
-
-            n_r_prev = n_r_j;
+            pv.add(convert(rebal_r, resetting_leg.currency, period.accrual_start)?);
         }
+
+        n_r_prev = n_r_j;
     }
 
     // Final principal exchange: constant leg receives N_C; resetting leg pays N_n^R = n_r_prev.
@@ -234,11 +224,7 @@ pub(crate) fn pv_mtm_reset(
     pv.add(convert(cf_c_final, constant_leg.currency, constant_leg.end)?);
 
     let cf_r_final = resetting_leg.side.final_principal_sign() * n_r_prev * df_r_end;
-    pv.add(convert(
-        cf_r_final,
-        resetting_leg.currency,
-        resetting_leg.end,
-    )?);
+    pv.add(convert(cf_r_final, resetting_leg.currency, resetting_leg.end)?);
 
     Ok(Money::new(pv.total(), reporting_ccy))
 }

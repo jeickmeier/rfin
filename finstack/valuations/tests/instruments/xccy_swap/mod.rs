@@ -2,5 +2,6 @@
 
 //! XCCY swap test suite.
 
+mod cip_invariance;
 mod fixtures;
 mod pricing;
