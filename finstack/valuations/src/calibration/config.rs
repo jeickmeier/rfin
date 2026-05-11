@@ -10,6 +10,8 @@ use crate::calibration::validation::{RateBounds, RateBoundsPolicy, ValidationMod
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::explain::ExplainOpts;
+use finstack_core::market_data::hierarchy::MarketDataHierarchy;
+use finstack_core::money::fx::FxConfig;
 
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use serde::{Deserialize, Serialize};
@@ -477,6 +479,20 @@ pub struct CalibrationConfig {
     /// report without aborting can set this to `false`.
     #[serde(default = "default_fail_on_bad_fit")]
     pub fail_on_bad_fit: bool,
+
+    /// FX matrix runtime config (pivot currency, triangulation, cache capacity).
+    /// Hoisted out of `initial_market.fx.config` in v3 envelopes.
+    #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "Record<string, unknown>"))]
+    #[schemars(with = "serde_json::Value")]
+    pub fx: FxConfig,
+
+    /// Optional market-data hierarchy snapshot.
+    /// Hoisted out of `initial_market.hierarchy` in v3 envelopes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts_export", ts(type = "Record<string, unknown> | null"))]
+    #[schemars(with = "serde_json::Value")]
+    pub hierarchy: Option<MarketDataHierarchy>,
 }
 
 fn default_fail_on_bad_fit() -> bool {
@@ -503,6 +519,8 @@ impl Default for CalibrationConfig {
             hazard_curve: HazardCurveSolveConfig::default(),
             inflation_curve: InflationCurveSolveConfig::default(),
             fail_on_bad_fit: default_fail_on_bad_fit(),
+            fx: FxConfig::default(),
+            hierarchy: None,
         }
     }
 }
@@ -707,5 +725,38 @@ mod tests {
         });
 
         assert!(CalibrationMethod::from_str("invalid").is_err());
+    }
+}
+
+#[cfg(test)]
+mod fx_and_hierarchy_settings_tests {
+    use super::*;
+    use finstack_core::money::fx::FxConfig;
+
+    #[test]
+    fn config_defaults_carry_fx_subsection() {
+        let cfg = CalibrationConfig::default();
+        assert_eq!(cfg.fx, FxConfig::default());
+        assert!(cfg.hierarchy.is_none());
+    }
+
+    #[test]
+    fn fx_settings_round_trip_via_serde() {
+        let json = r#"{
+            "fx": { "pivot_currency": "EUR", "enable_triangulation": false, "cache_capacity": 8 }
+        }"#;
+        let cfg: CalibrationConfig =
+            serde_json::from_str(json).expect("valid CalibrationConfig JSON");
+        assert_eq!(cfg.fx.pivot_currency, finstack_core::currency::Currency::EUR);
+        assert!(!cfg.fx.enable_triangulation);
+        assert_eq!(cfg.fx.cache_capacity, 8);
+    }
+
+    #[test]
+    fn omitted_fx_section_uses_defaults() {
+        let json = r#"{}"#;
+        let cfg: CalibrationConfig = serde_json::from_str(json).expect("empty JSON");
+        assert_eq!(cfg.fx, FxConfig::default());
+        assert!(cfg.hierarchy.is_none());
     }
 }
