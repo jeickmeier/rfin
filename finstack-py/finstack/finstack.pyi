@@ -12,7 +12,6 @@ from typing import Any
 analytics: Any
 cashflows: Any
 core: Any
-correlation: Any
 margin: Any
 monte_carlo: Any
 portfolio: Any

@@ -27,7 +27,6 @@ rfin/
 ├── finstack-py/                   # PyO3 bindings packaged as `finstack`
 ├── finstack-wasm/                 # wasm-bindgen bindings packaged as `finstack-wasm`
 ├── docs/                          # Shared references and project documentation
-├── book/                          # mdBook documentation
 ├── pyproject.toml                 # Python packaging and tooling
 ├── Cargo.toml                     # Workspace manifest
 └── mise.toml                      # Toolchain versions and dev tasks (build/test/lint/...)
@@ -69,11 +68,6 @@ downstream consumers reach the full API through a single dependency.
 [dependencies]
 finstack = { path = "finstack" }
 ```
-
-One pass-through feature remains to gate heavy compile-time cost:
-
-- `mc` — enables `finstack-monte-carlo`/`margin`/`valuations` Monte Carlo paths
-  (pulls in `nalgebra`).
 
 `finstack-cashflows` is a standalone workspace crate and a direct dependency of
 `finstack-valuations`.
@@ -179,9 +173,7 @@ Run `mise tasks` to list every available task.
 ## Documentation
 
 - `docs/` for shared references, standards, and design notes.
-- `book/src/architecture/README.md` for the workspace architecture map.
 - `finstack-py/examples/README.md` for the Python notebook curriculum.
-- `book/src/notebooks/README.md` for notebook navigation from the mdBook side.
 
 ## License
 
