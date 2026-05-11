@@ -599,7 +599,7 @@ impl XccySwap {
     fn leg_principal_schedule(&self, leg: &XccySwapLeg, anchor: Date) -> Result<CashFlowSchedule> {
         let mut builder = CashFlowSchedule::builder();
         let _ = builder.principal(Money::new(0.0, leg.currency), anchor, leg.end);
-        // MtmResetting implies initial AND final exchange (handled in Task 8: dispatched to pricing_mtm::pv_mtm_reset)
+        // MtmResetting also requires initial AND final exchange; this arm makes the helper non-panicky if accidentally called on an MtM swap. `base_value` dispatches MtmResetting to `pricing_mtm::pv_mtm_reset` before this method is reached.
         if matches!(
             self.notional_exchange,
             NotionalExchange::InitialAndFinal | NotionalExchange::MtmResetting { .. }
@@ -612,7 +612,7 @@ impl XccySwap {
                 CFKind::Notional,
             );
         }
-        // MtmResetting implies final exchange (handled in Task 8: dispatched to pricing_mtm::pv_mtm_reset)
+        // MtmResetting also requires final exchange; same defensive note as above — the MtM live-pricing path dispatches before this method is reached.
         if matches!(
             self.notional_exchange,
             NotionalExchange::Final | NotionalExchange::InitialAndFinal | NotionalExchange::MtmResetting { .. }
@@ -708,7 +708,7 @@ impl XccySwap {
 
         // Notional exchanges (principal)
         // Use robust_relative_df for numerical stability (validated against Bloomberg SWPM)
-        // MtmResetting implies initial AND final exchange (handled in Task 8: dispatched to pricing_mtm::pv_mtm_reset)
+        // MtmResetting also requires initial AND final exchange; this arm makes the helper non-panicky if accidentally called on an MtM swap. `base_value` dispatches MtmResetting to `pricing_mtm::pv_mtm_reset` before this method is reached.
         if matches!(
             self.notional_exchange,
             NotionalExchange::InitialAndFinal | NotionalExchange::MtmResetting { .. }
@@ -720,7 +720,7 @@ impl XccySwap {
             pv.add(cf_rep);
         }
 
-        // MtmResetting implies final exchange (handled in Task 8: dispatched to pricing_mtm::pv_mtm_reset)
+        // MtmResetting also requires final exchange; same defensive note as above — the MtM live-pricing path dispatches before this method is reached.
         if matches!(
             self.notional_exchange,
             NotionalExchange::Final | NotionalExchange::InitialAndFinal | NotionalExchange::MtmResetting { .. }
@@ -851,8 +851,11 @@ impl crate::instruments::common_impl::traits::Instrument for XccySwap {
         self.validate_fx_reachable(market)?;
 
         if let NotionalExchange::MtmResetting { resetting_side } = self.notional_exchange {
-            // Static-config validation is the caller's responsibility per ISDA contract;
-            // we run it here as belt-and-braces before descending into the per-period math.
+            // Run the full `validate()` here (in addition to the per-leg checks already
+            // performed above) so the MtM-specific structural guards — frequency
+            // alignment, schedule alignment, and the `partition_legs` currency check —
+            // fire before the per-period math. These checks have no equivalent in the
+            // fixed-notional path.
             self.validate()?;
             return crate::instruments::rates::xccy_swap::pricing_mtm::pv_mtm_reset(
                 self,
