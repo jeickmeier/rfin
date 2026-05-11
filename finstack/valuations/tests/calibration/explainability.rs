@@ -9,6 +9,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::types::CurveId;
+use crate::finstack_test_utils::calibration as cal_utils;
 use finstack_core::HashMap;
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{
@@ -16,7 +17,7 @@ use finstack_valuations::calibration::api::schema::{
 };
 use finstack_valuations::calibration::{CalibrationConfig, CalibrationMethod};
 use finstack_valuations::market::conventions::ids::IndexId;
-use finstack_valuations::market::quotes::ids::Pillar;
+use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
 use time::Month;
@@ -60,8 +61,11 @@ fn explanation_not_computed_by_default() {
     let base_date = create_date(2025, Month::January, 15).unwrap();
 
     let ctx = MarketContext::new().insert(base_discount_curve(base_date));
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("fwd".to_string(), forward_quotes());
+    let fwd_quotes = forward_quotes();
+    let (prior, mut market_data) = cal_utils::split_initial_market(&ctx);
+    cal_utils::extend_market_data(&mut market_data, &fwd_quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("fwd".to_string(), cal_utils::quote_set_ids(&fwd_quotes));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -89,7 +93,8 @@ fn explanation_not_computed_by_default() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&ctx).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let result = engine::execute(&envelope).expect("execute");
@@ -103,8 +108,11 @@ fn explanation_is_present_when_enabled() {
     let base_date = create_date(2025, Month::January, 15).unwrap();
 
     let ctx = MarketContext::new().insert(base_discount_curve(base_date));
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("fwd".to_string(), forward_quotes());
+    let fwd_quotes = forward_quotes();
+    let (prior, mut market_data) = cal_utils::split_initial_market(&ctx);
+    cal_utils::extend_market_data(&mut market_data, &fwd_quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("fwd".to_string(), cal_utils::quote_set_ids(&fwd_quotes));
 
     let settings = CalibrationConfig {
         explain: ExplainOpts::enabled(),
@@ -137,7 +145,8 @@ fn explanation_is_present_when_enabled() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&ctx).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let result = engine::execute(&envelope).expect("execute");

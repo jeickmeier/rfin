@@ -19,6 +19,7 @@ use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CDSTranc
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 
+use crate::finstack_test_utils::calibration as cal_utils;
 use finstack_core::HashMap;
 use finstack_valuations::market::quotes::cds_tranche::CDSTrancheQuote;
 use finstack_valuations::market::quotes::ids::QuoteId;
@@ -228,8 +229,10 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
         }),
     ];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("tranches".to_string(), quotes);
+    let (prior, mut market_data) = cal_utils::split_initial_market(&initial_market);
+    cal_utils::extend_market_data(&mut market_data, &quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("tranches".to_string(), cal_utils::quote_set_ids(&quotes));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -267,7 +270,8 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&initial_market).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let result = engine::execute(&envelope).expect("execute");

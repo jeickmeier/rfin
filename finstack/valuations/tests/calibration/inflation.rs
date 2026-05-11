@@ -14,6 +14,8 @@ use finstack_valuations::market::conventions::ids::InflationSwapConventionId;
 use finstack_valuations::market::quotes::ids::QuoteId;
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
+
+use crate::finstack_test_utils::calibration as cal_utils;
 use time::Month;
 
 use super::tolerances::{assert_close_abs, F64_ABS_TOL_LOOSE};
@@ -81,8 +83,11 @@ fn inflation_quote_time_uses_lagged_fixing_date() {
         index: "USA-CPI-U".to_string(),
         convention: InflationSwapConventionId::new("USD"),
     })];
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("infl".to_string(), quotes);
+    let initial_market = MarketContext::new().insert(create_discount_curve(base_date));
+    let (prior, mut market_data) = cal_utils::split_initial_market(&initial_market);
+    cal_utils::extend_market_data(&mut market_data, &quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("infl".to_string(), cal_utils::quote_set_ids(&quotes));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -108,13 +113,13 @@ fn inflation_quote_time_uses_lagged_fixing_date() {
         }],
     };
 
-    let initial_market = MarketContext::new().insert(create_discount_curve(base_date));
     let envelope = CalibrationEnvelope {
         schema_url: None,
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&initial_market).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let result = engine::execute(&envelope).expect("execute");
@@ -143,8 +148,13 @@ fn inflation_preflight_rejects_base_cpi_mismatch_with_fixings() {
         index: "USA-CPI-U".to_string(),
         convention: InflationSwapConventionId::new("USD"),
     })];
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("infl".to_string(), quotes);
+    let initial_market = MarketContext::new()
+        .insert(create_discount_curve(base_date))
+        .insert_inflation_index("USD-CPI", create_us_cpi_fixings_with_seasonality());
+    let (prior, mut market_data) = cal_utils::split_initial_market(&initial_market);
+    cal_utils::extend_market_data(&mut market_data, &quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("infl".to_string(), cal_utils::quote_set_ids(&quotes));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -170,16 +180,13 @@ fn inflation_preflight_rejects_base_cpi_mismatch_with_fixings() {
         }],
     };
 
-    let initial_market = MarketContext::new()
-        .insert(create_discount_curve(base_date))
-        .insert_inflation_index("USD-CPI", create_us_cpi_fixings_with_seasonality());
-
     let envelope = CalibrationEnvelope {
         schema_url: None,
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&initial_market).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let err = engine::execute(&envelope).expect_err("base CPI mismatch should error");
