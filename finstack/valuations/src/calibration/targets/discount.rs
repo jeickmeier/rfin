@@ -6,7 +6,10 @@ use crate::calibration::prepared::CalibrationQuote;
 use crate::calibration::solver::bootstrap::SequentialBootstrapper;
 use crate::calibration::solver::global::GlobalFitOptimizer;
 use crate::calibration::solver::traits::{BootstrapTarget, GlobalSolveTarget};
-use crate::calibration::targets::util::ContextScratch;
+use crate::calibration::targets::util::{
+    discount_and_forward_curve_ids, prepare_rate_calibration_quotes_with_ois_override,
+    ContextScratch,
+};
 use crate::calibration::validation::RateBoundsPolicy;
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::ExtractQuotes;
@@ -319,19 +322,17 @@ Global solve requires strictly increasing times.",
         let mut config = global_config.clone();
         config.calibration_method = params.method.clone();
 
-        let rates_quotes: Vec<crate::market::quotes::rates::RateQuote> = quotes.extract_quotes();
-
-        if rates_quotes.is_empty() {
+        // Build rate_calibration sidecar before consuming rates_quotes so that the
+        // produced curve carries the original benchmark quotes.  Downstream metrics
+        // that re-bump and re-bootstrap (e.g. CDS option IR DV01) require this.
+        let raw_rates_quotes: Vec<crate::market::quotes::rates::RateQuote> = quotes.extract_quotes();
+        if raw_rates_quotes.is_empty() {
             return Err(finstack_core::Error::Input(
                 finstack_core::InputError::TooFewPoints,
             ));
         }
-
-        // Build rate_calibration sidecar before consuming rates_quotes so that the
-        // produced curve carries the original benchmark quotes.  Downstream metrics
-        // that re-bump and re-bootstrap (e.g. CDS option IR DV01) require this.
         let rate_calibration_sidecar =
-            Self::build_rate_calibration_from_quotes(&rates_quotes, params.currency);
+            Self::build_rate_calibration_from_quotes(&raw_rates_quotes, params.currency);
 
         // Curve time axis day count:
         //
@@ -348,38 +349,29 @@ Global solve requires strictly increasing times.",
             .curve_day_count
             .unwrap_or(finstack_core::dates::DayCount::Act365F);
 
-        let mut curve_ids = finstack_core::HashMap::default();
         let discount_id = params
             .pricing_discount_id
             .as_ref()
             .unwrap_or(&params.curve_id);
-        curve_ids.insert("discount".to_string(), discount_id.to_string());
-
         let forward_id = params
             .pricing_forward_id
             .as_ref()
             .unwrap_or(&params.curve_id);
-        curve_ids.insert("forward".to_string(), forward_id.to_string());
 
-        // Use a realistic notional to avoid Money rounding noise in coupon construction.
-        // Apply step-level OIS compounding override if set; bootstrap-internal swaps for
-        // OvernightRfr indices will use this compounding instead of the registry default.
-        let build_ctx =
-            crate::market::build::context::BuildCtx::new(params.base_date, 1_000_000.0, curve_ids)
-                .with_ois_compounding_override(params.conventions.ois_compounding.clone());
-
-        let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(rates_quotes.len());
-
-        for q in rates_quotes {
-            let prepared = crate::market::build::prepared::prepare_rate_quote(
-                q,
-                &build_ctx,
-                curve_dc,
-                params.base_date,
-                true,
-            )?;
-            prepared_quotes.push(CalibrationQuote::Rates(prepared));
-        }
+        // Notional 1_000_000 keeps coupon-money construction off floating-point
+        // rounding edges. The OIS-compounding override is threaded through so
+        // bootstrap-internal swaps for OvernightRfr indices use the step-level
+        // selection instead of the registry default.
+        let residual_notional: f64 = 1_000_000.0;
+        let prepared = prepare_rate_calibration_quotes_with_ois_override(
+            quotes,
+            params.base_date,
+            discount_and_forward_curve_ids(discount_id.as_ref(), forward_id.as_ref()),
+            Some(curve_dc),
+            residual_notional,
+            params.conventions.ois_compounding.clone(),
+        )?;
+        let prepared_quotes = prepared.quotes;
 
         let mut target = DiscountCurveTarget::new(DiscountCurveTargetParams {
             base_date: params.base_date,
@@ -394,7 +386,7 @@ Global solve requires strictly increasing times.",
             config: config.clone(),
             curve_day_count: curve_dc,
             spot_knot: None,
-            residual_notional: build_ctx.notional(),
+            residual_notional,
             base_context: context.clone(),
         });
 

@@ -1,5 +1,6 @@
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::prepared::CalibrationQuote;
+use crate::instruments::rates::irs::FloatingLegCompounding;
 use crate::market::build::context::BuildCtx;
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
@@ -66,6 +67,28 @@ pub(crate) fn prepare_rate_calibration_quotes(
     explicit_curve_dc: Option<DayCount>,
     residual_notional: f64,
 ) -> Result<PreparedRateQuotes> {
+    prepare_rate_calibration_quotes_with_ois_override(
+        quotes,
+        base_date,
+        curve_ids,
+        explicit_curve_dc,
+        residual_notional,
+        None,
+    )
+}
+
+/// Variant of [`prepare_rate_calibration_quotes`] that threads an OIS compounding
+/// override through `BuildCtx`. Used by `DiscountCurveTarget` to honour
+/// step-level OIS-compounding selection without forcing every caller to know
+/// about the override.
+pub(crate) fn prepare_rate_calibration_quotes_with_ois_override(
+    quotes: &[MarketQuote],
+    base_date: Date,
+    curve_ids: finstack_core::HashMap<String, String>,
+    explicit_curve_dc: Option<DayCount>,
+    residual_notional: f64,
+    ois_compounding_override: Option<FloatingLegCompounding>,
+) -> Result<PreparedRateQuotes> {
     let rates_quotes: Vec<RateQuote> = quotes.extract_quotes();
     if rates_quotes.is_empty() {
         return Err(finstack_core::Error::Input(
@@ -78,7 +101,8 @@ pub(crate) fn prepare_rate_calibration_quotes(
         None => curve_day_count_from_quotes(&rates_quotes)?,
     };
 
-    let build_ctx = BuildCtx::new(base_date, residual_notional, curve_ids);
+    let build_ctx = BuildCtx::new(base_date, residual_notional, curve_ids)
+        .with_ois_compounding_override(ois_compounding_override);
 
     let mut prepared = Vec::with_capacity(rates_quotes.len());
     for q in rates_quotes {
