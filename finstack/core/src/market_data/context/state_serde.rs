@@ -202,6 +202,30 @@ pub struct MarketContextState {
     pub hierarchy: Option<MarketDataHierarchy>,
 }
 
+/// Build a quote-only [`FxMatrix`] from an [`FxConfig`] and explicit `(from, to, rate)`
+/// quotes.
+///
+/// This is the same construction path used by [`MarketContext::try_from`] when
+/// restoring an FX matrix from a persisted [`FxMatrixState`]. Exposed publicly so
+/// that the v3 calibration envelope (which carries FX spots as a flat list of
+/// [`crate::market_data::context::MarketContextState::fx`]-style quotes) can
+/// materialize the same quote-only snapshot provider without duplicating the
+/// internal `SnapshotFxProvider` plumbing.
+pub fn build_snapshot_fx_matrix(
+    config: crate::money::fx::FxConfig,
+    quotes: Vec<(
+        crate::currency::Currency,
+        crate::currency::Currency,
+        crate::money::fx::FxRate,
+    )>,
+) -> crate::Result<Arc<FxMatrix>> {
+    let state = FxMatrixState { config, quotes };
+    let provider: Arc<dyn FxProvider> = Arc::new(SnapshotFxProvider::from_state(&state));
+    let matrix = FxMatrix::try_with_config(provider, state.config.clone())?;
+    matrix.load_from_state(&state)?;
+    Ok(Arc::new(matrix))
+}
+
 /// Quote-only FX provider used when restoring persisted market snapshots.
 ///
 /// Snapshot restore is intentionally limited to the explicit quotes captured in
