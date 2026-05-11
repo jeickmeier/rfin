@@ -5,6 +5,7 @@
 //! (quote, scalar, surface, etc.) and is serialized with a `kind` tag so the
 //! envelope can carry a heterogeneous list in JSON/YAML.
 
+use crate::calibration::api::prior_market::PriorMarketObject;
 use crate::market::quotes::bond::BondQuote;
 use crate::market::quotes::cds::CdsQuote;
 use crate::market::quotes::cds_tranche::CDSTrancheQuote;
@@ -15,7 +16,7 @@ use crate::market::quotes::rates::RateQuote;
 use crate::market::quotes::vol::VolQuote;
 use crate::market::quotes::xccy::XccyQuote;
 use finstack_core::currency::Currency;
-use finstack_core::market_data::context::CreditIndexState;
+use finstack_core::market_data::context::{CreditIndexState, CurveState, MarketContextState};
 use finstack_core::market_data::dividends::DividendSchedule;
 use finstack_core::market_data::scalars::{InflationIndex, MarketScalar, ScalarTimeSeries};
 use finstack_core::market_data::surfaces::{FxDeltaVolSurface, VolCube};
@@ -194,6 +195,98 @@ impl MarketDatum {
     }
 }
 
+/// Result of splitting a legacy [`MarketContextState`] into v3 envelope inputs.
+///
+/// Wraps the `(prior, market_data)` pair produced by
+/// `MarketContextSplit::from(state)` (or `state.into()`). A local newtype is
+/// required because Rust's orphan rules forbid implementing `From` for a bare
+/// tuple of foreign `Vec<_>`.
+#[derive(Clone, Debug, Default)]
+pub struct MarketContextSplit {
+    /// Pre-built calibrated objects extracted from the snapshot's curves /
+    /// surfaces.
+    pub prior: Vec<PriorMarketObject>,
+    /// Flat market-data inputs extracted from the snapshot's scalars,
+    /// fixings, FX, dividends, credit indices, vol surfaces / cubes, and
+    /// CSA collateral mappings.
+    pub data: Vec<MarketDatum>,
+}
+
+impl From<MarketContextSplit> for (Vec<PriorMarketObject>, Vec<MarketDatum>) {
+    fn from(split: MarketContextSplit) -> Self {
+        (split.prior, split.data)
+    }
+}
+
+/// Split a legacy [`MarketContextState`] snapshot into the v3 envelope inputs.
+///
+/// Curves and surfaces become [`PriorMarketObject`]s; scalars, fixings, FX
+/// quotes, dividends, credit indices, FX-vol surfaces, vol cubes, and CSA
+/// collateral mappings become [`MarketDatum`] entries.
+impl From<MarketContextState> for MarketContextSplit {
+    fn from(state: MarketContextState) -> Self {
+        let mut prior = Vec::new();
+        for curve in state.curves {
+            prior.push(match curve {
+                CurveState::Discount(c) => PriorMarketObject::DiscountCurve(c),
+                CurveState::Forward(c) => PriorMarketObject::ForwardCurve(c),
+                CurveState::Hazard(c) => PriorMarketObject::HazardCurve(c),
+                CurveState::Inflation(c) => PriorMarketObject::InflationCurve(c),
+                CurveState::BaseCorrelation(c) => PriorMarketObject::BaseCorrelationCurve(c),
+                CurveState::BasisSpread(c) => PriorMarketObject::BasisSpreadCurve(c),
+                CurveState::Parametric(c) => PriorMarketObject::ParametricCurve(c),
+                CurveState::Price(c) => PriorMarketObject::PriceCurve(c),
+                CurveState::VolIndex(c) => PriorMarketObject::VolatilityIndexCurve(c),
+            });
+        }
+        for surface in state.surfaces {
+            prior.push(PriorMarketObject::VolSurface(surface));
+        }
+
+        let mut data = Vec::new();
+        if let Some(fx) = state.fx {
+            for (from, to, rate) in fx.quotes {
+                data.push(MarketDatum::FxSpot(FxSpotDatum {
+                    id: format!("{from}/{to}"),
+                    from,
+                    to,
+                    rate,
+                }));
+            }
+        }
+        for (id, scalar) in state.prices {
+            data.push(MarketDatum::Price(PriceDatum { id, scalar }));
+        }
+        for s in state.series {
+            data.push(MarketDatum::FixingSeries(s));
+        }
+        for i in state.inflation_indices {
+            data.push(MarketDatum::InflationFixings(i));
+        }
+        for d in state.dividends {
+            data.push(MarketDatum::DividendSchedule(DividendScheduleDatum {
+                schedule: d,
+            }));
+        }
+        for c in state.credit_indices {
+            data.push(MarketDatum::CreditIndex(c));
+        }
+        for s in state.fx_delta_vol_surfaces {
+            data.push(MarketDatum::FxVolSurface(s));
+        }
+        for c in state.vol_cubes {
+            data.push(MarketDatum::VolCube(c));
+        }
+        for (ccy, csa_ccy) in state.collateral {
+            data.push(MarketDatum::Collateral(CollateralEntry {
+                id: ccy.parse().expect("currency in collateral map"),
+                csa_currency: csa_ccy.parse().expect("CSA currency"),
+            }));
+        }
+        Self { prior, data }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -267,5 +360,17 @@ mod tests {
         });
         assert_eq!(datum.id(), "USD");
         assert_eq!(datum.kind_name(), "collateral");
+    }
+
+    #[test]
+    fn market_context_state_splits_into_prior_and_data() {
+        use crate::calibration::api::prior_market::PriorMarketObject;
+        use finstack_core::market_data::context::{MarketContext, MarketContextState};
+
+        let state: MarketContextState = (&MarketContext::new()).into();
+        let split: MarketContextSplit = state.into();
+        let (prior, data): (Vec<PriorMarketObject>, Vec<MarketDatum>) = split.into();
+        assert!(prior.is_empty());
+        assert!(data.is_empty());
     }
 }
