@@ -160,8 +160,14 @@ impl ContextScratch {
         F: FnOnce(&MarketContext) -> Result<T>,
     {
         if let Some(cell) = &self.reuse {
+            // Use `insert_mut` (in-place) rather than the consuming `insert` + `mem::take`
+            // pattern. The old code briefly left `Default::default()` inside the cell while
+            // `.insert(curve.clone())` ran; a panic in `curve.clone()` or `insert` would
+            // poison the scratch with an empty MarketContext (missing the base data) on
+            // every subsequent call. `insert_mut` keeps the existing storage intact and
+            // only overwrites the single curve entry.
             let mut ctx = cell.borrow_mut();
-            *ctx = std::mem::take(&mut *ctx).insert(curve.clone());
+            ctx.insert_mut(curve.clone());
             op(&ctx)
         } else {
             let temp = self.base_context.clone().insert(curve.clone());
