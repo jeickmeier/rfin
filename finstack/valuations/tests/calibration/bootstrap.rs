@@ -4,6 +4,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
+use crate::finstack_test_utils::calibration as cal_utils;
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelope, CalibrationPlan, CalibrationStep, DiscountCurveParams, StepParams,
@@ -98,8 +99,11 @@ fn create_test_discount_curve(base_date: Date) -> DiscountCurve {
 
 fn run_discount_plan(base_date: Date, quotes: Vec<MarketQuote>) -> DiscountCurve {
     let currency = Currency::USD;
-    let mut quote_sets = finstack_core::HashMap::default();
-    quote_sets.insert("disc".to_string(), quotes);
+    let mut market_data = Vec::new();
+    cal_utils::extend_market_data(&mut market_data, &quotes);
+    let mut quote_sets: finstack_core::HashMap<String, Vec<QuoteId>> =
+        finstack_core::HashMap::default();
+    quote_sets.insert("disc".to_string(), cal_utils::quote_set_ids(&quotes));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -128,7 +132,8 @@ fn run_discount_plan(base_date: Date, quotes: Vec<MarketQuote>) -> DiscountCurve
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: None,
+        market_data,
+        prior_market: Vec::new(),
     };
 
     let result = engine::execute(&envelope).expect("calibration should succeed");
@@ -145,10 +150,12 @@ fn run_hazard_plan(
 ) -> finstack_core::market_data::term_structures::HazardCurve {
     use finstack_valuations::calibration::api::schema::HazardCurveParams;
     let currency = Currency::USD;
-    let mut quote_sets = finstack_core::HashMap::default();
-    quote_sets.insert("credit".to_string(), quotes);
-
     let initial_market = MarketContext::new().insert(create_test_discount_curve(base_date));
+    let (prior, mut market_data) = cal_utils::split_initial_market(&initial_market);
+    cal_utils::extend_market_data(&mut market_data, &quotes);
+    let mut quote_sets: finstack_core::HashMap<String, Vec<QuoteId>> =
+        finstack_core::HashMap::default();
+    quote_sets.insert("credit".to_string(), cal_utils::quote_set_ids(&quotes));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -181,7 +188,8 @@ fn run_hazard_plan(
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&initial_market).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let result = engine::execute(&envelope).expect("calibration should succeed");
@@ -262,8 +270,11 @@ fn discount_curve_global_solve_smoke() {
         }),
     ];
 
-    let mut quote_sets = finstack_core::HashMap::default();
-    quote_sets.insert("disc".to_string(), quotes);
+    let mut market_data = Vec::new();
+    cal_utils::extend_market_data(&mut market_data, &quotes);
+    let mut quote_sets: finstack_core::HashMap<String, Vec<QuoteId>> =
+        finstack_core::HashMap::default();
+    quote_sets.insert("disc".to_string(), cal_utils::quote_set_ids(&quotes));
 
     let settings = CalibrationConfig {
         calibration_method: CalibrationMethod::GlobalSolve {
@@ -301,7 +312,8 @@ fn discount_curve_global_solve_smoke() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: None,
+        market_data,
+        prior_market: Vec::new(),
     };
 
     let result = engine::execute(&envelope).expect("global solve should succeed");
