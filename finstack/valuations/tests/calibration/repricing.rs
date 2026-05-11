@@ -38,6 +38,7 @@ use rust_decimal::Decimal;
 use time::Month;
 
 use crate::common::fixtures;
+use crate::finstack_test_utils::calibration as cal_utils;
 
 use super::tolerances;
 
@@ -79,15 +80,15 @@ fn discount_curve_deposit_repricing() {
         },
     ];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert(
-        "mm".to_string(),
-        deposit_quotes
-            .iter()
-            .cloned()
-            .map(MarketQuote::Rates)
-            .collect(),
-    );
+    let mm_quotes: Vec<MarketQuote> = deposit_quotes
+        .iter()
+        .cloned()
+        .map(MarketQuote::Rates)
+        .collect();
+    let mut market_data = Vec::new();
+    cal_utils::extend_market_data(&mut market_data, &mm_quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("mm".to_string(), cal_utils::quote_set_ids(&mm_quotes));
 
     let settings = CalibrationConfig {
         solver: finstack_valuations::calibration::SolverConfig::brent_default()
@@ -123,7 +124,8 @@ fn discount_curve_deposit_repricing() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: None,
+        market_data,
+        prior_market: Vec::new(),
     };
 
     let ctx = run_plan(&envelope);
@@ -199,8 +201,10 @@ fn discount_curve_swap_repricing() {
         .collect();
     disc_quotes.extend(swap_quotes.iter().cloned().map(MarketQuote::Rates));
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("disc".to_string(), disc_quotes);
+    let mut market_data = Vec::new();
+    cal_utils::extend_market_data(&mut market_data, &disc_quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("disc".to_string(), cal_utils::quote_set_ids(&disc_quotes));
 
     let settings = CalibrationConfig {
         solver: finstack_valuations::calibration::SolverConfig::brent_default()
@@ -238,7 +242,8 @@ fn discount_curve_swap_repricing() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: None,
+        market_data,
+        prior_market: Vec::new(),
     };
 
     let ctx = run_plan(&envelope);
@@ -312,18 +317,24 @@ fn forward_curve_fra_repricing() {
         },
     ];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+    let disc_quote_bundle: Vec<MarketQuote> = disc_quotes
+        .iter()
+        .cloned()
+        .map(MarketQuote::Rates)
+        .collect();
+    let fra_quote_bundle: Vec<MarketQuote> =
+        fra_quotes.iter().cloned().map(MarketQuote::Rates).collect();
+    let mut market_data = Vec::new();
+    cal_utils::extend_market_data(&mut market_data, &disc_quote_bundle);
+    cal_utils::extend_market_data(&mut market_data, &fra_quote_bundle);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
     quote_sets.insert(
         "disc".to_string(),
-        disc_quotes
-            .iter()
-            .cloned()
-            .map(MarketQuote::Rates)
-            .collect(),
+        cal_utils::quote_set_ids(&disc_quote_bundle),
     );
     quote_sets.insert(
         "fra".to_string(),
-        fra_quotes.iter().cloned().map(MarketQuote::Rates).collect(),
+        cal_utils::quote_set_ids(&fra_quote_bundle),
     );
 
     let settings = CalibrationConfig {
@@ -376,7 +387,8 @@ fn forward_curve_fra_repricing() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: None,
+        market_data,
+        prior_market: Vec::new(),
     };
 
     let ctx = run_plan(&envelope);
@@ -471,19 +483,22 @@ fn hazard_curve_cds_repricing() {
         },
     ];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+    let disc_quote_bundle: Vec<MarketQuote> = disc_quotes
+        .iter()
+        .cloned()
+        .map(MarketQuote::Rates)
+        .collect();
+    let cds_quote_bundle: Vec<MarketQuote> =
+        cds_quotes.iter().cloned().map(MarketQuote::Cds).collect();
+    let mut market_data = Vec::new();
+    cal_utils::extend_market_data(&mut market_data, &disc_quote_bundle);
+    cal_utils::extend_market_data(&mut market_data, &cds_quote_bundle);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
     quote_sets.insert(
         "disc".to_string(),
-        disc_quotes
-            .iter()
-            .cloned()
-            .map(MarketQuote::Rates)
-            .collect(),
+        cal_utils::quote_set_ids(&disc_quote_bundle),
     );
-    quote_sets.insert(
-        "cds".to_string(),
-        cds_quotes.iter().cloned().map(MarketQuote::Cds).collect(),
-    );
+    quote_sets.insert("cds".to_string(), cal_utils::quote_set_ids(&cds_quote_bundle));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -533,7 +548,8 @@ fn hazard_curve_cds_repricing() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: None,
+        market_data,
+        prior_market: Vec::new(),
     };
 
     let ctx = run_plan(&envelope);
@@ -587,16 +603,21 @@ fn hazard_curve_step_report_matches_market_built_cds_repricing() {
         },
     };
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+    let disc_quote_bundle: Vec<MarketQuote> = disc_quotes
+        .iter()
+        .cloned()
+        .map(MarketQuote::Rates)
+        .collect();
+    let cds_quote_bundle: Vec<MarketQuote> = vec![MarketQuote::Cds(quote.clone())];
+    let mut market_data = Vec::new();
+    cal_utils::extend_market_data(&mut market_data, &disc_quote_bundle);
+    cal_utils::extend_market_data(&mut market_data, &cds_quote_bundle);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
     quote_sets.insert(
         "disc".to_string(),
-        disc_quotes
-            .iter()
-            .cloned()
-            .map(MarketQuote::Rates)
-            .collect(),
+        cal_utils::quote_set_ids(&disc_quote_bundle),
     );
-    quote_sets.insert("cds".to_string(), vec![MarketQuote::Cds(quote.clone())]);
+    quote_sets.insert("cds".to_string(), cal_utils::quote_set_ids(&cds_quote_bundle));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -646,7 +667,8 @@ fn hazard_curve_step_report_matches_market_built_cds_repricing() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: None,
+        market_data,
+        prior_market: Vec::new(),
     };
 
     let out = engine::execute(&envelope).expect("calibration should succeed");
@@ -734,19 +756,22 @@ fn hazard_curve_standard_upfront_cds_repricing() {
         },
     ];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+    let disc_quote_bundle: Vec<MarketQuote> = disc_quotes
+        .iter()
+        .cloned()
+        .map(MarketQuote::Rates)
+        .collect();
+    let cds_quote_bundle: Vec<MarketQuote> =
+        cds_quotes.iter().cloned().map(MarketQuote::Cds).collect();
+    let mut market_data = Vec::new();
+    cal_utils::extend_market_data(&mut market_data, &disc_quote_bundle);
+    cal_utils::extend_market_data(&mut market_data, &cds_quote_bundle);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
     quote_sets.insert(
         "disc".to_string(),
-        disc_quotes
-            .iter()
-            .cloned()
-            .map(MarketQuote::Rates)
-            .collect(),
+        cal_utils::quote_set_ids(&disc_quote_bundle),
     );
-    quote_sets.insert(
-        "cds".to_string(),
-        cds_quotes.iter().cloned().map(MarketQuote::Cds).collect(),
-    );
+    quote_sets.insert("cds".to_string(), cal_utils::quote_set_ids(&cds_quote_bundle));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -796,7 +821,8 @@ fn hazard_curve_standard_upfront_cds_repricing() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: None,
+        market_data,
+        prior_market: Vec::new(),
     };
 
     let ctx = run_plan(&envelope);
@@ -856,22 +882,27 @@ fn inflation_curve_swap_repricing() {
         },
     ];
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+    let disc_quote_bundle: Vec<MarketQuote> = disc_quotes
+        .iter()
+        .cloned()
+        .map(MarketQuote::Rates)
+        .collect();
+    let infl_quote_bundle: Vec<MarketQuote> = infl_quotes
+        .iter()
+        .cloned()
+        .map(MarketQuote::Inflation)
+        .collect();
+    let mut market_data = Vec::new();
+    cal_utils::extend_market_data(&mut market_data, &disc_quote_bundle);
+    cal_utils::extend_market_data(&mut market_data, &infl_quote_bundle);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
     quote_sets.insert(
         "disc".to_string(),
-        disc_quotes
-            .iter()
-            .cloned()
-            .map(MarketQuote::Rates)
-            .collect(),
+        cal_utils::quote_set_ids(&disc_quote_bundle),
     );
     quote_sets.insert(
         "infl".to_string(),
-        infl_quotes
-            .iter()
-            .cloned()
-            .map(MarketQuote::Inflation)
-            .collect(),
+        cal_utils::quote_set_ids(&infl_quote_bundle),
     );
 
     let plan = CalibrationPlan {
@@ -920,7 +951,8 @@ fn inflation_curve_swap_repricing() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: None,
+        market_data,
+        prior_market: Vec::new(),
     };
 
     let ctx = run_plan(&envelope);
