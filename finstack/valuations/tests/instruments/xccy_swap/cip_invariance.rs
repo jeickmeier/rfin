@@ -242,6 +242,86 @@ fn schema_roundtrip_mtm_resetting() {
         .expect("roundtripped swap should still validate");
 }
 
+/// `cashflow_schedule` enumerates the resetting-leg cashflow stream; summing the discounted
+/// cashflows must agree with `base_value`. Sanity-check that the schedule's PV matches the
+/// pricer's PV to within the tolerance set by the FX-conversion mode (cashflow_schedule
+/// uses payment-date FX, just like the pricer).
+#[test]
+fn mtm_reset_cashflow_schedule_npv_matches_base_value() {
+    use finstack_valuations::cashflow::CashflowProvider;
+
+    let ctx = build_market_context();
+    let as_of = base_date();
+    let swap = build_swap(
+        NotionalExchange::MtmResetting {
+            resetting_side: ResettingSide::Leg1,
+        },
+        rust_decimal::Decimal::from(-25),
+    );
+
+    // PV via the dedicated MtM pricer.
+    let pv_pricer = swap
+        .base_value(&ctx, as_of)
+        .expect("MtM PV via base_value")
+        .amount();
+
+    // Enumerated cashflows. Sum each flow discounted with its currency's curve and converted
+    // to the reporting currency at the cashflow's payment date.
+    let schedule = swap
+        .cashflow_schedule(&ctx, as_of)
+        .expect("cashflow_schedule should succeed for MtM-reset");
+    assert!(
+        !schedule.flows.is_empty(),
+        "MtM cashflow_schedule should emit at least the initial/final principal flows"
+    );
+
+    let usd_disc = ctx
+        .get_discount(&finstack_core::types::CurveId::new("USD-OIS"))
+        .expect("USD curve");
+    let eur_disc = ctx
+        .get_discount(&finstack_core::types::CurveId::new("EUR-OIS"))
+        .expect("EUR curve");
+    let fx = ctx.fx().expect("FX matrix");
+
+    let mut pv_from_schedule = 0.0_f64;
+    for cf in &schedule.flows {
+        if cf.date <= as_of {
+            continue;
+        }
+        let ccy = cf.amount.currency();
+        let disc = if ccy == Currency::USD {
+            usd_disc.as_ref()
+        } else {
+            eur_disc.as_ref()
+        };
+        let df = disc.df_on_date_curve(cf.date).expect("DF");
+        let native_pv = cf.amount.amount() * df;
+        let usd_pv = if ccy == Currency::USD {
+            native_pv
+        } else {
+            let rate = fx
+                .rate(finstack_core::money::fx::FxQuery::new(
+                    ccy,
+                    Currency::USD,
+                    cf.date,
+                ))
+                .expect("fx rate")
+                .rate;
+            native_pv * rate
+        };
+        pv_from_schedule += usd_pv;
+    }
+
+    // Tolerance: same noise floor as the CIP-invariance tests (curve interpolation +
+    // rounding in the schedule's normalize_public filter).
+    let tol = 1e-3 * N_USD;
+    assert!(
+        (pv_pricer - pv_from_schedule).abs() < tol,
+        "Schedule-PV mismatch: pricer={pv_pricer:.4}, schedule={pv_from_schedule:.4}, diff={:.4e}, tol={tol:.4e}",
+        pv_pricer - pv_from_schedule
+    );
+}
+
 /// Direction-2 CIP invariance: swap the rate ordering (USD at 1%, EUR at 2%) so the forward FX
 /// moves the other way. The CIP-invariance identity must hold regardless of which
 /// currency has the higher rate.

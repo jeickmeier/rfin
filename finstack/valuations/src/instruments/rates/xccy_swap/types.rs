@@ -891,20 +891,41 @@ impl CashflowProvider for XccySwap {
         self.validate_leg(&self.leg1)?;
         self.validate_leg(&self.leg2)?;
 
-        if matches!(self.notional_exchange, NotionalExchange::MtmResetting { .. }) {
-            return Err(finstack_core::Error::Validation(format!(
-                "XccySwap '{}': MtM-resetting cashflow_schedule enumeration is a follow-on; \
-                 PV via base_value() is fully supported. Use base_value() / npv() for pricing, \
-                 or call cashflow_schedule with a fixed-notional NotionalExchange variant.",
-                self.id
-            )));
-        }
-
         let anchor = if as_of < self.leg1.start {
             as_of
         } else {
             self.leg1.start - time::Duration::days(1)
         };
+
+        // MtM-reset path: constant leg behaves like a vanilla fixed-notional leg; the
+        // resetting leg has per-period notional plus rebalancing flows. Dispatch is
+        // routed through `pricing_mtm::mtm_resetting_leg_schedule` which mirrors the
+        // PV cashflow stream but emits records instead of summing.
+        if let NotionalExchange::MtmResetting { resetting_side } = self.notional_exchange {
+            self.validate()?;
+            let (constant_leg, _resetting_leg) = self.partition_legs(resetting_side)?;
+            let mut constant_coupons = self.leg_coupon_schedule(constant_leg, market)?;
+            let constant_principals = self.leg_principal_schedule(constant_leg, anchor)?;
+            let resetting_schedule =
+                crate::instruments::rates::xccy_swap::pricing_mtm::mtm_resetting_leg_schedule(
+                    self,
+                    resetting_side,
+                    market,
+                    as_of,
+                )?;
+
+            constant_coupons.flows.extend(constant_principals.flows);
+            constant_coupons.flows.extend(resetting_schedule.flows);
+            constant_coupons
+                .flows
+                .sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
+            constant_coupons.notional = Notional::par(0.0, self.reporting_currency);
+            return Ok(constant_coupons.normalize_public(
+                as_of,
+                crate::cashflow::builder::CashflowRepresentation::Projected,
+            ));
+        }
+
         let mut leg1_schedule = self.leg_coupon_schedule(&self.leg1, market)?;
         let leg2_schedule = self.leg_coupon_schedule(&self.leg2, market)?;
         let leg1_principal = self.leg_principal_schedule(&self.leg1, anchor)?;
