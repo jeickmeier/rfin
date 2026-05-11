@@ -21,6 +21,8 @@ use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::market::conventions::ids::SwaptionConventionId;
 use finstack_valuations::market::quotes::ids::QuoteId;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
+
+use crate::finstack_test_utils::calibration as cal_utils;
 use finstack_valuations::market::quotes::vol::VolQuote;
 use rust_decimal::Decimal;
 use time::Month;
@@ -146,8 +148,11 @@ fn swaption_vol_step_builds_and_inserts_surface() {
 
     let initial_market = MarketContext::new().insert(create_test_discount_curve(base_date));
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("swpt".to_string(), create_test_swaption_quotes());
+    let swpt_quotes = create_test_swaption_quotes();
+    let (prior, mut market_data) = cal_utils::split_initial_market(&initial_market);
+    cal_utils::extend_market_data(&mut market_data, &swpt_quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("swpt".to_string(), cal_utils::quote_set_ids(&swpt_quotes));
 
     let settings = CalibrationConfig {
         solver: finstack_valuations::calibration::SolverConfig::brent_default()
@@ -194,7 +199,8 @@ fn swaption_vol_step_builds_and_inserts_surface() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&initial_market).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let result = engine::execute(&envelope).expect("execute");
@@ -232,8 +238,11 @@ fn calibrated_swaption_surface_is_not_silently_reused_as_strike_surface() {
 
     let initial_market = MarketContext::new().insert(create_test_discount_curve(base_date));
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("swpt".to_string(), create_test_swaption_quotes());
+    let swpt_quotes = create_test_swaption_quotes();
+    let (prior, mut market_data) = cal_utils::split_initial_market(&initial_market);
+    cal_utils::extend_market_data(&mut market_data, &swpt_quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("swpt".to_string(), cal_utils::quote_set_ids(&swpt_quotes));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -271,7 +280,8 @@ fn calibrated_swaption_surface_is_not_silently_reused_as_strike_surface() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&initial_market).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let result = engine::execute(&envelope).expect("execute");
@@ -324,8 +334,11 @@ fn swaption_vol_out_of_bounds_targets_error_by_default() {
 
     let initial_market = MarketContext::new().insert(create_test_discount_curve(base_date));
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("swpt".to_string(), create_test_swaption_quotes());
+    let swpt_quotes = create_test_swaption_quotes();
+    let (prior, mut market_data) = cal_utils::split_initial_market(&initial_market);
+    cal_utils::extend_market_data(&mut market_data, &swpt_quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("swpt".to_string(), cal_utils::quote_set_ids(&swpt_quotes));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -363,7 +376,8 @@ fn swaption_vol_out_of_bounds_targets_error_by_default() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&initial_market).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let err = engine::execute(&envelope).expect_err("out-of-bounds targets should error");
@@ -379,8 +393,11 @@ fn swaption_vol_out_of_bounds_targets_can_clamp_when_configured() {
 
     let initial_market = MarketContext::new().insert(create_test_discount_curve(base_date));
 
-    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("swpt".to_string(), create_test_swaption_quotes());
+    let swpt_quotes = create_test_swaption_quotes();
+    let (prior, mut market_data) = cal_utils::split_initial_market(&initial_market);
+    cal_utils::extend_market_data(&mut market_data, &swpt_quotes);
+    let mut quote_sets: HashMap<String, Vec<QuoteId>> = HashMap::default();
+    quote_sets.insert("swpt".to_string(), cal_utils::quote_set_ids(&swpt_quotes));
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -418,7 +435,8 @@ fn swaption_vol_out_of_bounds_targets_can_clamp_when_configured() {
 
         schema: "finstack.calibration/2".to_string(),
         plan,
-        initial_market: Some((&initial_market).into()),
+        market_data,
+        prior_market: prior,
     };
 
     let result = engine::execute(&envelope).expect("execute");
