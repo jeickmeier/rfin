@@ -104,26 +104,38 @@ def test_contract_missing_modules_are_not_importable(
 
 
 def _pyi_top_level_names(pyi_path: Path) -> set[str]:
-    """Extract module-level names declared in a .pyi stub."""
+    """Extract module-level public names declared in a .pyi stub.
+
+    The regex matches lines starting with a lowercase letter, which by
+    convention excludes dunders like ``__all__`` and any underscore-prefixed
+    private names without needing a separate filter.
+    """
     source = pyi_path.read_text()
-    # Match `name: <type>` at the start of a line (no indentation).
-    # Excludes `__all__: list[str]` because the dunder isn't a public name.
-    names: set[str] = set()
-    for m in re.finditer(r"^([a-z_][a-zA-Z0-9_]*)\s*:\s*\w", source, re.MULTILINE):
-        name = m.group(1)
-        if not name.startswith("_"):
-            names.add(name)
-    return names
+    return {
+        m.group(1)
+        for m in re.finditer(r"^([a-z][a-zA-Z0-9_]*)\s*:\s*\w", source, re.MULTILINE)
+    }
 
 
 def test_pyi_top_level_matches_contract() -> None:
-    """The `.pyi` stub root must declare exactly the names listed in the contract."""
+    """The `.pyi` stub, ``finstack.__all__``, and the contract must agree.
+
+    Drift in any of the three is a maintenance hazard, since they all encode
+    the same fact (the public top-level subpackages of finstack).
+    """
     block = CONTRACT["pyi_top_level"]
     pyi_path = CONTRACT_PATH.parent / block["file"]
-    expected = set(block["names"])
-    actual = _pyi_top_level_names(pyi_path)
-    assert actual == expected, (
+    contract = set(block["names"])
+    pyi = _pyi_top_level_names(pyi_path)
+    finstack_all = set(importlib.import_module("finstack").__all__)
+
+    assert pyi == contract, (
         f"finstack.pyi top-level names diverged from contract.\n"
-        f"  missing from .pyi: {sorted(expected - actual)}\n"
-        f"  unlisted in contract: {sorted(actual - expected)}"
+        f"  missing from .pyi: {sorted(contract - pyi)}\n"
+        f"  unlisted in contract: {sorted(pyi - contract)}"
+    )
+    assert finstack_all == contract, (
+        f"finstack.__all__ diverged from contract.\n"
+        f"  missing from finstack.__all__: {sorted(contract - finstack_all)}\n"
+        f"  unlisted in contract: {sorted(finstack_all - contract)}"
     )
