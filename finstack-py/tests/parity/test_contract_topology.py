@@ -199,3 +199,47 @@ def test_contract_symbols_match_live_surface(crate_name: str, crate: dict[str, A
         f"  missing from Python: {sorted(expected - actual)}\n"
         f"  unlisted in contract: {sorted(actual - expected)}"
     )
+
+
+def _wasm_index_js_namespaces(index_js_path: Path) -> set[str]:
+    """Extract top-level namespaces re-exported from `./exports/<file>.js`.
+
+    Matches lines like:
+        export { core } from './exports/core.js';
+    """
+    source = index_js_path.read_text()
+    return {
+        m.group(1)
+        for m in re.finditer(
+            r"^export\s+\{\s+([A-Za-z_][A-Za-z0-9_]*)\s+\}\s+from\s+'\./exports/",
+            source,
+            re.MULTILINE,
+        )
+    }
+
+
+def test_wasm_top_level_matches_contract() -> None:
+    """`finstack-wasm/index.js` top-level namespaces must match the contract."""
+    block = CONTRACT["wasm_top_level"]
+    # The `file` field is a path relative to the contract file itself.
+    index_path = (CONTRACT_PATH.parent / block["file"]).resolve()
+    expected = set(block["namespaces"])
+    actual = _wasm_index_js_namespaces(index_path)
+    assert actual == expected, (
+        f"finstack-wasm/index.js top-level namespaces diverged from contract.\n"
+        f"  missing from index.js: {sorted(expected - actual)}\n"
+        f"  unlisted in contract: {sorted(actual - expected)}"
+    )
+
+
+def test_wasm_top_level_has_exports_files() -> None:
+    """Every namespace listed in the contract must have a corresponding exports/*.js file."""
+    block = CONTRACT["wasm_top_level"]
+    exports_dir = (CONTRACT_PATH.parent / block["file"]).resolve().parent / "exports"
+    missing = [
+        ns for ns in block["namespaces"]
+        if not (exports_dir / f"{ns}.js").exists()
+    ]
+    assert not missing, (
+        f"contract lists namespaces that have no exports/*.js file: {missing}"
+    )
