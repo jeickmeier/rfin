@@ -10,5 +10,6 @@
 
 pub mod engine;
 pub mod errors;
+pub mod market_datum;
 pub mod schema;
 pub mod validate;
