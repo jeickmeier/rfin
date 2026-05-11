@@ -16,7 +16,6 @@ rfin/
 │   ├── core/                      # Dates, money, market data, math, expressions
 │   ├── cashflows/                 # Schedule construction and cashflow aggregation
 │   ├── analytics/                 # Return-series performance and risk analytics
-│   ├── correlation/               # Copulas, factor models, recovery models
 │   ├── monte_carlo/               # Simulation engine, processes, payoffs, pricers
 │   ├── margin/                    # Margin, collateral, and XVA primitives
 │   ├── statements/                # Financial statement modeling and evaluation
@@ -80,7 +79,6 @@ subpackages:
 
 - `analytics`
 - `core`
-- `correlation`
 - `margin`
 - `monte_carlo`
 - `portfolio`
@@ -99,7 +97,6 @@ consumers. It exposes namespaced modules that mirror the Rust workspace:
 
 - `core`
 - `analytics`
-- `correlation`
 - `margin`
 - `monte_carlo`
 - `portfolio`
