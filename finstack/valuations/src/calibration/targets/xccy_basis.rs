@@ -23,10 +23,10 @@ use crate::calibration::solver::traits::BootstrapTarget;
 use crate::calibration::targets::util::{
     discount_only_curve_ids, prepare_rate_calibration_quotes, ContextScratch,
 };
-use crate::market::quotes::market_quote::ExtractQuotes;
-use crate::market::quotes::xccy::XccyQuote;
 use crate::calibration::CalibrationReport;
+use crate::market::quotes::market_quote::ExtractQuotes;
 use crate::market::quotes::market_quote::MarketQuote;
+use crate::market::quotes::xccy::XccyQuote;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{BasisSpreadCurve, DiscountCurve};
@@ -83,8 +83,7 @@ impl XccyBasisTarget {
         // Rates-side preflight: foreign-currency deposits/FRAs/swaps that constrain the
         // foreign discount curve directly. Required to be present today because the
         // bootstrap solver needs short-end anchors.
-        let rates_quotes: Vec<crate::market::quotes::rates::RateQuote> =
-            quotes.extract_quotes();
+        let rates_quotes: Vec<crate::market::quotes::rates::RateQuote> = quotes.extract_quotes();
         let has_rates = !rates_quotes.is_empty();
 
         // XCCY-side preflight: dealer-screen `XccyQuote::BasisSwap` quotes (par-spread on
@@ -103,9 +102,8 @@ impl XccyBasisTarget {
             .curve_day_count
             .unwrap_or(finstack_core::dates::DayCount::Act365F);
 
-        let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(
-            rates_quotes.len() + xccy_quotes.len(),
-        );
+        let mut prepared_quotes: Vec<CalibrationQuote> =
+            Vec::with_capacity(rates_quotes.len() + xccy_quotes.len());
 
         if has_rates {
             let prepared = prepare_rate_calibration_quotes(
@@ -213,9 +211,7 @@ impl XccyBasisTarget {
                 .extrapolation(schema_params.extrapolation)
                 .build()
                 .map_err(|e| finstack_core::Error::Calibration {
-                    message: format!(
-                        "Failed to build basis spread curve {spread_id}: {e}"
-                    ),
+                    message: format!("Failed to build basis spread curve {spread_id}: {e}"),
                     category: "xccy_basis".to_string(),
                 })?;
             new_context = new_context.insert(spread_curve);
@@ -395,8 +391,8 @@ mod xccy_quote_calibration_tests {
         let cfg = CalibrationConfig::default();
         let result = XccyBasisTarget::solve(&params, &[quote_5y], &ctx, &cfg);
 
-        let (new_ctx, report) = result
-            .expect("XccyBasisTarget::solve should accept XccyQuote::BasisSwap quotes");
+        let (new_ctx, report) =
+            result.expect("XccyBasisTarget::solve should accept XccyQuote::BasisSwap quotes");
 
         assert!(
             report.success,

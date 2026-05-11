@@ -96,7 +96,10 @@ mod tests {
 
     #[test]
     fn test_solver_config_default_is_brent() {
-        assert!(matches!(SolverConfig::default(), SolverConfig::Brent { .. }));
+        assert!(matches!(
+            SolverConfig::default(),
+            SolverConfig::Brent { .. }
+        ));
     }
 
     #[test]

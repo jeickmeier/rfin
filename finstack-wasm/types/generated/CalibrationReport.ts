@@ -22,59 +22,59 @@ import type { SolverConfig } from "./SolverConfig";
  * assert!(report.max_residual <= 1e-12);
  * ```
  */
-export type CalibrationReport = { 
+export type CalibrationReport = {
 /**
  * User-facing success flag. True only if both fitting and validation passed.
  */
-success: boolean, 
+success: boolean,
 /**
  * Final residuals (fitting errors) by instrument identifier.
  */
-residuals: { [key in string]: number }, 
+residuals: { [key in string]: number },
 /**
  * Number of solver iterations or function evaluations.
  */
-iterations: number, 
+iterations: number,
 /**
  * Final objective function value (usually RMSE).
  */
-objective_value: number, 
+objective_value: number,
 /**
  * Maximum absolute residual across all instruments.
  */
-max_residual: number, 
+max_residual: number,
 /**
  * Root mean square error of all residuals.
  */
-rmse: number, 
+rmse: number,
 /**
  * Whether the calibrated market object passed all validation checks.
  */
-validation_passed: boolean, 
+validation_passed: boolean,
 /**
  * Optional details on validation failures.
  */
-validation_error: string | null, 
+validation_error: string | null,
 /**
  * Human-readable reason for convergence or failure.
  */
-convergence_reason: string, 
+convergence_reason: string,
 /**
  * Domain-specific metadata (e.g., "type": "yield_curve").
  */
-metadata: { [key in string]: string }, 
+metadata: { [key in string]: string },
 /**
  * Solver configuration used during this calibration run.
  */
-solver_config: SolverConfig, 
+solver_config: SolverConfig,
 /**
  * Results metadata (timestamp, software version, etc.).
  */
-results_meta: unknown, 
+results_meta: unknown,
 /**
  * Optional detailed trace of the calibration steps (enabled via config).
  */
-explanation: unknown | null, 
+explanation: unknown | null,
 /**
  * Optional model/methodology version used for this calibration.
  *
@@ -83,7 +83,7 @@ explanation: unknown | null,
  * - "Multi-curve OIS discounting" for discount curve calibration
  * - "SABR v1.0" for volatility surface calibration
  */
-model_version?: string | null, 
+model_version?: string | null,
 /**
  * Optional calibration diagnostics (condition number, per-quote quality, etc.).
  *
@@ -91,7 +91,7 @@ model_version?: string | null,
  * Provides detailed information about the quality and stability of the
  * calibration for debugging, auditing, and monitoring purposes.
  */
-diagnostics?: CalibrationDiagnostics | null, 
+diagnostics?: CalibrationDiagnostics | null,
 /**
  * Identifier of the quote with the largest absolute residual.
  *
@@ -99,7 +99,7 @@ diagnostics?: CalibrationDiagnostics | null,
  * is the quote a user should look at first when a step fails to
  * converge — the input most likely to fix.
  */
-worst_quote_id?: string | null, 
+worst_quote_id?: string | null,
 /**
  * Signed residual of [`Self::worst_quote_id`].
  */

@@ -238,8 +238,7 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
     // (c) we ran out of iterations with a still-valid bracket. In all three cases the
     // invariant `fa.signum() != fb.signum()` should hold; guard explicitly so that an
     // edge case (e.g. fa or fb became NaN upstream) cannot drive FP on a stale bracket.
-    let bracket_valid =
-        fa.is_finite() && fb.is_finite() && fa.signum() != fb.signum() && a < b;
+    let bracket_valid = fa.is_finite() && fb.is_finite() && fa.signum() != fb.signum() && a < b;
     if !bracket_valid {
         return Ok((diag.best_point, diag));
     }

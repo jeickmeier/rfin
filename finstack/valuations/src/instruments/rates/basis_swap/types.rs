@@ -23,11 +23,7 @@
 #[allow(unused_imports)] // Used in doc examples and tests
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::{
-    dates::Date,
-    market_data::context::MarketContext,
-    money::Money,
-    types::InstrumentId,
-    Result,
+    dates::Date, market_data::context::MarketContext, money::Money, types::InstrumentId, Result,
 };
 
 // Import shared swap leg pricing utilities

@@ -188,7 +188,6 @@ impl Default for HazardCurveSolveConfig {
     }
 }
 
-
 /// Inflation-curve specific numerical solver configuration.
 ///
 /// Controls the numerical stability and success criteria of inflation curve
@@ -244,7 +243,6 @@ impl Default for InflationCurveSolveConfig {
         }
     }
 }
-
 
 /// Discount-curve specific numerical solver configuration.
 ///

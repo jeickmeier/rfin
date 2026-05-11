@@ -15,10 +15,10 @@ use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::rates::xccy_swap::{
     LegSide, NotionalExchange, ResettingSide, XccySwap, XccySwapLeg,
 };
+use finstack_valuations::instruments::Instrument;
 use rust_decimal::Decimal;
 use std::sync::Arc;
 use time::Month;
@@ -178,7 +178,9 @@ fn par_basis_spread_round_trip() {
             },
             Decimal::try_from(spread_bp).expect("decimal"),
         );
-        swap.base_value(&ctx, as_of).expect("base_value should succeed").amount()
+        swap.base_value(&ctx, as_of)
+            .expect("base_value should succeed")
+            .amount()
     };
 
     // Bracket the par spread: PV is monotone in spread, so bisect.
@@ -362,4 +364,3 @@ fn cip_invariance_holds_under_reversed_rate_ordering() {
         pv_fixed - pv_mtm
     );
 }
-

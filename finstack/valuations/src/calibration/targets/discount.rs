@@ -1106,13 +1106,12 @@ mod tests {
         // Assume delay 2 days (standard OIS)
         let delay = 2;
         let cal_id = "usny";
-        let pay_date =
-            crate::instruments::common_impl::pricing::swap_legs::add_payment_delay(
-                maturity,
-                delay,
-                Some(cal_id),
-            )
-                .expect("payment delay with usny calendar");
+        let pay_date = crate::instruments::common_impl::pricing::swap_legs::add_payment_delay(
+            maturity,
+            delay,
+            Some(cal_id),
+        )
+        .expect("payment delay with usny calendar");
 
         let expected_yf = DayCount::Act365F
             .year_fraction(base_date, pay_date, DayCountContext::default())

@@ -207,9 +207,8 @@ impl BootstrapTarget for ForwardCurveTarget {
                 )));
             }
         };
-        self.scratch.with_curve(curve, |ctx| {
-            pq.instrument.value_raw(ctx, self.base_date)
-        })
+        self.scratch
+            .with_curve(curve, |ctx| pq.instrument.value_raw(ctx, self.base_date))
     }
 
     fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
@@ -251,7 +250,8 @@ impl BootstrapTarget for ForwardCurveTarget {
                 let pillar_t = pq.pillar_time;
                 let g = previous_knots.last().map(|(_, fwd)| *fwd).or_else(|| {
                     // Fallback to the discount curve's zero rate at this quote's pillar time.
-                    self.scratch.base()
+                    self.scratch
+                        .base()
                         .get_discount(self.discount_curve_id.as_ref())
                         .ok()
                         .map(|disc_curve| disc_curve.zero(pillar_t.max(1.0 / 12.0)))

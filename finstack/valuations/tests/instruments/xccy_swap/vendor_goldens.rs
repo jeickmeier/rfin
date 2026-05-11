@@ -37,7 +37,7 @@
 //! scaffold-only; populate them when a vendor quote sheet becomes available.
 
 #![allow(dead_code)] // Constants and helpers are populated by vendor-data drops; until
-                    // then, the unused-code lint would otherwise fire.
+                     // then, the unused-code lint would otherwise fire.
 
 use finstack_core::dates::Date;
 use rust_decimal::Decimal;

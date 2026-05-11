@@ -4,11 +4,11 @@ use crate::calibration::hull_white::HullWhiteParams;
 use crate::instruments::common_impl::pricing::time::relative_df_discount_curve;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::callable_range_accrual::CallableRangeAccrual;
-use crate::instruments::rates::range_accrual::BoundsType;
 use crate::instruments::rates::exotics_shared::{
     standard_basis, ExerciseBoundaryPayoff, RateExoticHw1fLsmcPricer, RateExoticHw1fMcPricer,
     RateExoticMcConfig,
 };
+use crate::instruments::rates::range_accrual::BoundsType;
 use crate::metrics::MetricId;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
@@ -491,8 +491,8 @@ fn zero_estimate(currency: finstack_core::currency::Currency) -> MoneyEstimate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::rates::range_accrual::RangeAccrual;
     use crate::instruments::rates::exotics_shared::bermudan_call::BermudanCallProvision;
+    use crate::instruments::rates::range_accrual::RangeAccrual;
     use crate::instruments::PricingOverrides;
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;

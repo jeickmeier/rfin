@@ -196,14 +196,7 @@ impl std::str::FromStr for NotionalExchange {
 #[cfg_attr(feature = "ts_export", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts_export", ts(export, rename_all = "snake_case"))]
 #[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    serde::Serialize,
-    serde::Deserialize,
-    schemars::JsonSchema,
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
@@ -620,7 +613,9 @@ impl XccySwap {
         // MtmResetting also requires final exchange; same defensive note as above — the MtM live-pricing path dispatches before this method is reached.
         if matches!(
             self.notional_exchange,
-            NotionalExchange::Final | NotionalExchange::InitialAndFinal | NotionalExchange::MtmResetting { .. }
+            NotionalExchange::Final
+                | NotionalExchange::InitialAndFinal
+                | NotionalExchange::MtmResetting { .. }
         ) {
             let final_amount = leg.side.final_principal_sign() * leg.notional.amount();
             let _ = builder.add_principal_event(
@@ -728,7 +723,9 @@ impl XccySwap {
         // MtmResetting also requires final exchange; same defensive note as above — the MtM live-pricing path dispatches before this method is reached.
         if matches!(
             self.notional_exchange,
-            NotionalExchange::Final | NotionalExchange::InitialAndFinal | NotionalExchange::MtmResetting { .. }
+            NotionalExchange::Final
+                | NotionalExchange::InitialAndFinal
+                | NotionalExchange::MtmResetting { .. }
         ) && leg.end > as_of
         {
             let df = robust_relative_df(disc.as_ref(), as_of, leg.end)?;
@@ -1306,12 +1303,10 @@ mod tests {
     fn validate_rejects_mtm_reset_with_misaligned_leg_schedules() {
         use finstack_core::money::Money;
 
-        let start = Date::from_calendar_date(2025, time::Month::January, 2)
-            .expect("valid date");
-        let end = Date::from_calendar_date(2030, time::Month::January, 2)
-            .expect("valid date");
-        let start_off = Date::from_calendar_date(2025, time::Month::February, 3)
-            .expect("valid date");
+        let start = Date::from_calendar_date(2025, time::Month::January, 2).expect("valid date");
+        let end = Date::from_calendar_date(2030, time::Month::January, 2).expect("valid date");
+        let start_off =
+            Date::from_calendar_date(2025, time::Month::February, 3).expect("valid date");
 
         let leg1 = XccySwapLeg {
             currency: Currency::EUR,
@@ -1344,7 +1339,9 @@ mod tests {
                 resetting_side: ResettingSide::Leg1,
             });
 
-        let err = swap.validate().expect_err("misaligned schedules must be rejected");
+        let err = swap
+            .validate()
+            .expect_err("misaligned schedules must be rejected");
         let msg = err.to_string();
         assert!(
             msg.contains("MtmResetting") && msg.contains("schedule"),
@@ -1356,10 +1353,8 @@ mod tests {
     fn validate_rejects_mtm_reset_with_mismatched_frequencies() {
         use finstack_core::money::Money;
 
-        let start = Date::from_calendar_date(2025, time::Month::January, 2)
-            .expect("valid date");
-        let end = Date::from_calendar_date(2030, time::Month::January, 2)
-            .expect("valid date");
+        let start = Date::from_calendar_date(2025, time::Month::January, 2).expect("valid date");
+        let end = Date::from_calendar_date(2030, time::Month::January, 2).expect("valid date");
 
         let leg1 = XccySwapLeg {
             currency: Currency::EUR,
@@ -1387,12 +1382,15 @@ mod tests {
         leg2.discount_curve_id = CurveId::new("USD-OIS");
         leg2.frequency = Tenor::semi_annual();
 
-        let swap = XccySwap::new("MTM-FREQ", leg1, leg2, Currency::USD)
-            .with_notional_exchange(NotionalExchange::MtmResetting {
+        let swap = XccySwap::new("MTM-FREQ", leg1, leg2, Currency::USD).with_notional_exchange(
+            NotionalExchange::MtmResetting {
                 resetting_side: ResettingSide::Leg1,
-            });
+            },
+        );
 
-        let err = swap.validate().expect_err("mismatched frequencies must be rejected");
+        let err = swap
+            .validate()
+            .expect_err("mismatched frequencies must be rejected");
         let msg = err.to_string();
         assert!(
             msg.contains("MtmResetting") && msg.contains("frequency"),

@@ -19,9 +19,9 @@
 //! See `docs/superpowers/specs/2026-05-10-xccy-mtm-reset-design.md` for the spec.
 
 use crate::cashflow::builder::periods::{build_periods, BuildPeriodsParams};
+use crate::instruments::common_impl::numeric::decimal_to_f64;
 use crate::instruments::common_impl::pricing::swap_legs::robust_relative_df;
 use crate::instruments::common_impl::pricing::time::rate_period_on_dates;
-use crate::instruments::common_impl::numeric::decimal_to_f64;
 use crate::instruments::rates::xccy_swap::types::{ResettingSide, XccySwap};
 use finstack_core::dates::Date;
 use finstack_core::math::summation::NeumaierAccumulator;
@@ -94,24 +94,28 @@ pub(crate) fn pv_mtm_reset(
     let mut pv = NeumaierAccumulator::new();
 
     // Helper: convert a cashflow at `payment_date` to reporting currency.
-    let convert =
-        |amount: f64, from_ccy: finstack_core::currency::Currency, payment_date: Date| -> Result<f64> {
-            if from_ccy == reporting_ccy {
-                return Ok(amount);
-            }
-            let rate = fx
-                .rate(FxQuery::new(from_ccy, reporting_ccy, payment_date))?
-                .rate;
-            Ok(amount * rate)
-        };
+    let convert = |amount: f64,
+                   from_ccy: finstack_core::currency::Currency,
+                   payment_date: Date|
+     -> Result<f64> {
+        if from_ccy == reporting_ccy {
+            return Ok(amount);
+        }
+        let rate = fx
+            .rate(FxQuery::new(from_ccy, reporting_ccy, payment_date))?
+            .rate;
+        Ok(amount * rate)
+    };
 
     // Compute the per-period notional at T_start (the swap's start date). This is the
     // resetting-leg principal amount exchanged at initial exchange AND seeded into the
     // per-period loop. Distinct from `n_c / spot_x_at_as_of` for forward-starting swaps.
     let df_c_t_start = disc_c.df_on_date_curve(constant_leg.start)?;
-    let df_c_t_start = require_positive_df(df_c_t_start, &swap.id, "constant-leg", constant_leg.start)?;
+    let df_c_t_start =
+        require_positive_df(df_c_t_start, &swap.id, "constant-leg", constant_leg.start)?;
     let df_r_t_start = disc_r.df_on_date_curve(constant_leg.start)?;
-    let df_r_t_start = require_positive_df(df_r_t_start, &swap.id, "resetting-leg", constant_leg.start)?;
+    let df_r_t_start =
+        require_positive_df(df_r_t_start, &swap.id, "resetting-leg", constant_leg.start)?;
     let x_start = spot_x_at_as_of * (df_c_t_start / df_r_t_start);
     if !x_start.is_finite() || x_start <= 0.0 {
         return Err(finstack_core::Error::Validation(format!(
@@ -170,9 +174,11 @@ pub(crate) fn pv_mtm_reset(
         }
 
         let df_c_pay = disc_c.df_on_date_curve(period.payment_date)?;
-        let df_c_pay = require_positive_df(df_c_pay, &swap.id, "constant-leg", period.payment_date)?;
+        let df_c_pay =
+            require_positive_df(df_c_pay, &swap.id, "constant-leg", period.payment_date)?;
         let df_r_pay = disc_r.df_on_date_curve(period.payment_date)?;
-        let df_r_pay = require_positive_df(df_r_pay, &swap.id, "resetting-leg", period.payment_date)?;
+        let df_r_pay =
+            require_positive_df(df_r_pay, &swap.id, "resetting-leg", period.payment_date)?;
 
         // 1. Constant-leg floating coupon (notional N_C).
         let rate_c = rate_period_on_dates(
@@ -185,7 +191,11 @@ pub(crate) fn pv_mtm_reset(
             * rate_c
             * period.accrual_year_fraction
             * df_c_pay;
-        pv.add(convert(coupon_c, constant_leg.currency, period.payment_date)?);
+        pv.add(convert(
+            coupon_c,
+            constant_leg.currency,
+            period.payment_date,
+        )?);
 
         // 2. Resetting-leg floating coupon on N_j^R (notional captured at this period's start,
         //    NOT n_r_prev which is the prior period's notional). Includes the basis spread.
@@ -194,16 +204,18 @@ pub(crate) fn pv_mtm_reset(
             period.reset_date.unwrap_or(period.accrual_start),
             period.accrual_end,
         )?;
-        let spread_decimal = decimal_to_f64(
-            resetting_leg.spread_bp,
-            "XccySwap resetting leg spread_bp",
-        )? / 10_000.0;
+        let spread_decimal =
+            decimal_to_f64(resetting_leg.spread_bp, "XccySwap resetting leg spread_bp")? / 10_000.0;
         let coupon_r = resetting_leg.side.coupon_sign()
             * n_r_j
             * (rate_r + spread_decimal)
             * period.accrual_year_fraction
             * df_r_pay;
-        pv.add(convert(coupon_r, resetting_leg.currency, period.payment_date)?);
+        pv.add(convert(
+            coupon_r,
+            resetting_leg.currency,
+            period.payment_date,
+        )?);
 
         // 3. Rebalancing on the resetting leg only, at the START of this period (T_j).
         //    Skip the very first period — no rebalancing before initial exchange.
@@ -213,10 +225,15 @@ pub(crate) fn pv_mtm_reset(
         //    corresponding rebalancing cashflow (see comment above).
         if j > 0 {
             let df_r_reset = disc_r.df_on_date_curve(period.accrual_start)?;
-            let df_r_reset = require_positive_df(df_r_reset, &swap.id, "resetting-leg", period.accrual_start)?;
+            let df_r_reset =
+                require_positive_df(df_r_reset, &swap.id, "resetting-leg", period.accrual_start)?;
             let delta_n_r = n_r_j - n_r_prev;
             let rebal_r = resetting_leg.side.initial_principal_sign() * delta_n_r * df_r_reset;
-            pv.add(convert(rebal_r, resetting_leg.currency, period.accrual_start)?);
+            pv.add(convert(
+                rebal_r,
+                resetting_leg.currency,
+                period.accrual_start,
+            )?);
         }
 
         n_r_prev = n_r_j;
@@ -229,10 +246,18 @@ pub(crate) fn pv_mtm_reset(
     let df_r_end = require_positive_df(df_r_end, &swap.id, "resetting-leg", resetting_leg.end)?;
 
     let cf_c_final = constant_leg.side.final_principal_sign() * n_c * df_c_end;
-    pv.add(convert(cf_c_final, constant_leg.currency, constant_leg.end)?);
+    pv.add(convert(
+        cf_c_final,
+        constant_leg.currency,
+        constant_leg.end,
+    )?);
 
     let cf_r_final = resetting_leg.side.final_principal_sign() * n_r_prev * df_r_end;
-    pv.add(convert(cf_r_final, resetting_leg.currency, resetting_leg.end)?);
+    pv.add(convert(
+        cf_r_final,
+        resetting_leg.currency,
+        resetting_leg.end,
+    )?);
 
     Ok(Money::new(pv.total(), reporting_ccy))
 }

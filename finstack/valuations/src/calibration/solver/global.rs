@@ -246,10 +246,12 @@ impl GlobalFitOptimizer {
         let (best_result, _best_weighted_l2) = match best {
             Some(b) => b,
             None => {
-                return Err(primary_error.unwrap_or_else(|| finstack_core::Error::Calibration {
-                    message: "GlobalFitOptimizer: every solve attempt failed".to_string(),
-                    category: "global_solve".to_string(),
-                }));
+                return Err(
+                    primary_error.unwrap_or_else(|| finstack_core::Error::Calibration {
+                        message: "GlobalFitOptimizer: every solve attempt failed".to_string(),
+                        category: "global_solve".to_string(),
+                    }),
+                );
             }
         };
 

@@ -6,31 +6,31 @@
  * Fits a Stochastic Volatility Inspired (SVI) parameterization per-expiry
  * to market-implied volatilities.
  */
-export type SviSurfaceParams = { 
+export type SviSurfaceParams = {
 /**
  * Identifier for the volatility surface being built.
  */
-surface_id: string, 
+surface_id: string,
 /**
  * Base date for the surface.
  */
-base_date: string, 
+base_date: string,
 /**
  * Underlying instrument ticker.
  */
-underlying_ticker: string, 
+underlying_ticker: string,
 /**
  * Discount curve ID (optional).
  */
-discount_curve_id: string | null, 
+discount_curve_id: string | null,
 /**
  * Target expiries for calibration.
  */
-target_expiries: Array<number>, 
+target_expiries: Array<number>,
 /**
  * Target strikes for calibration.
  */
-target_strikes: Array<number>, 
+target_strikes: Array<number>,
 /**
  * Optional spot price override.
  */

@@ -5,35 +5,35 @@ import type { RatesStepConventions } from "./RatesStepConventions";
 /**
  * Parameters for forward curve calibration step.
  */
-export type ForwardCurveParams = { 
+export type ForwardCurveParams = {
 /**
  * Identifier for the forward curve being built.
  */
-curve_id: string, 
+curve_id: string,
 /**
  * Currency of the curve.
  */
-currency: string, 
+currency: string,
 /**
  * Base date for the curve.
  */
-base_date: string, 
+base_date: string,
 /**
  * Tenor in years for the forward curve.
  */
-tenor_years: number, 
+tenor_years: number,
 /**
  * Identifier for the discount curve to use.
  */
-discount_curve_id: string, 
+discount_curve_id: string,
 /**
  * Calibration method to use.
  */
-method: CalibrationMethod, 
+method: CalibrationMethod,
 /**
  * Interpolation style for the curve.
  */
-interpolation: string, 
+interpolation: string,
 /**
  * Step-level conventions for pricing and curve time axis.
  */

@@ -19,11 +19,11 @@ import type { XccyBasisParams } from "./XccyBasisParams";
  * Each step targets the construction or update of a specific market object
  * (e.g., a yield curve) using a specified set of quotes.
  */
-export type CalibrationStep = { 
+export type CalibrationStep = {
 /**
  * Unique identifier for the object being calibrated in this step.
  */
-id: string, 
+id: string,
 /**
  * Reference to a named quote set in the parent plan.
  */

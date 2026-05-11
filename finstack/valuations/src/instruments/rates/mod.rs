@@ -107,6 +107,8 @@ pub mod cms_spread_option;
 pub mod cms_swap;
 /// Deposit module - Money market deposits.
 pub mod deposit;
+/// Shared rates pricing utilities.
+pub mod exotics_shared;
 /// FRA module - Forward rate agreements.
 pub mod fra;
 /// Inflation cap/floor module.
@@ -123,8 +125,6 @@ pub mod irs;
 pub mod range_accrual;
 /// Repo module - Repurchase agreements.
 pub mod repo;
-/// Shared rates pricing utilities.
-pub mod exotics_shared;
 /// Snowball / Inverse Floater structured note module.
 pub mod snowball;
 /// Swaption module - Options on interest rate swaps.

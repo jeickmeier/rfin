@@ -271,10 +271,7 @@ pub(crate) fn prepare_xccy_quote(
 /// to call `build_xccy_instrument` (which already does all the date math + convention
 /// resolution) and read `leg1.end` off the constructed swap — both legs share the same
 /// end date by builder construction.
-fn xccy_quote_pillar_date(
-    quote: &XccyQuote,
-    instrument: &DynInstrument,
-) -> Result<Date> {
+fn xccy_quote_pillar_date(quote: &XccyQuote, instrument: &DynInstrument) -> Result<Date> {
     use crate::instruments::rates::xccy_swap::XccySwap;
     let swap = instrument
         .as_any()

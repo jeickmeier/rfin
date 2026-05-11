@@ -8,20 +8,20 @@ import type { CalibrationPlan } from "./CalibrationPlan";
  * the schema version, the plan to execute, and an optional initial market state
  * to build upon.
  */
-export type CalibrationEnvelope = { 
+export type CalibrationEnvelope = {
 /**
  * Optional `$schema` URL/path for editor-side JSON Schema discovery.
  * Ignored at runtime; serialized when present.
  */
-$schema?: string | null, 
+$schema?: string | null,
 /**
  * Schema version identifier (must be [`CALIBRATION_SCHEMA`]).
  */
-schema: string, 
+schema: string,
 /**
  * The calibration plan containing steps and quote data.
  */
-plan: CalibrationPlan, 
+plan: CalibrationPlan,
 /**
  * Optional initial market context (e.g., existing curves) to use as a baseline.
  */

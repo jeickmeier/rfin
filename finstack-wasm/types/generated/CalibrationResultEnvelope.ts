@@ -4,11 +4,11 @@ import type { CalibrationResult } from "./CalibrationResult";
 /**
  * Top-level envelope for calibration results.
  */
-export type CalibrationResultEnvelope = { 
+export type CalibrationResultEnvelope = {
 /**
  * Schema version identifier (must be "finstack.calibration").
  */
-schema: string, 
+schema: string,
 /**
  * The calibration result.
  */

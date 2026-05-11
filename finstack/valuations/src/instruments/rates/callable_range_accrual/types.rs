@@ -2,8 +2,8 @@
 
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
-use crate::instruments::rates::range_accrual::{BoundsType, RangeAccrual};
 use crate::instruments::rates::exotics_shared::bermudan_call::BermudanCallProvision;
+use crate::instruments::rates::range_accrual::{BoundsType, RangeAccrual};
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
