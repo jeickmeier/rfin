@@ -45,13 +45,28 @@ def migrate(env: dict) -> dict:
     quote_sets_v2 = env.get("plan", {}).get("quote_sets", {})
 
     # 1. Flatten quotes: build the addressable bag + per-set ID lists.
+    # Vol quotes are externally tagged: {"class": "vol", "option_vol": {"id": ..., ...}}
+    # so the id lives one level deeper. Inflation quotes likewise.
+    NESTED_QUOTE_WRAPPERS = {
+        "option_vol", "swaption_vol", "cap_floor_vol",
+        "zero_coupon", "year_on_year",
+    }
+
+    def extract_quote_id(q):
+        if "id" in q:
+            return q["id"]
+        for k in NESTED_QUOTE_WRAPPERS:
+            if k in q and isinstance(q[k], dict) and "id" in q[k]:
+                return q[k]["id"]
+        raise KeyError(f"could not locate id in quote: {sorted(q.keys())}")
+
     market_data = []
     seen_quote_ids = set()
     quote_sets_v3 = {}
     for set_name, quotes in quote_sets_v2.items():
         id_list = []
         for q in quotes:
-            qid = q["id"]
+            qid = extract_quote_id(q)
             if qid not in seen_quote_ids:
                 seen_quote_ids.add(qid)
                 # Strip "class" key; turn it into the v3 "kind" tag.
