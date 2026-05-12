@@ -10,59 +10,59 @@ import type { SwaptionVolConvention } from "./SwaptionVolConvention";
  * Defines the structure and conventions for building a volatility surface
  * from swaption quotes using the SABR model.
  */
-export type SwaptionVolParams = {
+export type SwaptionVolParams = { 
 /**
  * Identifier for the volatility surface.
  */
-surface_id: string,
+surface_id: string, 
 /**
  * Base date for the calibration.
  */
-base_date: string,
+base_date: string, 
 /**
  * Discount curve identifier for pricing.
  */
-discount_curve_id: string,
+discount_curve_id: string, 
 /**
  * Optional forward curve identifier (if different from discount curve).
  */
-forward_id: string | null,
+forward_id: string | null, 
 /**
  * Currency for the swaption surface.
  */
-currency: string,
+currency: string, 
 /**
  * Volatility quoting convention (normal or lognormal).
  */
-vol_convention: SwaptionVolConvention,
+vol_convention: SwaptionVolConvention, 
 /**
  * ATM strike convention for swaptions.
  */
-atm_convention: AtmStrikeConvention,
+atm_convention: AtmStrikeConvention, 
 /**
  * SABR beta parameter (typically 0.0 for normal, 1.0 for lognormal).
  */
-sabr_beta: number,
+sabr_beta: number, 
 /**
  * Target expiry times (in years) for the surface grid.
  */
-target_expiries: Array<number>,
+target_expiries: Array<number>, 
 /**
  * Target tenor times (in years) for the surface grid.
  */
-target_tenors: Array<number>,
+target_tenors: Array<number>, 
 /**
  * SABR parameter interpolation method between expiries/tenors.
  */
-sabr_interpolation: SabrInterpolationMethod,
+sabr_interpolation: SabrInterpolationMethod, 
 /**
  * Optional calendar identifier for date adjustments.
  */
-calendar_id: string | null,
+calendar_id: string | null, 
 /**
  * Optional day count convention for fixed leg calculations.
  */
-fixed_day_count: string | null,
+fixed_day_count: string | null, 
 /**
  * Optional floating index identifier used to resolve market swap conventions.
  *
@@ -71,7 +71,7 @@ fixed_day_count: string | null,
  *
  * If omitted, individual swaption quotes must provide `float_leg_conventions.index`.
  */
-swap_index: string | null,
+swap_index: string | null, 
 /**
  * Reporting tolerance used to determine calibration success.
  *
@@ -79,19 +79,19 @@ swap_index: string | null,
  * calibration, success should reflect whether the fitted smile residuals are within a
  * market-appropriate tolerance (e.g., 10–20 vol bps), not machine epsilon.
  */
-vol_tolerance: number | null,
+vol_tolerance: number | null, 
 /**
  * Solver tolerance used inside the SABR calibration routines.
  *
  * This is an algorithmic convergence tolerance (not a market quoting tolerance).
  * If unset, the SABR calibrator default is used.
  */
-sabr_tolerance: number | null,
+sabr_tolerance: number | null, 
 /**
  * Extrapolation policy used when interpolating SABR parameters across the
  * expiry–tenor grid for target points that do not have a directly calibrated bucket.
  */
-sabr_extrapolation: SurfaceExtrapolationPolicy,
+sabr_extrapolation: SurfaceExtrapolationPolicy, 
 /**
  * Allow deterministic fallbacks when SABR grid corners are missing during interpolation.
  *

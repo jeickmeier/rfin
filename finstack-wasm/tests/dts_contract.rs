@@ -86,29 +86,36 @@ fn credit_factor_hierarchy_dts_exposes_public_surface() {
 fn analytics_dts_matches_runtime_hotspots() {
     let dts = index_dts();
 
-    assert!(dts.contains("dates: string[];"));
-    assert!(dts.contains("export type NumericArray = number[] | Float64Array;"));
-    assert!(dts.contains("export type NumericMatrix = NumericArray[];"));
+    assert!(dts.contains("export declare class Performance {"));
+    assert!(dts.contains("Performance: typeof Performance;"));
+    assert!(dts.contains("CagrBasis: CagrBasisConstructor;"));
+    assert!(dts.contains("BenchmarkAlignmentPolicy: BenchmarkAlignmentPolicyConstructor;"));
     assert!(contains_ignoring_ws(
         &dts,
-        "rollingGreeks(returns: NumericArray, benchmark: NumericArray, dates: string[], window: number, annFactor: number): RollingGreeksResult;",
-    ));
-    assert!(
-        dts.contains("classifyBreaches(varForecasts: number[], realizedPnl: number[]): boolean[];")
-    );
-    assert!(contains_ignoring_ws(
-        &dts,
-        "rollingVarForecasts(returns: number[], lookback: number, confidence: number, method: string): [number[], number[]];",
+        "static fromReturns(dates: string[], returns: NumericMatrix, tickerNames: string[], benchmarkTicker?: string | null, freq?: string): Performance;",
     ));
     assert!(contains_ignoring_ws(
         &dts,
-        "compareVarBacktests(models: [string, number[]][], realizedPnl: number[], confidence: number, windowSize: number): MultiModelComparisonJson;",
+        "rollingGreeks(tickerIdx: number, window?: number): RollingGreeksResult;",
     ));
-    assert!(dts.contains(
-        "excessReturns(returns: NumericArray, rf: NumericArray, nperiods?: number): number[];"
+    assert!(contains_ignoring_ws(
+        &dts,
+        "lookbackReturns(refDate: string, fiscalYearStartMonth?: number): LookbackReturns;",
     ));
-    assert!(dts.contains("martinRatio(cagr: number, ulcer: number): number;"));
-    assert!(dts.contains("The WASM analytics namespace intentionally exposes pure functions"));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "rollingReturns(tickerIdx: number, window: number): RollingReturns;",
+    ));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "multiFactorGreeks(tickerIdx: number, factorReturns: NumericMatrix): MultiFactorResult;",
+    ));
+    // GARCH / VaR-backtesting / ruin types and free functions must be gone.
+    assert!(!dts.contains("fitGarch11"));
+    assert!(!dts.contains("rollingVarForecasts"));
+    assert!(!dts.contains("rollingVarBatch"));
+    assert!(!dts.contains("RuinModel"));
+    assert!(!dts.contains("BacktestResultJson"));
 }
 
 #[test]

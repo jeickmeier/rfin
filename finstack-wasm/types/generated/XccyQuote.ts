@@ -3,23 +3,23 @@
 /**
  * Market quote for cross-currency basis swap instruments.
  */
-export type XccyQuote = { "type": "basis_swap",
+export type XccyQuote = { "type": "basis_swap", 
 /**
  * Unique identifier for the quote.
  */
-id: string,
+id: string, 
 /**
  * XCCY pair convention identifier (e.g., `EUR/USD-XCCY`).
  */
-convention: string,
+convention: string, 
 /**
  * Far-leg maturity pillar; near leg is the convention spot date.
  */
-far_pillar: string,
+far_pillar: string, 
 /**
  * Basis spread in basis points applied to the quote-currency leg.
  */
-basis_spread_bp: number,
+basis_spread_bp: number, 
 /**
  * Optional spot FX quote (quote currency per 1 unit of base currency).
  *

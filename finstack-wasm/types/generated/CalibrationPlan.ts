@@ -8,23 +8,23 @@ import type { CalibrationStep } from "./CalibrationStep";
  * A plan organizes market data into named sets and defines a sequence of
  * [`CalibrationStep`] to be executed.
  */
-export type CalibrationPlan = {
+export type CalibrationPlan = { 
 /**
  * Unique identifier for the calibration plan.
  */
-id: string,
+id: string, 
 /**
  * Optional human-readable description of the plan's purpose.
  */
-description: string | null,
+description: string | null, 
 /**
  * Market data organized by set name (referenced by steps).
  */
-quote_sets: Record<string, Array<unknown>>,
+quote_sets: Record<string, Array<unknown>>, 
 /**
  * Sequence of calibration steps to execute.
  */
-steps: Array<CalibrationStep>,
+steps: Array<CalibrationStep>, 
 /**
  * Global settings for the calibration process.
  */

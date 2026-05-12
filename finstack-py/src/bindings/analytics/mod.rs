@@ -1,12 +1,11 @@
 //! Python bindings for the `finstack-analytics` crate.
 //!
-//! Exposes the stateful [`PyPerformance`] class, standalone analytics functions,
-//! and result types for benchmarks, drawdowns, rolling metrics, and ruin estimation.
+//! The only Python-callable entry point is [`Performance`]. All analytics —
+//! return transforms, return/risk metrics, periodic returns, benchmark
+//! comparisons, and basic factor models — are exposed as methods on a
+//! `Performance` instance built from a price or return panel.
 
-mod backtesting;
-mod functions;
 mod performance;
-mod timeseries;
 mod types;
 
 use pyo3::prelude::*;
@@ -17,7 +16,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(py, "analytics")?;
     m.setattr(
         "__doc__",
-        "Performance analytics: returns, drawdowns, risk metrics, benchmarks.",
+        "Performance analytics centred on the Performance class.",
     )?;
     m.add(
         "AnalyticsError",
@@ -26,133 +25,25 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
 
     types::register(py, &m)?;
     performance::register(py, &m)?;
-    functions::register(py, &m)?;
-    backtesting::register(py, &m)?;
-    timeseries::register(py, &m)?;
 
     let all = PyList::new(
         py,
         [
-            // Exceptions
             "AnalyticsError",
-            // Types
+            "Performance",
+            "LookbackReturns",
             "PeriodStats",
             "BetaResult",
             "GreeksResult",
             "RollingGreeks",
             "MultiFactorResult",
             "DrawdownEpisode",
-            "LookbackReturns",
             "RollingSharpe",
             "RollingSortino",
             "RollingVolatility",
+            "RollingReturns",
             "CagrBasis",
-            "RuinDefinition",
-            "RuinModel",
-            "RuinEstimate",
             "BenchmarkAlignmentPolicy",
-            "KupiecResult",
-            "ChristoffersenResult",
-            "TrafficLightResult",
-            "BacktestResult",
-            "PnlExplanation",
-            "MultiModelComparison",
-            "VarianceForecast",
-            "GarchFit",
-            "GarchParams",
-            // Performance class
-            "Performance",
-            // Aggregation
-            "group_by_period",
-            "period_stats",
-            // Benchmark
-            "align_benchmark",
-            "beta",
-            "greeks",
-            "rolling_greeks",
-            "tracking_error",
-            "information_ratio",
-            "r_squared",
-            "up_capture",
-            "down_capture",
-            "capture_ratio",
-            "batting_average",
-            "multi_factor_greeks",
-            "treynor",
-            "m_squared",
-            // Drawdown
-            "to_drawdown_series",
-            "drawdown_details",
-            "mean_episode_drawdown",
-            "mean_drawdown",
-            "max_drawdown",
-            "max_drawdown_duration",
-            "cdar",
-            "ulcer_index",
-            "pain_index",
-            "calmar",
-            "recovery_factor",
-            "martin_ratio",
-            "sterling_ratio",
-            "burke_ratio",
-            "pain_ratio",
-            // Returns
-            "simple_returns",
-            "clean_returns",
-            "excess_returns",
-            "convert_to_prices",
-            "rebase",
-            "comp_sum",
-            "comp_total",
-            // Risk metrics — return-based
-            "cagr",
-            "mean_return",
-            "volatility",
-            "sharpe",
-            "downside_deviation",
-            "sortino",
-            "geometric_mean",
-            "omega_ratio",
-            "gain_to_pain",
-            "modified_sharpe",
-            "estimate_ruin",
-            // Risk metrics — rolling
-            "rolling_sharpe",
-            "rolling_sortino",
-            "rolling_volatility",
-            // Risk metrics — tail
-            "value_at_risk",
-            "expected_shortfall",
-            "parametric_var",
-            "cornish_fisher_var",
-            "skewness",
-            "kurtosis",
-            "tail_ratio",
-            "outlier_win_ratio",
-            "outlier_loss_ratio",
-            // VaR backtesting
-            "classify_breaches",
-            "kupiec_test",
-            "christoffersen_test",
-            "traffic_light",
-            "run_backtest",
-            "rolling_var_forecasts",
-            "compare_var_backtests",
-            "pnl_explanation",
-            "mtd_select",
-            "qtd_select",
-            "ytd_select",
-            "fytd_select",
-            // GARCH volatility models
-            "fit_garch11",
-            "fit_egarch11",
-            "fit_gjr_garch11",
-            "forecast_garch_fit",
-            "ljung_box",
-            "arch_lm",
-            "aic",
-            "bic",
-            "hqic",
         ],
     )?;
     m.setattr("__all__", all)?;

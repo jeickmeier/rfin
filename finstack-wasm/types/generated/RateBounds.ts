@@ -23,11 +23,11 @@
  * assert!(em_bounds.max_rate > 1.0);
  * ```
  */
-export type RateBounds = {
+export type RateBounds = { 
 /**
  * Minimum allowed rate (decimal, e.g., -0.02 for -2%)
  */
-min_rate: number,
+min_rate: number, 
 /**
  * Maximum allowed rate (decimal, e.g., 0.50 for 50%)
  */

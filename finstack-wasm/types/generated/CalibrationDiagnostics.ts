@@ -9,11 +9,11 @@ import type { QuoteQuality } from "./QuoteQuality";
  * analysis) and are intended for calibration debugging, auditing, and quality
  * monitoring rather than production hot paths.
  */
-export type CalibrationDiagnostics = {
+export type CalibrationDiagnostics = { 
 /**
  * Per-quote quality metrics for each calibration instrument.
  */
-per_quote: Array<QuoteQuality>,
+per_quote: Array<QuoteQuality>, 
 /**
  * Condition number of the Jacobian's normal equations (J^T * J).
  *
@@ -21,22 +21,22 @@ per_quote: Array<QuoteQuality>,
  * calibration problem where small changes in market data can produce
  * large changes in calibrated parameters.
  */
-condition_number: number | null,
+condition_number: number | null, 
 /**
  * Singular values of the Jacobian matrix (if computed).
  *
  * Useful for diagnosing rank deficiency and understanding which
  * parameter directions are well-determined vs poorly-determined.
  */
-singular_values: Array<number> | null,
+singular_values: Array<number> | null, 
 /**
  * Maximum absolute residual across all quotes.
  */
-max_residual: number,
+max_residual: number, 
 /**
  * Root mean square residual across all quotes.
  */
-rms_residual: number,
+rms_residual: number, 
 /**
  * Coefficient of determination (R-squared) for the fit.
  *

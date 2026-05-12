@@ -5,7 +5,6 @@
 
 use finstack_analytics::performance::Performance;
 use finstack_analytics::returns::{clean_returns, simple_returns};
-use finstack_analytics::risk_metrics::{RuinDefinition, RuinModel};
 use finstack_core::dates::{Date, FiscalConfig, Month, PeriodKind};
 
 fn calendar_days(start: Date, n: usize) -> Vec<Date> {
@@ -56,19 +55,6 @@ fn performance_facade_exercises_broad_api_surface() {
     let _ = perf.expected_shortfall(0.95);
     let _ = perf.tail_ratio(0.95);
     let _ = perf.ulcer_index();
-    let ruin_model = RuinModel {
-        horizon_periods: 60,
-        n_paths: 800,
-        block_size: 1,
-        seed: 11,
-        confidence_level: 0.95,
-    };
-    let _ = perf.estimate_ruin(
-        RuinDefinition::WealthFloor {
-            floor_fraction: 0.5,
-        },
-        &ruin_model,
-    );
     let _ = perf.skewness();
     let _ = perf.kurtosis();
     let _ = perf.geometric_mean();

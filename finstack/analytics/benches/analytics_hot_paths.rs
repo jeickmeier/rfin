@@ -6,16 +6,13 @@
 //! - tail-risk quantiles (`value_at_risk`, `expected_shortfall`)
 //! - return-based ratios (`sharpe`, `volatility`)
 //! - drawdown series construction
-//! - GARCH(1,1) fit
 //! - `Performance::new` construction + summary stats
 
 use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use finstack_analytics::backtesting::{rolling_var_forecasts, VarMethod};
 use finstack_analytics::drawdown::to_drawdown_series;
 use finstack_analytics::risk_metrics::{expected_shortfall, sharpe, value_at_risk, volatility};
-use finstack_analytics::timeseries::{Garch11, GarchModel, InnovationDist};
 use finstack_analytics::Performance;
 use finstack_core::dates::{Date, Month, PeriodKind};
 
@@ -71,27 +68,6 @@ fn bench_drawdown(c: &mut Criterion) {
     });
 }
 
-fn bench_rolling_var(c: &mut Criterion) {
-    let r = synthetic_returns(1_000, 17);
-    c.bench_function("rolling_var_forecasts hist 1k/250", |b| {
-        b.iter(|| {
-            black_box(rolling_var_forecasts(
-                black_box(&r),
-                250,
-                0.99,
-                VarMethod::Historical,
-            ))
-        });
-    });
-}
-
-fn bench_garch11(c: &mut Criterion) {
-    let r = synthetic_returns(500, 23);
-    c.bench_function("fit Garch11 500 gaussian", |b| {
-        b.iter(|| black_box(Garch11.fit(black_box(&r), InnovationDist::Gaussian, None)));
-    });
-}
-
 fn bench_performance(c: &mut Criterion) {
     let n = 750;
     let start = Date::from_calendar_date(2020, Month::January, 1).expect("valid");
@@ -140,8 +116,6 @@ criterion_group!(
     bench_tail_risk,
     bench_return_based,
     bench_drawdown,
-    bench_rolling_var,
-    bench_garch11,
     bench_performance,
 );
 criterion_main!(benches);

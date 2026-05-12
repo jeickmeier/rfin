@@ -127,30 +127,55 @@ class TestCoreNamespace:
 class TestAnalyticsNamespace:
     """Verify the analytics subpackage."""
 
-    def test_analytics_exports(self) -> None:
-        """Analytics should export Performance class and standalone functions."""
+    def test_analytics_exports_performance_and_value_objects(self) -> None:
+        """Analytics exposes Performance plus the value-object result types."""
         from finstack.analytics import (  # noqa: F401
+            AnalyticsError,
+            BenchmarkAlignmentPolicy,
+            BetaResult,
+            CagrBasis,
+            DrawdownEpisode,
+            GreeksResult,
+            LookbackReturns,
+            MultiFactorResult,
             Performance,
-            comp_sum,
-            comp_total,
-            expected_shortfall,
-            max_drawdown,
-            mean_return,
-            sharpe,
-            simple_returns,
-            sortino,
-            to_drawdown_series,
-            value_at_risk,
-            volatility,
+            PeriodStats,
+            RollingGreeks,
+            RollingReturns,
+            RollingSharpe,
+            RollingSortino,
+            RollingVolatility,
         )
 
-    def test_analytics_does_not_export_legacy_rolling_values(self) -> None:
-        """Legacy rolling `_values` helpers should not remain on the public namespace."""
+    def test_analytics_drops_freestanding_helpers(self) -> None:
+        """Every freestanding analytic is now a method on `Performance`."""
         from finstack import analytics
 
-        assert not hasattr(analytics, "rolling_sharpe_values")
-        assert not hasattr(analytics, "rolling_sortino_values")
-        assert not hasattr(analytics, "rolling_volatility_values")
+        for name in (
+            "cagr",
+            "sharpe",
+            "sortino",
+            "volatility",
+            "simple_returns",
+            "max_drawdown",
+            "to_drawdown_series",
+            "comp_sum",
+            "comp_total",
+            "value_at_risk",
+            "expected_shortfall",
+            "rolling_sharpe",
+            "rolling_greeks",
+            "multi_factor_greeks",
+            "rolling_var_forecasts",
+            "classify_breaches",
+            "fit_garch11",
+            "estimate_ruin",
+            "mtd_select",
+            "ytd_select",
+            "fytd_select",
+        ):
+            assert not hasattr(analytics, name)
+            assert name not in analytics.__all__
 
     def test_analytics_does_not_export_statement_comps(self) -> None:
         """Comparable-company helpers belong on statements_analytics, not analytics."""

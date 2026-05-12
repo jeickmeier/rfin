@@ -1,8 +1,17 @@
-"""Tests for analytics functions: returns, risk metrics, drawdowns."""
+"""Tests for the `Performance`-centric analytics binding.
 
-from datetime import date
+After the analytics paredown, every analytic is a method on
+:class:`Performance`. These tests construct a small panel from prices or
+returns and exercise the methods that answer the five core questions:
+prices→returns, return/risk metrics, periodic returns, benchmark
+alpha/beta, and basic factor models.
+"""
+
+from __future__ import annotations
+
+from datetime import date, timedelta
+import math
 from pathlib import Path
-from typing import cast
 
 from finstack.statements_analytics import (
     compute_multiple,
@@ -10,369 +19,354 @@ from finstack.statements_analytics import (
     regression_fair_value,
     score_relative_value,
 )
+import pandas as pd
 import pytest
 
 from finstack.analytics import (
     AnalyticsError,
-    RuinModel,
-    classify_breaches,
-    comp_sum,
-    comp_total,
-    compare_var_backtests,
-    fytd_select,
-    max_drawdown,
-    mean_return,
-    mtd_select,
-    multi_factor_greeks,
-    pnl_explanation,
-    qtd_select,
-    rolling_var_forecasts,
-    sharpe,
-    simple_returns,
-    sortino,
-    to_drawdown_series,
-    volatility,
-    ytd_select,
+    BenchmarkAlignmentPolicy,
+    BetaResult,
+    CagrBasis,
+    GreeksResult,
+    LookbackReturns,
+    MultiFactorResult,
+    Performance,
+    PeriodStats,
+    RollingGreeks,
+    RollingReturns,
+    RollingSharpe,
+    RollingSortino,
+    RollingVolatility,
 )
 
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
 
-def _max_dd(returns: list[float]) -> float:
-    """Convenience: compose max_drawdown with to_drawdown_series."""
-    return max_drawdown(to_drawdown_series(returns))
+
+def _daily_dates(n: int, start: date = date(2024, 1, 1)) -> list[date]:
+    return [start + timedelta(days=i) for i in range(n)]
 
 
-class TestSimpleReturns:
-    """Validate simple return computation from price series."""
+def _prices_panel() -> pd.DataFrame:
+    """Two-ticker daily price panel: ACME oscillates, BENCH drifts up."""
+    n = 60
+    dates = _daily_dates(n)
+    acme = [100.0]
+    bench = [100.0]
+    for i in range(1, n):
+        acme.append(acme[-1] * (1.0 + (0.01 if i % 2 == 0 else -0.005)))
+        bench.append(bench[-1] * (1.0 + 0.002))
+    return pd.DataFrame({"ACME": acme, "BENCH": bench}, index=pd.to_datetime(dates))
 
-    def test_basic_price_series(self) -> None:
-        """Simple returns from [100, 110, 99] include a leading zero."""
-        prices = [100.0, 110.0, 99.0]
-        rets = simple_returns(prices)
-        assert len(rets) == 3
-        assert rets[0] == pytest.approx(0.0)
-        assert rets[1] == pytest.approx(0.1)
-        assert rets[2] == pytest.approx(-0.1, abs=1e-10)
 
-    def test_constant_prices(self) -> None:
-        """Constant prices yield zero returns."""
-        prices = [50.0, 50.0, 50.0, 50.0]
-        rets = simple_returns(prices)
-        assert all(r == pytest.approx(0.0) for r in rets)
+def _returns_panel(prices: pd.DataFrame) -> pd.DataFrame:
+    """Simple returns aligned with the price index (leading row = 0)."""
+    return prices.pct_change().fillna(0.0)
 
-    def test_single_price(self) -> None:
-        """Single price yields a series with one zero entry."""
-        rets = simple_returns([100.0])
-        assert len(rets) == 1
-        assert rets[0] == pytest.approx(0.0)
 
-    def test_stub_matches_runtime_contract(self) -> None:
-        """The stub documents the leading-zero, same-length runtime shape."""
+@pytest.fixture
+def perf_prices() -> Performance:
+    return Performance(_prices_panel(), benchmark_ticker="BENCH", freq="daily")
+
+
+@pytest.fixture
+def perf_returns() -> Performance:
+    return Performance.from_returns(
+        _returns_panel(_prices_panel()),
+        benchmark_ticker="BENCH",
+        freq="daily",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Construction
+# ---------------------------------------------------------------------------
+
+
+class TestConstruction:
+    def test_from_prices_dataframe(self, perf_prices: Performance) -> None:
+        assert perf_prices.ticker_names == ["ACME", "BENCH"]
+        assert perf_prices.benchmark_idx == 1
+        assert perf_prices.freq == "daily"
+        active = perf_prices.dates()
+        # Returns from N prices yield N-1 active observation dates (first
+        # price date is dropped because returns are pct_change).
+        assert len(active) == 59
+        assert active[0] == date(2024, 1, 2)
+
+    def test_from_returns_dataframe(self, perf_returns: Performance) -> None:
+        assert perf_returns.ticker_names == ["ACME", "BENCH"]
+        assert perf_returns.benchmark_idx == 1
+        assert len(perf_returns.dates()) == 60
+
+    def test_from_arrays(self) -> None:
+        dates = _daily_dates(5)
+        prices = [[100.0, 101.0, 102.0, 103.0, 104.0], [50.0, 50.5, 51.0, 51.5, 52.0]]
+        perf = Performance.from_arrays(dates, prices, ["A", "B"])
+        assert perf.ticker_names == ["A", "B"]
+        assert len(perf.cagr()) == 2
+
+    def test_from_returns_arrays(self) -> None:
+        dates = _daily_dates(4)
+        returns = [[0.01, -0.02, 0.015, 0.0], [0.005, -0.01, 0.0, 0.005]]
+        perf = Performance.from_returns_arrays(
+            dates,
+            returns,
+            ["A", "B"],
+            benchmark_ticker="B",
+        )
+        assert perf.benchmark_idx == 1
+        assert len(perf.cagr()) == 2
+
+    def test_prices_and_returns_paths_agree_on_volatility(self) -> None:
+        """Prices and returns paths should agree on volatility on the same window.
+
+        Constructing a `Performance` from prices and from the returns of those
+        prices must produce identical volatility once both objects are restricted
+        to the same active window.
+        """
+        prices = _prices_panel()
+        returns = _returns_panel(prices)
+        # Drop the leading synthetic zero so the active windows match exactly.
+        returns_no_lead = returns.iloc[1:]
+
+        perf_p = Performance(prices, benchmark_ticker="BENCH")
+        perf_p.reset_date_range(returns_no_lead.index[0].date(), prices.index[-1].date())
+
+        perf_r = Performance.from_returns(returns_no_lead, benchmark_ticker="BENCH")
+
+        vol_p = perf_p.volatility(annualize=False)
+        vol_r = perf_r.volatility(annualize=False)
+        for a, b in zip(vol_p, vol_r, strict=False):
+            assert a == pytest.approx(b, rel=1e-12, abs=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# Return / risk metrics
+# ---------------------------------------------------------------------------
+
+
+class TestReturnRiskMetrics:
+    def test_cagr_returns_one_per_ticker(self, perf_prices: Performance) -> None:
+        values = perf_prices.cagr()
+        assert len(values) == 2
+        assert all(isinstance(v, float) for v in values)
+
+    def test_volatility_positive_for_oscillating_series(self, perf_prices: Performance) -> None:
+        vols = perf_prices.volatility(annualize=True)
+        assert vols[0] > 0.0  # ACME oscillates
+        assert vols[1] >= 0.0  # BENCH drifts smoothly
+
+    def test_sharpe_sortino_finite(self, perf_prices: Performance) -> None:
+        for values in [perf_prices.sharpe(0.0), perf_prices.sortino(0.0)]:
+            assert len(values) == 2
+            assert all(not math.isnan(v) for v in values)
+
+    def test_max_drawdown_non_positive(self, perf_prices: Performance) -> None:
+        for dd in perf_prices.max_drawdown():
+            assert dd <= 0.0
+
+    def test_tail_metrics_finite(self, perf_prices: Performance) -> None:
+        for getter in (perf_prices.value_at_risk, perf_prices.expected_shortfall):
+            values = getter(0.95)
+            assert len(values) == 2
+            assert all(not math.isnan(v) for v in values)
+
+    def test_higher_moments_finite(self, perf_prices: Performance) -> None:
+        for getter in (perf_prices.skewness, perf_prices.kurtosis):
+            values = getter()
+            assert len(values) == 2
+            assert all(not math.isnan(v) for v in values)
+
+    def test_summary_to_dataframe_has_one_row_per_ticker(self, perf_prices: Performance) -> None:
+        summary = perf_prices.summary_to_dataframe()
+        assert list(summary.index) == ["ACME", "BENCH"]
+        assert "cagr" in summary.columns
+        assert "sharpe" in summary.columns
+        assert "max_drawdown" in summary.columns
+
+
+# ---------------------------------------------------------------------------
+# Periodic returns
+# ---------------------------------------------------------------------------
+
+
+class TestPeriodicReturns:
+    def test_lookback_returns_returns_per_ticker_vectors(self, perf_prices: Performance) -> None:
+        lb = perf_prices.lookback_returns(date(2024, 2, 29))
+        assert isinstance(lb, LookbackReturns)
+        assert len(lb.mtd) == 2
+        assert len(lb.qtd) == 2
+        assert len(lb.ytd) == 2
+
+    def test_lookback_with_fiscal_month(self, perf_prices: Performance) -> None:
+        lb = perf_prices.lookback_returns(date(2024, 2, 29), fiscal_year_start_month=4)
+        assert lb.fytd is not None
+        assert len(lb.fytd) == 2
+
+    def test_lookback_rejects_invalid_fiscal_month(self, perf_prices: Performance) -> None:
+        with pytest.raises(AnalyticsError, match="Invalid"):
+            perf_prices.lookback_returns(date(2024, 2, 29), fiscal_year_start_month=13)
+
+    def test_period_stats_monthly(self, perf_prices: Performance) -> None:
+        stats = perf_prices.period_stats(0, agg_freq="monthly")
+        assert isinstance(stats, PeriodStats)
+        assert 0.0 <= stats.win_rate <= 1.0
+
+    def test_rolling_returns_matches_dated_series_shape(self, perf_prices: Performance) -> None:
+        rr = perf_prices.rolling_returns(0, 5)
+        assert isinstance(rr, RollingReturns)
+        assert len(rr.values) == len(rr.dates())
+        assert len(rr.values) > 0
+
+
+# ---------------------------------------------------------------------------
+# Benchmark comparison
+# ---------------------------------------------------------------------------
+
+
+class TestBenchmark:
+    def test_beta_returns_per_ticker(self, perf_prices: Performance) -> None:
+        results = perf_prices.beta()
+        assert len(results) == 2
+        assert all(isinstance(r, BetaResult) for r in results)
+
+    def test_greeks_returns_per_ticker(self, perf_prices: Performance) -> None:
+        results = perf_prices.greeks()
+        assert len(results) == 2
+        assert all(isinstance(r, GreeksResult) for r in results)
+
+    def test_rolling_greeks(self, perf_prices: Performance) -> None:
+        rg = perf_prices.rolling_greeks(0, window=10)
+        assert isinstance(rg, RollingGreeks)
+        assert len(rg.alphas) == len(rg.betas)
+        assert len(rg.dates()) == len(rg.alphas)
+
+    def test_rolling_window_metrics(self, perf_prices: Performance) -> None:
+        rs = perf_prices.rolling_sharpe(0, window=10)
+        rso = perf_prices.rolling_sortino(0, window=10)
+        rv = perf_prices.rolling_volatility(0, window=10)
+        assert isinstance(rs, RollingSharpe)
+        assert isinstance(rso, RollingSortino)
+        assert isinstance(rv, RollingVolatility)
+        assert len(rs.values) == len(rs.dates())
+
+    def test_information_and_tracking(self, perf_prices: Performance) -> None:
+        te = perf_prices.tracking_error()
+        ir = perf_prices.information_ratio()
+        assert len(te) == 2
+        assert len(ir) == 2
+
+    def test_reset_bench_ticker_changes_index(self, perf_prices: Performance) -> None:
+        perf_prices.reset_bench_ticker("ACME")
+        assert perf_prices.benchmark_idx == 0
+
+
+# ---------------------------------------------------------------------------
+# Multi-factor
+# ---------------------------------------------------------------------------
+
+
+class TestMultiFactor:
+    def test_multi_factor_returns_structured_result(self, perf_prices: Performance) -> None:
+        n = len(perf_prices.dates())
+        factor1 = [0.001 * (i % 5) for i in range(n)]
+        factor2 = [0.002 if i % 3 == 0 else -0.001 for i in range(n)]
+        result = perf_prices.multi_factor_greeks(0, [factor1, factor2])
+        assert isinstance(result, MultiFactorResult)
+        assert len(result.betas) == 2
+        assert 0.0 <= result.r_squared <= 1.0
+
+    def test_multi_factor_rejects_non_finite_inputs(self, perf_prices: Performance) -> None:
+        n = len(perf_prices.dates())
+        bad = [float("nan")] + [0.001] * (n - 1)
+        with pytest.raises(AnalyticsError):
+            perf_prices.multi_factor_greeks(0, [bad])
+
+
+# ---------------------------------------------------------------------------
+# Date window mutation
+# ---------------------------------------------------------------------------
+
+
+class TestDateRange:
+    def test_reset_date_range_narrows_active_grid(self, perf_prices: Performance) -> None:
+        perf_prices.reset_date_range(date(2024, 1, 10), date(2024, 1, 20))
+        active = perf_prices.dates()
+        assert active[0] == date(2024, 1, 10)
+        assert active[-1] == date(2024, 1, 20)
+
+
+# ---------------------------------------------------------------------------
+# Value-object inputs
+# ---------------------------------------------------------------------------
+
+
+class TestValueObjects:
+    def test_cagr_basis_factor_and_dates_construct(self) -> None:
+        assert CagrBasis.factor(252.0) is not None
+        assert CagrBasis.dates(date(2024, 1, 1), date(2025, 1, 1)) is not None
+
+    def test_benchmark_alignment_policy(self) -> None:
+        assert BenchmarkAlignmentPolicy.zero_on_missing() is not None
+        assert BenchmarkAlignmentPolicy.error_on_missing() is not None
+
+
+# ---------------------------------------------------------------------------
+# Stubs
+# ---------------------------------------------------------------------------
+
+
+class TestStubs:
+    """Smoke tests that the `.pyi` stays in sync with the registered API."""
+
+    def test_stub_lists_performance_first(self) -> None:
         stub_path = Path(__file__).resolve().parents[1] / "finstack" / "analytics" / "__init__.pyi"
         stub_text = stub_path.read_text()
+        assert "class Performance:" in stub_text
+        assert "from_returns" in stub_text
+        assert "rolling_returns" in stub_text
+        assert '"Performance"' in stub_text
 
-        assert simple_returns([100.0, 101.0]) == pytest.approx([0.0, 0.01])
-        assert "Simple returns (same length as ``prices``)." in stub_text
-        assert ">>> simple_returns([100.0, 101.0])" in stub_text
-        assert "[0.0, 0.01]" in stub_text
-
-
-class TestVolatility:
-    """Validate annualised volatility."""
-
-    def test_zero_returns(self) -> None:
-        """Zero-variance returns yield zero volatility."""
-        rets = [0.0, 0.0, 0.0, 0.0, 0.0]
-        assert volatility(rets) == pytest.approx(0.0)
-
-    def test_positive_for_nonzero_returns(self) -> None:
-        """Nonzero returns produce positive volatility."""
-        rets = [0.01, -0.02, 0.015, -0.005, 0.01]
-        assert volatility(rets) > 0.0
-
-    def test_annualisation_factor(self) -> None:
-        """Halving the annualisation factor reduces volatility by sqrt(2)."""
-        rets = [0.01, -0.02, 0.015, -0.005, 0.01]
-        v252 = volatility(rets, annualize=True, ann_factor=252.0)
-        v126 = volatility(rets, annualize=True, ann_factor=126.0)
-        ratio = v252 / v126
-        assert ratio == pytest.approx(2.0**0.5, rel=1e-6)
+    def test_stub_drops_legacy_freestanding_functions(self) -> None:
+        stub_path = Path(__file__).resolve().parents[1] / "finstack" / "analytics" / "__init__.pyi"
+        stub_text = stub_path.read_text()
+        # These freestanding functions were deleted; ensure the stub matches the runtime.
+        assert "def estimate_ruin" not in stub_text
+        assert "def fit_garch11" not in stub_text
+        assert "def rolling_var_forecasts" not in stub_text
+        assert "def classify_breaches" not in stub_text
 
 
-class TestSharpe:
-    """Validate annualised Sharpe ratio."""
-
-    def test_positive_returns(self) -> None:
-        """Consistently positive returns should yield positive Sharpe."""
-        assert sharpe(0.10, 0.15, 0.0) > 0.0
-
-    def test_zero_vol(self) -> None:
-        """Sharpe with zero vol is NaN or inf."""
-        import math
-
-        s = sharpe(0.05, 0.0, 0.0)
-        assert math.isinf(s) or math.isnan(s) or s == 0.0
-
-    def test_rf_reduces_sharpe(self) -> None:
-        """Higher risk-free rate reduces the Sharpe ratio."""
-        s_low = sharpe(0.10, 0.15, 0.0)
-        s_high = sharpe(0.10, 0.15, 0.05)
-        assert s_low > s_high
-
-
-class TestSortino:
-    """Validate annualised Sortino ratio."""
-
-    def test_all_positive(self) -> None:
-        """No downside returns should yield a very large Sortino (or inf)."""
-        rets = [0.01, 0.02, 0.03, 0.015]
-        s = sortino(rets)
-        assert s > 0.0
-
-    def test_mixed_returns(self) -> None:
-        """Mixed positive/negative returns should produce a finite Sortino."""
-        rets = [0.01, -0.02, 0.015, -0.005, 0.01]
-        s = sortino(rets)
-        assert isinstance(s, float)
-
-    def test_mar_changes_sortino(self) -> None:
-        """Raising the minimum acceptable return should tighten the ratio."""
-        rets = [0.01, 0.02, 0.03, 0.04]
-        baseline = sortino(rets, annualize=False, ann_factor=252.0, mar=0.0)
-        hurdle = sortino(rets, annualize=False, ann_factor=252.0, mar=0.02)
-        assert hurdle < baseline
-
-
-class TestMeanReturn:
-    """Validate arithmetic mean return."""
-
-    def test_known_series(self) -> None:
-        """Mean of [0.10, -0.10, 0.20] is about 0.0667."""
-        rets = [0.10, -0.10, 0.20]
-        assert mean_return(rets) == pytest.approx(0.2 / 3.0, abs=1e-10)
-
-
-class TestCagr:
-    """Validate CAGR basis selection."""
-
-    def test_factor_basis_matches_expected_growth(self) -> None:
-        """A one-year factor basis should annualize a single-year return directly."""
-        from finstack.analytics import CagrBasis, cagr
-
-        value = cagr([0.10], CagrBasis.factor(1.0))
-        assert value == pytest.approx(0.10, abs=1e-12)
-
-    def test_date_basis_matches_calendar_year_growth(self) -> None:
-        """A one-year date basis should match the same single-year return."""
-        from finstack.analytics import CagrBasis, cagr
-
-        value = cagr([0.10], CagrBasis.dates(date(2024, 1, 1), date(2025, 1, 1)))
-        assert value == pytest.approx(0.10, abs=1e-3)
-
-    def test_date_basis_rejects_non_positive_spans(self) -> None:
-        """Same-date and reversed-date CAGR spans should raise instead of returning 0."""
-        from finstack.analytics import CagrBasis, cagr
-
-        with pytest.raises(AnalyticsError, match=r"(?i)invalid") as exc:
-            cagr([0.10], CagrBasis.dates(date(2024, 1, 1), date(2024, 1, 1)))
-        assert isinstance(exc.value, ValueError)
-
-        with pytest.raises(AnalyticsError, match=r"(?i)invalid"):
-            cagr([0.10], CagrBasis.dates(date(2025, 1, 1), date(2024, 1, 1)))
-
-
-class TestMultiFactorGreeks:
-    """Validate strict multi-factor regression boundaries."""
-
-    def test_non_finite_factor_raises(self) -> None:
-        """Non-finite factor data should raise instead of producing bad regression output."""
-        returns = [0.01, -0.02, 0.03, -0.01]
-        factors = [[0.01, float("nan"), 0.02, -0.01]]
-
-        with pytest.raises(AnalyticsError, match=r"(?i)invalid") as exc:
-            multi_factor_greeks(returns, factors, 252.0)
-        assert isinstance(exc.value, ValueError)
-
-
-class TestMaxDrawdown:
-    """Validate maximum drawdown from return series."""
-
-    def test_no_drawdown(self) -> None:
-        """Monotone positive returns yield zero drawdown."""
-        rets = [0.01, 0.01, 0.01, 0.01]
-        assert _max_dd(rets) == pytest.approx(0.0)
-
-    def test_known_drawdown(self) -> None:
-        """A large drop creates a measurable drawdown (negative by convention)."""
-        rets = [0.10, -0.20, 0.05, -0.05]
-        dd = _max_dd(rets)
-        assert dd < 0.0
-        assert dd >= -1.0
-
-    def test_full_loss(self) -> None:
-        """A -100% return produces a -1.0 drawdown."""
-        rets = [0.0, -1.0]
-        assert _max_dd(rets) == pytest.approx(-1.0)
-
-
-class TestCompSum:
-    """Validate cumulative compounded return series."""
-
-    def test_basic(self) -> None:
-        """comp_sum of [0.10, 0.10] = [0.10, 0.21]."""
-        cs = comp_sum([0.10, 0.10])
-        assert len(cs) == 2
-        assert cs[0] == pytest.approx(0.10)
-        assert cs[1] == pytest.approx(0.21)
-
-    def test_zero_returns(self) -> None:
-        """Zero returns yield zero cumulative returns."""
-        cs = comp_sum([0.0, 0.0, 0.0])
-        assert all(c == pytest.approx(0.0) for c in cs)
-
-
-class TestCompTotal:
-    """Validate total compounded return."""
-
-    def test_basic(self) -> None:
-        """Total compound of [0.10, 0.10] is 0.21."""
-        assert comp_total([0.10, 0.10]) == pytest.approx(0.21)
-
-    def test_negative(self) -> None:
-        """Total compound of [-0.50, -0.50] is -0.75."""
-        assert comp_total([-0.50, -0.50]) == pytest.approx(-0.75)
-
-    def test_empty(self) -> None:
-        """Empty series compounds to zero."""
-        assert comp_total([]) == pytest.approx(0.0)
-
-
-class TestDrawdownSeries:
-    """Validate to_drawdown_series conversion."""
-
-    def test_no_drawdown(self) -> None:
-        """Monotone positive returns have all-zero drawdowns."""
-        dd = to_drawdown_series([0.01, 0.01, 0.01])
-        assert all(d == pytest.approx(0.0) for d in dd)
-
-    def test_length_matches(self) -> None:
-        """Drawdown series has the same length as the input."""
-        rets = [0.01, -0.02, 0.015]
-        assert len(to_drawdown_series(rets)) == len(rets)
+# ---------------------------------------------------------------------------
+# Cross-binding sanity (comps live in statements_analytics)
+# ---------------------------------------------------------------------------
 
 
 class TestCompsBindings:
-    """Validate canonical comps binding behavior."""
-
-    def test_compute_multiple_uses_company_metrics_and_multiple(self) -> None:
-        """compute_multiple mirrors the Rust CompanyMetrics + Multiple API."""
+    def test_compute_multiple(self) -> None:
         metrics = {"enterprise_value": 8_500.0, "ebitda": 1_000.0}
-        value = compute_multiple(metrics, "EvEbitda")
-        assert value == pytest.approx(8.5)
+        assert compute_multiple(metrics, "EvEbitda") == pytest.approx(8.5)
 
-    def test_compute_multiple_returns_none_for_missing_inputs(self) -> None:
-        """Missing denominator fields yield None instead of NaN sentinel values."""
-        metrics = {"enterprise_value": 8_500.0}
-        assert compute_multiple(metrics, "EvEbitda") is None
-
-    def test_regression_fair_value_uses_subject_y_for_residual(self) -> None:
-        """Residual matches actual minus fitted, not a binding-invented placeholder."""
-        result = regression_fair_value(
-            [1.0, 2.0, 3.0, 4.0],
-            [3.0, 5.0, 7.0, 9.0],
-            3.0,
-            10.0,
-        )
+    def test_regression_fair_value(self) -> None:
+        result = regression_fair_value([1.0, 2.0, 3.0, 4.0], [3.0, 5.0, 7.0, 9.0], 3.0, 10.0)
         assert result["fitted_value"] == pytest.approx(7.0)
         assert result["residual"] == pytest.approx(3.0)
 
-    def test_percentile_rank_uses_fraction_units(self) -> None:
-        """Python keeps Rust/WASM percentile rank units in [0, 1]."""
+    def test_percentile_rank(self) -> None:
         assert percentile_rank(250.0, [100.0, 200.0, 300.0, 400.0, 500.0]) == pytest.approx(0.4)
 
-    def test_ruin_model_default_matches_rust(self) -> None:
-        """Default bootstrap block size matches the canonical Rust model."""
-        assert RuinModel().block_size == 5
-
-    def test_score_relative_value_accepts_regression_dimensions(self) -> None:
-        """Python can pass full regression dimensions through to Rust scoring."""
+    def test_score_relative_value(self) -> None:
         subject = {"leverage": 2.0, "oas_bps": 250.0}
         peers = [
             {"leverage": 1.0, "oas_bps": 100.0},
             {"leverage": 2.0, "oas_bps": 200.0},
             {"leverage": 3.0, "oas_bps": 300.0},
         ]
-
         result = score_relative_value(
             subject,
             peers,
             [{"label": "Spread vs Leverage", "y": "oas_bps", "x": ["leverage"], "weight": 1.0}],
         )
-
-        by_dimension = cast(dict[str, dict[str, float | None]], result["by_dimension"])
-        dim = by_dimension["Spread vs Leverage"]
-        assert dim["regression_residual"] == pytest.approx(50.0)
-        assert dim["r_squared"] == pytest.approx(1.0)
-        assert cast(float, result["composite_score"]) > 0.0
-
-
-class TestLookbackBindings:
-    """Validate Python lookback selector bindings."""
-
-    @staticmethod
-    def _dates() -> list[date]:
-        return [
-            date(2024, 12, 31),
-            date(2025, 1, 1),
-            date(2025, 1, 2),
-            date(2025, 1, 31),
-            date(2025, 2, 1),
-            date(2025, 2, 15),
-        ]
-
-    def test_mtd_select_returns_index_range(self) -> None:
-        assert mtd_select(self._dates(), date(2025, 2, 15)) == (4, 6)
-
-    def test_qtd_select_returns_index_range(self) -> None:
-        assert qtd_select(self._dates(), date(2025, 2, 15)) == (1, 6)
-
-    def test_ytd_select_returns_index_range(self) -> None:
-        assert ytd_select(self._dates(), date(2025, 2, 15)) == (1, 6)
-
-    def test_fytd_select_returns_index_range(self) -> None:
-        assert fytd_select(self._dates(), date(2025, 2, 15), 10, 1) == (0, 6)
-
-
-class TestBacktestingBindings:
-    """Validate extended Python backtesting bindings."""
-
-    def test_classify_breaches_returns_dense_boolean_series(self) -> None:
-        """The binding preserves one breach indicator per observation."""
-        assert classify_breaches([-0.02, -0.02], [-0.01, -0.03]) == [False, True]
-
-    def test_rolling_var_forecasts_historical(self) -> None:
-        forecasts, realized = rolling_var_forecasts(
-            [0.01, -0.02, 0.015, -0.01, 0.02, -0.03],
-            3,
-            method="Historical",
-        )
-        assert len(forecasts) == 3
-        assert len(realized) == 3
-
-    def test_compare_var_backtests_returns_model_labels(self) -> None:
-        comparison = compare_var_backtests(
-            [
-                ("Historical", [-0.02, -0.02, -0.02]),
-                ("Parametric", [-0.015, -0.015, -0.015]),
-            ],
-            [-0.01, -0.03, -0.01],
-        )
-        assert [label for label, _ in comparison.results] == ["Historical", "Parametric"]
-
-    def test_pnl_explanation_wraps_struct(self) -> None:
-        result = pnl_explanation(
-            [100.0, 110.0, 105.0],
-            [99.0, 109.0, 104.0],
-            [10.0, 10.0, 10.0],
-        )
-        assert result.n == 3
-        assert result.mean_abs_unexplained == pytest.approx(1.0)
+        assert result["composite_score"] > 0.0

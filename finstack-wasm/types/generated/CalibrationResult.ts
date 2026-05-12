@@ -3,19 +3,19 @@
 /**
  * Complete calibration result with market snapshot and diagnostics.
  */
-export type CalibrationResult = {
+export type CalibrationResult = { 
 /**
  * Final calibrated market context (all curves, surfaces, scalars, etc.)
  */
-final_market: unknown,
+final_market: unknown, 
 /**
  * Merged plan-level calibration report.
  */
-report: unknown,
+report: unknown, 
 /**
  * Per-step calibration reports keyed by step id.
  */
-step_reports: Record<string, unknown>,
+step_reports: Record<string, unknown>, 
 /**
  * Results metadata (timestamp, version, rounding context, etc.).
  */

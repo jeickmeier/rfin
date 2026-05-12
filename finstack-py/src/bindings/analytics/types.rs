@@ -4,7 +4,6 @@ use std::str::FromStr;
 
 use crate::bindings::core::dates::utils::{date_to_py, py_to_date};
 use crate::bindings::pandas_utils::{dates_to_pylist, dict_to_dataframe};
-use crate::errors::analytics_to_py as core_to_py;
 use finstack_analytics as fa;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyType};
@@ -546,166 +545,6 @@ impl PyCagrBasis {
 }
 
 // ---------------------------------------------------------------------------
-// Ruin types
-// ---------------------------------------------------------------------------
-
-/// Definition of a ruin event for Monte Carlo ruin estimation.
-#[pyclass(
-    name = "RuinDefinition",
-    module = "finstack.analytics",
-    frozen,
-    from_py_object
-)]
-#[derive(Clone)]
-pub struct PyRuinDefinition {
-    pub(super) inner: fa::risk_metrics::RuinDefinition,
-}
-
-#[pymethods]
-impl PyRuinDefinition {
-    /// Ruin occurs if wealth falls below ``floor_fraction`` of initial wealth.
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, floor_fraction)")]
-    fn wealth_floor(_cls: &Bound<'_, PyType>, floor_fraction: f64) -> Self {
-        Self {
-            inner: fa::risk_metrics::RuinDefinition::WealthFloor { floor_fraction },
-        }
-    }
-
-    /// Ruin occurs if terminal wealth is below ``floor_fraction`` of initial.
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, floor_fraction)")]
-    fn terminal_floor(_cls: &Bound<'_, PyType>, floor_fraction: f64) -> Self {
-        Self {
-            inner: fa::risk_metrics::RuinDefinition::TerminalFloor { floor_fraction },
-        }
-    }
-
-    /// Ruin occurs if drawdown exceeds ``max_drawdown`` (positive threshold).
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, max_drawdown)")]
-    fn drawdown_breach(_cls: &Bound<'_, PyType>, max_drawdown: f64) -> Self {
-        Self {
-            inner: fa::risk_metrics::RuinDefinition::DrawdownBreach { max_drawdown },
-        }
-    }
-
-    fn __repr__(&self) -> String {
-        format!("RuinDefinition({:?})", self.inner)
-    }
-}
-
-/// Configuration for Monte Carlo ruin estimation.
-#[pyclass(
-    name = "RuinModel",
-    module = "finstack.analytics",
-    frozen,
-    from_py_object
-)]
-#[derive(Clone)]
-pub struct PyRuinModel {
-    pub(super) inner: fa::risk_metrics::RuinModel,
-}
-
-#[pymethods]
-impl PyRuinModel {
-    /// Create a ruin simulation model.
-    #[new]
-    #[pyo3(signature = (horizon_periods=None, n_paths=None, block_size=None, seed=None, confidence_level=None))]
-    fn new(
-        horizon_periods: Option<usize>,
-        n_paths: Option<usize>,
-        block_size: Option<usize>,
-        seed: Option<u64>,
-        confidence_level: Option<f64>,
-    ) -> PyResult<Self> {
-        let defaults = &fa::registry::embedded_defaults()
-            .map_err(core_to_py)?
-            .python_bindings
-            .ruin_model;
-        Ok(Self {
-            inner: fa::risk_metrics::RuinModel {
-                horizon_periods: horizon_periods.unwrap_or(defaults.horizon_periods),
-                n_paths: n_paths.unwrap_or(defaults.n_paths),
-                block_size: block_size.unwrap_or(defaults.block_size),
-                seed: seed.unwrap_or(defaults.seed),
-                confidence_level: confidence_level.unwrap_or(defaults.confidence_level),
-            },
-        })
-    }
-
-    /// Number of forward periods to simulate.
-    #[getter]
-    fn horizon_periods(&self) -> usize {
-        self.inner.horizon_periods
-    }
-    /// Number of Monte Carlo paths.
-    #[getter]
-    fn n_paths(&self) -> usize {
-        self.inner.n_paths
-    }
-    /// Bootstrap block size.
-    #[getter]
-    fn block_size(&self) -> usize {
-        self.inner.block_size
-    }
-    /// RNG seed.
-    #[getter]
-    fn seed(&self) -> u64 {
-        self.inner.seed
-    }
-    /// Confidence level for the CI.
-    #[getter]
-    fn confidence_level(&self) -> f64 {
-        self.inner.confidence_level
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "RuinModel(horizon={}, paths={}, seed={})",
-            self.inner.horizon_periods, self.inner.n_paths, self.inner.seed
-        )
-    }
-}
-
-/// Monte Carlo ruin probability estimate with confidence interval.
-#[pyclass(name = "RuinEstimate", module = "finstack.analytics", frozen)]
-pub struct PyRuinEstimate {
-    pub(super) inner: fa::risk_metrics::RuinEstimate,
-}
-
-#[pymethods]
-impl PyRuinEstimate {
-    /// Estimated ruin probability.
-    #[getter]
-    fn probability(&self) -> f64 {
-        self.inner.probability
-    }
-    /// Standard error of the estimate.
-    #[getter]
-    fn std_err(&self) -> f64 {
-        self.inner.std_err
-    }
-    /// Lower confidence bound.
-    #[getter]
-    fn ci_lower(&self) -> f64 {
-        self.inner.ci_lower
-    }
-    /// Upper confidence bound.
-    #[getter]
-    fn ci_upper(&self) -> f64 {
-        self.inner.ci_upper
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "RuinEstimate(p={:.4}, se={:.4}, ci=[{:.4}, {:.4}])",
-            self.inner.probability, self.inner.std_err, self.inner.ci_lower, self.inner.ci_upper
-        )
-    }
-}
-
-// ---------------------------------------------------------------------------
 // BenchmarkAlignmentPolicy
 // ---------------------------------------------------------------------------
 
@@ -745,320 +584,42 @@ impl PyBenchmarkAlignmentPolicy {
 }
 
 // ---------------------------------------------------------------------------
-// KupiecResult
+// RollingReturns
 // ---------------------------------------------------------------------------
 
-/// Result of the Kupiec Proportion of Failures (POF) test.
-#[pyclass(name = "KupiecResult", module = "finstack.analytics", frozen)]
-pub struct PyKupiecResult {
-    pub(super) inner: fa::backtesting::KupiecResult,
+/// Rolling total compounded return time series.
+#[pyclass(name = "RollingReturns", module = "finstack.analytics", frozen)]
+pub struct PyRollingReturns {
+    pub(super) inner: fa::risk_metrics::DatedSeries,
 }
 
 #[pymethods]
-impl PyKupiecResult {
-    /// Likelihood-ratio test statistic LR_uc.
+impl PyRollingReturns {
+    /// Rolling total-return values, one per completed window.
     #[getter]
-    fn lr_statistic(&self) -> f64 {
-        self.inner.lr_statistic
+    fn values(&self) -> Vec<f64> {
+        self.inner.values.clone()
     }
-    /// p-value from chi-squared(1) distribution.
-    #[getter]
-    fn p_value(&self) -> f64 {
-        self.inner.p_value
-    }
-    /// Number of observed VaR breaches.
-    #[getter]
-    fn breach_count(&self) -> usize {
-        self.inner.breach_count
-    }
-    /// Expected number of breaches under H0.
-    #[getter]
-    fn expected_count(&self) -> f64 {
-        self.inner.expected_count
-    }
-    /// Total number of observations.
-    #[getter]
-    fn total_observations(&self) -> usize {
-        self.inner.total_observations
-    }
-    /// Observed breach rate.
-    #[getter]
-    fn observed_rate(&self) -> f64 {
-        self.inner.observed_rate
-    }
-    /// Whether H0 is rejected at 5% significance.
-    #[getter]
-    fn reject_h0_5pct(&self) -> bool {
-        self.inner.reject_h0_5pct
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "KupiecResult(lr={:.4}, p={:.4}, breaches={}/{})",
-            self.inner.lr_statistic,
-            self.inner.p_value,
-            self.inner.breach_count,
-            self.inner.total_observations
-        )
-    }
-}
-
-// ---------------------------------------------------------------------------
-// ChristoffersenResult
-// ---------------------------------------------------------------------------
-
-/// Result of the Christoffersen conditional coverage test.
-#[pyclass(name = "ChristoffersenResult", module = "finstack.analytics", frozen)]
-pub struct PyChristoffersenResult {
-    pub(super) inner: fa::backtesting::ChristoffersenResult,
-}
-
-#[pymethods]
-impl PyChristoffersenResult {
-    /// Unconditional coverage component (Kupiec LR_uc).
-    #[getter]
-    fn lr_uc(&self) -> f64 {
-        self.inner.lr_uc
-    }
-    /// Independence component LR_ind.
-    #[getter]
-    fn lr_ind(&self) -> f64 {
-        self.inner.lr_ind
-    }
-    /// Joint conditional coverage statistic LR_cc.
-    #[getter]
-    fn lr_cc(&self) -> f64 {
-        self.inner.lr_cc
-    }
-    /// p-value for unconditional coverage test.
-    #[getter]
-    fn p_value_uc(&self) -> f64 {
-        self.inner.p_value_uc
-    }
-    /// p-value for independence test.
-    #[getter]
-    fn p_value_ind(&self) -> f64 {
-        self.inner.p_value_ind
-    }
-    /// p-value for joint conditional coverage test.
-    #[getter]
-    fn p_value_cc(&self) -> f64 {
-        self.inner.p_value_cc
-    }
-    /// Transition matrix counts [n00, n01, n10, n11].
-    #[getter]
-    fn transition_counts(&self) -> Vec<usize> {
-        self.inner.transition_counts.to_vec()
-    }
-    /// Whether H0 (joint) is rejected at 5% significance.
-    #[getter]
-    fn reject_h0_5pct(&self) -> bool {
-        self.inner.reject_h0_5pct
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "ChristoffersenResult(lr_cc={:.4}, p_cc={:.4})",
-            self.inner.lr_cc, self.inner.p_value_cc
-        )
-    }
-}
-
-// ---------------------------------------------------------------------------
-// TrafficLightResult
-// ---------------------------------------------------------------------------
-
-/// Basel traffic-light assessment result.
-#[pyclass(name = "TrafficLightResult", module = "finstack.analytics", frozen)]
-pub struct PyTrafficLightResult {
-    pub(super) inner: fa::backtesting::TrafficLightResult,
-}
-
-#[pymethods]
-impl PyTrafficLightResult {
-    /// Assigned zone name (``"Green"``, ``"Yellow"``, or ``"Red"``).
-    #[getter]
-    fn zone(&self) -> &str {
-        match self.inner.zone {
-            fa::backtesting::TrafficLightZone::Green => "Green",
-            fa::backtesting::TrafficLightZone::Yellow => "Yellow",
-            fa::backtesting::TrafficLightZone::Red => "Red",
-        }
-    }
-    /// Number of exceptions in the evaluation window.
-    #[getter]
-    fn exceptions(&self) -> usize {
-        self.inner.exceptions
-    }
-    /// Capital multiplier for the market risk charge.
-    #[getter]
-    fn capital_multiplier(&self) -> f64 {
-        self.inner.capital_multiplier
-    }
-    /// Window size used.
-    #[getter]
-    fn window_size(&self) -> usize {
-        self.inner.window_size
-    }
-    /// VaR confidence level used.
-    #[getter]
-    fn confidence(&self) -> f64 {
-        self.inner.confidence
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "TrafficLightResult(zone={}, exceptions={}, multiplier={:.2})",
-            self.zone(),
-            self.inner.exceptions,
-            self.inner.capital_multiplier
-        )
-    }
-}
-
-// ---------------------------------------------------------------------------
-// BacktestResult
-// ---------------------------------------------------------------------------
-
-/// Full backtest result aggregating all statistical tests.
-#[pyclass(name = "BacktestResult", module = "finstack.analytics", frozen)]
-pub struct PyBacktestResult {
-    pub(super) inner: fa::backtesting::BacktestResult,
-}
-
-#[pymethods]
-impl PyBacktestResult {
-    /// Kupiec unconditional coverage test result.
-    #[getter]
-    fn kupiec(&self) -> PyKupiecResult {
-        PyKupiecResult {
-            inner: self.inner.kupiec.clone(),
-        }
-    }
-    /// Christoffersen conditional coverage test result.
-    #[getter]
-    fn christoffersen(&self) -> PyChristoffersenResult {
-        PyChristoffersenResult {
-            inner: self.inner.christoffersen.clone(),
-        }
-    }
-    /// Basel traffic-light classification result.
-    #[getter]
-    fn traffic_light(&self) -> PyTrafficLightResult {
-        PyTrafficLightResult {
-            inner: self.inner.traffic_light.clone(),
-        }
-    }
-    /// Number of observed VaR breaches.
-    #[getter]
-    fn breach_count(&self) -> usize {
-        self.inner.kupiec.breach_count
-    }
-    /// VaR confidence level used for the backtest.
-    #[getter]
-    fn confidence(&self) -> f64 {
-        self.inner.confidence
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "BacktestResult(breaches={}, confidence={:.2})",
-            self.inner.kupiec.breach_count, self.inner.confidence
-        )
-    }
-}
-
-// ---------------------------------------------------------------------------
-// PnlExplanation
-// ---------------------------------------------------------------------------
-
-/// P&L explanation metrics for VaR model validation.
-#[pyclass(name = "PnlExplanation", module = "finstack.analytics", frozen)]
-pub struct PyPnlExplanation {
-    /// Wrapped Rust value.
-    pub(super) inner: fa::backtesting::PnlExplanation,
-}
-
-#[pymethods]
-impl PyPnlExplanation {
-    /// Mean normalized unexplained P&L relative to VaR.
-    #[getter]
-    fn explanation_ratio(&self) -> f64 {
-        self.inner.explanation_ratio
-    }
-
-    /// Aggregate unexplained P&L ratio using sums across the full sample.
-    #[getter]
-    fn aggregate_explanation_ratio(&self) -> f64 {
-        self.inner.aggregate_explanation_ratio
-    }
-
-    /// Mean absolute unexplained P&L.
-    #[getter]
-    fn mean_abs_unexplained(&self) -> f64 {
-        self.inner.mean_abs_unexplained
-    }
-
-    /// Standard deviation of unexplained P&L.
-    #[getter]
-    fn std_unexplained(&self) -> f64 {
-        self.inner.std_unexplained
-    }
-
-    /// Number of observations used.
-    #[getter]
-    fn n(&self) -> usize {
-        self.inner.n
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "PnlExplanation(ratio={:.4}, agg_ratio={:.4}, mean_abs={:.4}, n={})",
-            self.inner.explanation_ratio,
-            self.inner.aggregate_explanation_ratio,
-            self.inner.mean_abs_unexplained,
-            self.inner.n
-        )
-    }
-}
-
-// ---------------------------------------------------------------------------
-// MultiModelComparison
-// ---------------------------------------------------------------------------
-
-/// Side-by-side VaR backtest comparison across multiple model methods.
-#[pyclass(name = "MultiModelComparison", module = "finstack.analytics", frozen)]
-pub struct PyMultiModelComparison {
-    /// Wrapped Rust value.
-    pub(super) inner: fa::backtesting::MultiModelComparison,
-}
-
-#[pymethods]
-impl PyMultiModelComparison {
-    /// Model-labelled backtest results.
-    #[getter]
-    fn results(&self) -> Vec<(String, PyBacktestResult)> {
+    /// Window-end dates aligned 1:1 with `values`.
+    fn dates<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
         self.inner
-            .results
+            .dates
             .iter()
-            .map(|(method, result)| {
-                (
-                    match method {
-                        fa::backtesting::VarMethod::Historical => "Historical",
-                        fa::backtesting::VarMethod::Parametric => "Parametric",
-                        fa::backtesting::VarMethod::CornishFisher => "CornishFisher",
-                    }
-                    .to_string(),
-                    PyBacktestResult {
-                        inner: result.clone(),
-                    },
-                )
-            })
+            .map(|&d| date_to_py(py, d))
             .collect()
     }
 
+    /// Convert to a pandas ``DataFrame`` with date index and a ``return`` column.
+    fn to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let data = PyDict::new(py);
+        data.set_item("return", &self.inner.values)?;
+        let dates = dates_to_pylist(py, &self.inner.dates)?;
+        let idx = dates.into_pyobject(py)?.into_any();
+        dict_to_dataframe(py, &data, Some(idx))
+    }
+
     fn __repr__(&self) -> String {
-        format!("MultiModelComparison(models={})", self.inner.results.len())
+        format!("RollingReturns(len={})", self.inner.values.len())
     }
 }
 
@@ -1077,17 +638,9 @@ pub fn register(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyRollingSharpe>()?;
     m.add_class::<PyRollingSortino>()?;
     m.add_class::<PyRollingVolatility>()?;
+    m.add_class::<PyRollingReturns>()?;
     m.add_class::<PyCagrBasis>()?;
-    m.add_class::<PyRuinDefinition>()?;
-    m.add_class::<PyRuinModel>()?;
-    m.add_class::<PyRuinEstimate>()?;
     m.add_class::<PyBenchmarkAlignmentPolicy>()?;
-    m.add_class::<PyKupiecResult>()?;
-    m.add_class::<PyChristoffersenResult>()?;
-    m.add_class::<PyTrafficLightResult>()?;
-    m.add_class::<PyBacktestResult>()?;
-    m.add_class::<PyPnlExplanation>()?;
-    m.add_class::<PyMultiModelComparison>()?;
     let _ = py;
     Ok(())
 }

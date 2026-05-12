@@ -6,23 +6,23 @@
  * Calibrates κ (mean reversion) and σ (short rate volatility) by fitting
  * European swaption market prices using Jamshidian decomposition.
  */
-export type HullWhiteStepParams = {
+export type HullWhiteStepParams = { 
 /**
  * Discount curve ID (must already exist in market context).
  */
-curve_id: string,
+curve_id: string, 
 /**
  * Currency for conventions.
  */
-currency: string,
+currency: string, 
 /**
  * Base date for the calibration.
  */
-base_date: string,
+base_date: string, 
 /**
  * Optional initial guess for mean reversion κ.
  */
-initial_kappa: number | null,
+initial_kappa: number | null, 
 /**
  * Optional initial guess for short rate vol σ.
  */

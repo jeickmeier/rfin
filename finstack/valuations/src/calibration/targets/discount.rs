@@ -325,7 +325,8 @@ Global solve requires strictly increasing times.",
         // Build rate_calibration sidecar before consuming rates_quotes so that the
         // produced curve carries the original benchmark quotes.  Downstream metrics
         // that re-bump and re-bootstrap (e.g. CDS option IR DV01) require this.
-        let raw_rates_quotes: Vec<crate::market::quotes::rates::RateQuote> = quotes.extract_quotes();
+        let raw_rates_quotes: Vec<crate::market::quotes::rates::RateQuote> =
+            quotes.extract_quotes();
         if raw_rates_quotes.is_empty() {
             return Err(finstack_core::Error::Input(
                 finstack_core::InputError::TooFewPoints,

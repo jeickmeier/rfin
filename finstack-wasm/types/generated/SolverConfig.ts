@@ -3,33 +3,21 @@
 /**
  * Serializable solver configuration for calibration.
  *
- * Captures the complete solver state including method choice and
- * all parameters. This enables full reproducibility of calibration
- * results.
+ * Wraps the Brent 1D solver used by the bootstrap path. The enum shape is retained for
+ * schema stability — adding a new variant in the future (e.g. a Newton-Raphson path
+ * when one is actually wired) does not require a breaking change.
  *
  * # Examples
  *
  * ```rust,no_run
  * use finstack_valuations::calibration::SolverConfig;
- * use finstack_core::math::solver::NewtonSolver;
  *
  * # fn main() -> Result<(), Box<dyn std::error::Error>> {
- * // Newton solver with custom tolerance
- * let config = SolverConfig::Newton {
- *     solver: NewtonSolver {
- *         tolerance: 1e-14,
- *         max_iterations: 100,
- *         fd_step: 1e-8,
- *         min_derivative: 1e-14,
- *         min_derivative_rel: 1e-6,
- *     }
- * };
- *
- * // Serialize to JSON for persistence
+ * let config = SolverConfig::brent_default().with_tolerance(1e-12).with_max_iterations(200);
  * let json = serde_json::to_string(&config)?;
  * # let _ = json;
  * # Ok(())
  * # }
  * ```
  */
-export type SolverConfig = { "method": "newton", } | { "method": "brent", };
+export type SolverConfig = { "method": "brent", };

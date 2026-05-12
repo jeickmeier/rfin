@@ -61,15 +61,13 @@ status = "exists"
 # than a missing shim.
 
 [crates.analytics.modules]
-aggregation  = { python = "finstack.analytics", status = "flattened", note = "PeriodStats / period_stats / group_by_period exposed flat on finstack.analytics; period_stats_from_grouped (grouped-returns variant) is available from the Rust crate only" }
-backtesting  = { python = "finstack.analytics", status = "flattened", note = "VaR backtesting functions exposed flat on finstack.analytics" }
-benchmark    = { python = "finstack.analytics", status = "flattened", note = "Benchmark-relative metrics exposed flat on finstack.analytics" }
-drawdown     = { python = "finstack.analytics", status = "flattened", note = "Drawdown analytics exposed flat on finstack.analytics" }
-lookback     = { python = "finstack.analytics", status = "flattened", note = "Lookback window helpers exposed flat on finstack.analytics" }
-performance  = { python = "finstack.analytics", status = "flattened", note = "Performance class and helpers exposed flat on finstack.analytics" }
-returns      = { python = "finstack.analytics", status = "flattened", note = "Return transform helpers exposed flat on finstack.analytics" }
-risk_metrics = { python = "finstack.analytics", status = "flattened", note = "Risk-metric scalars and rolling series exposed flat on finstack.analytics" }
-timeseries   = { python = "finstack.analytics", status = "flattened", note = "GARCH-family models and diagnostics exposed flat on finstack.analytics" }
+aggregation  = { python = "finstack.analytics", status = "flattened", note = "Reachable via Performance.period_stats; freestanding bindings removed in paredown" }
+benchmark    = { python = "finstack.analytics", status = "flattened", note = "Reachable via Performance.beta / .greeks / .rolling_greeks; freestanding bindings removed" }
+drawdown     = { python = "finstack.analytics", status = "flattened", note = "Reachable via Performance.max_drawdown / .drawdown_series / .drawdown_details" }
+lookback     = { python = "finstack.analytics", status = "flattened", note = "Reachable via Performance.lookback_returns" }
+performance  = { python = "finstack.analytics", status = "flattened", note = "Performance class is the sole entry point on finstack.analytics" }
+returns      = { python = "finstack.analytics", status = "flattened", note = "Reachable via Performance constructors (prices) / Performance.from_returns" }
+risk_metrics = { python = "finstack.analytics", status = "flattened", note = "Reachable via Performance scalar methods (CAGR/Sharpe/Sortino/VaR/etc.)" }
 
 # ---------------------------------------------------------------------------
 # finstack-cashflows  →  finstack.cashflows

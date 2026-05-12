@@ -6,23 +6,23 @@
  * Captures the fitted vs target values for a single market quote,
  * along with the residual and a local sensitivity measure.
  */
-export type QuoteQuality = {
+export type QuoteQuality = { 
 /**
  * Human-readable label identifying this quote (e.g., "USD-1Y-SWAP").
  */
-quote_label: string,
+quote_label: string, 
 /**
  * Market-observed target value for this quote.
  */
-target_value: number,
+target_value: number, 
 /**
  * Model-implied fitted value after calibration.
  */
-fitted_value: number,
+fitted_value: number, 
 /**
  * Residual (fitted - target) for this quote.
  */
-residual: number,
+residual: number, 
 /**
  * Local sensitivity: dOutput/dParam (via finite difference or Jacobian diagonal).
  */

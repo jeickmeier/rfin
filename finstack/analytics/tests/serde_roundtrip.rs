@@ -5,8 +5,7 @@ use finstack_analytics::benchmark::{
 use finstack_analytics::drawdown::DrawdownEpisode;
 use finstack_analytics::performance::{LookbackReturns, Performance};
 use finstack_analytics::risk_metrics::{
-    AnnualizationConvention, RollingSharpe, RollingSortino, RollingVolatility, RuinDefinition,
-    RuinEstimate, RuinModel,
+    AnnualizationConvention, RollingSharpe, RollingSortino, RollingVolatility,
 };
 use finstack_core::dates::{Date, Month, PeriodKind};
 
@@ -137,20 +136,4 @@ fn test_analytics_results_and_configs_roundtrip() {
 
     assert_roundtrip_value(&AnnualizationConvention::Act365_25);
     assert_roundtrip_value(&BenchmarkAlignmentPolicy::ErrorOnMissingDates);
-    assert_roundtrip_value(&RuinDefinition::DrawdownBreach { max_drawdown: 0.25 });
-
-    assert_roundtrip_value(&RuinModel {
-        horizon_periods: 252,
-        n_paths: 5_000,
-        block_size: 5,
-        seed: 7,
-        confidence_level: 0.99,
-    });
-
-    assert_roundtrip_value(&RuinEstimate {
-        probability: 0.12,
-        std_err: 0.01,
-        ci_lower: 0.1,
-        ci_upper: 0.14,
-    });
 }

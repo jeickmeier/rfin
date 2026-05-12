@@ -1,4 +1,12 @@
-"""Fixture-driven numerical parity tests for analytics bindings."""
+"""Fixture-driven numerical parity tests for the `Performance` binding.
+
+Loads the shared `api_invariants_data.json` fixture and confirms that
+Python `Performance` methods reproduce the regression-style expected
+values for `rolling_greeks` and `multi_factor_greeks`. Methods whose
+expected values come from freestanding-function helpers with explicit
+`CagrBasis` / `ann_factor` are covered by the Rust parity test instead;
+this file focuses on the Performance-mediated path.
+"""
 
 from __future__ import annotations
 
@@ -9,16 +17,7 @@ from typing import Any
 
 import pytest
 
-from finstack.analytics import (
-    CagrBasis,
-    cagr,
-    expected_shortfall,
-    multi_factor_greeks,
-    rolling_greeks,
-    sharpe,
-    sortino,
-    value_at_risk,
-)
+from finstack.analytics import Performance
 
 
 def _fixture() -> dict[str, Any]:
@@ -37,38 +36,44 @@ def _dates(values: list[str]) -> list[date]:
     return [date.fromisoformat(value) for value in values]
 
 
-def _assert_close(actual: float, expected: float) -> None:
-    assert actual == pytest.approx(expected, abs=1e-12)
-
-
 def _assert_sequence_close(actual: list[float], expected: list[float]) -> None:
     assert actual == pytest.approx(expected, abs=1e-12)
 
 
-def test_python_analytics_matches_shared_parity_fixture() -> None:
-    """Python analytics bindings should match the Rust-generated fixture."""
-    fixture = _fixture()
-    returns = fixture["returns"]
+def _build_performance(fixture: dict[str, Any]) -> Performance:
+    """Build a two-ticker Performance from the fixture (target + benchmark)."""
+    dates = _dates(fixture["dates"])
+    target = fixture["returns"]
     benchmark = fixture["benchmark"]
-    factors = fixture["factors"]
-    expected = fixture["expected"]
-
-    _assert_close(cagr(returns, CagrBasis.factor(252.0)), expected["cagr_factor"])
-    _assert_close(sharpe(0.12, 0.18, 0.02), expected["sharpe"])
-    _assert_close(sortino(returns, True, 252.0, 0.0), expected["sortino"])
-    _assert_close(value_at_risk(returns, 0.95), expected["value_at_risk"])
-    _assert_close(expected_shortfall(returns, 0.95), expected["expected_shortfall"])
-
-    rolling = rolling_greeks(returns, benchmark, _dates(fixture["dates"]), 5, 252.0)
-    _assert_sequence_close(rolling.alphas, expected["rolling_greeks"]["alphas"])
-    _assert_sequence_close(rolling.betas, expected["rolling_greeks"]["betas"])
-
-    multi = multi_factor_greeks(returns, factors, 252.0)
-    _assert_close(multi.alpha, expected["multi_factor_greeks"]["alpha"])
-    _assert_sequence_close(multi.betas, expected["multi_factor_greeks"]["betas"])
-    _assert_close(multi.r_squared, expected["multi_factor_greeks"]["r_squared"])
-    _assert_close(
-        multi.adjusted_r_squared,
-        expected["multi_factor_greeks"]["adjusted_r_squared"],
+    return Performance.from_returns_arrays(
+        dates,
+        [target, benchmark],
+        ["TARGET", "BENCH"],
+        benchmark_ticker="BENCH",
+        freq="daily",
     )
-    _assert_close(multi.residual_vol, expected["multi_factor_greeks"]["residual_vol"])
+
+
+def test_performance_rolling_greeks_matches_fixture() -> None:
+    fixture = _fixture()
+    expected = fixture["expected"]["rolling_greeks"]
+
+    perf = _build_performance(fixture)
+    rolling = perf.rolling_greeks(0, window=5)
+
+    _assert_sequence_close(rolling.alphas, expected["alphas"])
+    _assert_sequence_close(rolling.betas, expected["betas"])
+
+
+def test_performance_multi_factor_greeks_matches_fixture() -> None:
+    fixture = _fixture()
+    expected = fixture["expected"]["multi_factor_greeks"]
+
+    perf = _build_performance(fixture)
+    multi = perf.multi_factor_greeks(0, fixture["factors"])
+
+    assert multi.alpha == pytest.approx(expected["alpha"], abs=1e-12)
+    _assert_sequence_close(multi.betas, expected["betas"])
+    assert multi.r_squared == pytest.approx(expected["r_squared"], abs=1e-12)
+    assert multi.adjusted_r_squared == pytest.approx(expected["adjusted_r_squared"], abs=1e-12)
+    assert multi.residual_vol == pytest.approx(expected["residual_vol"], abs=1e-12)

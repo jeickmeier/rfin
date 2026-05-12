@@ -3,7 +3,7 @@
 //! Mirrors the Python `Performance` class 1:1 (minus plotting), operating on
 //! internal slices and returning numeric results.
 
-use crate::dates::{Date, FiscalConfig, HolidayCalendar, PeriodKind};
+use crate::dates::{Date, Duration, FiscalConfig, HolidayCalendar, PeriodKind};
 
 use super::aggregation::{group_by_period, period_stats_from_grouped, PeriodStats};
 use super::benchmark::{
@@ -20,8 +20,8 @@ use super::drawdown::{
 use super::lookback::{self, LookbackDateAlignment};
 use super::returns::{clean_returns, comp_sum, comp_total, excess_returns, simple_returns};
 use super::risk_metrics::{
-    self, rolling_sharpe, rolling_sortino, rolling_volatility, RollingSharpe, RollingSortino,
-    RollingVolatility, RuinDefinition, RuinEstimate, RuinModel,
+    self, rolling_sharpe, rolling_sortino, rolling_volatility, DatedSeries, RollingSharpe,
+    RollingSortino, RollingVolatility,
 };
 
 /// Central performance analytics engine.
@@ -214,6 +214,109 @@ impl Performance {
         Ok(Self {
             price_dates: dates,
             dates: adj_dates,
+            returns: all_returns,
+            ticker_names,
+            benchmark_idx,
+            drawdowns: all_drawdowns,
+            active_window_drawdowns: None,
+            bench_returns,
+            bench_drawdown,
+            freq,
+            start_idx: 0,
+            end_idx,
+        })
+    }
+
+    /// Construct from a pre-computed return matrix (columns = tickers).
+    ///
+    /// Use this when you already have a return panel and want to skip the
+    /// price → return conversion handled by [`Self::new`]. The supplied
+    /// `dates` are the return-aligned observation dates (one entry per
+    /// return row).
+    ///
+    /// A synthetic prior date is prepended to the internal price-date grid
+    /// so that CAGR and other date-aware metrics see a holding period of
+    /// `dates.len()` periods. The prior date is derived from the first
+    /// observed gap (`dates[1] - dates[0]`) when at least two dates are
+    /// supplied, and otherwise falls back to `dates[0]`.
+    ///
+    /// # Arguments
+    ///
+    /// * `dates` - Chronologically sorted return-aligned dates.
+    /// * `returns` - Return matrix: `returns[i]` is the simple-return series
+    ///   for ticker `i`, with one entry per `dates` row.
+    /// * `ticker_names` - Names corresponding to each column of `returns`.
+    /// * `benchmark_ticker` - Name of the benchmark ticker. Uses column 0 if
+    ///   `None`; returns an error if a non-`None` ticker name is not found.
+    /// * `freq` - Observation frequency, used to derive the annualization factor.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::InputError::Invalid`] when inputs are empty,
+    /// the column count does not match `ticker_names`, any return column has
+    /// the wrong length, the benchmark name is unknown, or any return value
+    /// is non-finite or `< -1.0`.
+    pub fn from_returns(
+        dates: Vec<Date>,
+        returns: Vec<Vec<f64>>,
+        ticker_names: Vec<String>,
+        benchmark_ticker: Option<&str>,
+        freq: PeriodKind,
+    ) -> crate::Result<Self> {
+        if returns.is_empty() || dates.is_empty() {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+        if ticker_names.len() != returns.len() {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+        if returns.iter().any(|col| col.len() != dates.len()) {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+
+        let benchmark_idx = match benchmark_ticker {
+            Some(name) => ticker_names
+                .iter()
+                .position(|t| t == name)
+                .ok_or(crate::error::InputError::Invalid)?,
+            None => 0,
+        };
+
+        let mut all_returns: Vec<Vec<f64>> = Vec::with_capacity(returns.len());
+        let mut all_drawdowns: Vec<Vec<f64>> = Vec::with_capacity(returns.len());
+        for col in returns {
+            let mut clean = col;
+            clean_returns(&mut clean);
+            if clean.iter().any(|&v| !v.is_finite() || v < -1.0) {
+                return Err(crate::error::InputError::Invalid.into());
+            }
+            let dd = to_drawdown_series(&clean);
+            all_drawdowns.push(dd);
+            all_returns.push(clean);
+        }
+
+        let bench_returns = all_returns.get(benchmark_idx).cloned().unwrap_or_default();
+        let bench_drawdown = all_drawdowns
+            .get(benchmark_idx)
+            .cloned()
+            .unwrap_or_default();
+
+        let prior_date = if dates.len() >= 2 {
+            let gap = (dates[1] - dates[0]).whole_days();
+            dates[0]
+                .checked_sub(Duration::days(gap))
+                .unwrap_or(dates[0])
+        } else {
+            dates[0]
+        };
+        let mut price_dates = Vec::with_capacity(dates.len() + 1);
+        price_dates.push(prior_date);
+        price_dates.extend_from_slice(&dates);
+
+        let end_idx = all_returns.first().map_or(0, Vec::len);
+
+        Ok(Self {
+            price_dates,
+            dates,
             returns: all_returns,
             ticker_names,
             benchmark_idx,
@@ -595,33 +698,6 @@ impl Performance {
         self.map_tickers(|i| ulcer_index(self.active_drawdown_values(i)))
     }
 
-    /// Estimate ruin probabilities for each ticker under the supplied ruin definition.
-    ///
-    /// This is a batch wrapper over [`risk_metrics::estimate_ruin`]. The same
-    /// conventions apply: returns are simple decimal returns, wealth starts at
-    /// `1.0` on each path, and the confidence interval is a Wilson-score
-    /// interval around the simulated ruin frequency.
-    ///
-    /// # Arguments
-    ///
-    /// * `definition` - Operational definition of ruin for the simulated wealth
-    ///   paths.
-    /// * `model` - Simulation controls including horizon, path count, block
-    ///   size, seed, and interval confidence level.
-    ///
-    /// # Returns
-    ///
-    /// One [`RuinEstimate`] per ticker in column order. Invalid inputs produce
-    /// `NaN` estimates following the underlying [`risk_metrics::estimate_ruin`]
-    /// contract.
-    pub fn estimate_ruin(
-        &self,
-        definition: RuinDefinition,
-        model: &RuinModel,
-    ) -> Vec<RuinEstimate> {
-        self.map_tickers(|i| risk_metrics::estimate_ruin(self.active_returns(i), definition, model))
-    }
-
     /// Bias-corrected sample skewness for each ticker.
     ///
     /// # Returns
@@ -711,6 +787,37 @@ impl Performance {
     pub fn capture_ratio(&self) -> Vec<f64> {
         let bench = self.active_bench();
         self.map_tickers(|i| capture_ratio(self.active_returns(i), bench))
+    }
+
+    /// Rolling compounded returns for a specific ticker.
+    ///
+    /// Computes the total compounded return over each `window`-length slice
+    /// of the active return series, right-labelled by the window-end date.
+    /// Produces `n - window + 1` values where `n = active_returns.len()`.
+    ///
+    /// # Arguments
+    ///
+    /// * `ticker_idx` - Zero-based column index of the ticker.
+    /// * `window`     - Look-back window length in periods (e.g. 252 for 1Y daily).
+    pub fn rolling_returns(&self, ticker_idx: usize, window: usize) -> DatedSeries {
+        let returns = self.active_returns(ticker_idx);
+        let dates = self.active_dates();
+        let n = returns.len().min(dates.len());
+        if window == 0 || window > n {
+            return DatedSeries::default();
+        }
+        let count = n - window + 1;
+        let mut values = Vec::with_capacity(count);
+        let mut out_dates = Vec::with_capacity(count);
+        for end in window..=n {
+            let start = end - window;
+            values.push(comp_total(&returns[start..end]));
+            out_dates.push(dates[end - 1]);
+        }
+        DatedSeries {
+            values,
+            dates: out_dates,
+        }
     }
 
     /// Rolling annualized volatility for a specific ticker.

@@ -10,27 +10,28 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
-/// Resolve an optional fiscal-year-start month against the analytics registry.
+/// Default fiscal-year start month (January) when callers do not override.
+const DEFAULT_FISCAL_START_MONTH: u8 = 1;
+/// Default fiscal-year start day-of-month.
+const DEFAULT_FISCAL_START_DAY: u8 = 1;
+/// Default holiday calendar used by lookback fiscal-year alignment.
+const DEFAULT_FISCAL_CALENDAR_ID: &str = "nyse";
+
+/// Resolve an optional fiscal-year-start month into a [`FiscalConfig`].
 fn make_fiscal_config(month: Option<u8>) -> PyResult<FiscalConfig> {
-    let default = &fa::registry::embedded_defaults()
-        .map_err(core_to_py)?
-        .python_bindings
-        .lookback
-        .default_fiscal_calendar;
-    FiscalConfig::new(month.unwrap_or(default.start_month), default.start_day).map_err(core_to_py)
+    FiscalConfig::new(
+        month.unwrap_or(DEFAULT_FISCAL_START_MONTH),
+        DEFAULT_FISCAL_START_DAY,
+    )
+    .map_err(core_to_py)
 }
 
 fn resolve_fiscal_calendar() -> PyResult<&'static dyn HolidayCalendar> {
-    let default = &fa::registry::embedded_defaults()
-        .map_err(core_to_py)?
-        .python_bindings
-        .lookback
-        .default_fiscal_calendar;
     CalendarRegistry::global()
-        .resolve_str(&default.calendar_id)
+        .resolve_str(DEFAULT_FISCAL_CALENDAR_ID)
         .ok_or_else(|| {
             core_to_py(finstack_core::Error::calendar_not_found_with_suggestions(
-                default.calendar_id.clone(),
+                DEFAULT_FISCAL_CALENDAR_ID.to_string(),
                 finstack_core::dates::available_calendars(),
             ))
         })
@@ -148,6 +149,63 @@ impl PyPerformance {
         let rust_dates: Vec<time::Date> =
             dates.iter().map(py_to_date).collect::<PyResult<Vec<_>>>()?;
         build_performance(rust_dates, prices, ticker_names, benchmark_ticker, freq)
+    }
+
+    /// Construct from a pandas DataFrame of returns.
+    ///
+    /// The DataFrame index must contain ``datetime.date`` or ``pd.Timestamp``
+    /// values, and each column represents one ticker's simple-return series
+    /// aligned with the index.
+    #[staticmethod]
+    #[pyo3(signature = (returns, benchmark_ticker=None, freq="daily"))]
+    fn from_returns(
+        returns: Bound<'_, PyAny>,
+        benchmark_ticker: Option<&str>,
+        freq: &str,
+    ) -> PyResult<Self> {
+        let py = returns.py();
+        let pd = py.import("pandas")?;
+        let df_type = pd.getattr("DataFrame")?;
+        if !returns.is_instance(&df_type)? {
+            return Err(PyTypeError::new_err(
+                "Expected a pandas DataFrame; use Performance.from_returns_arrays() for raw lists",
+            ));
+        }
+        let panel = extract_dataframe(&returns)?;
+        let period_kind = parse_freq(freq)?;
+        let inner = fa::Performance::from_returns(
+            panel.dates,
+            panel.prices,
+            panel.ticker_names,
+            benchmark_ticker,
+            period_kind,
+        )
+        .map_err(core_to_py)?;
+        Ok(Self { inner })
+    }
+
+    /// Construct from raw return arrays (dates, returns matrix, ticker names).
+    #[staticmethod]
+    #[pyo3(signature = (dates, returns, ticker_names, benchmark_ticker=None, freq="daily"))]
+    fn from_returns_arrays(
+        dates: Vec<Bound<'_, PyAny>>,
+        returns: Vec<Vec<f64>>,
+        ticker_names: Vec<String>,
+        benchmark_ticker: Option<&str>,
+        freq: &str,
+    ) -> PyResult<Self> {
+        let rust_dates: Vec<time::Date> =
+            dates.iter().map(py_to_date).collect::<PyResult<Vec<_>>>()?;
+        let period_kind = parse_freq(freq)?;
+        let inner = fa::Performance::from_returns(
+            rust_dates,
+            returns,
+            ticker_names,
+            benchmark_ticker,
+            period_kind,
+        )
+        .map_err(core_to_py)?;
+        Ok(Self { inner })
     }
 
     // -- Mutators --
@@ -542,22 +600,21 @@ impl PyPerformance {
             .map_err(core_to_py)
     }
 
-    /// Ruin estimation for each ticker.
-    fn estimate_ruin(
+    /// Rolling N-period total compounded return for a specific ticker.
+    #[pyo3(signature = (ticker_idx, window))]
+    fn rolling_returns(
         &self,
         py: Python<'_>,
-        definition: &PyRuinDefinition,
-        model: &PyRuinModel,
-    ) -> Vec<PyRuinEstimate> {
-        let definition = definition.inner;
-        let model = model.inner;
-        py.detach(|| self.inner.estimate_ruin(definition, &model))
-            .into_iter()
-            .map(|e| PyRuinEstimate { inner: e })
-            .collect()
+        ticker_idx: usize,
+        window: usize,
+    ) -> PyRollingReturns {
+        PyRollingReturns {
+            inner: py.detach(|| self.inner.rolling_returns(ticker_idx, window)),
+        }
     }
 
     /// Period-to-date lookback returns.
+    #[pyo3(signature = (ref_date, fiscal_year_start_month = None))]
     fn lookback_returns(
         &self,
         ref_date: Bound<'_, PyAny>,

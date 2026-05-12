@@ -303,105 +303,8 @@ export declare const core: CoreNamespace;
 
 // --- analytics ------------------------------------------------------------
 
-/** Breach indicator from VaR backtesting: "Hit" or "Miss". */
-export type Breach = 'Hit' | 'Miss';
-export type VarMethod = 'Historical' | 'Parametric' | 'CornishFisher';
 export type NumericArray = number[] | Float64Array;
 export type NumericMatrix = NumericArray[];
-
-/** Kupiec Proportion of Failures (POF) unconditional coverage test result. */
-export interface KupiecResultJson {
-  lr_statistic: number;
-  p_value: number;
-  breach_count: number;
-  expected_count: number;
-  total_observations: number;
-  observed_rate: number;
-  reject_h0_5pct: boolean;
-}
-
-/** Christoffersen conditional coverage test result. */
-export interface ChristoffersenResultJson {
-  lr_uc: number;
-  lr_ind: number;
-  lr_cc: number;
-  p_value_uc: number;
-  p_value_ind: number;
-  p_value_cc: number;
-  transition_counts: [number, number, number, number];
-  reject_h0_5pct: boolean;
-}
-
-/** Basel traffic-light zone: "Green", "Yellow", or "Red". */
-export type TrafficLightZone = 'Green' | 'Yellow' | 'Red';
-
-/** Basel traffic-light classification result. */
-export interface TrafficLightResultJson {
-  zone: TrafficLightZone;
-  exceptions: number;
-  capital_multiplier: number;
-  window_size: number;
-  confidence: number;
-}
-
-/** FRTB-style P&L explanation diagnostics. */
-export interface PnlExplanationJson {
-  explanation_ratio: number;
-  aggregate_explanation_ratio: number;
-  mean_abs_unexplained: number;
-  std_unexplained: number;
-  n: number;
-}
-
-/** Full VaR backtest result aggregating all statistical tests. */
-export interface BacktestResultJson {
-  kupiec: KupiecResultJson;
-  christoffersen: ChristoffersenResultJson;
-  traffic_light: TrafficLightResultJson;
-  breaches: Breach[];
-  confidence: number;
-}
-
-/** Side-by-side VaR backtest comparison across multiple model methods. */
-export interface MultiModelComparisonJson {
-  results: [VarMethod, BacktestResultJson][];
-}
-
-/** GARCH model parameter estimates (serde-serialized from Rust). */
-export interface GarchParamsJson {
-  omega: number;
-  alpha: number;
-  beta: number;
-  gamma: number | null;
-  dist: { Gaussian: null } | { StudentT: number };
-  mean: number;
-  family: string;
-}
-
-/** Complete GARCH model fit result (serde-serialized from Rust). */
-export interface GarchFitJson {
-  model: string;
-  params: GarchParamsJson;
-  std_errors: number[] | null;
-  log_likelihood: number;
-  n_obs: number;
-  n_params: number;
-  aic: number;
-  bic: number;
-  hqic: number;
-  conditional_variances: number[];
-  standardized_residuals: number[];
-  terminal_variance: number;
-  converged: boolean;
-  iterations: number;
-}
-
-/** A single variance forecast returned by `forecastGarchFit`. */
-export interface VarianceForecastJson {
-  horizon: number;
-  variance: number;
-  annualized_vol: number;
-}
 
 /** Descriptive statistics returned by `peerStats`. */
 export interface PeerStatsJson {
@@ -520,6 +423,20 @@ export interface MultiFactorResult {
   residual_vol: number;
 }
 
+/** Dated rolling N-period compounded return result returned by `rollingReturns`. */
+export interface RollingReturns {
+  values: number[];
+  dates: string[];
+}
+
+/** Period-to-date lookback returns (per ticker) returned by `lookbackReturns`. */
+export interface LookbackReturns {
+  mtd: number[];
+  qtd: number[];
+  ytd: number[];
+  fytd: number[] | null;
+}
+
 /** Opaque CAGR annualization basis used by the analytics namespace. */
 export interface CagrBasis {}
 
@@ -535,228 +452,117 @@ export interface BenchmarkAlignmentPolicyConstructor {
 
 export interface BenchmarkAlignmentPolicy {}
 
-export interface RuinDefinitionConstructor {
-  wealthFloor(floorFraction: number): RuinDefinition;
-  terminalFloor(floorFraction: number): RuinDefinition;
-  drawdownBreach(maxDrawdown: number): RuinDefinition;
-}
-
-export interface RuinDefinition {}
-
-export interface RuinModelConstructor {
-  new (
-    horizonPeriods?: number,
-    nPaths?: number,
-    blockSize?: number,
-    seed?: number,
-    confidenceLevel?: number
-  ): RuinModel;
-}
-
-export interface RuinModel {}
-
-export interface RuinEstimateJson {
-  probability: number;
-  std_err: number;
-  ci_lower: number;
-  ci_upper: number;
+/**
+ * Stateful performance analytics engine over a panel of ticker series.
+ *
+ * `Performance` is the single entry point exposed to JS. Construct from
+ * a price matrix (`new Performance(...)`) or a return matrix
+ * (`Performance.fromReturns(...)`); every metric is then reachable as
+ * an instance method.
+ *
+ * All multi-ticker scalar outputs come back as `number[]` indexed by the
+ * panel's ticker order; vector / per-ticker / structured outputs are
+ * serialized to plain JS objects (e.g. `RollingSharpe`, `BetaResult[]`).
+ */
+export declare class Performance {
+  constructor(
+    dates: string[],
+    prices: NumericMatrix,
+    tickerNames: string[],
+    benchmarkTicker?: string | null,
+    freq?: string
+  );
+  /** Construct from a return matrix (one row per `dates` entry per ticker). */
+  static fromReturns(
+    dates: string[],
+    returns: NumericMatrix,
+    tickerNames: string[],
+    benchmarkTicker?: string | null,
+    freq?: string
+  ): Performance;
+  resetDateRange(start: string, end: string): void;
+  resetBenchTicker(ticker: string): void;
+  tickerNames(): string[];
+  benchmarkIdx(): number;
+  freq(): string;
+  /** Active observation dates as ISO date strings. */
+  dates(): string[];
+  cagr(): number[];
+  meanReturn(annualize?: boolean): number[];
+  volatility(annualize?: boolean): number[];
+  sharpe(riskFreeRate?: number): number[];
+  sortino(mar?: number): number[];
+  calmar(): number[];
+  maxDrawdown(): number[];
+  valueAtRisk(confidence?: number): number[];
+  expectedShortfall(confidence?: number): number[];
+  trackingError(): number[];
+  informationRatio(): number[];
+  skewness(): number[];
+  kurtosis(): number[];
+  geometricMean(): number[];
+  downsideDeviation(mar?: number): number[];
+  maxDrawdownDuration(): number[];
+  upCapture(): number[];
+  downCapture(): number[];
+  captureRatio(): number[];
+  omegaRatio(threshold?: number): number[];
+  treynor(riskFreeRate?: number): number[];
+  gainToPain(): number[];
+  ulcerIndex(): number[];
+  martinRatio(): number[];
+  recoveryFactor(): number[];
+  painIndex(): number[];
+  painRatio(riskFreeRate?: number): number[];
+  tailRatio(confidence?: number): number[];
+  rSquared(): number[];
+  battingAverage(): number[];
+  parametricVar(confidence?: number): number[];
+  cornishFisherVar(confidence?: number): number[];
+  cdar(confidence?: number): number[];
+  mSquared(riskFreeRate?: number): number[];
+  modifiedSharpe(riskFreeRate?: number, confidence?: number): number[];
+  sterlingRatio(riskFreeRate?: number, n?: number): number[];
+  burkeRatio(riskFreeRate?: number, n?: number): number[];
+  cumulativeReturns(): number[][];
+  drawdownSeries(): number[][];
+  correlationMatrix(): number[][];
+  cumulativeReturnsOutperformance(): number[][];
+  drawdownDifference(): number[][];
+  excessReturns(rf: NumericArray, nperiods?: number): number[][];
+  beta(): BetaResult[];
+  greeks(): GreeksResult[];
+  rollingGreeks(tickerIdx: number, window?: number): RollingGreeksResult;
+  rollingVolatility(tickerIdx: number, window?: number): RollingVolatility;
+  rollingSortino(tickerIdx: number, window?: number): RollingSortino;
+  rollingSharpe(tickerIdx: number, window?: number, riskFreeRate?: number): RollingSharpe;
+  rollingReturns(tickerIdx: number, window: number): RollingReturns;
+  drawdownDetails(tickerIdx: number, n?: number): DrawdownEpisode[];
+  topBenchmarkDrawdownEpisodes(n?: number): DrawdownEpisode[];
+  multiFactorGreeks(tickerIdx: number, factorReturns: NumericMatrix): MultiFactorResult;
+  lookbackReturns(refDate: string, fiscalYearStartMonth?: number): LookbackReturns;
+  periodStats(
+    tickerIdx: number,
+    aggFreq?: string,
+    fiscalYearStartMonth?: number
+  ): PeriodStats;
+  free(): void;
 }
 
 export interface AnalyticsNamespace {
   /**
-   * The WASM analytics namespace intentionally exposes pure functions and
-   * typed value objects rather than the stateful Rust `Performance` panel API.
-   * Use `finstack.analytics.Performance` in Python when you need the panel
-   * facade, or compose the pure-function analytics exports directly in JS.
+   * `Performance` is the single entry point for analytics on a panel of
+   * ticker series. Construct from prices (`new Performance(...)`) or from
+   * returns (`Performance.fromReturns(...)`); every metric — return/risk
+   * scalars, drawdown statistics, rolling windows, periodic returns
+   * (MTD/QTD/YTD/FYTD), benchmark alpha/beta, basic factor models — is a
+   * method on the resulting instance.
    */
-  // Risk metrics — return-based
+  Performance: typeof Performance;
   CagrBasis: CagrBasisConstructor;
   BenchmarkAlignmentPolicy: BenchmarkAlignmentPolicyConstructor;
-  RuinDefinition: RuinDefinitionConstructor;
-  RuinModel: RuinModelConstructor;
-  sharpe(annReturn: number, annVol: number, riskFreeRate: number): number;
-  sortino(returns: NumericArray, annualize: boolean, annFactor: number, mar: number): number;
-  volatility(returns: NumericArray, annualize: boolean, annFactor: number): number;
-  meanReturn(returns: NumericArray, annualize: boolean, annFactor: number): number;
-  cagr(returns: NumericArray, basis: CagrBasis): number;
-  downsideDeviation(
-    returns: NumericArray,
-    threshold: number,
-    annualize: boolean,
-    annFactor: number
-  ): number;
-  geometricMean(returns: NumericArray): number;
-  omegaRatio(returns: NumericArray, threshold: number): number;
-  gainToPain(returns: NumericArray): number;
-  modifiedSharpe(
-    returns: NumericArray,
-    riskFreeRate: number,
-    confidence: number,
-    annFactor: number
-  ): number;
-  estimateRuin(
-    returns: NumericArray,
-    definition: RuinDefinition,
-    model: RuinModel
-  ): RuinEstimateJson;
-  // Risk metrics — tail
-  valueAtRisk(returns: NumericArray, confidence: number): number;
-  expectedShortfall(returns: NumericArray, confidence: number): number;
-  parametricVar(returns: NumericArray, confidence: number, annFactor?: number): number;
-  cornishFisherVar(returns: NumericArray, confidence: number, annFactor?: number): number;
-  skewness(returns: NumericArray): number;
-  kurtosis(returns: NumericArray): number;
-  tailRatio(returns: NumericArray, confidence: number): number;
-  outlierWinRatio(returns: NumericArray, confidence: number): number;
-  outlierLossRatio(returns: NumericArray, confidence: number): number;
-  // Risk metrics — rolling (dated structs)
-  rollingSharpe(
-    returns: NumericArray,
-    dates: string[],
-    window: number,
-    annFactor: number,
-    riskFreeRate: number
-  ): RollingSharpe;
-  rollingSortino(
-    returns: NumericArray,
-    dates: string[],
-    window: number,
-    annFactor: number
-  ): RollingSortino;
-  rollingVolatility(
-    returns: NumericArray,
-    dates: string[],
-    window: number,
-    annFactor: number
-  ): RollingVolatility;
-  // Returns
-  simpleReturns(prices: NumericArray): number[];
-  compSum(returns: NumericArray): number[];
-  compTotal(returns: NumericArray): number;
-  cleanReturns(returns: NumericArray): number[];
-  convertToPrices(returns: NumericArray, startPrice: number): number[];
-  rebase(prices: NumericArray, baseValue: number): number[];
-  excessReturns(returns: NumericArray, rf: NumericArray, nperiods?: number): number[];
-  // Drawdown
-  toDrawdownSeries(returns: number[]): number[];
-  maxDrawdown(drawdownSeries: number[]): number;
-  meanEpisodeDrawdown(drawdownSeries: number[], count: number): number;
-  meanDrawdown(drawdownSeries: number[]): number;
-  drawdownDetails(drawdownSeries: number[], dates: string[], n: number): DrawdownEpisode[];
-  maxDrawdownDuration(drawdownSeries: number[], dates: string[]): number;
-  cdar(drawdownSeries: number[], confidence: number): number;
-  ulcerIndex(drawdownSeries: number[]): number;
-  painIndex(drawdownSeries: number[]): number;
-  calmar(cagr: number, maxDd: number): number;
-  recoveryFactor(totalReturn: number, maxDd: number): number;
-  martinRatio(cagr: number, ulcer: number): number;
-  sterlingRatio(annReturn: number, avgDd: number, riskFreeRate: number): number;
-  burkeRatio(annReturn: number, drawdownSeries: number[], riskFreeRate: number): number;
-  painRatio(annReturn: number, painIdx: number, riskFreeRate: number): number;
-  // Benchmark
-  alignBenchmark(
-    benchReturns: number[],
-    benchDates: string[],
-    targetDates: string[],
-    policy: BenchmarkAlignmentPolicy
-  ): number[];
-  trackingError(
-    returns: NumericArray,
-    benchmark: NumericArray,
-    annualize: boolean,
-    annFactor: number
-  ): number;
-  informationRatio(
-    returns: NumericArray,
-    benchmark: NumericArray,
-    annualize: boolean,
-    annFactor: number
-  ): number;
-  rSquared(returns: NumericArray, benchmark: NumericArray): number;
-  upCapture(returns: NumericArray, benchmark: NumericArray): number;
-  downCapture(returns: NumericArray, benchmark: NumericArray): number;
-  captureRatio(returns: NumericArray, benchmark: NumericArray): number;
-  battingAverage(returns: NumericArray, benchmark: NumericArray): number;
-  treynor(annReturn: number, riskFreeRate: number, beta: number): number;
-  mSquared(annReturn: number, annVol: number, benchVol: number, riskFreeRate: number): number;
-  beta(portfolio: NumericArray, benchmark: NumericArray): BetaResult;
-  greeks(returns: NumericArray, benchmark: NumericArray, annFactor: number): GreeksResult;
-  rollingGreeks(
-    returns: NumericArray,
-    benchmark: NumericArray,
-    dates: string[],
-    window: number,
-    annFactor: number
-  ): RollingGreeksResult;
-  multiFactorGreeks(
-    returns: NumericArray,
-    factors: NumericMatrix,
-    annFactor: number
-  ): MultiFactorResult;
-  // Aggregation
-  groupByPeriod(dates: string[], returns: number[], periodKind: string): [string, number][];
-  periodStats(returns: number[]): PeriodStats;
-  // Lookback selectors
-  mtdSelect(dates: string[], asOf: string, offsetDays: number): [number, number];
-  qtdSelect(dates: string[], asOf: string, offsetDays: number): [number, number];
-  ytdSelect(dates: string[], asOf: string, offsetDays: number): [number, number];
-  fytdSelect(
-    dates: string[],
-    asOf: string,
-    offsetDays: number,
-    fiscalStartMonth: number,
-    fiscalStartDay: number
-  ): [number, number];
-  // Backtesting
-  classifyBreaches(varForecasts: number[], realizedPnl: number[]): boolean[];
-  kupiecTest(breachCount: number, n: number, confidence: number): KupiecResultJson;
-  christoffersenTest(breachIndicators: boolean[], confidence: number): ChristoffersenResultJson;
-  trafficLight(exceptions: number, n: number, confidence: number): TrafficLightResultJson;
-  runBacktest(
-    varForecasts: number[],
-    realizedPnl: number[],
-    confidence: number,
-    windowSize: number
-  ): BacktestResultJson;
-  rollingVarForecasts(
-    returns: number[],
-    lookback: number,
-    confidence: number,
-    method: string
-  ): [number[], number[]];
-  /**
-   * Batched rolling-VaR forecasts across multiple `(lookback, confidence, method)`
-   * configurations over the same return series. Amortizes the JS↔WASM serde
-   * round-trip paid per call by `rollingVarForecasts`.
-   */
-  rollingVarBatch(returns: number[], configs: [number, number, string][]): [number[], number[]][];
-  compareVarBacktests(
-    models: [string, number[]][],
-    realizedPnl: number[],
-    confidence: number,
-    windowSize: number
-  ): MultiModelComparisonJson;
-  pnlExplanation(
-    hypotheticalPnl: number[],
-    riskTheoreticalPnl: number[],
-    varForecasts: number[]
-  ): PnlExplanationJson;
-  // GARCH volatility models
-  fitGarch11(returns: number[], distribution: string): GarchFitJson;
-  fitEgarch11(returns: number[], distribution: string): GarchFitJson;
-  fitGjrGarch11(returns: number[], distribution: string): GarchFitJson;
-  forecastGarchFit(
-    fit: GarchFitJson,
-    horizons: number[],
-    tradingDaysPerYear?: number,
-    terminalResidual?: number | null
-  ): VarianceForecastJson[];
-  ljungBox(residuals: number[], lags: number): [number, number];
-  archLm(residuals: number[], lags: number): [number, number];
-  aic(logLikelihood: number, nParams: number): number;
-  bic(logLikelihood: number, nParams: number, nObs: number): number;
-  hqic(logLikelihood: number, nParams: number, nObs: number): number;
 }
+
 
 export declare const analytics: AnalyticsNamespace;
 

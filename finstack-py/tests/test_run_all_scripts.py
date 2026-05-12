@@ -76,17 +76,17 @@ def test_example_modules_export_symbols_used_by_scripts(
     from finstack import analytics, portfolio, statements_analytics, valuations
 
     analytics_exports = {
-        "arch_lm",
-        "christoffersen_test",
-        "classify_breaches",
-        "fit_egarch11",
-        "fit_garch11",
-        "fit_gjr_garch11",
-        "forecast_garch_fit",
-        "kupiec_test",
-        "ljung_box",
-        "run_backtest",
-        "traffic_light",
+        "Performance",
+        "BetaResult",
+        "GreeksResult",
+        "MultiFactorResult",
+        "LookbackReturns",
+        "PeriodStats",
+        "RollingGreeks",
+        "RollingReturns",
+        "RollingSharpe",
+        "RollingSortino",
+        "RollingVolatility",
     }
     statements_analytics_exports = {
         "compute_multiple",

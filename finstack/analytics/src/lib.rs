@@ -41,8 +41,6 @@
 //! - [`crate::benchmark`] — benchmark alignment, greeks, multi-factor regression
 //! - [`crate::aggregation`] — period grouping and trading statistics
 //! - [`crate::lookback`] — MTD / QTD / YTD / FYTD index selectors
-//! - [`crate::backtesting`] — VaR backtesting (Kupiec, Christoffersen, Basel)
-//! - [`crate::timeseries`] — GARCH-family volatility models and diagnostics
 //! - [`crate::performance`] — stateful `Performance` facade over a price panel
 
 // Internal re-exports of frequently used `finstack-core` modules.
@@ -53,16 +51,12 @@ pub(crate) use finstack_core::{dates, error, math};
 type Result<T> = finstack_core::Result<T>;
 
 pub mod aggregation;
-pub mod backtesting;
 pub mod benchmark;
 pub mod drawdown;
 pub mod lookback;
 pub mod performance;
-pub mod registry;
 pub mod returns;
 pub mod risk_metrics;
-pub mod timeseries;
 
 pub use aggregation::PeriodStats;
-pub use backtesting::BacktestResult;
 pub use performance::{LookbackReturns, Performance};

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import importlib
 import inspect
-import re
 from pathlib import Path
+import re
 import tomllib
 from typing import Any
 
@@ -112,10 +112,7 @@ def _pyi_top_level_names(pyi_path: Path) -> set[str]:
     private names without needing a separate filter.
     """
     source = pyi_path.read_text()
-    return {
-        m.group(1)
-        for m in re.finditer(r"^([a-z][a-zA-Z0-9_]*)\s*:\s*\w", source, re.MULTILINE)
-    }
+    return {m.group(1) for m in re.finditer(r"^([a-z][a-zA-Z0-9_]*)\s*:\s*\w", source, re.MULTILINE)}
 
 
 def test_pyi_top_level_matches_contract() -> None:
@@ -147,8 +144,7 @@ def _symbol_entries() -> list[tuple[str, str, str]]:
     entries: list[tuple[str, str, str]] = []
     for crate_name, crate in CONTRACT["crates"].items():
         symbols = crate.get("symbols", {})
-        for sym in symbols.get("public", []):
-            entries.append((crate_name, crate["python_package"], sym))
+        entries.extend((crate_name, crate["python_package"], sym) for sym in symbols.get("public", []))
     return entries
 
 
@@ -173,11 +169,7 @@ def test_contract_symbols_are_importable(
     )
 
 
-CRATES_WITH_SYMBOLS = [
-    (crate_name, crate)
-    for crate_name, crate in CONTRACT["crates"].items()
-    if "symbols" in crate
-]
+CRATES_WITH_SYMBOLS = [(crate_name, crate) for crate_name, crate in CONTRACT["crates"].items() if "symbols" in crate]
 
 
 @pytest.mark.parametrize(("crate_name", "crate"), CRATES_WITH_SYMBOLS)
@@ -189,11 +181,7 @@ def test_contract_symbols_match_live_surface(crate_name: str, crate: dict[str, A
     """
     expected = set(crate["symbols"]["public"])
     module = importlib.import_module(crate["python_package"])
-    actual = {
-        n for n in dir(module)
-        if not n.startswith("_")
-        and not inspect.ismodule(getattr(module, n))
-    }
+    actual = {n for n in dir(module) if not n.startswith("_") and not inspect.ismodule(getattr(module, n))}
     assert actual == expected, (
         f"finstack.{crate_name} public surface diverged from contract.\n"
         f"  missing from Python: {sorted(expected - actual)}\n"
@@ -242,10 +230,5 @@ def test_wasm_top_level_has_exports_files() -> None:
     """
     block = CONTRACT["wasm_top_level"]
     exports_dir = (CONTRACT_PATH.parent / block["file"]).resolve().parent / "exports"
-    missing = [
-        ns for ns in block["namespaces"]
-        if not (exports_dir / f"{ns}.js").exists()
-    ]
-    assert not missing, (
-        f"contract lists namespaces that have no exports/*.js file: {missing}"
-    )
+    missing = [ns for ns in block["namespaces"] if not (exports_dir / f"{ns}.js").exists()]
+    assert not missing, f"contract lists namespaces that have no exports/*.js file: {missing}"

@@ -148,7 +148,10 @@ fn cip_invariance_holds_when_as_of_after_curve_base_date() {
     let usd_disc = DiscountCurve::builder(CurveId::new("USD-OIS"))
         .base_date(curve_base)
         .day_count(DayCount::Act365F)
-        .knots([(0.0, 1.0), (TENOR_YEARS + 0.25, (-USD_ZERO * (TENOR_YEARS + 0.25)).exp())])
+        .knots([
+            (0.0, 1.0),
+            (TENOR_YEARS + 0.25, (-USD_ZERO * (TENOR_YEARS + 0.25)).exp()),
+        ])
         .interp(InterpStyle::Linear)
         .extrapolation(ExtrapolationPolicy::FlatZero)
         .build()
@@ -156,7 +159,10 @@ fn cip_invariance_holds_when_as_of_after_curve_base_date() {
     let eur_disc = DiscountCurve::builder(CurveId::new("EUR-OIS"))
         .base_date(curve_base)
         .day_count(DayCount::Act365F)
-        .knots([(0.0, 1.0), (TENOR_YEARS + 0.25, (-EUR_ZERO * (TENOR_YEARS + 0.25)).exp())])
+        .knots([
+            (0.0, 1.0),
+            (TENOR_YEARS + 0.25, (-EUR_ZERO * (TENOR_YEARS + 0.25)).exp()),
+        ])
         .interp(InterpStyle::Linear)
         .extrapolation(ExtrapolationPolicy::FlatZero)
         .build()
