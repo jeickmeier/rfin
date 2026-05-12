@@ -41,7 +41,13 @@ pub(crate) fn assign_position_factors(
     let mut unmatched = Vec::new();
 
     for dependency in dependencies {
-        if let Some(factor_id) = matcher.match_factor(dependency, attributes) {
+        let matched_factor = matcher
+            .match_factor_with_betas(dependency, attributes)
+            .ok()
+            .flatten()
+            .and_then(|entries| entries.into_iter().next_back())
+            .map(|entry| entry.factor_id);
+        if let Some(factor_id) = matched_factor {
             mappings.push((dependency.clone(), factor_id));
         } else {
             unmatched.push(UnmatchedEntry {

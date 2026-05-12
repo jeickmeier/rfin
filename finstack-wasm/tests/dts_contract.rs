@@ -88,8 +88,6 @@ fn analytics_dts_matches_runtime_hotspots() {
 
     assert!(dts.contains("export declare class Performance {"));
     assert!(dts.contains("Performance: typeof Performance;"));
-    assert!(dts.contains("CagrBasis: CagrBasisConstructor;"));
-    assert!(dts.contains("BenchmarkAlignmentPolicy: BenchmarkAlignmentPolicyConstructor;"));
     assert!(contains_ignoring_ws(
         &dts,
         "static fromReturns(dates: string[], returns: NumericMatrix, tickerNames: string[], benchmarkTicker?: string | null, freq?: string): Performance;",

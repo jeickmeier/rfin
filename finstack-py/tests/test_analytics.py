@@ -24,9 +24,7 @@ import pytest
 
 from finstack.analytics import (
     AnalyticsError,
-    BenchmarkAlignmentPolicy,
     BetaResult,
-    CagrBasis,
     GreeksResult,
     LookbackReturns,
     MultiFactorResult,
@@ -296,21 +294,6 @@ class TestDateRange:
         active = perf_prices.dates()
         assert active[0] == date(2024, 1, 10)
         assert active[-1] == date(2024, 1, 20)
-
-
-# ---------------------------------------------------------------------------
-# Value-object inputs
-# ---------------------------------------------------------------------------
-
-
-class TestValueObjects:
-    def test_cagr_basis_factor_and_dates_construct(self) -> None:
-        assert CagrBasis.factor(252.0) is not None
-        assert CagrBasis.dates(date(2024, 1, 1), date(2025, 1, 1)) is not None
-
-    def test_benchmark_alignment_policy(self) -> None:
-        assert BenchmarkAlignmentPolicy.zero_on_missing() is not None
-        assert BenchmarkAlignmentPolicy.error_on_missing() is not None
 
 
 # ---------------------------------------------------------------------------

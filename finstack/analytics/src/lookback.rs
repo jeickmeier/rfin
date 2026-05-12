@@ -10,31 +10,14 @@ use crate::dates::{
 };
 use core::ops::Range;
 
-/// Input-date convention for calendar-aware lookback selectors.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LookbackDateAlignment {
-    /// Dates represent price observations, so the start index should include
-    /// the business day before the fiscal period starts.
-    PriceIndex,
-    /// Dates represent returns labeled by the ending observation date, so the
-    /// start index should use the fiscal start date or the next business day.
-    ReturnSeries,
-}
-
 /// Index of the first date on or after `target` via binary search.
 fn lower_bound(dates: &[Date], target: Date) -> usize {
     dates.partition_point(|&d| d < target)
 }
 
-/// Shared range builder: `[period_start - offset_days, ref_date]` inclusive.
-fn select_range(
-    dates: &[Date],
-    period_start: Date,
-    ref_date: Date,
-    offset_days: i64,
-) -> Range<usize> {
-    let adj_start = period_start - Duration::days(offset_days);
-    let lo = lower_bound(dates, adj_start);
+/// Shared range builder: `[period_start, ref_date]` inclusive.
+fn select_range(dates: &[Date], period_start: Date, ref_date: Date) -> Range<usize> {
+    let lo = lower_bound(dates, period_start);
     let hi = lower_bound(dates, ref_date + Duration::days(1));
     lo..hi
 }
@@ -42,15 +25,10 @@ fn select_range(
 /// Month-to-date index range: from the first calendar day of `ref_date`'s
 /// month through `ref_date` (inclusive).
 ///
-/// `offset_days` shifts the window start backward by that many days,
-/// which is useful when the first trading day of the month does not fall
-/// on the 1st.
-///
 /// # Arguments
 ///
-/// * `dates`       - Sorted slice of observation dates.
-/// * `ref_date`    - Reference date (typically "today").
-/// * `offset_days` - Number of days to subtract from the computed start date.
+/// * `dates`    - Sorted slice of observation dates.
+/// * `ref_date` - Reference date (typically "today").
 ///
 /// # Returns
 ///
@@ -66,14 +44,14 @@ fn select_range(
 /// let dates: Vec<Date> = (1..=28)
 ///     .map(|d| Date::from_calendar_date(2025, Month::January, d).unwrap())
 ///     .collect();
-/// let range = mtd_select(&dates, Date::from_calendar_date(2025, Month::January, 15).unwrap(), 0);
+/// let range = mtd_select(&dates, Date::from_calendar_date(2025, Month::January, 15).unwrap());
 /// assert_eq!(range.start, 0);
 /// assert_eq!(range.end, 15);
 /// ```
-pub fn mtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usize> {
+pub fn mtd_select(dates: &[Date], ref_date: Date) -> Range<usize> {
     let month_start = ref_date.end_of_month();
     let month_start = month_start.replace_day(1).unwrap_or(month_start);
-    select_range(dates, month_start, ref_date, offset_days)
+    select_range(dates, month_start, ref_date)
 }
 
 /// Quarter-to-date index range: from the first calendar day of `ref_date`'s
@@ -84,9 +62,8 @@ pub fn mtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
 ///
 /// # Arguments
 ///
-/// * `dates`       - Sorted slice of observation dates.
-/// * `ref_date`    - Reference date (typically "today").
-/// * `offset_days` - Number of days to subtract from the computed start date.
+/// * `dates`    - Sorted slice of observation dates.
+/// * `ref_date` - Reference date (typically "today").
 ///
 /// # Returns
 ///
@@ -102,12 +79,11 @@ pub fn mtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
 ///     .map(|d| Date::from_calendar_date(2025, Month::January, 1).unwrap()
 ///         + Duration::days(d - 1))
 ///     .collect();
-/// let range = qtd_select(&dates, Date::from_calendar_date(2025, Month::February, 15).unwrap(), 0);
-/// // Q1 starts Jan 1 → range should include all dates up through Feb 15.
+/// let range = qtd_select(&dates, Date::from_calendar_date(2025, Month::February, 15).unwrap());
 /// assert_eq!(range.start, 0);
 /// assert!(range.end > 30);
 /// ```
-pub fn qtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usize> {
+pub fn qtd_select(dates: &[Date], ref_date: Date) -> Range<usize> {
     let q = ref_date.quarter();
     let quarter_start_month = (q - 1) * 3 + 1;
     let (year, _month, _day) = ref_date.to_calendar_date();
@@ -117,7 +93,7 @@ pub fn qtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
         1,
     )
     .unwrap_or(ref_date);
-    select_range(dates, qtr_start, ref_date, offset_days)
+    select_range(dates, qtr_start, ref_date)
 }
 
 /// Year-to-date index range: from January 1 of `ref_date`'s calendar year
@@ -125,9 +101,8 @@ pub fn qtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
 ///
 /// # Arguments
 ///
-/// * `dates`       - Sorted slice of observation dates.
-/// * `ref_date`    - Reference date (typically "today").
-/// * `offset_days` - Number of days to subtract from January 1.
+/// * `dates`    - Sorted slice of observation dates.
+/// * `ref_date` - Reference date (typically "today").
 ///
 /// # Returns
 ///
@@ -143,94 +118,44 @@ pub fn qtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
 ///     .map(|d| Date::from_calendar_date(2025, Month::January, 1).unwrap()
 ///         + Duration::days(d))
 ///     .collect();
-/// let range = ytd_select(&dates, Date::from_calendar_date(2025, Month::February, 15).unwrap(), 0);
+/// let range = ytd_select(&dates, Date::from_calendar_date(2025, Month::February, 15).unwrap());
 /// assert_eq!(range.start, 0);
 /// assert!(range.end > 30);
 /// ```
-pub fn ytd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usize> {
+pub fn ytd_select(dates: &[Date], ref_date: Date) -> Range<usize> {
     let (year, _month, _day) = ref_date.to_calendar_date();
     let year_start = crate::dates::create_date(year, Month::January, 1).unwrap_or(ref_date);
-    select_range(dates, year_start, ref_date, offset_days)
+    select_range(dates, year_start, ref_date)
 }
 
 /// Fiscal-year-to-date index range: from the start of the fiscal year
-/// containing `ref_date` through `ref_date` (inclusive).
+/// containing `ref_date` through `ref_date` (inclusive), aligned to the next
+/// business day via `calendar`.
 ///
 /// The fiscal year start is determined by [`FiscalConfig`] (start month and
-/// day). For example, the US federal fiscal year starts October 1.
+/// day). For example, the US federal fiscal year starts October 1. When the
+/// fiscal start date is not a business day, the range begins on the next
+/// business day per [`BusinessDayConvention::Following`].
 ///
 /// # Arguments
 ///
-/// * `dates`        - Sorted slice of observation dates.
-/// * `ref_date`     - Reference date (typically "today").
-/// * `fiscal_config`- Fiscal year configuration (start month, start day).
-/// * `offset_days`  - Number of days to subtract from the fiscal year start.
-///
-/// # Returns
-///
-/// A `Range<usize>` into `dates` covering the FYTD window.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_analytics::lookback::fytd_select;
-/// use finstack_core::dates::{Date, Duration, FiscalConfig, Month};
-///
-/// // US federal fiscal year: Oct 1 → Sep 30.
-/// let dates: Vec<Date> = (0..120)
-///     .map(|d| Date::from_calendar_date(2024, Month::October, 1).unwrap()
-///         + Duration::days(d))
-///     .collect();
-/// let config = FiscalConfig::us_federal();
-/// let range = fytd_select(
-///     &dates,
-///     Date::from_calendar_date(2025, Month::January, 15).unwrap(),
-///     config,
-///     0,
-/// );
-/// assert_eq!(range.start, 0);
-/// assert!(range.end > 0);
-/// ```
-pub fn fytd_select(
-    dates: &[Date],
-    ref_date: Date,
-    fiscal_config: FiscalConfig,
-    offset_days: i64,
-) -> Range<usize> {
-    let fy_start = fiscal_year_start_date(ref_date, fiscal_config);
-    select_range(dates, fy_start, ref_date, offset_days)
-}
-
-/// Fiscal-year-to-date index range using a holiday calendar to align the
-/// fiscal start date to the supplied date series convention.
-///
-/// Price-index series include the prior business-day close before the fiscal
-/// start. Return series include the fiscal start date itself when it is a
-/// business day, or the next business day when it is not.
+/// * `dates`         - Sorted slice of observation dates.
+/// * `ref_date`      - Reference date (typically "today").
+/// * `fiscal_config` - Fiscal year configuration (start month, start day).
+/// * `calendar`      - Holiday calendar used for business-day alignment.
 ///
 /// # Errors
 /// Returns an error when business-day adjustment fails for the supplied
 /// calendar.
-pub fn fytd_select_aligned(
+pub fn fytd_select(
     dates: &[Date],
     ref_date: Date,
     fiscal_config: FiscalConfig,
     calendar: &dyn HolidayCalendar,
-    alignment: LookbackDateAlignment,
-    offset_days: i64,
 ) -> crate::Result<Range<usize>> {
     let fy_start = fiscal_year_start_date(ref_date, fiscal_config);
-    let aligned_start = match alignment {
-        LookbackDateAlignment::PriceIndex => adjust(
-            fy_start - Duration::days(1),
-            BusinessDayConvention::Preceding,
-            calendar,
-        )?,
-        LookbackDateAlignment::ReturnSeries => {
-            adjust(fy_start, BusinessDayConvention::Following, calendar)?
-        }
-    };
-    Ok(select_range(dates, aligned_start, ref_date, offset_days))
+    let aligned_start = adjust(fy_start, BusinessDayConvention::Following, calendar)?;
+    Ok(select_range(dates, aligned_start, ref_date))
 }
 
 fn fiscal_year_start_date(ref_date: Date, fiscal_config: FiscalConfig) -> Date {
@@ -257,10 +182,16 @@ mod tests {
         (0..n).map(|i| start + Duration::days(i as i64)).collect()
     }
 
+    fn nyse() -> &'static dyn HolidayCalendar {
+        crate::dates::CalendarRegistry::global()
+            .resolve_str("nyse")
+            .expect("nyse calendar")
+    }
+
     #[test]
     fn ytd_select_basic() {
         let dates = daily_dates(d(2025, 1, 1), 60);
-        let range = ytd_select(&dates, d(2025, 2, 15), 0);
+        let range = ytd_select(&dates, d(2025, 2, 15));
         assert_eq!(range.start, 0);
         assert!(range.end > 30);
     }
@@ -268,14 +199,14 @@ mod tests {
     #[test]
     fn mtd_select_basic() {
         let dates = daily_dates(d(2025, 1, 1), 60);
-        let range = mtd_select(&dates, d(2025, 2, 15), 0);
+        let range = mtd_select(&dates, d(2025, 2, 15));
         assert!(range.start > 0);
     }
 
     #[test]
     fn qtd_select_q1() {
         let dates = daily_dates(d(2025, 1, 1), 90);
-        let range = qtd_select(&dates, d(2025, 3, 15), 0);
+        let range = qtd_select(&dates, d(2025, 3, 15));
         assert_eq!(range.start, 0);
     }
 
@@ -283,52 +214,17 @@ mod tests {
     fn fytd_select_us_federal() {
         let dates = daily_dates(d(2024, 10, 1), 120);
         let config = FiscalConfig::us_federal();
-        let range = fytd_select(&dates, d(2025, 1, 15), config, 0);
+        let range = fytd_select(&dates, d(2025, 1, 15), config, nyse())
+            .expect("calendar-adjusted FYTD range");
         assert_eq!(range.start, 0);
     }
 
     #[test]
-    fn fytd_select_january_mid_month_start_uses_prior_calendar_year() {
-        let dates = daily_dates(d(2025, 1, 1), 40);
-        let config = FiscalConfig::new(1, 15).expect("valid fiscal config");
-        let range = fytd_select(&dates, d(2025, 1, 20), config, 0);
-        assert_eq!(range.start, 14);
-        assert_eq!(range.end, 20);
-    }
-
-    #[test]
-    fn fytd_select_aligned_uses_prior_business_day_for_price_index() {
+    fn fytd_select_uses_next_business_day_when_start_is_holiday() {
         let dates = daily_dates(d(2024, 12, 30), 10);
-        let calendar = crate::dates::CalendarRegistry::global()
-            .resolve_str("nyse")
-            .expect("nyse calendar");
-        let range = fytd_select_aligned(
-            &dates,
-            d(2025, 1, 6),
-            FiscalConfig::calendar_year(),
-            calendar,
-            LookbackDateAlignment::PriceIndex,
-            0,
-        )
-        .expect("calendar-adjusted FYTD range");
-        assert_eq!(dates[range.start], d(2024, 12, 31));
-    }
-
-    #[test]
-    fn fytd_select_aligned_uses_next_business_day_for_return_series() {
-        let dates = daily_dates(d(2024, 12, 30), 10);
-        let calendar = crate::dates::CalendarRegistry::global()
-            .resolve_str("nyse")
-            .expect("nyse calendar");
-        let range = fytd_select_aligned(
-            &dates,
-            d(2025, 1, 6),
-            FiscalConfig::calendar_year(),
-            calendar,
-            LookbackDateAlignment::ReturnSeries,
-            0,
-        )
-        .expect("calendar-adjusted FYTD range");
+        let range = fytd_select(&dates, d(2025, 1, 6), FiscalConfig::calendar_year(), nyse())
+            .expect("calendar-adjusted FYTD range");
+        // Jan 1 2025 is a holiday → expect range to start on Jan 2 2025.
         assert_eq!(dates[range.start], d(2025, 1, 2));
     }
 }

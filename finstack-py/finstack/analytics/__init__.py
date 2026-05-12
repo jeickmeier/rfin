@@ -24,14 +24,10 @@ RollingSharpe = _analytics.RollingSharpe
 RollingSortino = _analytics.RollingSortino
 RollingVolatility = _analytics.RollingVolatility
 RollingReturns = _analytics.RollingReturns
-CagrBasis = _analytics.CagrBasis
-BenchmarkAlignmentPolicy = _analytics.BenchmarkAlignmentPolicy
 
 __all__: list[str] = [
     "AnalyticsError",
-    "BenchmarkAlignmentPolicy",
     "BetaResult",
-    "CagrBasis",
     "DrawdownEpisode",
     "GreeksResult",
     "LookbackReturns",

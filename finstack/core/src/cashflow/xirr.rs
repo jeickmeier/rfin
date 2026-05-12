@@ -661,49 +661,11 @@ where
     count_sign_changes(iter) > 1
 }
 
-/// Extended result from an IRR calculation with root-ambiguity metadata.
-///
-/// Use this when callers need to surface whether a cashflow pattern may have
-/// multiple economically meaningful roots, rather than only the selected rate.
-#[derive(Debug, Clone, PartialEq)]
-pub struct IrrResult {
-    /// The computed internal rate of return.
-    pub rate: f64,
-    /// Number of sign changes in the cashflow sequence.
-    ///
-    /// By Descartes' rule of signs, this is an upper bound on the number of
-    /// positive real roots of the NPV polynomial.
-    pub sign_changes: usize,
-    /// Whether multiple roots are possible (`sign_changes > 1`).
-    pub multiple_roots_possible: bool,
-    /// Upper bound on economically meaningful real roots implied by cashflow signs.
-    pub root_count_upper_bound: usize,
-    /// Absolute distance of the selected root from zero.
-    pub selected_root_distance: f64,
-}
-
 /// Count the number of sign changes in a numeric sequence.
 ///
 /// Zero values are skipped. This count is used by Descartes' rule of signs
 /// to bound the number of positive real roots.
-///
-/// # Arguments
-///
-/// - `iter`: Cashflow-like numeric sequence.
-///
-/// # Returns
-///
-/// Returns the number of times the non-zero sign changes as the sequence is
-/// traversed from left to right.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_core::cashflow::count_sign_changes;
-///
-/// assert_eq!(count_sign_changes([-100.0, 0.0, 60.0, -10.0]), 2);
-/// ```
-pub fn count_sign_changes<I>(iter: I) -> usize
+pub(crate) fn count_sign_changes<I>(iter: I) -> usize
 where
     I: IntoIterator<Item = f64>,
 {
@@ -728,94 +690,6 @@ where
     changes
 }
 
-/// Calculate IRR with root-ambiguity metadata for periodic cashflows.
-///
-/// # Arguments
-///
-/// - `cashflows`: Cashflow amounts ordered by period.
-/// - `guess`: Optional initial solver guess as a decimal rate.
-///
-/// # Returns
-///
-/// Returns an [`IrrResult`] containing the selected rate, the number of sign
-/// changes, and a flag indicating whether multiple roots are possible.
-///
-/// # Errors
-///
-/// Returns the same errors as [`irr`].
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_core::cashflow::irr_detailed;
-///
-/// let result = irr_detailed(&[-100.0, 110.0], None)?;
-/// assert!((result.rate - 0.10).abs() < 1e-8);
-/// assert_eq!(result.sign_changes, 1);
-/// assert!(!result.multiple_roots_possible);
-/// # Ok::<(), finstack_core::Error>(())
-/// ```
-pub fn irr_detailed(cashflows: &[f64], guess: Option<f64>) -> crate::Result<IrrResult> {
-    let rate = cashflows.irr(guess)?;
-    let sign_changes = count_sign_changes(cashflows.iter().copied());
-    Ok(IrrResult {
-        rate,
-        sign_changes,
-        multiple_roots_possible: sign_changes > 1,
-        root_count_upper_bound: sign_changes,
-        selected_root_distance: rate.abs(),
-    })
-}
-
-/// Calculate XIRR with root-ambiguity metadata for dated cashflows.
-///
-/// # Arguments
-///
-/// - `cashflows`: `(date, amount)` pairs.
-/// - `day_count`: Convention used to convert dates into year fractions.
-/// - `guess`: Optional initial solver guess as a decimal annual rate.
-///
-/// # Returns
-///
-/// Returns an [`IrrResult`] containing the selected annualized rate, the number
-/// of sign changes, and a flag indicating whether multiple roots are possible.
-///
-/// # Errors
-///
-/// Returns the same errors as [`xirr_with_daycount`].
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_core::cashflow::xirr_detailed;
-/// use finstack_core::dates::{create_date, DayCount};
-/// use time::Month;
-///
-/// let flows = [
-///     (create_date(2025, Month::January, 1)?, -100.0),
-///     (create_date(2026, Month::January, 1)?, 110.0),
-/// ];
-/// let result = xirr_detailed(&flows, DayCount::Act365F, None)?;
-/// assert!((result.rate - 0.10).abs() < 1e-8);
-/// assert_eq!(result.sign_changes, 1);
-/// # Ok::<(), finstack_core::Error>(())
-/// ```
-pub fn xirr_detailed(
-    cashflows: &[(Date, f64)],
-    day_count: DayCount,
-    guess: Option<f64>,
-) -> crate::Result<IrrResult> {
-    let rate = cashflows.irr_with_daycount(day_count, guess)?;
-    let sign_changes = count_sign_changes(cashflows.iter().map(|(_, value)| *value));
-    Ok(IrrResult {
-        rate,
-        sign_changes,
-        multiple_roots_possible: sign_changes > 1,
-        root_count_upper_bound: sign_changes,
-        selected_root_distance: rate.abs(),
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -823,35 +697,10 @@ mod tests {
     use time::Month;
 
     #[test]
-    fn irr_detailed_simple_cashflow() {
-        let flows = [-100.0, 110.0];
-        let result = irr_detailed(&flows, None).expect("should converge");
-        assert!((result.rate - 0.1).abs() < 1e-6, "rate={}", result.rate);
-        assert_eq!(result.sign_changes, 1);
-        assert!(!result.multiple_roots_possible);
-    }
-
-    #[test]
-    fn irr_detailed_multiple_sign_changes() {
-        let flows = [-100.0, 230.0, -132.0, 5.0];
-        let result = irr_detailed(&flows, None).expect("should converge");
-        assert!(result.sign_changes >= 3);
-        assert!(result.multiple_roots_possible);
-    }
-
-    #[test]
     fn count_sign_changes_skips_zeros() {
         assert_eq!(count_sign_changes([1.0, 0.0, -1.0].iter().copied()), 1);
         assert_eq!(count_sign_changes([1.0, -1.0, 0.0, 1.0].iter().copied()), 2);
         assert_eq!(count_sign_changes([0.0, 0.0, 1.0].iter().copied()), 0);
-    }
-
-    #[test]
-    fn irr_detailed_matches_irr() {
-        let flows = [-1000.0, 100.0, 100.0, 100.0, 1100.0];
-        let irr_simple = flows.as_slice().irr(None).expect("should converge");
-        let detailed = irr_detailed(&flows, None).expect("should converge");
-        assert!((irr_simple - detailed.rate).abs() < 1e-12);
     }
 
     /// Helper to compute NPV for periodic cashflows at a given rate

@@ -1,5 +1,4 @@
 use finstack_analytics::aggregation::group_by_period;
-use finstack_analytics::benchmark::{align_benchmark, BenchmarkAlignmentPolicy};
 use finstack_analytics::risk_metrics::value_at_risk;
 use finstack_analytics::Performance;
 use finstack_core::dates::{Date, Month, PeriodKind};
@@ -250,29 +249,6 @@ fn max_drawdown_and_calmar_compose_from_primitives() {
 
     assert!(expected_max_drawdown <= 0.0);
     assert!(expected_calmar.is_finite() || expected_calmar.is_nan());
-}
-
-#[test]
-fn align_benchmark_policy_can_reject_missing_dates() {
-    let bench_dates = vec![d(2024, Month::January, 1), d(2024, Month::January, 3)];
-    let bench_returns = vec![0.01, 0.02];
-    let target_dates = vec![
-        d(2024, Month::January, 1),
-        d(2024, Month::January, 2),
-        d(2024, Month::January, 3),
-    ];
-
-    let result = align_benchmark(
-        &bench_returns,
-        &bench_dates,
-        &target_dates,
-        BenchmarkAlignmentPolicy::ErrorOnMissingDates,
-    );
-
-    assert!(
-        result.is_err(),
-        "missing benchmark dates should be surfaced explicitly when requested"
-    );
 }
 
 #[test]

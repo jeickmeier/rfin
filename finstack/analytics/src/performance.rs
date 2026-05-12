@@ -17,7 +17,7 @@ use super::drawdown::{
     max_drawdown_duration as dd_max_duration, pain_index, pain_ratio, recovery_factor,
     sterling_ratio, to_drawdown_series, ulcer_index, DrawdownEpisode,
 };
-use super::lookback::{self, LookbackDateAlignment};
+use super::lookback;
 use super::returns::{clean_returns, comp_sum, comp_total, excess_returns, simple_returns};
 use super::risk_metrics::{
     self, rolling_sharpe, rolling_sortino, rolling_volatility, DatedSeries, RollingSharpe,
@@ -76,8 +76,6 @@ pub struct Performance {
     benchmark_idx: usize,
     drawdowns: Vec<Vec<f64>>,
     active_window_drawdowns: Option<Vec<Vec<f64>>>,
-    bench_returns: Vec<f64>,
-    bench_drawdown: Vec<f64>,
     freq: PeriodKind,
     start_idx: usize,
     end_idx: usize,
@@ -197,12 +195,6 @@ impl Performance {
             all_returns.push(returns);
         }
 
-        let bench_returns = all_returns.get(benchmark_idx).cloned().unwrap_or_default();
-        let bench_drawdown = all_drawdowns
-            .get(benchmark_idx)
-            .cloned()
-            .unwrap_or_default();
-
         let adj_dates = if dates.len() > 1 {
             dates[1..].to_vec()
         } else {
@@ -219,8 +211,6 @@ impl Performance {
             benchmark_idx,
             drawdowns: all_drawdowns,
             active_window_drawdowns: None,
-            bench_returns,
-            bench_drawdown,
             freq,
             start_idx: 0,
             end_idx,
@@ -294,12 +284,6 @@ impl Performance {
             all_returns.push(clean);
         }
 
-        let bench_returns = all_returns.get(benchmark_idx).cloned().unwrap_or_default();
-        let bench_drawdown = all_drawdowns
-            .get(benchmark_idx)
-            .cloned()
-            .unwrap_or_default();
-
         let prior_date = if dates.len() >= 2 {
             let gap = (dates[1] - dates[0]).whole_days();
             dates[0]
@@ -322,8 +306,6 @@ impl Performance {
             benchmark_idx,
             drawdowns: all_drawdowns,
             active_window_drawdowns: None,
-            bench_returns,
-            bench_drawdown,
             freq,
             start_idx: 0,
             end_idx,
@@ -348,12 +330,9 @@ impl Performance {
 
     /// Designate a different ticker as the benchmark for all subsequent analytics.
     ///
-    /// Updates the internal benchmark return and drawdown caches to point to
-    /// the new ticker's pre-computed series. Respects the currently active
-    /// date window without recomputation: the windowed-drawdown cache built by
-    /// [`Self::reset_date_range`] already contains an entry for every ticker,
-    /// so flipping the benchmark index implicitly retargets the windowed
-    /// benchmark drawdowns without touching the cache.
+    /// Updates `benchmark_idx`; all benchmark-aware accessors derive their
+    /// series from `returns[benchmark_idx]` / `drawdowns[benchmark_idx]`
+    /// (or the active windowed-drawdown cache when a date range is set).
     ///
     /// # Arguments
     ///
@@ -371,11 +350,6 @@ impl Performance {
             .position(|t| t == ticker)
             .ok_or(crate::error::InputError::Invalid)?;
         self.benchmark_idx = idx;
-        self.bench_returns = self.returns.get(idx).cloned().unwrap_or_default();
-        // Full-history drawdown for the new benchmark; the windowed view is
-        // served by `active_window_drawdowns[benchmark_idx]`, which is
-        // already populated for every ticker by `refresh_active_drawdown_cache`.
-        self.bench_drawdown = self.drawdowns.get(idx).cloned().unwrap_or_default();
         Ok(())
     }
 
@@ -435,9 +409,7 @@ impl Performance {
     }
 
     fn active_bench(&self) -> &[f64] {
-        let range = self.active_range();
-        let end = range.end.min(self.bench_returns.len());
-        &self.bench_returns[range.start.min(end)..end]
+        self.active_returns(self.benchmark_idx)
     }
 
     /// Date slice corresponding to the currently active analysis window.
@@ -464,15 +436,7 @@ impl Performance {
     }
 
     fn active_bench_drawdown_values(&self) -> &[f64] {
-        if self.using_full_range() {
-            return &self.bench_drawdown;
-        }
-
-        self.active_window_drawdowns
-            .as_ref()
-            .and_then(|drawdowns| drawdowns.get(self.benchmark_idx))
-            .map(Vec::as_slice)
-            .unwrap_or(&[])
+        self.active_drawdown_values(self.benchmark_idx)
     }
 
     fn ann(&self) -> f64 {
@@ -1284,70 +1248,33 @@ impl Performance {
     ///
     /// # Arguments
     ///
-    /// * `ref_date` - Reference date (typically the most recent business day).
-    /// * `fiscal_config` - Optional fiscal year configuration. If `None`,
-    ///   `fytd` in the result will be `None`.
+    /// * `ref_date`      - Reference date (typically the most recent business day).
+    /// * `fiscal_config` - Fiscal year configuration used for FYTD.
+    /// * `calendar`      - Holiday calendar used to align the FYTD start.
     ///
     /// # Returns
     ///
     /// A [`LookbackReturns`] with per-ticker compounded returns for each
     /// horizon. If a lookback range is empty for a given ticker, the
     /// corresponding compounded return is `0.0`.
-    pub fn lookback_returns(
-        &self,
-        ref_date: Date,
-        fiscal_config: Option<FiscalConfig>,
-    ) -> LookbackReturns {
-        let dates = self.active_dates();
-        let mtd = lookback::mtd_select(dates, ref_date, 0);
-        let qtd = lookback::qtd_select(dates, ref_date, 0);
-        let ytd = lookback::ytd_select(dates, ref_date, 0);
-        let fytd = fiscal_config.map(|fc| lookback::fytd_select(dates, ref_date, fc, 0));
-
-        let compute = |range: &core::ops::Range<usize>| -> Vec<f64> {
-            self.map_tickers(|i| {
-                let r = self.active_returns(i);
-                let start = range.start.min(r.len());
-                let end = range.end.min(r.len()).max(start);
-                let slice = &r[start..end];
-                comp_total(slice)
-            })
-        };
-
-        LookbackReturns {
-            mtd: compute(&mtd),
-            qtd: compute(&qtd),
-            ytd: compute(&ytd),
-            fytd: fytd.map(|r| compute(&r)),
-        }
-    }
-
-    /// Compounded lookback returns with calendar-aware FYTD start alignment.
     ///
-    /// The FYTD start is aligned as a return series: the fiscal start date
-    /// itself when it is a business day, otherwise the next business day.
+    /// FYTD start is aligned to the next business day per the supplied
+    /// calendar.
     ///
     /// # Errors
     /// Returns an error if the fiscal start cannot be adjusted on the supplied
     /// calendar.
-    pub fn lookback_returns_with_calendar(
+    pub fn lookback_returns(
         &self,
         ref_date: Date,
         fiscal_config: FiscalConfig,
         calendar: &dyn HolidayCalendar,
     ) -> crate::Result<LookbackReturns> {
         let dates = self.active_dates();
-        let mtd = lookback::mtd_select(dates, ref_date, 0);
-        let qtd = lookback::qtd_select(dates, ref_date, 0);
-        let ytd = lookback::ytd_select(dates, ref_date, 0);
-        let fytd = lookback::fytd_select_aligned(
-            dates,
-            ref_date,
-            fiscal_config,
-            calendar,
-            LookbackDateAlignment::ReturnSeries,
-            0,
-        )?;
+        let mtd = lookback::mtd_select(dates, ref_date);
+        let qtd = lookback::qtd_select(dates, ref_date);
+        let ytd = lookback::ytd_select(dates, ref_date);
+        let fytd = lookback::fytd_select(dates, ref_date, fiscal_config, calendar)?;
 
         let compute = |range: &core::ops::Range<usize>| -> Vec<f64> {
             self.map_tickers(|i| {

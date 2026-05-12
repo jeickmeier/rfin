@@ -168,7 +168,7 @@ assert!(stats.win_rate >= 0.0);
 | `risk_metrics::tail_risk` | Distribution and downside-tail metrics | `value_at_risk`, `expected_shortfall`, `parametric_var`, `cornish_fisher_var`, `skewness`, `kurtosis`, `tail_ratio` |
 | `risk_metrics::rolling` | Rolling series outputs | `rolling_sharpe`, `rolling_sortino`, `rolling_volatility` |
 | `drawdown` | Drawdown paths, episodes, and drawdown-derived ratios | `to_drawdown_series`, `drawdown_details`, `cdar`, `ulcer_index`, `calmar`, `martin_ratio`, `sterling_ratio` |
-| `benchmark` | Benchmark-relative and regression-style analytics | `tracking_error`, `information_ratio`, `beta`, `greeks`, `rolling_greeks`, `multi_factor_greeks`, `align_benchmark` |
+| `benchmark` | Benchmark-relative and regression-style analytics | `tracking_error`, `information_ratio`, `beta`, `greeks`, `rolling_greeks`, `multi_factor_greeks` |
 | `aggregation` | Period compounding and trading statistics | `group_by_period`, `period_stats`, `PeriodStats` |
 | `lookback` | Index-range selectors for dated arrays | `mtd_select`, `qtd_select`, `ytd_select`, `fytd_select` |
 | `backtesting` | VaR backtesting, regulatory traffic-light, P&L explanation | `kupiec_test`, `christoffersen_test`, `traffic_light`, `run_backtest`, `rolling_var_forecasts`, `compare_var_backtests`, `pnl_explanation`, `BacktestResult` |
@@ -233,9 +233,8 @@ tuples:
 - **Drawdown depths are non-positive fractions**. A 25% drawdown is `-0.25`.
 - **CDaR is non-negative** because it is reported as an absolute tail drawdown
   depth.
-- **Benchmark alignment operates in return space**. Missing benchmark dates can
-  be zero-filled or rejected explicitly with
-  `BenchmarkAlignmentPolicy::ErrorOnMissingDates`.
+- **Benchmark alignment is the caller's responsibility**. `Performance` assumes
+  the benchmark column already aligns with the panel's date grid.
 - **Annualization is explicit**. Pure functions either take `ann_factor`
   directly or derive it from `PeriodKind` when called through `Performance`.
 - **Rolling series are right-labeled**. The date attached to each rolling value
@@ -272,8 +271,6 @@ Most public result/config types derive `Serialize` and `Deserialize`, including:
 - `DrawdownEpisode`
 - `BetaResult`, `GreeksResult`, `MultiFactorResult`, `RollingGreeks`
 - `RollingSharpe`, `RollingSortino`, `RollingVolatility`
-- `BenchmarkAlignmentPolicy`
-- `RuinDefinition`, `RuinModel`, `RuinEstimate`
 
 This makes the crate easy to use in snapshot tests, REST or IPC payloads, and
 Python/WASM-adjacent serialization layers.

@@ -70,23 +70,10 @@ pub type FactorMatchResult = Result<Option<Vec<FactorMatchEntry>>, FactorMatchEr
 
 /// Matches a market dependency and instrument attributes to factor identifiers.
 pub trait FactorMatcher: Send + Sync {
-    /// Returns the single matching factor identifier, if any.
-    ///
-    /// This is the legacy, single-factor dispatch retained for matchers whose
-    /// semantics are "deepest match wins" or "first rule wins". New matchers
-    /// that produce multiple factors per dependency should override
-    /// [`Self::match_factor_with_betas`].
-    fn match_factor(
-        &self,
-        dependency: &MarketDependency,
-        attributes: &Attributes,
-    ) -> Option<FactorId>;
-
     /// Returns the matched `(factor_id, beta)` entries for a dependency.
     ///
-    /// The default implementation lifts [`Self::match_factor`] into a single
-    /// entry with `beta = 1.0`. The credit hierarchy matcher overrides this
-    /// to emit multiple entries per dependency.
+    /// Most matchers produce a single entry with `beta = 1.0`; the credit
+    /// hierarchy matcher emits multiple entries per dependency.
     ///
     /// # Errors
     ///
@@ -96,14 +83,32 @@ pub trait FactorMatcher: Send + Sync {
         &self,
         dependency: &MarketDependency,
         attributes: &Attributes,
-    ) -> FactorMatchResult {
-        Ok(self.match_factor(dependency, attributes).map(|factor_id| {
-            vec![FactorMatchEntry {
-                factor_id,
-                beta: 1.0,
-            }]
-        }))
+    ) -> FactorMatchResult;
+
+    /// Convenience wrapper that returns only the deepest matched factor id.
+    ///
+    /// Equivalent to taking the last entry of [`Self::match_factor_with_betas`]
+    /// and discarding its beta. Errors and `Skip` are collapsed to `None`.
+    fn match_factor(
+        &self,
+        dependency: &MarketDependency,
+        attributes: &Attributes,
+    ) -> Option<FactorId> {
+        match self.match_factor_with_betas(dependency, attributes).ok()? {
+            Some(entries) if !entries.is_empty() => entries.last().map(|e| e.factor_id.clone()),
+            _ => None,
+        }
     }
+}
+
+/// Helper: lift a single matched factor id into the canonical
+/// `Vec<FactorMatchEntry>` shape with `beta = 1.0`.
+#[inline]
+fn one_entry(factor_id: FactorId) -> Vec<FactorMatchEntry> {
+    vec![FactorMatchEntry {
+        factor_id,
+        beta: 1.0,
+    }]
 }
 
 // ---------------------------------------------------------------------------
@@ -137,18 +142,19 @@ impl MappingTableMatcher {
 }
 
 impl FactorMatcher for MappingTableMatcher {
-    fn match_factor(
+    fn match_factor_with_betas(
         &self,
         dependency: &MarketDependency,
         attributes: &Attributes,
-    ) -> Option<FactorId> {
-        self.rules
+    ) -> FactorMatchResult {
+        Ok(self
+            .rules
             .iter()
             .find(|rule| {
                 rule.dependency_filter.matches(dependency)
                     && rule.attribute_filter.matches(attributes)
             })
-            .map(|rule| rule.factor_id.clone())
+            .map(|rule| one_entry(rule.factor_id.clone())))
     }
 }
 
@@ -224,15 +230,16 @@ impl HierarchicalMatcher {
 }
 
 impl FactorMatcher for HierarchicalMatcher {
-    fn match_factor(
+    fn match_factor_with_betas(
         &self,
         dependency: &MarketDependency,
         attributes: &Attributes,
-    ) -> Option<FactorId> {
+    ) -> FactorMatchResult {
         if !self.dependency_filter.matches(dependency) {
-            return None;
+            return Ok(None);
         }
-        Self::find_best_match(&self.root, attributes, 0).map(|(_, factor_id)| factor_id)
+        Ok(Self::find_best_match(&self.root, attributes, 0)
+            .map(|(_, factor_id)| one_entry(factor_id)))
     }
 }
 
@@ -254,16 +261,6 @@ impl CascadeMatcher {
 }
 
 impl FactorMatcher for CascadeMatcher {
-    fn match_factor(
-        &self,
-        dependency: &MarketDependency,
-        attributes: &Attributes,
-    ) -> Option<FactorId> {
-        self.matchers
-            .iter()
-            .find_map(|matcher| matcher.match_factor(dependency, attributes))
-    }
-
     fn match_factor_with_betas(
         &self,
         dependency: &MarketDependency,

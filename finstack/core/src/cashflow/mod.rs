@@ -120,7 +120,4 @@ pub use discounting::{
     npv, npv_amounts, npv_amounts_with_ctx, npv_prediscounted_money, npv_with_ctx, Discountable,
 };
 pub use primitives::{CFKind, CashFlow};
-pub use xirr::{
-    count_sign_changes, irr, irr_detailed, xirr, xirr_detailed, xirr_with_daycount,
-    xirr_with_daycount_ctx, InternalRateOfReturn, IrrResult,
-};
+pub use xirr::{irr, xirr, xirr_with_daycount, xirr_with_daycount_ctx, InternalRateOfReturn};

@@ -1,8 +1,6 @@
 //! Stable public-API invariants that should survive internal refactors.
 
-use finstack_analytics::risk_metrics::{
-    expected_shortfall, outlier_loss_ratio, outlier_win_ratio, tail_ratio, value_at_risk,
-};
+use finstack_analytics::risk_metrics::{expected_shortfall, tail_ratio, value_at_risk};
 use finstack_core::dates::{Date, Duration, Month};
 use finstack_core::market_data::term_structures::{PriceCurve, VolatilityIndexCurve};
 use serde::Deserialize;
@@ -31,8 +29,6 @@ mod tail_risk_api {
         assert_eq!(value_at_risk(&empty, 0.95), 0.0);
         assert_eq!(expected_shortfall(&empty, 0.95), 0.0);
         assert_eq!(tail_ratio(&empty, 0.95), 0.0);
-        assert_eq!(outlier_win_ratio(&empty, 0.95), 0.0);
-        assert_eq!(outlier_loss_ratio(&empty, 0.95), 0.0);
     }
 }
 

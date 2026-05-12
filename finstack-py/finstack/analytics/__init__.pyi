@@ -9,8 +9,7 @@ scalars, drawdown statistics, rolling windows, periodic returns
 method on the resulting instance.
 
 The remaining classes are value-object outputs returned by `Performance`
-methods (`LookbackReturns`, `PeriodStats`, etc.) or value-object inputs
-accepted by future overloads (`CagrBasis`, `BenchmarkAlignmentPolicy`).
+methods (`LookbackReturns`, `PeriodStats`, etc.).
 """
 
 from __future__ import annotations
@@ -34,8 +33,6 @@ __all__ = [
     "RollingSortino",
     "RollingVolatility",
     "RollingReturns",
-    "CagrBasis",
-    "BenchmarkAlignmentPolicy",
 ]
 
 # ---------------------------------------------------------------------------
@@ -304,39 +301,6 @@ class RollingReturns:
     def to_dataframe(self) -> pd.DataFrame:
         """Convert to a pandas DataFrame with date index and a ``return`` column."""
         ...
-
-    def __repr__(self) -> str: ...
-
-class CagrBasis:
-    """Annualization basis for CAGR (value-object input)."""
-
-    @classmethod
-    def factor(cls, ann_factor: float) -> CagrBasis:
-        """Create a factor-based basis from periods per year."""
-        ...
-
-    @classmethod
-    def dates(
-        cls,
-        start: object,
-        end: object,
-        convention: str | None = None,
-    ) -> CagrBasis:
-        """Create a date-based basis from start/end dates and an optional convention."""
-        ...
-
-    def __repr__(self) -> str: ...
-
-class BenchmarkAlignmentPolicy:
-    """Policy for handling missing dates during benchmark alignment."""
-
-    @classmethod
-    def zero_on_missing(cls) -> BenchmarkAlignmentPolicy:
-        """Fill missing benchmark dates with zero returns."""
-
-    @classmethod
-    def error_on_missing(cls) -> BenchmarkAlignmentPolicy:
-        """Raise if benchmark dates don't cover all target dates."""
 
     def __repr__(self) -> str: ...
 

@@ -44,7 +44,7 @@ relies on `std` for RNG-backed bootstrap routines such as ruin simulation.
   - All functions take `&[f64]` and return `f64` or a small struct.
 
 - **`benchmark.rs`**
-  - Benchmark alignment and relative statistics: `align_benchmark`, `tracking_error`, `information_ratio`, `r_squared`, `beta`, `greeks`, `rolling_greeks`, `up_capture`, `down_capture`, `capture_ratio`, `batting_average`, `multi_factor_greeks`.
+  - Benchmark-relative statistics: `tracking_error`, `information_ratio`, `r_squared`, `beta`, `greeks`, `rolling_greeks`, `up_capture`, `down_capture`, `capture_ratio`, `batting_average`, `multi_factor_greeks`.
   - Benchmark-relative risk ratios: `treynor`, `m_squared` (compose with `mean_return` / `volatility` for series-based inputs).
   - Output types: `BetaResult` (beta, std_err, CI), `GreeksResult` (alpha, beta, r², adjusted_r²), `RollingGreeks` (dates, alphas, betas), `MultiFactorResult` (alpha, betas, r², adjusted_r², residual_vol).
   - Invalid, mismatched, or singular multi-factor regressions return an error instead of silently zero-filling the output.
@@ -387,8 +387,8 @@ let returns: Vec<f64> = vec![0.001; 252];
 
 let today = Date::from_calendar_date(2024, Month::September, 30).unwrap();
 
-let mtd_range = mtd_select(&dates, today, 0);
-let ytd_range = ytd_select(&dates, today, 0);
+let mtd_range = mtd_select(&dates, today);
+let ytd_range = ytd_select(&dates, today);
 
 let mtd_ret = comp_total(&returns[mtd_range]);
 let ytd_ret = comp_total(&returns[ytd_range]);

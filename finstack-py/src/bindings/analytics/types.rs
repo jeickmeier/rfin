@@ -1,12 +1,10 @@
 //! Result structs and enums for the analytics domain.
 
-use std::str::FromStr;
-
-use crate::bindings::core::dates::utils::{date_to_py, py_to_date};
+use crate::bindings::core::dates::utils::date_to_py;
 use crate::bindings::pandas_utils::{dates_to_pylist, dict_to_dataframe};
 use finstack_analytics as fa;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyType};
+use pyo3::types::PyDict;
 
 // ---------------------------------------------------------------------------
 // PeriodStats
@@ -488,102 +486,6 @@ impl PyRollingVolatility {
 }
 
 // ---------------------------------------------------------------------------
-// CagrBasis
-// ---------------------------------------------------------------------------
-
-fn parse_cagr_convention(
-    convention: Option<&str>,
-) -> PyResult<fa::risk_metrics::AnnualizationConvention> {
-    fa::risk_metrics::AnnualizationConvention::from_str(convention.unwrap_or("act365_25"))
-        .map_err(pyo3::exceptions::PyValueError::new_err)
-}
-
-/// CAGR annualization basis.
-#[pyclass(
-    name = "CagrBasis",
-    module = "finstack.analytics",
-    frozen,
-    from_py_object
-)]
-#[derive(Clone)]
-pub struct PyCagrBasis {
-    pub(super) inner: fa::risk_metrics::CagrBasis,
-}
-
-#[pymethods]
-impl PyCagrBasis {
-    /// Build a factor-based CAGR basis from periods per year.
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, ann_factor)")]
-    fn factor(_cls: &Bound<'_, PyType>, ann_factor: f64) -> Self {
-        Self {
-            inner: fa::risk_metrics::CagrBasis::factor(ann_factor),
-        }
-    }
-
-    /// Build a date-based CAGR basis from start/end dates.
-    #[classmethod]
-    #[pyo3(signature = (start, end, convention = None), text_signature = "(cls, start, end, convention=None)")]
-    fn dates(
-        _cls: &Bound<'_, PyType>,
-        start: Bound<'_, PyAny>,
-        end: Bound<'_, PyAny>,
-        convention: Option<&str>,
-    ) -> PyResult<Self> {
-        Ok(Self {
-            inner: fa::risk_metrics::CagrBasis::dates_with_convention(
-                py_to_date(&start)?,
-                py_to_date(&end)?,
-                parse_cagr_convention(convention)?,
-            ),
-        })
-    }
-
-    fn __repr__(&self) -> String {
-        format!("CagrBasis({:?})", self.inner)
-    }
-}
-
-// ---------------------------------------------------------------------------
-// BenchmarkAlignmentPolicy
-// ---------------------------------------------------------------------------
-
-/// Policy for handling missing dates during benchmark alignment.
-#[pyclass(
-    name = "BenchmarkAlignmentPolicy",
-    module = "finstack.analytics",
-    frozen,
-    from_py_object
-)]
-#[derive(Clone)]
-pub struct PyBenchmarkAlignmentPolicy {
-    pub(super) inner: fa::benchmark::BenchmarkAlignmentPolicy,
-}
-
-#[pymethods]
-impl PyBenchmarkAlignmentPolicy {
-    /// Fill missing benchmark dates with zero returns.
-    #[classmethod]
-    fn zero_on_missing(_cls: &Bound<'_, PyType>) -> Self {
-        Self {
-            inner: fa::benchmark::BenchmarkAlignmentPolicy::ZeroReturnOnMissingDates,
-        }
-    }
-
-    /// Raise an error if benchmark dates don't cover all target dates.
-    #[classmethod]
-    fn error_on_missing(_cls: &Bound<'_, PyType>) -> Self {
-        Self {
-            inner: fa::benchmark::BenchmarkAlignmentPolicy::ErrorOnMissingDates,
-        }
-    }
-
-    fn __repr__(&self) -> String {
-        format!("BenchmarkAlignmentPolicy({:?})", self.inner)
-    }
-}
-
-// ---------------------------------------------------------------------------
 // RollingReturns
 // ---------------------------------------------------------------------------
 
@@ -639,8 +541,6 @@ pub fn register(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyRollingSortino>()?;
     m.add_class::<PyRollingVolatility>()?;
     m.add_class::<PyRollingReturns>()?;
-    m.add_class::<PyCagrBasis>()?;
-    m.add_class::<PyBenchmarkAlignmentPolicy>()?;
     let _ = py;
     Ok(())
 }

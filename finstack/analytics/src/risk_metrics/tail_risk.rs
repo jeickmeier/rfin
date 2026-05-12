@@ -245,87 +245,6 @@ pub fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
     }
     upper / lower
 }
-/// Fraction of returns above the upper quantile threshold (outlier wins).
-///
-/// Counts how many returns exceed the `confidence` quantile of the
-/// distribution and expresses that as a fraction of the total. Identifies
-/// how often a strategy generates outsized positive returns.
-///
-/// # Arguments
-///
-/// * `returns`    - Slice of period simple returns.
-/// * `confidence` - Upper quantile threshold (e.g., `0.95`).
-///
-/// # Returns
-///
-/// Fraction of returns strictly above the threshold, in `[0, 1)`.
-/// Returns `0.0` for an empty slice.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_analytics::risk_metrics::outlier_win_ratio;
-///
-/// let r: Vec<f64> = (0..100).map(|i| i as f64 * 0.001).collect();
-/// let ratio = outlier_win_ratio(&r, 0.95);
-/// assert!(ratio < 0.06);
-/// ```
-#[must_use]
-pub fn outlier_win_ratio(returns: &[f64], confidence: f64) -> f64 {
-    if returns.is_empty() {
-        return 0.0;
-    }
-    if !has_strict_confidence(confidence) {
-        return f64::NAN;
-    }
-    let Some(mut data) = finite_returns_copy(returns) else {
-        return f64::NAN;
-    };
-    let threshold = quantile_finite(&mut data, confidence);
-    let count = returns.iter().filter(|&&r| r > threshold).count();
-    count as f64 / returns.len() as f64
-}
-/// Fraction of returns below the lower quantile threshold (outlier losses).
-///
-/// Counts how many returns fall strictly below the `(1 - confidence)`
-/// quantile and expresses that as a fraction of the total. Identifies how
-/// often a strategy suffers outsized negative returns.
-///
-/// # Arguments
-///
-/// * `returns` - Slice of period simple returns.
-/// * `confidence` - Upper confidence level; the lower tail is `1 - confidence`
-///   (e.g., `0.95` checks below the 5th percentile).
-///
-/// # Returns
-///
-/// Fraction of returns strictly below the lower threshold, in `[0, 1)`.
-/// Returns `0.0` for an empty slice.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_analytics::risk_metrics::outlier_loss_ratio;
-///
-/// let r: Vec<f64> = (0..100).map(|i| i as f64 * 0.001).collect();
-/// let ratio = outlier_loss_ratio(&r, 0.95);
-/// assert!(ratio < 0.06);
-/// ```
-#[must_use]
-pub fn outlier_loss_ratio(returns: &[f64], confidence: f64) -> f64 {
-    if returns.is_empty() {
-        return 0.0;
-    }
-    if !has_strict_confidence(confidence) {
-        return f64::NAN;
-    }
-    let Some(mut data) = finite_returns_copy(returns) else {
-        return f64::NAN;
-    };
-    let threshold = quantile_finite(&mut data, 1.0 - confidence);
-    let count = returns.iter().filter(|&&r| r < threshold).count();
-    count as f64 / returns.len() as f64
-}
 /// Fisher-corrected sample skewness (G₁) of a return distribution.
 ///
 /// Measures asymmetry: positive skewness indicates a longer right tail
@@ -539,7 +458,7 @@ pub fn cornish_fisher_var(returns: &[f64], confidence: f64, ann_factor: Option<f
 /// Uses a one-pass algorithm accumulating central moments (Pebay 2008, Terriberry 2007).
 /// Returns `(mean, std_dev, skewness, excess_kurtosis)` matching the bias-corrected
 /// formulas used by `skewness()` and `kurtosis()`.
-pub fn moments4(returns: &[f64]) -> (f64, f64, f64, f64) {
+pub(super) fn moments4(returns: &[f64]) -> (f64, f64, f64, f64) {
     let n = returns.len();
     if n == 0 {
         return (0.0, 0.0, 0.0, 0.0);
@@ -636,8 +555,6 @@ mod tests {
         assert!(value_at_risk(&data, 0.95).is_nan());
         assert!(expected_shortfall(&data, 0.95).is_nan());
         assert!(tail_ratio(&data, 0.95).is_nan());
-        assert!(outlier_win_ratio(&data, 0.95).is_nan());
-        assert!(outlier_loss_ratio(&data, 0.95).is_nan());
     }
 
     #[test]

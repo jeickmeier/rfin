@@ -440,21 +440,6 @@ export interface LookbackReturns {
   fytd: number[] | null;
 }
 
-/** Opaque CAGR annualization basis used by the analytics namespace. */
-export interface CagrBasis {}
-
-export interface CagrBasisConstructor {
-  factor(annFactor: number): CagrBasis;
-  dates(start: string, end: string, convention?: string): CagrBasis;
-}
-
-export interface BenchmarkAlignmentPolicyConstructor {
-  zeroOnMissing(): BenchmarkAlignmentPolicy;
-  errorOnMissing(): BenchmarkAlignmentPolicy;
-}
-
-export interface BenchmarkAlignmentPolicy {}
-
 /**
  * Stateful performance analytics engine over a panel of ticker series.
  *
@@ -562,8 +547,6 @@ export interface AnalyticsNamespace {
    * method on the resulting instance.
    */
   Performance: typeof Performance;
-  CagrBasis: CagrBasisConstructor;
-  BenchmarkAlignmentPolicy: BenchmarkAlignmentPolicyConstructor;
 }
 
 

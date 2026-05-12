@@ -149,93 +149,6 @@ pub fn excess_returns(returns: &[f64], rf: &[f64], nperiods: Option<f64>) -> Vec
     out
 }
 
-/// Convert simple returns back to a price series.
-///
-/// Reconstructs prices by compounding returns from a starting `base` value:
-///
-/// ```text
-/// prices[0] = base
-/// prices[i] = base * Π_{j=0}^{i-1} (1 + r[j])
-/// ```
-///
-/// The output has `returns.len() + 1` elements (the initial base plus one
-/// compounded value per return).
-///
-/// # Arguments
-///
-/// * `returns` - Slice of simple period returns.
-/// * `base`    - Starting price level (e.g., `100.0`).
-///
-/// # Returns
-///
-/// A `Vec<f64>` of length `returns.len() + 1`. Returns `vec![]` if
-/// `returns` is empty.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_analytics::returns::{simple_returns, convert_to_prices};
-///
-/// let prices = [100.0, 110.0, 99.0, 105.0];
-/// let r = simple_returns(&prices);
-/// let recovered = convert_to_prices(&r[1..], 100.0);
-/// for (a, b) in prices.iter().zip(recovered.iter()) {
-///     assert!((a - b).abs() < 1e-10);
-/// }
-/// ```
-pub fn convert_to_prices(returns: &[f64], base: f64) -> Vec<f64> {
-    if returns.is_empty() {
-        return vec![];
-    }
-    let mut prices = Vec::with_capacity(returns.len() + 1);
-    prices.push(base);
-    let mut cum = base;
-    for &r in returns {
-        cum *= 1.0 + r;
-        prices.push(cum);
-    }
-    prices
-}
-
-/// Rebase a price series so that the first value equals `base`.
-///
-/// Multiplies every price by `base / prices[0]`, normalising the series
-/// to a common starting level (typically `100.0`) for visual comparison.
-/// If `prices[0]` is zero or NaN the original slice is returned unchanged.
-///
-/// # Arguments
-///
-/// * `prices` - Slice of asset prices. Must be non-empty for meaningful output.
-/// * `base`   - Desired starting value (e.g., `100.0`).
-///
-/// # Returns
-///
-/// A new `Vec<f64>` of the same length as `prices`, starting at `base`.
-/// Returns an empty vector if `prices` is empty.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_analytics::returns::rebase;
-///
-/// let prices = [50.0, 55.0, 60.0];
-/// let rebased = rebase(&prices, 100.0);
-/// assert!((rebased[0] - 100.0).abs() < 1e-12);
-/// assert!((rebased[1] - 110.0).abs() < 1e-12);
-/// assert!((rebased[2] - 120.0).abs() < 1e-12);
-/// ```
-pub fn rebase(prices: &[f64], base: f64) -> Vec<f64> {
-    if prices.is_empty() {
-        return vec![];
-    }
-    let first = prices[0];
-    if first == 0.0 || first.is_nan() {
-        return prices.to_vec();
-    }
-    let factor = base / first;
-    prices.iter().map(|&p| p * factor).collect()
-}
-
 /// Smallest growth factor allowed before taking the log.
 ///
 /// Returns of exactly −100% (total wipeout) or worse would produce −∞ or NaN
@@ -385,25 +298,6 @@ mod tests {
         let ex = excess_returns(&ret, &rf, Some(-12.0));
         assert_eq!(ex.len(), 3);
         assert!(ex.iter().all(|v| v.is_nan()));
-    }
-
-    #[test]
-    fn convert_to_prices_roundtrip() {
-        let prices = [100.0, 110.0, 99.0, 105.0];
-        let r = simple_returns(&prices);
-        let recovered = convert_to_prices(&r[1..], 100.0);
-        for (a, b) in prices.iter().zip(recovered.iter()) {
-            assert!((a - b).abs() < 1e-10, "{a} != {b}");
-        }
-    }
-
-    #[test]
-    fn rebase_basic() {
-        let prices = [50.0, 55.0, 60.0];
-        let r = rebase(&prices, 100.0);
-        assert!((r[0] - 100.0).abs() < 1e-12);
-        assert!((r[1] - 110.0).abs() < 1e-12);
-        assert!((r[2] - 120.0).abs() < 1e-12);
     }
 
     #[test]

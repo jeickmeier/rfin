@@ -42,8 +42,6 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "RollingSortino",
             "RollingVolatility",
             "RollingReturns",
-            "CagrBasis",
-            "BenchmarkAlignmentPolicy",
         ],
     )?;
     m.setattr("__all__", all)?;

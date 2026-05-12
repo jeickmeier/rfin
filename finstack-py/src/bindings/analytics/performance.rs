@@ -38,7 +38,7 @@ fn resolve_fiscal_calendar() -> PyResult<&'static dyn HolidayCalendar> {
 }
 
 /// Parse a frequency string into a [`PeriodKind`].
-pub(super) fn parse_freq(freq: &str) -> PyResult<PeriodKind> {
+fn parse_freq(freq: &str) -> PyResult<PeriodKind> {
     freq.parse::<PeriodKind>().map_err(|_| {
         PyValueError::new_err(format!(
             "Unknown frequency {freq:?}; expected one of: \
@@ -626,7 +626,7 @@ impl PyPerformance {
         Ok(PyLookbackReturns {
             inner: self
                 .inner
-                .lookback_returns_with_calendar(d, fc, calendar)
+                .lookback_returns(d, fc, calendar)
                 .map_err(core_to_py)?,
         })
     }
@@ -806,7 +806,7 @@ impl PyPerformance {
         let calendar = resolve_fiscal_calendar()?;
         let lb = self
             .inner
-            .lookback_returns_with_calendar(d, fc, calendar)
+            .lookback_returns(d, fc, calendar)
             .map_err(core_to_py)?;
 
         let data = PyDict::new(py);

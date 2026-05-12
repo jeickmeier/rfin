@@ -1,20 +1,10 @@
 //! Shared helpers for the WASM `Performance`-centric analytics binding.
 
-use std::str::FromStr;
-
 pub(super) use crate::utils::parse_iso_date;
 use crate::utils::to_js_err;
-use finstack_analytics as fa;
 use js_sys::{Array, Float64Array};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-
-pub(super) fn parse_cagr_convention(
-    convention: Option<&str>,
-) -> Result<fa::risk_metrics::AnnualizationConvention, JsValue> {
-    fa::risk_metrics::AnnualizationConvention::from_str(convention.unwrap_or("act365_25"))
-        .map_err(to_js_err)
-}
 
 pub(super) fn parse_f64_vec(value: JsValue) -> Result<Vec<f64>, JsValue> {
     if value.is_instance_of::<Float64Array>() {

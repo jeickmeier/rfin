@@ -124,20 +124,6 @@ impl CreditHierarchicalMatcher {
 }
 
 impl FactorMatcher for CreditHierarchicalMatcher {
-    fn match_factor(
-        &self,
-        dependency: &MarketDependency,
-        attributes: &Attributes,
-    ) -> Option<FactorId> {
-        // Single-factor dispatch picks the deepest level the issuer is tagged
-        // for (or `credit::generic` if no level matches). This preserves the
-        // FactorMatcher trait contract for callers that only need one ID.
-        match self.match_factor_with_betas(dependency, attributes).ok()? {
-            Some(entries) if !entries.is_empty() => entries.last().map(|e| e.factor_id.clone()),
-            _ => None,
-        }
-    }
-
     fn match_factor_with_betas(
         &self,
         dependency: &MarketDependency,

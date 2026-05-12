@@ -1,7 +1,5 @@
 use finstack_analytics::aggregation::PeriodStats;
-use finstack_analytics::benchmark::{
-    BenchmarkAlignmentPolicy, BetaResult, GreeksResult, MultiFactorResult, RollingGreeks,
-};
+use finstack_analytics::benchmark::{BetaResult, GreeksResult, MultiFactorResult, RollingGreeks};
 use finstack_analytics::drawdown::DrawdownEpisode;
 use finstack_analytics::performance::{LookbackReturns, Performance};
 use finstack_analytics::risk_metrics::{
@@ -135,5 +133,4 @@ fn test_analytics_results_and_configs_roundtrip() {
     });
 
     assert_roundtrip_value(&AnnualizationConvention::Act365_25);
-    assert_roundtrip_value(&BenchmarkAlignmentPolicy::ErrorOnMissingDates);
 }

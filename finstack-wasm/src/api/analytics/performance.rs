@@ -494,12 +494,7 @@ impl WasmPerformance {
         let d = parse_iso_date(ref_date)?;
         let fc = make_fiscal_config(fiscal_year_start_month)?;
         let cal = resolve_fiscal_calendar()?;
-        to_js(
-            &self
-                .inner
-                .lookback_returns_with_calendar(d, fc, cal)
-                .map_err(to_js_err)?,
-        )
+        to_js(&self.inner.lookback_returns(d, fc, cal).map_err(to_js_err)?)
     }
 
     #[wasm_bindgen(js_name = periodStats)]

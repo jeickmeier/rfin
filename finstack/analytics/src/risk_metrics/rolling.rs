@@ -63,16 +63,6 @@ impl DatedSeries {
             dates: Vec::with_capacity(cap),
         }
     }
-
-    /// Right-align `values` into a `Vec<f64>` of length `n`, left-padding with NaN.
-    ///
-    /// Useful when callers expect a single flat column of length
-    /// equal to the original input series, with leading NaNs for the
-    /// warm-up period before the first full window.
-    #[must_use]
-    pub fn to_nan_padded(&self, n: usize) -> Vec<f64> {
-        nan_pad(&self.values, n)
-    }
 }
 
 fn nan_series(dates: &[Date], start: usize, len: usize) -> DatedSeries {
@@ -216,19 +206,6 @@ pub fn rolling_volatility(
 
 /// Output of a rolling Sortino ratio computation (see [`DatedSeries`]).
 pub type RollingSortino = DatedSeries;
-
-/// Right-align `values` into a `Vec<f64>` of length `n`, left-padding with NaN.
-///
-/// Shared by the `to_nan_padded` methods on rolling-metric structs.
-fn nan_pad(values: &[f64], n: usize) -> Vec<f64> {
-    if values.len() >= n {
-        return values[..n].to_vec();
-    }
-    let mut out = Vec::with_capacity(n);
-    out.resize(n - values.len(), f64::NAN);
-    out.extend_from_slice(values);
-    out
-}
 
 /// Rolling Sortino ratio over a sliding window.
 ///

@@ -144,16 +144,6 @@ pub fn group_by_period(
     result
 }
 
-/// Compute period-level statistics from a flat list of periodic returns.
-///
-/// This is the canonical, binding-friendly entry point: hosts that already
-/// have per-period compounded returns pass them in directly, without needing
-/// to fabricate `PeriodId` labels.
-#[must_use]
-pub fn period_stats(returns: &[f64]) -> PeriodStats {
-    period_stats_inner(returns)
-}
-
 /// Compute period-level statistics from grouped returns.
 ///
 /// Derives a comprehensive set of trading statistics from a sequence of
@@ -362,29 +352,6 @@ mod tests {
     fn period_stats_from_grouped_empty() {
         let stats = period_stats_from_grouped(&[]);
         assert_eq!(stats.win_rate, 0.0);
-    }
-
-    #[test]
-    fn period_stats_matches_grouped_version() {
-        let returns = vec![0.05, -0.02, 0.03, 0.01];
-        let grouped = vec![
-            (PeriodId::month(2025, 1), 0.05),
-            (PeriodId::month(2025, 2), -0.02),
-            (PeriodId::month(2025, 3), 0.03),
-            (PeriodId::month(2025, 4), 0.01),
-        ];
-
-        let from_returns = period_stats(&returns);
-        let from_grouped = period_stats_from_grouped(&grouped);
-
-        assert!((from_returns.best - from_grouped.best).abs() < 1e-12);
-        assert!((from_returns.worst - from_grouped.worst).abs() < 1e-12);
-        assert!((from_returns.win_rate - from_grouped.win_rate).abs() < 1e-12);
-        assert_eq!(from_returns.consecutive_wins, from_grouped.consecutive_wins);
-        assert_eq!(
-            from_returns.consecutive_losses,
-            from_grouped.consecutive_losses
-        );
     }
 
     #[test]

@@ -131,9 +131,7 @@ class TestAnalyticsNamespace:
         """Analytics exposes Performance plus the value-object result types."""
         from finstack.analytics import (  # noqa: F401
             AnalyticsError,
-            BenchmarkAlignmentPolicy,
             BetaResult,
-            CagrBasis,
             DrawdownEpisode,
             GreeksResult,
             LookbackReturns,

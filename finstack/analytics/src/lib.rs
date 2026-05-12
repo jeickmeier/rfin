@@ -19,29 +19,34 @@
 
 //! Performance analytics on numeric slices and `finstack_core::dates::Date`.
 //!
-//! Start with [`crate::performance::Performance`] when you want a stateful,
-//! benchmark-aware facade over a full panel of ticker returns. Reach for the
-//! individual modules when you want standalone, allocation-light functions on
-//! pre-computed return or drawdown slices.
+//! [`crate::performance::Performance`] is the canonical entry point: construct
+//! it from a price panel or a return panel, then every analytic — return /
+//! risk scalars, drawdown statistics, rolling windows, periodic returns
+//! (MTD / QTD / YTD / FYTD), benchmark alpha / beta, basic factor models — is
+//! a method on the resulting instance.
+//!
+//! The per-module functions exposed below are the building blocks
+//! `Performance` is composed of. They remain `pub` to keep the crate testable
+//! and to support narrow callers that already hold a clean return slice, but
+//! new callers should reach for `Performance`.
 //!
 //! Key conventions:
 //! - returns are simple decimal returns unless a function explicitly says otherwise
-//! - annualization uses the caller-supplied periods-per-year factor or the one
-//!   derived from `finstack_core::dates::PeriodKind` when called through
-//!   [`crate::performance::Performance`]
+//! - annualization is derived from `finstack_core::dates::PeriodKind` when called
+//!   through [`crate::performance::Performance`]
 //! - drawdown depths are non-positive fractions such as `-0.25` for a 25% loss
-//! - benchmark-relative metrics operate on return series, not fill-forwarded prices
+//! - benchmark inputs are assumed pre-aligned to the panel's date grid
 //! - rolling series are right-labeled: each output value is dated by the last
 //!   observation in its window
 //!
 //! Module map:
-//! - [`crate::returns`] — return transforms, compounding, rebasing
+//! - [`crate::performance`] — stateful `Performance` facade over a price/return panel
+//! - [`crate::returns`] — return transforms and compounding
 //! - [`crate::risk_metrics`] — return- and tail-based ratios + rolling kernels
 //! - [`crate::drawdown`] — drawdown paths, episodes, and drawdown-derived ratios
-//! - [`crate::benchmark`] — benchmark alignment, greeks, multi-factor regression
+//! - [`crate::benchmark`] — greeks, capture / batting, multi-factor regression
 //! - [`crate::aggregation`] — period grouping and trading statistics
 //! - [`crate::lookback`] — MTD / QTD / YTD / FYTD index selectors
-//! - [`crate::performance`] — stateful `Performance` facade over a price panel
 
 // Internal re-exports of frequently used `finstack-core` modules.
 // Kept `pub(crate)` so they don't leak into the public API; downstream callers

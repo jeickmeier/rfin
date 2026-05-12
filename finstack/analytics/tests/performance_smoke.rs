@@ -5,7 +5,15 @@
 
 use finstack_analytics::performance::Performance;
 use finstack_analytics::returns::{clean_returns, simple_returns};
-use finstack_core::dates::{Date, FiscalConfig, Month, PeriodKind};
+use finstack_core::dates::{
+    CalendarRegistry, Date, FiscalConfig, HolidayCalendar, Month, PeriodKind,
+};
+
+fn nyse() -> &'static dyn HolidayCalendar {
+    CalendarRegistry::global()
+        .resolve_str("nyse")
+        .expect("nyse calendar")
+}
 
 fn calendar_days(start: Date, n: usize) -> Vec<Date> {
     let mut out = Vec::with_capacity(n);
@@ -100,7 +108,9 @@ fn performance_facade_exercises_broad_api_surface() {
     let _ = perf.rolling_sharpe(0, 30, 0.02);
 
     let ref_date = *perf.active_dates().last().expect("last active date");
-    let _ = perf.lookback_returns(ref_date, Some(FiscalConfig::us_federal()));
+    let _ = perf
+        .lookback_returns(ref_date, FiscalConfig::us_federal(), nyse())
+        .expect("lookback");
 
     let _ = perf.period_stats(0, PeriodKind::Monthly, None);
     let _ = perf.correlation_matrix();
@@ -147,7 +157,9 @@ fn performance_lookback_returns_clamps_pre_start_reference_date() {
     .expect("performance");
 
     let ref_date = Date::from_calendar_date(2025, Month::May, 15).expect("ref date");
-    let lookbacks = perf.lookback_returns(ref_date, Some(FiscalConfig::us_federal()));
+    let lookbacks = perf
+        .lookback_returns(ref_date, FiscalConfig::us_federal(), nyse())
+        .expect("lookback");
     assert_eq!(lookbacks.mtd, vec![0.0]);
     assert_eq!(lookbacks.qtd, vec![0.0]);
     assert_eq!(lookbacks.ytd, vec![0.0]);
@@ -183,6 +195,8 @@ fn performance_smoke_asserts_fiscal_lookback_and_zero_variance_invariants() {
     .expect("rising performance");
     let config = FiscalConfig::new(1, 15).expect("valid fiscal config");
     let ref_date = *rising_perf.active_dates().last().expect("last active date");
-    let lookbacks = rising_perf.lookback_returns(ref_date, Some(config));
+    let lookbacks = rising_perf
+        .lookback_returns(ref_date, config, nyse())
+        .expect("lookback");
     assert!(lookbacks.fytd.expect("fytd present")[0] > 0.0);
 }

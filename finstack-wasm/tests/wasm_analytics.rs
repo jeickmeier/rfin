@@ -1,12 +1,11 @@
 //! wasm-bindgen-test suite for `api::analytics`.
 //!
-//! Covers the `Performance` panel facade and the two value-object inputs
-//! (`CagrBasis`, `BenchmarkAlignmentPolicy`) — the entire WASM analytics
-//! surface after the Performance-only consolidation.
+//! Covers the `Performance` panel facade — the entire WASM analytics surface
+//! after the Performance-only consolidation.
 
 #![cfg(target_arch = "wasm32")]
 
-use finstack_wasm::api::analytics::{WasmBenchmarkAlignmentPolicy, WasmCagrBasis, WasmPerformance};
+use finstack_wasm::api::analytics::WasmPerformance;
 use js_sys::{Array, Float64Array};
 use serde::Deserialize;
 use wasm_bindgen::JsValue;
@@ -241,18 +240,4 @@ fn reset_bench_ticker_updates_index() {
     let mut perf = build_perf();
     perf.reset_bench_ticker("TARGET").unwrap();
     assert_eq!(perf.benchmark_idx(), 0);
-}
-
-// ---- Value-object inputs ----
-
-#[wasm_bindgen_test]
-fn cagr_basis_constructors_work() {
-    // Constructors should not panic; they're consumed by future Performance
-    // overloads, but the WASM facade keeps them exposed for symmetry.
-    let _factor = WasmCagrBasis::factor(252.0);
-    let _dates = WasmCagrBasis::dates("2024-01-01", "2024-12-31", None).unwrap();
-    let _err =
-        WasmCagrBasis::dates("2024-01-01", "2023-12-31", Some("act365_25".to_string())).unwrap();
-    let _z = WasmBenchmarkAlignmentPolicy::zero_on_missing();
-    let _e = WasmBenchmarkAlignmentPolicy::error_on_missing();
 }
