@@ -1,5 +1,7 @@
 # Market Bootstrap Phase 4 — Diagnostics Implementation Plan
 
+> **Superseded** in v3 envelope shape: see [2026-05-10-calibration-envelope-cleanup-design.md](2026-05-10-calibration-envelope-cleanup-design.md). References to `initial_market` in this document predate the v3 cleanup.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship structured diagnostics for `CalibrationEnvelope` failures: `EnvelopeError` enum surfaces missing dependencies / undefined quote sets / quote-class mismatches / solver non-convergence; `dry_run` validates an envelope without solving; `dependency_graph_json` dumps the step DAG; Python and WASM bindings raise typed exceptions with structured payloads.

@@ -1,5 +1,7 @@
 # Market Bootstrap Phase 1 — Foundation Implementation Plan
 
+> **Superseded** in v3 envelope shape: see [2026-05-10-calibration-envelope-cleanup-design.md](2026-05-10-calibration-envelope-cleanup-design.md). References to `initial_market` in this document predate the v3 cleanup.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Establish `calibrate(envelope_json).market` as the documented, tested, reachable canonical path for building a `MarketContext` from raw quotes, across Rust / Python / WASM, without adding a new function alias.

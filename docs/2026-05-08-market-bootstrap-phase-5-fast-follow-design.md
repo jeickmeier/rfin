@@ -1,5 +1,7 @@
 # Market Bootstrap Phase 5 — Python TypedDict (Fast-Follow)
 
+> **Superseded** in v3 envelope shape: see [2026-05-10-calibration-envelope-cleanup-design.md](2026-05-10-calibration-envelope-cleanup-design.md). References to `initial_market` in this document predate the v3 cleanup.
+
 **Status:** Draft
 **Date:** 2026-05-08
 **Owner:** finstack-py
