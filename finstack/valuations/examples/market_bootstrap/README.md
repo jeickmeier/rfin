@@ -34,16 +34,16 @@ Each envelope is loaded and exercised by integration tests in
 | `05_cdx_base_correlation.json` | A | CDX tranche base correlation chained on discount + hazard. |
 | `06_cdx_index_vol.json` | A | CDX index option (CDSO) SABR vol surface. |
 | `07_swaption_vol_surface.json` | A | USD swaption normal-vol cube on chained discount + forward. |
-| `08_equity_vol_surface.json` | A | AAPL equity SABR vol; chained discount + spot/dividends in `initial_market`. |
-| `09_fx_matrix.json` | B | FX cross rates supplied via `initial_market.fx`. |
-| `10_bond_prices.json` | B | Bond clean prices via `initial_market.prices`. |
-| `11_equity_spots_dividends.json` | B | Equity spots + dividends via `initial_market`. |
-| `12_full_credit_desk_market.json` | A composite | Chained discount → hazard → base correlation, FX in `initial_market`. |
+| `08_equity_vol_surface.json` | A | AAPL equity SABR vol; chained discount + spot/dividends in `market_data`. |
+| `09_fx_matrix.json` | B | FX cross rates supplied as `fx_spot` entries in `market_data`. |
+| `10_bond_prices.json` | B | Bond clean prices as `price` entries in `market_data`. |
+| `11_equity_spots_dividends.json` | B | Equity spots + dividends in `market_data`. |
+| `12_full_credit_desk_market.json` | A composite | Chained discount → hazard → base correlation, FX in `market_data`. |
 
-**Track A** envelopes carry quotes in `plan.quote_sets` and bootstrap curves
-via `plan.steps`. **Track B** envelopes carry snapshot-only data in
-`initial_market` (FX matrices, bond prices, equity spot prices, dividend
-schedules — none of which are bootstrapped by a calibration step today).
+**Track A** envelopes carry quotes in `market_data` and run `plan.steps` to
+bootstrap curves from them. **Track B** envelopes carry snapshot-only
+inputs (FX spots, prices, dividend schedules) in `market_data`, no
+calibration steps.
 
 ## How to use one
 
