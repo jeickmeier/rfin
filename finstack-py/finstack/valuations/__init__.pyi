@@ -9,12 +9,15 @@ from raw market quotes is :func:`calibrate`:
     ...     "schema": "finstack.calibration",
     ...     "plan": {
     ...         "id": "usd_curves",
-    ...         "quote_sets": {"usd_quotes": [...]},  # MarketQuote entries
+    ...         "quote_sets": {"usd_quotes": ["USD-SOFR-DEP-1M", "USD-OIS-SWAP-1Y"]},
     ...         "steps": [{"id": "USD-OIS", "quote_set": "usd_quotes",
     ...                    "kind": "discount", ...}],
     ...         "settings": {},
     ...     },
-    ...     "initial_market": None,
+    ...     "market_data": [
+    ...         {"kind": "rate_quote", "type": "deposit", "id": "USD-SOFR-DEP-1M", ...},
+    ...         {"kind": "rate_quote", "type": "swap",    "id": "USD-OIS-SWAP-1Y", ...},
+    ...     ],
     ... }
     >>> result = calibrate(json.dumps(envelope))  # doctest: +SKIP
     >>> result.success  # doctest: +SKIP
@@ -27,16 +30,23 @@ The :class:`CalibrationResult` wrapper carries the :class:`MarketContext` next
 to per-step residuals (:meth:`step_report_json`, :meth:`report_to_dataframe`)
 so users can verify their curves actually fit before consuming them downstream.
 
-A `CalibrationEnvelope` carries quotes in two complementary places:
+A ``CalibrationEnvelope`` carries inputs in three sections:
 
-- **Bootstrapping** — ``plan.quote_sets`` + ``plan.steps``. Quotes that drive
-  a solver (rates, CDS, swaptions, vols, tranches, etc.) live here. Each step
-  reads its quote set and produces a curve or surface.
-- **Snapshot data** — ``initial_market``. FX matrices, bond prices, equity spot
-  prices, and dividend schedules are not bootstrapped today — pass them via
-  ``initial_market.fx``, ``initial_market.prices``, ``initial_market.dividends``.
+- ``plan`` — execution recipe. ``plan.steps`` declares calibration steps in
+  declared order; ``plan.quote_sets`` maps a set name to a list of quote IDs
+  that resolve into ``market_data``.
+- ``market_data`` — flat, id-addressable list of all input data. Each entry
+  has a ``"kind"`` discriminator. Quotes (``rate_quote``, ``cds_quote``,
+  ``fx_quote``, ``inflation_quote``, ``vol_quote``, ``xccy_quote``, ``bond_quote``,
+  ``cds_tranche_quote``) feed calibration steps. Snapshot data
+  (``fx_spot``, ``price``, ``dividend_schedule``, ``fixing_series``,
+  ``inflation_fixings``, ``credit_index``, ``fx_vol_surface``, ``vol_cube``,
+  ``collateral``) is passed through into the resulting :class:`MarketContext`.
+- ``prior_market`` — optional list of pre-built calibrated curves or surfaces
+  from a previous run, layered in before steps execute.
 
-Reference envelope JSON examples covering both tracks live under
+Reference envelope JSON examples covering both Track-A (bootstrap from quotes)
+and Track-B (snapshot-only) live under
 ``finstack/valuations/examples/market_bootstrap/`` in the repository.
 
 This module also exposes pricing (:func:`price_instrument`,
@@ -1280,7 +1290,7 @@ def dependency_graph_json(json: str) -> str:
 
     Returns:
         Pretty-printed JSON ``DependencyGraph`` with ``initial_ids`` (curve
-        IDs available at execution start, sourced from ``initial_market``)
+        IDs available at execution start, sourced from ``prior_market``)
         and ``nodes`` (per-step ``reads``/``writes`` in declared order).
 
     Raises:
@@ -1296,12 +1306,16 @@ def calibrate(json: str) -> CalibrationResult:
 
     - ``plan.quote_sets`` + ``plan.steps`` — quote-driven calibration steps
       (discount, forward, hazard, vol surface, swaption vol, base correlation,
-      etc.). Each step reads its named quote set and produces a curve/surface.
-    - ``initial_market`` — pre-built / snapshot data (FX matrices, bond prices,
-      equity spot prices, dividend schedules). FX and Bond ``MarketQuote``
-      variants exist for documentation but are not consumed by any calibration
-      step today; pass them via ``initial_market.fx``, ``initial_market.prices``,
-      ``initial_market.dividends``.
+      etc.). Each step reads its named list of quote IDs and resolves them
+      against ``market_data``.
+    - ``market_data`` — flat, id-addressable list of inputs. Quotes drive
+      calibration steps; snapshot data (FX spots, prices, dividends, fixings,
+      etc.) is passed through. Snapshot ``MarketQuote`` variants for FX and
+      Bond exist for documentation but are not consumed by any calibration
+      step today; pass FX rates as ``"kind": "fx_spot"`` entries and prices
+      as ``"kind": "price"`` entries.
+    - ``prior_market`` — pre-built curves and surfaces from a prior
+      calibration, layered in before steps execute.
 
     Args:
         json: JSON-serialized ``CalibrationEnvelope`` (schema string is

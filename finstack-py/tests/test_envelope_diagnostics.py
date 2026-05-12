@@ -24,7 +24,6 @@ def _empty_envelope() -> dict:
             "steps": [],
             "settings": {},
         },
-        "initial_market": None,
     }
 
 

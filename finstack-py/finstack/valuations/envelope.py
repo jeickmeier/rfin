@@ -238,9 +238,35 @@ class CalibrationPlan(TypedDict):
 
     id: str
     description: NotRequired[str | None]
-    quote_sets: dict[str, list[MarketQuote]]
+    # Named ID lists; each ID must resolve to a quote-kind entry in `market_data`.
+    quote_sets: dict[str, list[str]]
     steps: list[CalibrationStep]
     settings: NotRequired[dict[str, Any]]
+
+
+# MarketDatum and PriorMarketObject are open-ended tagged dicts (the underlying
+# Rust enums have 17 and 10 variants respectively). We don't restate the full
+# variant set here — refer to the design doc / Rust source for the catalog.
+MarketDatum = dict[str, Any]
+"""A flat, id-addressable market-data input.
+
+Each entry is a tagged dict with a ``"kind"`` discriminator (one of
+``"rate_quote"``, ``"cds_quote"``, ``"cds_tranche_quote"``, ``"fx_quote"``,
+``"inflation_quote"``, ``"vol_quote"``, ``"xccy_quote"``, ``"bond_quote"``,
+``"fx_spot"``, ``"price"``, ``"dividend_schedule"``, ``"fixing_series"``,
+``"inflation_fixings"``, ``"credit_index"``, ``"fx_vol_surface"``,
+``"vol_cube"``, ``"collateral"``). See `MarketDatum` in the Rust source for
+the canonical variant catalog.
+"""
+
+PriorMarketObject = dict[str, Any]
+"""A pre-built calibrated curve or surface to layer in before steps run.
+
+Tagged dict with ``"kind"`` ∈ ``"discount_curve"``, ``"forward_curve"``,
+``"hazard_curve"``, ``"inflation_curve"``, ``"base_correlation_curve"``,
+``"basis_spread_curve"``, ``"parametric_curve"``, ``"price_curve"``,
+``"volatility_index_curve"``, ``"vol_surface"``.
+"""
 
 
 CalibrationEnvelope = TypedDict(
@@ -249,23 +275,31 @@ CalibrationEnvelope = TypedDict(
         "$schema": NotRequired[str],
         "schema": Literal["finstack.calibration"],
         "plan": CalibrationPlan,
-        "initial_market": NotRequired[dict[str, Any] | None],
+        "market_data": NotRequired[list[MarketDatum]],
+        "prior_market": NotRequired[list[PriorMarketObject]],
     },
 )
 """Top-level envelope accepted by ``calibrate`` / ``dry_run``.
 
-Construct with:
+Construct with::
 
     envelope: CalibrationEnvelope = {
         "schema": "finstack.calibration",
         "plan": {
             "id": "usd_curves",
-            "quote_sets": {...},
+            "quote_sets": {"usd_quotes": ["USD-SOFR-DEP-1M", "USD-OIS-SWAP-1Y"]},
             "steps": [...],
             "settings": {},
         },
-        "initial_market": None,
+        "market_data": [
+            {"kind": "rate_quote", "type": "deposit", "id": "USD-SOFR-DEP-1M", ...},
+            {"kind": "rate_quote", "type": "swap",    "id": "USD-OIS-SWAP-1Y", ...},
+        ],
     }
+
+``market_data`` carries the flat list of inputs (quotes + snapshot data).
+``prior_market`` carries pre-built calibrated objects from a previous run.
+Both fields are optional and default to empty.
 """
 
 
@@ -279,8 +313,10 @@ __all__ = [
     "DiscountStep",
     "ForwardStep",
     "HazardStep",
+    "MarketDatum",
     "MarketQuote",
     "Pillar",
+    "PriorMarketObject",
     "RateDeposit",
     "RateSwap",
     "Tenor",
