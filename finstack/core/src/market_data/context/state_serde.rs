@@ -221,7 +221,7 @@ pub fn build_snapshot_fx_matrix(
 ) -> crate::Result<Arc<FxMatrix>> {
     let state = FxMatrixState { config, quotes };
     let provider: Arc<dyn FxProvider> = Arc::new(SnapshotFxProvider::from_state(&state));
-    let matrix = FxMatrix::try_with_config(provider, state.config.clone())?;
+    let matrix = FxMatrix::try_with_config(provider, state.config)?;
     matrix.load_from_state(&state)?;
     Ok(Arc::new(matrix))
 }

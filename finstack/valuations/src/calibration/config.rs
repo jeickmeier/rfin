@@ -747,7 +747,10 @@ mod fx_and_hierarchy_settings_tests {
         }"#;
         let cfg: CalibrationConfig =
             serde_json::from_str(json).expect("valid CalibrationConfig JSON");
-        assert_eq!(cfg.fx.pivot_currency, finstack_core::currency::Currency::EUR);
+        assert_eq!(
+            cfg.fx.pivot_currency,
+            finstack_core::currency::Currency::EUR
+        );
         assert!(!cfg.fx.enable_triangulation);
         assert_eq!(cfg.fx.cache_capacity, 8);
     }

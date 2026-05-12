@@ -322,9 +322,17 @@ impl From<MarketContextState> for MarketContextSplit {
             data.push(MarketDatum::VolCube(c));
         }
         for (ccy, csa_ccy) in state.collateral {
+            // Snapshot states use String for the currency keys; if these fail
+            // to parse, the snapshot is malformed and we have no fallible
+            // path here (this is an infallible `From` impl). Restrict the
+            // lint locally rather than restructure the legacy shim.
+            #[allow(clippy::expect_used)]
+            let id = ccy.parse().expect("currency in collateral map");
+            #[allow(clippy::expect_used)]
+            let csa_currency = csa_ccy.parse().expect("CSA currency");
             data.push(MarketDatum::Collateral(CollateralEntry {
-                id: ccy.parse().expect("currency in collateral map"),
-                csa_currency: csa_ccy.parse().expect("CSA currency"),
+                id,
+                csa_currency,
             }));
         }
         Self { prior, data }

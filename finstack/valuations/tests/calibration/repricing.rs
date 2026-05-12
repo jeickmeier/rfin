@@ -498,7 +498,10 @@ fn hazard_curve_cds_repricing() {
         "disc".to_string(),
         cal_utils::quote_set_ids(&disc_quote_bundle),
     );
-    quote_sets.insert("cds".to_string(), cal_utils::quote_set_ids(&cds_quote_bundle));
+    quote_sets.insert(
+        "cds".to_string(),
+        cal_utils::quote_set_ids(&cds_quote_bundle),
+    );
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -617,7 +620,10 @@ fn hazard_curve_step_report_matches_market_built_cds_repricing() {
         "disc".to_string(),
         cal_utils::quote_set_ids(&disc_quote_bundle),
     );
-    quote_sets.insert("cds".to_string(), cal_utils::quote_set_ids(&cds_quote_bundle));
+    quote_sets.insert(
+        "cds".to_string(),
+        cal_utils::quote_set_ids(&cds_quote_bundle),
+    );
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),
@@ -771,7 +777,10 @@ fn hazard_curve_standard_upfront_cds_repricing() {
         "disc".to_string(),
         cal_utils::quote_set_ids(&disc_quote_bundle),
     );
-    quote_sets.insert("cds".to_string(), cal_utils::quote_set_ids(&cds_quote_bundle));
+    quote_sets.insert(
+        "cds".to_string(),
+        cal_utils::quote_set_ids(&cds_quote_bundle),
+    );
 
     let plan = CalibrationPlan {
         id: "plan".to_string(),

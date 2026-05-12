@@ -292,10 +292,7 @@ fn check_quote_sets(envelope: &CalibrationEnvelope, errors: &mut Vec<EnvelopeErr
     }
 }
 
-fn check_market_data_uniqueness(
-    envelope: &CalibrationEnvelope,
-    errors: &mut Vec<EnvelopeError>,
-) {
+fn check_market_data_uniqueness(envelope: &CalibrationEnvelope, errors: &mut Vec<EnvelopeError>) {
     use std::collections::HashMap;
     let mut seen: HashMap<&str, BTreeSet<String>> = HashMap::new();
     for datum in &envelope.market_data {
@@ -304,11 +301,7 @@ fn check_market_data_uniqueness(
         } else {
             datum.kind_name()
         };
-        if !seen
-            .entry(key)
-            .or_default()
-            .insert(datum.id().to_string())
-        {
+        if !seen.entry(key).or_default().insert(datum.id().to_string()) {
             errors.push(EnvelopeError::DuplicateMarketDatumId {
                 datum_kind: key.to_string(),
                 id: datum.id().to_string(),

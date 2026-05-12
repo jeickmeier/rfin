@@ -104,14 +104,10 @@ fn rebootstrap_market(
         .map(MarketDatum::from)
         .collect();
 
-    let discount_quote_ids: Vec<QuoteId> = discount_data
-        .iter()
-        .map(|d| QuoteId::new(d.id()))
-        .collect();
-    let forward_quote_ids: Vec<QuoteId> = forward_data
-        .iter()
-        .map(|d| QuoteId::new(d.id()))
-        .collect();
+    let discount_quote_ids: Vec<QuoteId> =
+        discount_data.iter().map(|d| QuoteId::new(d.id())).collect();
+    let forward_quote_ids: Vec<QuoteId> =
+        forward_data.iter().map(|d| QuoteId::new(d.id())).collect();
 
     let mut quote_sets = HashMap::default();
     quote_sets.insert(DISCOUNT_QUOTE_SET.to_string(), discount_quote_ids);
