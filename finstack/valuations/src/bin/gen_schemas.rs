@@ -348,10 +348,13 @@ fn main() {
     // =========================================================================
     println!("\nGenerating non-instrument schemas...\n");
 
+    // The on-disk v2 schema is frozen for historical/parity tests; the current
+    // Rust `CalibrationEnvelope` reflects the v3 shape (flat market_data /
+    // prior_market lists, no initial_market), so the generator only targets v3.
     gen_standalone_schema!(
         "calibration",
         finstack_valuations::calibration::api::schema::CalibrationEnvelope,
-        "calibration/2",
+        "calibration/3",
         "calibration"
     );
     gen_standalone_schema!(
