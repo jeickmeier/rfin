@@ -42,6 +42,8 @@ def migrate(env: dict) -> dict:
         return env
 
     initial = env.pop("initial_market", None) or {}
+    # `version: 2` is a legacy sentinel on MarketContextState; drop it.
+    initial.pop("version", None)
     quote_sets_v2 = env.get("plan", {}).get("quote_sets", {})
 
     # 1. Flatten quotes: build the addressable bag + per-set ID lists.
@@ -49,7 +51,7 @@ def migrate(env: dict) -> dict:
     # so the id lives one level deeper. Inflation quotes likewise.
     NESTED_QUOTE_WRAPPERS = {
         "option_vol", "swaption_vol", "cap_floor_vol",
-        "zero_coupon", "year_on_year",
+        "inflation_swap", "yo_y_inflation_swap",
     }
 
     def extract_quote_id(q):
@@ -145,6 +147,24 @@ def migrate(env: dict) -> dict:
 
     return env
 
+def _find_envelope(doc):
+    """Return (parent, key) for the dict holding the v2 envelope inside `doc`.
+
+    Standalone envelopes have `plan` (or `initial_market`) at the top level.
+    Golden pricing fixtures wrap the envelope under `inputs.market_envelope`.
+    Returns (doc, None) for the top-level case.
+    """
+    if "plan" in doc or "initial_market" in doc or "market_data" in doc:
+        return doc, None
+    inputs = doc.get("inputs")
+    if isinstance(inputs, dict) and isinstance(inputs.get("market_envelope"), dict):
+        return inputs["market_envelope"], "market_envelope"
+    raise ValueError(
+        "could not locate calibration envelope in document; "
+        f"top-level keys = {sorted(doc.keys())}"
+    )
+
+
 def main():
     args = sys.argv[1:]
     in_place = "--in-place" in args
@@ -152,9 +172,10 @@ def main():
     if not args:
         sys.exit("usage: migrate_envelope_v2_to_v3.py <path> [--in-place]")
     path = Path(args[0])
-    env = json.loads(path.read_text())
-    out = migrate(env)
-    text = json.dumps(out, indent=2)
+    doc = json.loads(path.read_text())
+    envelope, _ = _find_envelope(doc)
+    migrate(envelope)
+    text = json.dumps(doc, indent=2)
     if in_place:
         path.write_text(text + "\n")
     else:
