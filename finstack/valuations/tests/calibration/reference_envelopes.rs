@@ -35,8 +35,6 @@ pub(crate) fn execute(envelope: &CalibrationEnvelope) -> MarketContext {
         .expect("rehydrate MarketContext from final_market state")
 }
 
-// FIXME(v3): re-enable after Task 14 migrates example JSON fixtures to v3 envelope shape.
-#[ignore = "v2 JSON fixtures; unblocked by Task 14"]
 #[test]
 fn example_01_usd_discount_builds_queryable_curve() {
     let envelope = load_envelope("01_usd_discount.json");
@@ -62,8 +60,6 @@ fn example_01_usd_discount_builds_queryable_curve() {
     );
 }
 
-// FIXME(v3): re-enable after Task 14 migrates example JSON fixtures to v3 envelope shape.
-#[ignore = "v2 JSON fixtures; unblocked by Task 14"]
 #[test]
 fn example_03_single_name_hazard_composes_on_initial_market() {
     let envelope = load_envelope("03_single_name_hazard.json");
@@ -87,8 +83,6 @@ fn example_03_single_name_hazard_composes_on_initial_market() {
     );
 }
 
-// FIXME(v3): re-enable after Task 14 migrates example JSON fixtures to v3 envelope shape.
-#[ignore = "v2 JSON fixtures; unblocked by Task 14"]
 #[test]
 fn example_09_fx_matrix_supports_cross_rate_lookup() {
     use finstack_core::currency::Currency;
@@ -146,8 +140,6 @@ fn example_09_fx_matrix_supports_cross_rate_lookup() {
     );
 }
 
-// FIXME(v3): re-enable after Task 14 migrates example JSON fixtures to v3 envelope shape.
-#[ignore = "v2 JSON fixtures; unblocked by Task 14"]
 #[test]
 fn example_02_usd_3m_forward_builds_queryable_curve() {
     let envelope = load_envelope("02_usd_3m_forward_curve.json");
@@ -171,8 +163,6 @@ fn example_02_usd_3m_forward_builds_queryable_curve() {
     );
 }
 
-// FIXME(v3): re-enable after Task 14 migrates example JSON fixtures to v3 envelope shape.
-#[ignore = "v2 JSON fixtures; unblocked by Task 14"]
 #[test]
 fn example_04_cdx_ig_hazard_builds_queryable_curve() {
     let envelope = load_envelope("04_cdx_ig_hazard.json");
@@ -193,8 +183,6 @@ fn example_04_cdx_ig_hazard_builds_queryable_curve() {
     );
 }
 
-// FIXME(v3): re-enable after Task 14 migrates example JSON fixtures to v3 envelope shape.
-#[ignore = "v2 JSON fixtures; unblocked by Task 14"]
 #[test]
 fn example_05_cdx_base_correlation_builds_queryable_curve() {
     let envelope = load_envelope("05_cdx_base_correlation.json");
@@ -219,8 +207,6 @@ fn example_05_cdx_base_correlation_builds_queryable_curve() {
     );
 }
 
-// FIXME(v3): re-enable after Task 14 migrates example JSON fixtures to v3 envelope shape.
-#[ignore = "v2 JSON fixtures; unblocked by Task 14"]
 #[test]
 fn example_06_cdx_index_vol_builds_queryable_surface() {
     let envelope = load_envelope("06_cdx_index_vol.json");
@@ -250,8 +236,6 @@ fn example_06_cdx_index_vol_builds_queryable_surface() {
     );
 }
 
-// FIXME(v3): re-enable after Task 14 migrates example JSON fixtures to v3 envelope shape.
-#[ignore = "v2 JSON fixtures; unblocked by Task 14"]
 #[test]
 fn example_07_swaption_vol_surface_builds_queryable_surface() {
     let envelope = load_envelope("07_swaption_vol_surface.json");
@@ -287,8 +271,6 @@ fn example_07_swaption_vol_surface_builds_queryable_surface() {
     );
 }
 
-// FIXME(v3): re-enable after Task 14 migrates example JSON fixtures to v3 envelope shape.
-#[ignore = "v2 JSON fixtures; unblocked by Task 14"]
 #[test]
 fn example_08_equity_vol_surface_builds_queryable_surface() {
     use finstack_core::market_data::scalars::MarketScalar;
@@ -327,8 +309,6 @@ fn example_08_equity_vol_surface_builds_queryable_surface() {
     );
 }
 
-// FIXME(v3): re-enable after Task 14 migrates example JSON fixtures to v3 envelope shape.
-#[ignore = "v2 JSON fixtures; unblocked by Task 14"]
 #[test]
 fn example_10_bond_prices_supports_lookup() {
     use finstack_core::market_data::scalars::MarketScalar;
@@ -357,8 +337,6 @@ fn example_10_bond_prices_supports_lookup() {
     assert!(p2 > 0.0, "IBM bond price should be positive, got {p2}");
 }
 
-// FIXME(v3): re-enable after Task 14 migrates example JSON fixtures to v3 envelope shape.
-#[ignore = "v2 JSON fixtures; unblocked by Task 14"]
 #[test]
 fn example_11_equity_spots_and_dividends_support_lookup() {
     use finstack_core::market_data::scalars::MarketScalar;
@@ -393,8 +371,6 @@ fn example_11_equity_spots_and_dividends_support_lookup() {
     );
 }
 
-// FIXME(v3): re-enable after Task 14 migrates example JSON fixtures to v3 envelope shape.
-#[ignore = "v2 JSON fixtures; unblocked by Task 14"]
 #[test]
 fn example_12_full_credit_desk_market_chains_steps() {
     let envelope = load_envelope("12_full_credit_desk_market.json");

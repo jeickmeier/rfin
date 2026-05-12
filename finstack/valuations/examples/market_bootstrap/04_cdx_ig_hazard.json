@@ -1,151 +1,24 @@
 {
-  "$schema": "../../schemas/calibration/2/calibration.schema.json",
+  "$schema": "../../schemas/calibration/3/calibration.schema.json",
   "schema": "finstack.calibration",
   "plan": {
     "id": "cdx_ig_46_hazard",
-    "description": "CDX.NA.IG.46 index hazard curve calibrated from index par-spread quotes, chained on a USD-OIS discount curve bootstrapped from deposit and IRS quotes in the same plan. Step 1 produces the USD-OIS discount curve; step 2 calibrates the CDX hazard curve against it. The envelope is fully self-bootstrapping from quotes — no hand-entered curves in initial_market. Differs from 03_single_name_hazard.json by switching the entity from a single-name issuer to the index name, with index-shaped spreads (50/75/100/110/120 bp). The HazardCurveParams schema does not currently expose an IMM-date convention flag (that flag exists only on BaseCorrelationParams); pillars are tenor-based for both single-name and index calibrations, and the IMM rolling shows up only inside the synthetic CDS schedule generation controlled by doc_clause. doc_clause `isda_na` is the USD default and applies to both single-name and index NA conventions. Used as reference for 05 (base correlation) and 06 (CDX index vol).",
+    "description": "CDX.NA.IG.46 index hazard curve calibrated from index par-spread quotes, chained on a USD-OIS discount curve bootstrapped from deposit and IRS quotes in the same plan. Step 1 produces the USD-OIS discount curve; step 2 calibrates the CDX hazard curve against it. The envelope is fully self-bootstrapping from quotes \u2014 no hand-entered curves in initial_market. Differs from 03_single_name_hazard.json by switching the entity from a single-name issuer to the index name, with index-shaped spreads (50/75/100/110/120 bp). The HazardCurveParams schema does not currently expose an IMM-date convention flag (that flag exists only on BaseCorrelationParams); pillars are tenor-based for both single-name and index calibrations, and the IMM rolling shows up only inside the synthetic CDS schedule generation controlled by doc_clause. doc_clause `isda_na` is the USD default and applies to both single-name and index NA conventions. Used as reference for 05 (base correlation) and 06 (CDX index vol).",
     "quote_sets": {
       "usd_rate_quotes": [
-        {
-          "class": "rates",
-          "type": "deposit",
-          "id": "USD-SOFR-DEP-1M",
-          "index": "USD-SOFR-OIS",
-          "pillar": { "tenor": { "count": 1, "unit": "months" } },
-          "rate": 0.0525
-        },
-        {
-          "class": "rates",
-          "type": "deposit",
-          "id": "USD-SOFR-DEP-3M",
-          "index": "USD-SOFR-OIS",
-          "pillar": { "tenor": { "count": 3, "unit": "months" } },
-          "rate": 0.0520
-        },
-        {
-          "class": "rates",
-          "type": "swap",
-          "id": "USD-OIS-SWAP-1Y",
-          "index": "USD-SOFR-OIS",
-          "pillar": { "tenor": { "count": 1, "unit": "years" } },
-          "rate": 0.0510
-        },
-        {
-          "class": "rates",
-          "type": "swap",
-          "id": "USD-OIS-SWAP-2Y",
-          "index": "USD-SOFR-OIS",
-          "pillar": { "tenor": { "count": 2, "unit": "years" } },
-          "rate": 0.0490
-        },
-        {
-          "class": "rates",
-          "type": "swap",
-          "id": "USD-OIS-SWAP-5Y",
-          "index": "USD-SOFR-OIS",
-          "pillar": { "tenor": { "count": 5, "unit": "years" } },
-          "rate": 0.0450
-        },
-        {
-          "class": "rates",
-          "type": "swap",
-          "id": "USD-OIS-SWAP-10Y",
-          "index": "USD-SOFR-OIS",
-          "pillar": { "tenor": { "count": 10, "unit": "years" } },
-          "rate": 0.0410
-        }
+        "USD-SOFR-DEP-1M",
+        "USD-SOFR-DEP-3M",
+        "USD-OIS-SWAP-1Y",
+        "USD-OIS-SWAP-2Y",
+        "USD-OIS-SWAP-5Y",
+        "USD-OIS-SWAP-10Y"
       ],
       "cdx_ig_46_cds": [
-        {
-          "class": "cds",
-          "type": "cds_par_spread",
-          "id": "CDX-IG-46-1Y",
-          "entity": "CDX.NA.IG.46",
-          "convention": {
-            "currency": "USD",
-            "doc_clause": "isda_na"
-          },
-          "pillar": {
-            "tenor": {
-              "count": 1,
-              "unit": "years"
-            }
-          },
-          "spread_bp": 50.0,
-          "recovery_rate": 0.4
-        },
-        {
-          "class": "cds",
-          "type": "cds_par_spread",
-          "id": "CDX-IG-46-3Y",
-          "entity": "CDX.NA.IG.46",
-          "convention": {
-            "currency": "USD",
-            "doc_clause": "isda_na"
-          },
-          "pillar": {
-            "tenor": {
-              "count": 3,
-              "unit": "years"
-            }
-          },
-          "spread_bp": 75.0,
-          "recovery_rate": 0.4
-        },
-        {
-          "class": "cds",
-          "type": "cds_par_spread",
-          "id": "CDX-IG-46-5Y",
-          "entity": "CDX.NA.IG.46",
-          "convention": {
-            "currency": "USD",
-            "doc_clause": "isda_na"
-          },
-          "pillar": {
-            "tenor": {
-              "count": 5,
-              "unit": "years"
-            }
-          },
-          "spread_bp": 100.0,
-          "recovery_rate": 0.4
-        },
-        {
-          "class": "cds",
-          "type": "cds_par_spread",
-          "id": "CDX-IG-46-7Y",
-          "entity": "CDX.NA.IG.46",
-          "convention": {
-            "currency": "USD",
-            "doc_clause": "isda_na"
-          },
-          "pillar": {
-            "tenor": {
-              "count": 7,
-              "unit": "years"
-            }
-          },
-          "spread_bp": 110.0,
-          "recovery_rate": 0.4
-        },
-        {
-          "class": "cds",
-          "type": "cds_par_spread",
-          "id": "CDX-IG-46-10Y",
-          "entity": "CDX.NA.IG.46",
-          "convention": {
-            "currency": "USD",
-            "doc_clause": "isda_na"
-          },
-          "pillar": {
-            "tenor": {
-              "count": 10,
-              "unit": "years"
-            }
-          },
-          "spread_bp": 120.0,
-          "recovery_rate": 0.4
-        }
+        "CDX-IG-46-1Y",
+        "CDX-IG-46-3Y",
+        "CDX-IG-46-5Y",
+        "CDX-IG-46-7Y",
+        "CDX-IG-46-10Y"
       ]
     },
     "steps": [
@@ -184,18 +57,175 @@
     ],
     "settings": {}
   },
-  "initial_market": {
-    "version": 2,
-    "curves": [],
-    "fx": null,
-    "surfaces": [],
-    "prices": {},
-    "series": [],
-    "inflation_indices": [],
-    "dividends": [],
-    "credit_indices": [],
-    "fx_delta_vol_surfaces": [],
-    "vol_cubes": [],
-    "collateral": {}
-  }
+  "market_data": [
+    {
+      "kind": "rate_quote",
+      "type": "deposit",
+      "id": "USD-SOFR-DEP-1M",
+      "index": "USD-SOFR-OIS",
+      "pillar": {
+        "tenor": {
+          "count": 1,
+          "unit": "months"
+        }
+      },
+      "rate": 0.0525
+    },
+    {
+      "kind": "rate_quote",
+      "type": "deposit",
+      "id": "USD-SOFR-DEP-3M",
+      "index": "USD-SOFR-OIS",
+      "pillar": {
+        "tenor": {
+          "count": 3,
+          "unit": "months"
+        }
+      },
+      "rate": 0.052
+    },
+    {
+      "kind": "rate_quote",
+      "type": "swap",
+      "id": "USD-OIS-SWAP-1Y",
+      "index": "USD-SOFR-OIS",
+      "pillar": {
+        "tenor": {
+          "count": 1,
+          "unit": "years"
+        }
+      },
+      "rate": 0.051
+    },
+    {
+      "kind": "rate_quote",
+      "type": "swap",
+      "id": "USD-OIS-SWAP-2Y",
+      "index": "USD-SOFR-OIS",
+      "pillar": {
+        "tenor": {
+          "count": 2,
+          "unit": "years"
+        }
+      },
+      "rate": 0.049
+    },
+    {
+      "kind": "rate_quote",
+      "type": "swap",
+      "id": "USD-OIS-SWAP-5Y",
+      "index": "USD-SOFR-OIS",
+      "pillar": {
+        "tenor": {
+          "count": 5,
+          "unit": "years"
+        }
+      },
+      "rate": 0.045
+    },
+    {
+      "kind": "rate_quote",
+      "type": "swap",
+      "id": "USD-OIS-SWAP-10Y",
+      "index": "USD-SOFR-OIS",
+      "pillar": {
+        "tenor": {
+          "count": 10,
+          "unit": "years"
+        }
+      },
+      "rate": 0.041
+    },
+    {
+      "kind": "cds_quote",
+      "type": "cds_par_spread",
+      "id": "CDX-IG-46-1Y",
+      "entity": "CDX.NA.IG.46",
+      "convention": {
+        "currency": "USD",
+        "doc_clause": "isda_na"
+      },
+      "pillar": {
+        "tenor": {
+          "count": 1,
+          "unit": "years"
+        }
+      },
+      "spread_bp": 50.0,
+      "recovery_rate": 0.4
+    },
+    {
+      "kind": "cds_quote",
+      "type": "cds_par_spread",
+      "id": "CDX-IG-46-3Y",
+      "entity": "CDX.NA.IG.46",
+      "convention": {
+        "currency": "USD",
+        "doc_clause": "isda_na"
+      },
+      "pillar": {
+        "tenor": {
+          "count": 3,
+          "unit": "years"
+        }
+      },
+      "spread_bp": 75.0,
+      "recovery_rate": 0.4
+    },
+    {
+      "kind": "cds_quote",
+      "type": "cds_par_spread",
+      "id": "CDX-IG-46-5Y",
+      "entity": "CDX.NA.IG.46",
+      "convention": {
+        "currency": "USD",
+        "doc_clause": "isda_na"
+      },
+      "pillar": {
+        "tenor": {
+          "count": 5,
+          "unit": "years"
+        }
+      },
+      "spread_bp": 100.0,
+      "recovery_rate": 0.4
+    },
+    {
+      "kind": "cds_quote",
+      "type": "cds_par_spread",
+      "id": "CDX-IG-46-7Y",
+      "entity": "CDX.NA.IG.46",
+      "convention": {
+        "currency": "USD",
+        "doc_clause": "isda_na"
+      },
+      "pillar": {
+        "tenor": {
+          "count": 7,
+          "unit": "years"
+        }
+      },
+      "spread_bp": 110.0,
+      "recovery_rate": 0.4
+    },
+    {
+      "kind": "cds_quote",
+      "type": "cds_par_spread",
+      "id": "CDX-IG-46-10Y",
+      "entity": "CDX.NA.IG.46",
+      "convention": {
+        "currency": "USD",
+        "doc_clause": "isda_na"
+      },
+      "pillar": {
+        "tenor": {
+          "count": 10,
+          "unit": "years"
+        }
+      },
+      "spread_bp": 120.0,
+      "recovery_rate": 0.4
+    }
+  ],
+  "prior_market": []
 }

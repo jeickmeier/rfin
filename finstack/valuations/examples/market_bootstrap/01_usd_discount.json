@@ -1,59 +1,17 @@
 {
-  "$schema": "../../schemas/calibration/2/calibration.schema.json",
+  "$schema": "../../schemas/calibration/3/calibration.schema.json",
   "schema": "finstack.calibration",
   "plan": {
     "id": "usd_ois_discount",
-    "description": "USD-OIS discount curve bootstrapped from deposit and IRS quotes. Demonstrates Track A — bootstrapping via plan.steps with no initial_market dependency.",
+    "description": "USD-OIS discount curve bootstrapped from deposit and IRS quotes. Demonstrates Track A \u2014 bootstrapping via plan.steps with no initial_market dependency.",
     "quote_sets": {
       "usd_quotes": [
-        {
-          "class": "rates",
-          "type": "deposit",
-          "id": "USD-SOFR-DEP-1M",
-          "index": "USD-SOFR-OIS",
-          "pillar": { "tenor": { "count": 1, "unit": "months" } },
-          "rate": 0.0525
-        },
-        {
-          "class": "rates",
-          "type": "deposit",
-          "id": "USD-SOFR-DEP-3M",
-          "index": "USD-SOFR-OIS",
-          "pillar": { "tenor": { "count": 3, "unit": "months" } },
-          "rate": 0.0520
-        },
-        {
-          "class": "rates",
-          "type": "swap",
-          "id": "USD-OIS-SWAP-1Y",
-          "index": "USD-SOFR-OIS",
-          "pillar": { "tenor": { "count": 1, "unit": "years" } },
-          "rate": 0.0510
-        },
-        {
-          "class": "rates",
-          "type": "swap",
-          "id": "USD-OIS-SWAP-2Y",
-          "index": "USD-SOFR-OIS",
-          "pillar": { "tenor": { "count": 2, "unit": "years" } },
-          "rate": 0.0490
-        },
-        {
-          "class": "rates",
-          "type": "swap",
-          "id": "USD-OIS-SWAP-5Y",
-          "index": "USD-SOFR-OIS",
-          "pillar": { "tenor": { "count": 5, "unit": "years" } },
-          "rate": 0.0450
-        },
-        {
-          "class": "rates",
-          "type": "swap",
-          "id": "USD-OIS-SWAP-10Y",
-          "index": "USD-SOFR-OIS",
-          "pillar": { "tenor": { "count": 10, "unit": "years" } },
-          "rate": 0.0410
-        }
+        "USD-SOFR-DEP-1M",
+        "USD-SOFR-DEP-3M",
+        "USD-OIS-SWAP-1Y",
+        "USD-OIS-SWAP-2Y",
+        "USD-OIS-SWAP-5Y",
+        "USD-OIS-SWAP-10Y"
       ]
     },
     "steps": [
@@ -75,5 +33,86 @@
       }
     ],
     "settings": {}
-  }
+  },
+  "market_data": [
+    {
+      "kind": "rate_quote",
+      "type": "deposit",
+      "id": "USD-SOFR-DEP-1M",
+      "index": "USD-SOFR-OIS",
+      "pillar": {
+        "tenor": {
+          "count": 1,
+          "unit": "months"
+        }
+      },
+      "rate": 0.0525
+    },
+    {
+      "kind": "rate_quote",
+      "type": "deposit",
+      "id": "USD-SOFR-DEP-3M",
+      "index": "USD-SOFR-OIS",
+      "pillar": {
+        "tenor": {
+          "count": 3,
+          "unit": "months"
+        }
+      },
+      "rate": 0.052
+    },
+    {
+      "kind": "rate_quote",
+      "type": "swap",
+      "id": "USD-OIS-SWAP-1Y",
+      "index": "USD-SOFR-OIS",
+      "pillar": {
+        "tenor": {
+          "count": 1,
+          "unit": "years"
+        }
+      },
+      "rate": 0.051
+    },
+    {
+      "kind": "rate_quote",
+      "type": "swap",
+      "id": "USD-OIS-SWAP-2Y",
+      "index": "USD-SOFR-OIS",
+      "pillar": {
+        "tenor": {
+          "count": 2,
+          "unit": "years"
+        }
+      },
+      "rate": 0.049
+    },
+    {
+      "kind": "rate_quote",
+      "type": "swap",
+      "id": "USD-OIS-SWAP-5Y",
+      "index": "USD-SOFR-OIS",
+      "pillar": {
+        "tenor": {
+          "count": 5,
+          "unit": "years"
+        }
+      },
+      "rate": 0.045
+    },
+    {
+      "kind": "rate_quote",
+      "type": "swap",
+      "id": "USD-OIS-SWAP-10Y",
+      "index": "USD-SOFR-OIS",
+      "pillar": {
+        "tenor": {
+          "count": 10,
+          "unit": "years"
+        }
+      },
+      "rate": 0.041
+    }
+  ],
+  "prior_market": []
 }
