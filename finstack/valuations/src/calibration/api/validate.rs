@@ -93,14 +93,14 @@ pub fn validate(envelope: &CalibrationEnvelope) -> ValidationReport {
 /// Returns the report serialized as pretty-printed JSON. Returns an
 /// [`EnvelopeError::JsonParse`] if the envelope is malformed.
 pub fn dry_run(envelope_json: &str) -> Result<String, EnvelopeError> {
-    let envelope = parse_envelope(envelope_json)?;
+    let envelope = parse_envelope_v3(envelope_json)?;
     let report = validate(&envelope);
     Ok(serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".to_string()))
 }
 
 /// JSON-friendly wrapper that returns just the dependency graph.
 pub fn dependency_graph_json(envelope_json: &str) -> Result<String, EnvelopeError> {
-    let envelope = parse_envelope(envelope_json)?;
+    let envelope = parse_envelope_v3(envelope_json)?;
     let nodes = build_nodes(&envelope.plan.steps);
     let mut sorted_initial: Vec<String> = collect_initial_ids(&envelope).into_iter().collect();
     sorted_initial.sort();
@@ -115,11 +115,33 @@ pub fn dependency_graph_json(envelope_json: &str) -> Result<String, EnvelopeErro
 // Internal helpers
 // =============================================================================
 
-fn parse_envelope(json: &str) -> Result<CalibrationEnvelope, EnvelopeError> {
-    serde_json::from_str(json).map_err(|e| EnvelopeError::JsonParse {
+/// Parse a JSON envelope, returning a friendly error for legacy v2 envelopes.
+///
+/// The v3 envelope (see [`CalibrationEnvelope`]) replaced the v2 `initial_market`
+/// section with flat `market_data` / `prior_market` lists. Envelopes that still
+/// carry the v2 `initial_market` key get a targeted message pointing at the
+/// migration design doc rather than the generic serde `unknown field` error.
+pub fn parse_envelope_v3(json: &str) -> Result<CalibrationEnvelope, EnvelopeError> {
+    let value: serde_json::Value =
+        serde_json::from_str(json).map_err(|e| EnvelopeError::JsonParse {
+            message: e.to_string(),
+            line: Some(e.line() as u32),
+            col: Some(e.column() as u32),
+        })?;
+    if value.get("initial_market").is_some() {
+        return Err(EnvelopeError::JsonParse {
+            message: "envelope schema v2 is no longer supported; see \
+                      docs/2026-05-10-calibration-envelope-cleanup-design.md \
+                      for the v3 shape"
+                .to_string(),
+            line: None,
+            col: None,
+        });
+    }
+    serde_json::from_value(value).map_err(|e| EnvelopeError::JsonParse {
         message: e.to_string(),
-        line: Some(e.line() as u32),
-        col: Some(e.column() as u32),
+        line: None,
+        col: None,
     })
 }
 
@@ -510,6 +532,22 @@ mod tests {
                 assert!(col.is_some());
             }
             _ => panic!("expected JsonParse"),
+        }
+    }
+
+    #[test]
+    fn v2_envelope_yields_friendly_error() {
+        let v2 = r#"{
+            "schema":"finstack.calibration",
+            "plan":{"id":"x","description":null,"quote_sets":{},"steps":[],"settings":{}},
+            "initial_market":null
+        }"#;
+        let err = parse_envelope_v3(v2).unwrap_err();
+        match err {
+            EnvelopeError::JsonParse { message, .. } => {
+                assert!(message.contains("v3 shape"), "message was: {message}")
+            }
+            other => panic!("expected JsonParse error, got {other:?}"),
         }
     }
 }
