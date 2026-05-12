@@ -34,7 +34,7 @@ pub enum EnvelopeError {
         expected_one_of: Vec<String>,
     },
     /// A step references a curve / surface ID that's not produced by an
-    /// earlier step or carried in `initial_market`.
+    /// earlier step or carried in `market_data` / `prior_market`.
     MissingDependency {
         /// Zero-based index of the offending step in `plan.steps`.
         step_index: usize,

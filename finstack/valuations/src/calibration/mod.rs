@@ -9,7 +9,7 @@
 //! use finstack_valuations::calibration::api::{engine, schema::CalibrationEnvelope};
 //! use finstack_core::market_data::context::MarketContext;
 //!
-//! # let envelope_json = r#"{"schema":"finstack.calibration","plan":{"id":"empty","description":null,"quote_sets":{},"steps":[],"settings":{}},"initial_market":null}"#;
+//! # let envelope_json = r#"{"schema":"finstack.calibration","plan":{"id":"empty","description":null,"quote_sets":{},"steps":[],"settings":{}}}"#;
 //! let envelope: CalibrationEnvelope =
 //!     serde_json::from_str(envelope_json).expect("parse envelope");
 //! let result = engine::execute(&envelope).expect("calibration succeeded");
@@ -25,8 +25,8 @@
 //! actually fit.
 //!
 //! See `finstack/valuations/examples/market_bootstrap/` for canonical envelope JSON examples
-//! covering discount curves, hazard curves layered on `initial_market`, and FX matrices
-//! supplied as snapshot data.
+//! covering discount curves, hazard curves layered on snapshot inputs in `market_data`,
+//! and FX matrices supplied as snapshot data.
 //!
 //! # Two-track envelope structure
 //!
@@ -38,14 +38,15 @@
 //!   Step kinds: `discount`, `forward`, `hazard`, `inflation`, `vol_surface`,
 //!   `swaption_vol`, `base_correlation`, `student_t`, `hull_white`, `cap_floor_hull_white`,
 //!   `svi_surface`, `xccy_basis`, `parametric`.
-//! - **Track B — snapshot data (`initial_market`).** FX matrices, bond prices, equity
+//! - **Track B — snapshot data (`market_data` entries).** FX matrices, bond prices, equity
 //!   spot prices, and dividend schedules are not bootstrapped today — they are supplied
 //!   as materialized state. The `MarketQuote` enum has `Fx` and `Bond` variants for
 //!   documentation/persistence purposes, but no calibration step consumes them; pass
-//!   them via `initial_market.fx`, `initial_market.prices`, and `initial_market.dividends`.
+//!   them as `fx_spot`, `price`, and `dividend_schedule` entries in `market_data`
+//!   (with pre-built calibrated objects optionally supplied via `prior_market`).
 //!
-//! Both tracks are valid in the same envelope; the engine merges `initial_market`
-//! into the working context before running steps.
+//! Both tracks are valid in the same envelope; the engine merges `market_data` and
+//! `prior_market` into the working context before running steps.
 //!
 //! # When to use `MarketContext::try_from(MarketContextState)` directly
 //!

@@ -6,9 +6,10 @@
 //! validator runs in microseconds.
 //!
 //! Genuine cycles cannot occur in the current `CalibrationPlan` model:
-//! steps execute in declared order and read only from `initial_market` or
-//! curves produced by *earlier* steps. A self-referential step would surface
-//! as a [`EnvelopeError::MissingDependency`] rather than a cycle.
+//! steps execute in declared order and read only from `market_data` /
+//! `prior_market` or curves produced by *earlier* steps. A self-referential
+//! step would surface as a [`EnvelopeError::MissingDependency`] rather than a
+//! cycle.
 //!
 //! [`dry_run`] and [`dependency_graph_json`] are JSON-string wrappers for
 //! cross-binding consumption (Python / WASM).
@@ -38,7 +39,7 @@ pub struct ValidationReport {
 #[derive(Debug, Clone, Serialize)]
 pub struct DependencyGraph {
     /// Curve / surface IDs available at the start of execution, contributed
-    /// by `initial_market`.
+    /// by `market_data` and `prior_market`.
     pub initial_ids: Vec<String>,
     /// Per-step inputs and outputs in declared order.
     pub nodes: Vec<DependencyNode>,

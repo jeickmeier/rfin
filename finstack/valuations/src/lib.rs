@@ -170,7 +170,7 @@
 //! use finstack_valuations::calibration::api::{engine, schema::CalibrationEnvelope};
 //! use finstack_core::market_data::context::MarketContext;
 //!
-//! let envelope_json = r#"{"schema":"finstack.calibration","plan":{"id":"empty","description":null,"quote_sets":{},"steps":[],"settings":{}},"initial_market":null}"#;
+//! let envelope_json = r#"{"schema":"finstack.calibration","plan":{"id":"empty","description":null,"quote_sets":{},"steps":[],"settings":{}}}"#;
 //! let envelope: CalibrationEnvelope =
 //!     serde_json::from_str(envelope_json).expect("parse envelope");
 //! let result = engine::execute(&envelope).expect("calibration succeeded");
@@ -181,7 +181,7 @@
 //! ```
 //!
 //! See [`calibration`] crate-level docs for the full two-track structure
-//! (`plan.steps` for bootstrapping vs `initial_market` for snapshot data),
+//! (`plan.steps` for bootstrapping vs snapshot-only entries in `market_data`),
 //! and `finstack/valuations/examples/market_bootstrap/` for canonical
 //! envelope JSON examples.
 //!
