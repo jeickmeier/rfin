@@ -1,5 +1,10 @@
 //! Rolling risk metrics: Sharpe, Sortino, and volatility over a sliding window.
 //!
+//! Crate-internal except for the result types [`DatedSeries`],
+//! [`RollingSharpe`], [`RollingSortino`], [`RollingVolatility`] (re-exported
+//! at the crate root). `///` doc examples target crate developers and are
+//! marked `ignore`.
+//!
 //! All rolling functions share O(n) sliding-window kernels and produce either
 //! a dated struct (aligned to window-end dates) or a NaN-padded `Vec<f64>`.
 
@@ -97,7 +102,7 @@ pub type RollingSharpe = DatedSeries;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::rolling_sharpe;
 /// use finstack_core::dates::{Date, Duration, Month};
 ///
@@ -109,7 +114,7 @@ pub type RollingSharpe = DatedSeries;
 /// let rs = rolling_sharpe(&returns, &dates, 5, 252.0, 0.0);
 /// assert_eq!(rs.values.len(), 16); // 20 − 5 + 1
 /// ```
-pub fn rolling_sharpe(
+pub(crate) fn rolling_sharpe(
     returns: &[f64],
     dates: &[Date],
     window: usize,
@@ -163,7 +168,7 @@ pub type RollingVolatility = DatedSeries;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::rolling_volatility;
 /// use finstack_core::dates::{Date, Duration, Month};
 ///
@@ -175,7 +180,7 @@ pub type RollingVolatility = DatedSeries;
 /// let rv = rolling_volatility(&returns, &dates, 5, 252.0);
 /// assert_eq!(rv.values.len(), 16);
 /// ```
-pub fn rolling_volatility(
+pub(crate) fn rolling_volatility(
     returns: &[f64],
     dates: &[Date],
     window: usize,
@@ -231,7 +236,7 @@ pub type RollingSortino = DatedSeries;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::rolling_sortino;
 /// use finstack_core::dates::{Date, Duration, Month};
 ///
@@ -243,7 +248,7 @@ pub type RollingSortino = DatedSeries;
 /// let rs = rolling_sortino(&returns, &dates, 5, 252.0);
 /// assert_eq!(rs.values.len(), 16);
 /// ```
-pub fn rolling_sortino(
+pub(crate) fn rolling_sortino(
     returns: &[f64],
     dates: &[Date],
     window: usize,

@@ -1,95 +1,40 @@
 ## Analytics Module
 
 The `finstack-analytics` crate provides **portfolio performance and risk
-analytics** operating directly on numeric slices and `time::Date` values, with
-no Polars or DataFrame dependency in the Rust API. It mirrors the Python
-`Performance` class in capability while exposing every computation as a
-standalone pure function for composability.
+analytics** on numeric slices and `time::Date` values, with no Polars or
+DataFrame dependency. [`Performance`](performance.rs) is the canonical
+entry point: construct it from a price or return panel, then every analytic
+— return / risk scalars, drawdown statistics, rolling windows, periodic
+returns, benchmark alpha / beta, basic factor models — is a method on the
+resulting instance.
 
-- **Returns**: simple returns, log returns, excess returns, compounded accumulation, geometric mean
-- **Risk metrics**: Sharpe, Sortino, Calmar, VaR (historical, parametric, Cornish-Fisher), CVaR/ES, Ulcer Index, risk of ruin, tail ratios, skewness (Fisher-corrected), kurtosis (Fisher-corrected), downside deviation, Omega, Treynor, gain-to-pain, Martin ratio, M-squared, Modified Sharpe
-- **Drawdown analysis**: drawdown series, episode detection, average drawdown, CDaR, max drawdown duration, recovery factor, Sterling/Burke/pain ratios
-- **Benchmark-relative**: tracking error, information ratio, R², beta (with SE and CI), alpha/beta/R² greeks, rolling greeks, up/down capture ratios, batting average, multi-factor regression (with adjusted R²; invalid or singular regressions return an error)
-- **Period aggregation**: group-and-compound by any `PeriodKind` (daily → annual), win rate, Kelly criterion, payoff ratio; weekly aggregation uses ISO week boundaries
-- **Lookback selectors**: MTD, QTD, YTD, FYTD index ranges into sorted date arrays
-- **Rolling time series**: rolling Sharpe, rolling Sortino, rolling volatility, rolling alpha/beta
-- **Orchestrator**: `Performance` struct ties all sub-modules together with date-windowing and benchmark state
+Capabilities exposed through `Performance`:
+
+- **Returns**: simple returns, excess returns, compounded accumulation, geometric mean
+- **Risk metrics**: Sharpe, Sortino, Calmar, VaR (historical, parametric, Cornish-Fisher), CVaR/ES, Ulcer Index, tail ratios, skewness (Fisher-corrected), kurtosis (Fisher-corrected), downside deviation, Omega, Treynor, gain-to-pain, Martin ratio, M-squared, Modified Sharpe
+- **Drawdown analysis**: drawdown series, episode detection, mean drawdown, CDaR, max drawdown duration, recovery factor, Sterling/Burke/pain ratios
+- **Benchmark-relative**: tracking error, information ratio, R², beta (with SE and CI), alpha/beta/R² greeks, rolling greeks, up/down capture ratios, batting average, multi-factor regression
+- **Period aggregation**: MTD/QTD/YTD/FYTD and arbitrary `PeriodKind` buckets with win rate, Kelly criterion, payoff ratio
+- **Rolling time series**: rolling Sharpe, Sortino, volatility, alpha/beta
 
 The crate is allocation-minimal and uses numerically stable algorithms
-(Kahan/Neumaier log-space compounding, Welford-style covariance). It currently
-relies on `std` for RNG-backed bootstrap routines such as ruin simulation.
+(Kahan/Neumaier log-space compounding, Welford-style covariance).
 
 ---
 
 ## Module Structure
 
-- **`lib.rs`**
-  - Public entrypoint for the analytics crate.
-  - Re-exports the high-level `Performance` facade and core result types
-    (`PeriodStats`, `LookbackReturns`, `BacktestResult`).
-  - Standalone functions remain in domain modules such as `risk_metrics`,
-    `benchmark`, `drawdown`, `returns`, `aggregation`, `lookback`,
-    `backtesting`, and `timeseries`.
+- **`lib.rs`** — crate root. Re-exports [`Performance`], [`LookbackReturns`], and [`PeriodStats`].
+- **`performance.rs`** — `Performance` struct (stateful orchestrator) and `LookbackReturns`. All methods are thin wrappers over per-module building-block functions.
+- **`risk_metrics/`** — return-based, tail-risk, and rolling metric building blocks. The metric functions are `pub(crate)`; `CagrBasis`, `AnnualizationConvention`, `RollingSharpe`, `RollingSortino`, `RollingVolatility`, and `DatedSeries` are re-exported because `Performance` returns them.
+- **`benchmark.rs`** — benchmark-relative building blocks. Public surface: `BetaResult`, `GreeksResult`, `RollingGreeks`, `MultiFactorResult`, and `beta()` (used cross-crate by `finstack-valuations`).
+- **`drawdown.rs`** — drawdown series, episodes, and drawdown-derived ratios. Public surface: `DrawdownEpisode`.
+- **`returns.rs`** — simple returns, excess returns, log-space compounding. Building blocks only (`pub(crate)`).
+- **`aggregation.rs`** — group-and-compound by `PeriodKind`. Public surface: `PeriodStats`.
+- **`lookback.rs`** — MTD/QTD/YTD/FYTD index selectors. Building blocks only (`pub(crate)`).
 
-- **`performance.rs`**
-  - `Performance`: stateful orchestrator holding pre-computed returns, drawdowns, and benchmark data for a universe of tickers.
-  - `LookbackReturns`: output type for MTD/QTD/YTD/FYTD compounded returns.
-  - All methods delegate to the pure-function sub-modules; no analytics logic lives here directly.
-
-- **`risk_metrics/`** (directory module)
-  - **`mod.rs`**: Public facade, re-exports from all three submodules.
-  - **`return_based.rs`**: `cagr`, `CagrBasis`, `mean_return`, `volatility`, `sharpe`, `sortino`, `downside_deviation`, `estimate_ruin`, `RuinDefinition`, `RuinModel`, `RuinEstimate`, `geometric_mean`, `omega_ratio`, `gain_to_pain`, `modified_sharpe`.
-  - **`tail_risk.rs`**: `skewness`, `kurtosis`, `value_at_risk`, `expected_shortfall`, `parametric_var`, `cornish_fisher_var`, `tail_ratio`, `outlier_win_ratio`, `outlier_loss_ratio` (`_with_scratch` variants are crate-internal optimizations used by the `Performance` facade).
-  - **`rolling.rs`**: `RollingSharpe`, `RollingVolatility`, `RollingSortino`, `rolling_sharpe`, `rolling_volatility`, `rolling_sortino`, plus `to_nan_padded()` helpers on each rolling result type.
-  - All functions take `&[f64]` and return `f64` or a small struct.
-
-- **`benchmark.rs`**
-  - Benchmark-relative statistics: `tracking_error`, `information_ratio`, `r_squared`, `beta`, `greeks`, `rolling_greeks`, `up_capture`, `down_capture`, `capture_ratio`, `batting_average`, `multi_factor_greeks`.
-  - Benchmark-relative risk ratios: `treynor`, `m_squared` (compose with `mean_return` / `volatility` for series-based inputs).
-  - Output types: `BetaResult` (beta, std_err, CI), `GreeksResult` (alpha, beta, r², adjusted_r²), `RollingGreeks` (dates, alphas, betas), `MultiFactorResult` (alpha, betas, r², adjusted_r², residual_vol).
-  - Invalid, mismatched, or singular multi-factor regressions return an error instead of silently zero-filling the output.
-
-- **`returns.rs`**
-  - Return computation: `simple_returns`, `excess_returns`, `convert_to_prices`, `rebase`.
-  - Compounding: `comp_sum` (cumulative series), `comp_total` (scalar).
-  - Cleaning: `clean_returns` (replace ±∞ with NaN, strip trailing NaNs).
-  - Uses Neumaier log-space accumulation for long-series numerical stability.
-
-- **`drawdown.rs`**
-  - `to_drawdown_series`: per-period drawdown depth `(wealth / peak - 1)`.
-  - `drawdown_details`: structured episodes (start/valley/end dates, duration, depth) sorted by severity.
-  - `mean_episode_drawdown`: mean of the N worst drawdown episodes.
-  - `mean_drawdown`: arithmetic mean of a drawdown series (path-weighted).
-  - `max_drawdown_duration`: longest drawdown duration in calendar days.
-  - `cdar`: Conditional Drawdown at Risk at a given confidence level.
-  - Drawdown-derived risk ratios (compose from primitives): `ulcer_index`, `pain_index`, `calmar`, `recovery_factor`, `martin_ratio`, `sterling_ratio`, `burke_ratio`, `pain_ratio`.
-  - Output type: `DrawdownEpisode { start, valley, end, duration_days, max_drawdown, near_recovery_threshold }`.
-
-- **`aggregation.rs`**
-  - `group_by_period`: compounds daily returns into period buckets keyed by `PeriodId` (`Weekly` uses ISO week numbering).
-  - `period_stats`: derives win rate, best/worst, consecutive streaks, payoff ratio, Kelly criterion, profit factor from grouped returns.
-  - Output type: `PeriodStats` (13 fields).
-
-- **`lookback.rs`**
-  - Date-index selectors returning `Range<usize>` into sorted date arrays: `mtd_select`, `qtd_select`, `ytd_select`, `fytd_select`.
-  - All accept an `offset_days` parameter to shift window starts.
-  - Uses binary search; no allocations.
-
-- **`backtesting/`** (directory module)
-  - VaR backtesting infrastructure. Submodules: `types`, `metrics`, `orchestrator`.
-  - Coverage tests: `kupiec_test` (POF unconditional coverage), `christoffersen_test` (joint conditional coverage).
-  - Basel-style classification: `traffic_light`, `TrafficLightZone`, `capital_multiplier()`.
-  - Orchestrators: `run_backtest`, `rolling_var_forecasts`, `compare_var_backtests`.
-  - FRTB P&L explanation: `pnl_explanation`.
-  - Output types: `KupiecResult`, `ChristoffersenResult`, `TrafficLightResult`, `BacktestResult`, `MultiModelComparison`, `PnlExplanation`.
-
-- **`timeseries/`** (directory module)
-  - GARCH-family volatility models and diagnostics. Submodules: `garch` (trait + MLE driver), `garch11`, `gjr_garch11`, `egarch11`, `forecast`, `diagnostics`, `innovations`, `optimizer`.
-  - Models: `Garch11`, `GjrGarch11`, `Egarch11` all implement the `GarchModel` trait. References: Bollerslev (1986), Glosten-Jagannathan-Runkle (1993), Nelson (1991).
-  - Forecasting: `forecast_garch_fit`, `vol_term_structure`, `STANDARD_HORIZONS`.
-  - Diagnostics: `ljung_box`, `arch_lm`, `aic`, `bic`, `hqic`.
-  - Selection: `compare_garch_models`, `auto_garch` (BIC-ranked).
-  - Innovations: `InnovationDist::Gaussian` and `InnovationDist::StudentT(nu)`.
+Building-block functions are intentionally crate-internal; new code should
+reach for `Performance` rather than calling the free functions directly.
 
 ---
 
@@ -177,9 +122,8 @@ impl Performance {
     pub fn rolling_sortino(&self, idx: usize, window: usize) -> RollingSortino;
     pub fn rolling_greeks(&self, idx: usize, window: usize) -> RollingGreeks;
 
-    // Drawdown episodes
+    // Drawdown episodes (use `idx = benchmark_idx()` for the benchmark's episodes)
     pub fn drawdown_details(&self, idx: usize, n: usize) -> Vec<DrawdownEpisode>;
-    pub fn top_benchmark_drawdown_episodes(&self, n: usize) -> Vec<DrawdownEpisode>;
 
     // Lookback and aggregation
     pub fn lookback_returns(&self, ref_date: Date, fiscal: Option<FiscalConfig>) -> LookbackReturns;

@@ -14,8 +14,8 @@ use super::benchmark::{
 use super::benchmark::{m_squared, treynor};
 use super::drawdown::{
     burke_ratio, calmar, cdar, drawdown_details, martin_ratio, max_drawdown,
-    max_drawdown_duration as dd_max_duration, pain_index, pain_ratio, recovery_factor,
-    sterling_ratio, to_drawdown_series, ulcer_index, DrawdownEpisode,
+    max_drawdown_duration as dd_max_duration, mean_drawdown, pain_index, pain_ratio,
+    recovery_factor, sterling_ratio, to_drawdown_series, ulcer_index, DrawdownEpisode,
 };
 use super::lookback;
 use super::returns::{clean_returns, comp_sum, comp_total, excess_returns, simple_returns};
@@ -123,7 +123,7 @@ impl Performance {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_analytics::performance::Performance;
+    /// use finstack_analytics::Performance;
     /// use finstack_core::dates::{Date, Month, PeriodKind};
     ///
     /// let dates: Vec<Date> = (1..=10)
@@ -150,71 +150,30 @@ impl Performance {
         if prices.is_empty() || dates.is_empty() {
             return Err(crate::error::InputError::Invalid.into());
         }
-        if ticker_names.len() != prices.len() {
-            return Err(crate::error::InputError::Invalid.into());
-        }
         if prices
             .iter()
             .any(|price_col| price_col.len() != dates.len())
         {
             return Err(crate::error::InputError::Invalid.into());
         }
-        let n_tickers = prices.len();
-        let expected_returns_len = dates.len().saturating_sub(1);
 
-        let benchmark_idx = match benchmark_ticker {
-            Some(name) => ticker_names
-                .iter()
-                .position(|t| t == name)
-                .ok_or(crate::error::InputError::Invalid)?,
-            None => 0,
-        };
-
-        let mut all_returns: Vec<Vec<f64>> = Vec::with_capacity(n_tickers);
-        let mut all_drawdowns: Vec<Vec<f64>> = Vec::with_capacity(n_tickers);
-
-        for price_col in &prices {
-            let full = simple_returns(price_col);
-            let mut returns = full[1..].to_vec();
-            clean_returns(&mut returns);
-            if returns.iter().any(|value| !value.is_finite()) {
-                return Err(crate::error::InputError::Invalid.into());
-            }
-            if returns.len() != expected_returns_len {
-                return Err(crate::error::InputError::Invalid.into());
-            }
-            if returns
-                .iter()
-                .any(|&value| !value.is_finite() || value < -1.0)
-            {
-                return Err(crate::error::InputError::Invalid.into());
-            }
-
-            let dd = to_drawdown_series(&returns);
-            all_drawdowns.push(dd);
-            all_returns.push(returns);
-        }
-
-        let adj_dates = if dates.len() > 1 {
+        let returns_matrix: Vec<Vec<f64>> = prices
+            .iter()
+            .map(|price_col| simple_returns(price_col)[1..].to_vec())
+            .collect();
+        let return_dates = if dates.len() > 1 {
             dates[1..].to_vec()
         } else {
             dates.clone()
         };
-
-        let end_idx = all_returns.first().map(|r| r.len()).unwrap_or(0);
-
-        Ok(Self {
-            price_dates: dates,
-            dates: adj_dates,
-            returns: all_returns,
+        Self::assemble(
+            dates,
+            return_dates,
+            returns_matrix,
             ticker_names,
-            benchmark_idx,
-            drawdowns: all_drawdowns,
-            active_window_drawdowns: None,
+            benchmark_ticker,
             freq,
-            start_idx: 0,
-            end_idx,
-        })
+        )
     }
 
     /// Construct from a pre-computed return matrix (columns = tickers).
@@ -256,33 +215,6 @@ impl Performance {
         if returns.is_empty() || dates.is_empty() {
             return Err(crate::error::InputError::Invalid.into());
         }
-        if ticker_names.len() != returns.len() {
-            return Err(crate::error::InputError::Invalid.into());
-        }
-        if returns.iter().any(|col| col.len() != dates.len()) {
-            return Err(crate::error::InputError::Invalid.into());
-        }
-
-        let benchmark_idx = match benchmark_ticker {
-            Some(name) => ticker_names
-                .iter()
-                .position(|t| t == name)
-                .ok_or(crate::error::InputError::Invalid)?,
-            None => 0,
-        };
-
-        let mut all_returns: Vec<Vec<f64>> = Vec::with_capacity(returns.len());
-        let mut all_drawdowns: Vec<Vec<f64>> = Vec::with_capacity(returns.len());
-        for col in returns {
-            let mut clean = col;
-            clean_returns(&mut clean);
-            if clean.iter().any(|&v| !v.is_finite() || v < -1.0) {
-                return Err(crate::error::InputError::Invalid.into());
-            }
-            let dd = to_drawdown_series(&clean);
-            all_drawdowns.push(dd);
-            all_returns.push(clean);
-        }
 
         let prior_date = if dates.len() >= 2 {
             let gap = (dates[1] - dates[0]).whole_days();
@@ -296,11 +228,62 @@ impl Performance {
         price_dates.push(prior_date);
         price_dates.extend_from_slice(&dates);
 
+        Self::assemble(
+            price_dates,
+            dates,
+            returns,
+            ticker_names,
+            benchmark_ticker,
+            freq,
+        )
+    }
+
+    /// Validate return columns, build per-ticker drawdown caches, and finalize state.
+    ///
+    /// Shared by [`Self::new`] (which pre-computes simple returns from prices)
+    /// and [`Self::from_returns`] (which receives a return matrix directly).
+    fn assemble(
+        price_dates: Vec<Date>,
+        return_dates: Vec<Date>,
+        returns: Vec<Vec<f64>>,
+        ticker_names: Vec<String>,
+        benchmark_ticker: Option<&str>,
+        freq: PeriodKind,
+    ) -> crate::Result<Self> {
+        if ticker_names.len() != returns.len() {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+        if returns.iter().any(|col| col.len() != return_dates.len()) {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+
+        let benchmark_idx = match benchmark_ticker {
+            Some(name) => ticker_names
+                .iter()
+                .position(|t| t == name)
+                .ok_or(crate::error::InputError::Invalid)?,
+            None => 0,
+        };
+
+        let expected_len = return_dates.len();
+        let mut all_returns: Vec<Vec<f64>> = Vec::with_capacity(returns.len());
+        let mut all_drawdowns: Vec<Vec<f64>> = Vec::with_capacity(returns.len());
+        for col in returns {
+            let mut clean = col;
+            clean_returns(&mut clean);
+            if clean.len() != expected_len || clean.iter().any(|&v| !v.is_finite() || v < -1.0) {
+                return Err(crate::error::InputError::Invalid.into());
+            }
+            let dd = to_drawdown_series(&clean);
+            all_drawdowns.push(dd);
+            all_returns.push(clean);
+        }
+
         let end_idx = all_returns.first().map_or(0, Vec::len);
 
         Ok(Self {
             price_dates,
-            dates,
+            dates: return_dates,
             returns: all_returns,
             ticker_names,
             benchmark_idx,
@@ -609,6 +592,15 @@ impl Performance {
     /// ```
     pub fn max_drawdown(&self) -> Vec<f64> {
         self.map_tickers(|i| max_drawdown(self.active_drawdown_values(i)))
+    }
+
+    /// Mean drawdown (arithmetic mean of the drawdown path) for each ticker.
+    ///
+    /// # Returns
+    ///
+    /// One non-positive mean drawdown per ticker in column order.
+    pub fn mean_drawdown(&self) -> Vec<f64> {
+        self.map_tickers(|i| mean_drawdown(self.active_drawdown_values(i)))
     }
 
     /// Historical Value-at-Risk for each ticker (not annualized).
@@ -1392,24 +1384,6 @@ impl Performance {
             let dd = self.active_drawdown_values(i);
             dd.iter().zip(bench_dd.iter()).map(|(p, b)| p - b).collect()
         })
-    }
-
-    /// The top-N benchmark drawdown episodes (for stress-test analysis).
-    ///
-    /// Identifies the `n` worst drawdown episodes in the benchmark series.
-    /// Useful for examining how the portfolio performs during the benchmark's
-    /// worst historical periods.
-    ///
-    /// # Arguments
-    ///
-    /// * `n` - Maximum number of episodes to return, sorted by severity.
-    ///
-    /// # Returns
-    ///
-    /// Up to `n` [`DrawdownEpisode`] structs from the benchmark series.
-    pub fn top_benchmark_drawdown_episodes(&self, n: usize) -> Vec<DrawdownEpisode> {
-        let bench_dd = self.active_bench_drawdown_values();
-        drawdown_details(bench_dd, self.active_dates(), n)
     }
 
     // ── Excess returns ──

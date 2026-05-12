@@ -1,6 +1,10 @@
 //! Return computation utilities: simple returns, excess returns, price conversion,
 //! compounded returns. Delegates to `math::stats::log_returns` for log variants
 //! and `math::summation` for numerically stable accumulation.
+//!
+//! Crate-internal: callers use these through [`crate::Performance`]; the
+//! `///` doc examples target crate developers and are marked `ignore` because
+//! the functions are not part of the public API.
 
 use crate::math::summation::NeumaierAccumulator;
 
@@ -20,7 +24,7 @@ use crate::math::summation::NeumaierAccumulator;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::returns::clean_returns;
 ///
 /// let mut r = vec![0.01, f64::INFINITY, 0.02, f64::NAN, f64::NAN];
@@ -28,7 +32,7 @@ use crate::math::summation::NeumaierAccumulator;
 /// assert_eq!(r.len(), 3);   // two trailing NaNs removed
 /// assert!(r[1].is_nan());   // infinity replaced with NaN
 /// ```
-pub fn clean_returns(r: &mut Vec<f64>) {
+pub(crate) fn clean_returns(r: &mut Vec<f64>) {
     for v in r.iter_mut() {
         if v.is_infinite() {
             *v = f64::NAN;
@@ -58,7 +62,7 @@ pub fn clean_returns(r: &mut Vec<f64>) {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::returns::simple_returns;
 ///
 /// let r = simple_returns(&[100.0, 110.0, 99.0]);
@@ -66,7 +70,7 @@ pub fn clean_returns(r: &mut Vec<f64>) {
 /// assert!((r[1] - 0.1).abs() < 1e-12);   // +10%
 /// assert!((r[2] - (-0.1)).abs() < 1e-12); // −10%
 /// ```
-pub fn simple_returns(prices: &[f64]) -> Vec<f64> {
+pub(crate) fn simple_returns(prices: &[f64]) -> Vec<f64> {
     if prices.len() < 2 {
         return vec![0.0; prices.len()];
     }
@@ -96,7 +100,7 @@ pub fn simple_returns(prices: &[f64]) -> Vec<f64> {
 ///
 /// ```text
 /// rf_adj = (1 + rf)^(1/nperiods) - 1
-/// ```
+/// ```ignore
 ///
 /// For example, if `rf` is an annualized rate and observations are monthly,
 /// pass `nperiods = 12.0`.
@@ -118,7 +122,7 @@ pub fn simple_returns(prices: &[f64]) -> Vec<f64> {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::returns::excess_returns;
 ///
 /// // Monthly returns, annualized risk-free rate of 10%.
@@ -129,7 +133,7 @@ pub fn simple_returns(prices: &[f64]) -> Vec<f64> {
 /// let rf_adj = 1.1_f64.powf(1.0 / 12.0) - 1.0;
 /// assert!((ex[0] - (0.05 - rf_adj)).abs() < 1e-10);
 /// ```
-pub fn excess_returns(returns: &[f64], rf: &[f64], nperiods: Option<f64>) -> Vec<f64> {
+pub(crate) fn excess_returns(returns: &[f64], rf: &[f64], nperiods: Option<f64>) -> Vec<f64> {
     let n = returns.len().min(rf.len());
     if let Some(np) = nperiods {
         if !np.is_finite() || np <= 0.0 {
@@ -162,7 +166,7 @@ const MIN_GROWTH_FACTOR: f64 = 1e-18;
 ///
 /// ```text
 /// comp_sum[i] = Π_{j=0}^{i} (1 + r[j]) - 1
-/// ```
+/// ```ignore
 ///
 /// Uses a Neumaier accumulator in log-space for numerical stability on
 /// long series. Growth factors are clamped to `MIN_GROWTH_FACTOR` so
@@ -181,7 +185,7 @@ const MIN_GROWTH_FACTOR: f64 = 1e-18;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::returns::comp_sum;
 ///
 /// let r = [0.01, 0.02, -0.005];
@@ -190,7 +194,7 @@ const MIN_GROWTH_FACTOR: f64 = 1e-18;
 /// let expected = 1.01 * 1.02 * 0.995 - 1.0;
 /// assert!((cs[2] - expected).abs() < 1e-12);
 /// ```
-pub fn comp_sum(returns: &[f64]) -> Vec<f64> {
+pub(crate) fn comp_sum(returns: &[f64]) -> Vec<f64> {
     let mut acc = NeumaierAccumulator::new();
     let mut out = Vec::with_capacity(returns.len());
     let mut invalid = false;
@@ -228,7 +232,7 @@ pub fn comp_sum(returns: &[f64]) -> Vec<f64> {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::returns::comp_total;
 ///
 /// let r = [0.01, 0.02, -0.005];
@@ -242,7 +246,7 @@ pub fn comp_sum(returns: &[f64]) -> Vec<f64> {
 /// assert!(ct_wipeout < -0.99);
 /// ```
 #[must_use]
-pub fn comp_total(returns: &[f64]) -> f64 {
+pub(crate) fn comp_total(returns: &[f64]) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }

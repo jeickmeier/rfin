@@ -1,5 +1,3 @@
-use finstack_analytics::aggregation::group_by_period;
-use finstack_analytics::risk_metrics::value_at_risk;
 use finstack_analytics::Performance;
 use finstack_core::dates::{Date, Month, PeriodKind};
 
@@ -62,25 +60,6 @@ fn cumulative_outperformance_uses_relative_wealth_not_return_difference() {
             actual
         );
     }
-}
-
-#[test]
-fn weekly_grouping_uses_iso_week_boundaries_across_year_end() {
-    let dates = vec![
-        d(2024, Month::December, 30),
-        d(2024, Month::December, 31),
-        d(2025, Month::January, 2),
-    ];
-    let returns = vec![0.01, 0.02, 0.03];
-
-    let grouped = group_by_period(&dates, &returns, PeriodKind::Weekly, None);
-
-    assert_eq!(
-        grouped.len(),
-        1,
-        "all observations should fall in one ISO week"
-    );
-    assert_eq!(grouped[0].0.to_string(), "2025W01");
 }
 
 #[test]
@@ -211,7 +190,7 @@ fn benchmark_drawdown_views_follow_benchmark_switch_with_active_window() {
         "PORT should lag a flat benchmark by its own rebased drawdown"
     );
     assert!(
-        perf.top_benchmark_drawdown_episodes(1).is_empty(),
+        perf.drawdown_details(perf.benchmark_idx(), 1).is_empty(),
         "positive benchmark window should have no drawdown episodes"
     );
 
@@ -223,7 +202,7 @@ fn benchmark_drawdown_views_follow_benchmark_switch_with_active_window() {
         "drawdown outperformance should use the switched benchmark's windowed drawdown"
     );
 
-    let bench_episodes = perf.top_benchmark_drawdown_episodes(1);
+    let bench_episodes = perf.drawdown_details(perf.benchmark_idx(), 1);
     assert_eq!(bench_episodes.len(), 1);
     assert!(
         (bench_episodes[0].max_drawdown + 0.2).abs() < 1e-12,
@@ -232,37 +211,24 @@ fn benchmark_drawdown_views_follow_benchmark_switch_with_active_window() {
 }
 
 #[test]
-fn max_drawdown_and_calmar_compose_from_primitives() {
-    let returns = [0.10, -0.20, 0.05, -0.10, 0.08];
-    let ann = 12.0;
+fn performance_max_drawdown_and_calmar_are_consistent() {
+    let returns = vec![0.10, -0.20, 0.05, -0.10, 0.08];
+    let dates: Vec<Date> = (0..returns.len() as u8 + 1)
+        .map(|i| d(2024, Month::January, i + 1))
+        .collect();
+    let perf = Performance::from_returns(
+        dates[1..].to_vec(),
+        vec![returns],
+        vec!["P".to_string()],
+        None,
+        PeriodKind::Monthly,
+    )
+    .expect("performance should build");
 
-    let drawdown = finstack_analytics::drawdown::to_drawdown_series(&returns);
-    let expected_max_drawdown = finstack_analytics::drawdown::max_drawdown(&drawdown);
-    let expected_calmar = finstack_analytics::drawdown::calmar(
-        finstack_analytics::risk_metrics::cagr(
-            &returns,
-            finstack_analytics::risk_metrics::CagrBasis::factor(ann),
-        )
-        .expect("valid CAGR"),
-        expected_max_drawdown,
-    );
-
-    assert!(expected_max_drawdown <= 0.0);
-    assert!(expected_calmar.is_finite() || expected_calmar.is_nan());
-}
-
-#[test]
-fn value_at_risk_requires_strict_confidence_bounds() {
-    let returns = [-0.03, -0.01, 0.01, 0.02];
-
-    assert!(
-        value_at_risk(&returns, 0.0).is_nan(),
-        "confidence=0 should be rejected"
-    );
-    assert!(
-        value_at_risk(&returns, 1.0).is_nan(),
-        "confidence=1 should be rejected"
-    );
+    let max_dd = perf.max_drawdown()[0];
+    assert!(max_dd <= 0.0);
+    let calmar = perf.calmar().expect("valid Calmar")[0];
+    assert!(calmar.is_finite() || calmar.is_nan());
 }
 
 #[test]
@@ -319,43 +285,5 @@ fn performance_new_rejects_non_finite_price_domain_in_simple_return_mode() {
     assert!(
         result.is_err(),
         "non-finite prices should be rejected even when the derived return would look finite"
-    );
-}
-
-#[test]
-fn parametric_var_rejects_non_positive_or_non_finite_horizon() {
-    let returns = [-0.03, -0.01, 0.01, 0.02];
-
-    assert!(
-        finstack_analytics::risk_metrics::parametric_var(&returns, 0.95, Some(0.0)).is_nan(),
-        "zero annualization horizon should be rejected"
-    );
-    assert!(
-        finstack_analytics::risk_metrics::parametric_var(&returns, 0.95, Some(-12.0)).is_nan(),
-        "negative annualization horizon should be rejected"
-    );
-    assert!(
-        finstack_analytics::risk_metrics::parametric_var(&returns, 0.95, Some(f64::INFINITY))
-            .is_nan(),
-        "non-finite annualization horizon should be rejected"
-    );
-}
-
-#[test]
-fn cornish_fisher_var_rejects_non_positive_or_non_finite_horizon() {
-    let returns = [-0.03, -0.01, 0.01, 0.02];
-
-    assert!(
-        finstack_analytics::risk_metrics::cornish_fisher_var(&returns, 0.95, Some(0.0)).is_nan(),
-        "zero annualization horizon should be rejected"
-    );
-    assert!(
-        finstack_analytics::risk_metrics::cornish_fisher_var(&returns, 0.95, Some(-12.0)).is_nan(),
-        "negative annualization horizon should be rejected"
-    );
-    assert!(
-        finstack_analytics::risk_metrics::cornish_fisher_var(&returns, 0.95, Some(f64::INFINITY))
-            .is_nan(),
-        "non-finite annualization horizon should be rejected"
     );
 }

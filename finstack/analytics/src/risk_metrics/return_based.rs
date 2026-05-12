@@ -1,5 +1,9 @@
 //! Return-based risk metrics: mean, volatility, Sharpe, Sortino, CAGR, and more.
 //!
+//! Crate-internal except for [`CagrBasis`] / [`AnnualizationConvention`]
+//! (re-exported at the crate root). `///` doc examples target crate
+//! developers and are marked `ignore`.
+//!
 //! Most functions operate on `&[f64]` return slices and return scalar `f64`.
 //! Annualization uses the caller-supplied factor (typically from
 //! `PeriodKind::annualization_factor()`).
@@ -78,20 +82,6 @@ impl CagrBasis {
         }
     }
 
-    /// Build a date-based CAGR basis with an explicit day-count convention.
-    #[must_use]
-    pub fn dates_with_convention(
-        start: crate::dates::Date,
-        end: crate::dates::Date,
-        convention: AnnualizationConvention,
-    ) -> Self {
-        Self::Dates {
-            start,
-            end,
-            convention,
-        }
-    }
-
     /// Build a factor-based CAGR basis from periods per year.
     #[must_use]
     pub fn factor(ann_factor: f64) -> Self {
@@ -105,7 +95,7 @@ impl CagrBasis {
 ///
 /// ```text
 /// CAGR = (Π(1 + r_i))^(1/years) - 1
-/// ```
+/// ```ignore
 ///
 /// where `years` comes either from an explicit date range or from a
 /// periods-per-year factor, depending on `basis`.
@@ -127,7 +117,7 @@ impl CagrBasis {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::{cagr, CagrBasis};
 /// use finstack_core::dates::{Date, Month};
 ///
@@ -138,7 +128,7 @@ impl CagrBasis {
 /// assert!((c - 0.10).abs() < 0.01);
 /// # Ok::<(), finstack_core::Error>(())
 /// ```
-pub fn cagr(returns: &[f64], basis: CagrBasis) -> crate::Result<f64> {
+pub(crate) fn cagr(returns: &[f64], basis: CagrBasis) -> crate::Result<f64> {
     if returns.is_empty() {
         tracing::debug!(reason = "empty_returns", "invalid CAGR input");
         return Err(crate::error::InputError::Invalid.into());
@@ -246,7 +236,7 @@ fn is_leap_year(year: i32) -> bool {
 ///
 /// ```text
 /// μ_ann = μ_period × ann_factor
-/// ```
+/// ```ignore
 ///
 /// This is **simple** annualization of the average **per-period** return, not a
 /// compounded (geometric) annual return. For growth over time that compounds
@@ -268,7 +258,7 @@ fn is_leap_year(year: i32) -> bool {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::mean_return;
 ///
 /// let r = [0.01, 0.02, 0.03];
@@ -279,7 +269,7 @@ fn is_leap_year(year: i32) -> bool {
 /// assert!((m_ann - 0.02 * 252.0).abs() < 1e-10);
 /// ```
 #[must_use]
-pub fn mean_return(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
+pub(crate) fn mean_return(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
     if invalid_annualization_factor(annualize, ann_factor) {
         return f64::NAN;
     }
@@ -311,7 +301,7 @@ pub fn mean_return(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::volatility;
 ///
 /// let r = [0.01, -0.01, 0.02, -0.02];
@@ -322,7 +312,7 @@ pub fn mean_return(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 /// assert!((vol_ann - vol * 252.0_f64.sqrt()).abs() < 1e-12);
 /// ```
 #[must_use]
-pub fn volatility(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
+pub(crate) fn volatility(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
     if invalid_annualization_factor(annualize, ann_factor) {
         return f64::NAN;
     }
@@ -352,7 +342,7 @@ pub fn volatility(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::sharpe;
 ///
 /// assert!((sharpe(0.10, 0.15, 0.0) - 0.6667).abs() < 0.001);
@@ -364,7 +354,7 @@ pub fn volatility(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 ///
 /// - Sharpe (1966): see docs/REFERENCES.md#sharpe1966
 #[must_use]
-pub fn sharpe(ann_return: f64, ann_vol: f64, risk_free_rate: f64) -> f64 {
+pub(crate) fn sharpe(ann_return: f64, ann_vol: f64, risk_free_rate: f64) -> f64 {
     if ann_vol == 0.0 {
         let excess = ann_return - risk_free_rate;
         return if excess > 0.0 {
@@ -386,7 +376,7 @@ pub fn sharpe(ann_return: f64, ann_vol: f64, risk_free_rate: f64) -> f64 {
 ///
 /// ```text
 /// DD = sqrt( (1/n) × Σ min(r_i − MAR, 0)² )
-/// ```
+/// ```ignore
 ///
 /// # Arguments
 ///
@@ -404,7 +394,7 @@ pub fn sharpe(ann_return: f64, ann_vol: f64, risk_free_rate: f64) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::downside_deviation;
 ///
 /// let r = [0.01, -0.02, 0.03, -0.01, 0.005];
@@ -420,7 +410,12 @@ pub fn sharpe(ann_return: f64, ann_vol: f64, risk_free_rate: f64) -> f64 {
 ///
 /// - Sortino & van der Meer (1991): see docs/REFERENCES.md#sortinoVanDerMeer1991
 #[must_use]
-pub fn downside_deviation(returns: &[f64], mar: f64, annualize: bool, ann_factor: f64) -> f64 {
+pub(crate) fn downside_deviation(
+    returns: &[f64],
+    mar: f64,
+    annualize: bool,
+    ann_factor: f64,
+) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }
@@ -446,7 +441,7 @@ pub fn downside_deviation(returns: &[f64], mar: f64, annualize: bool, ann_factor
 ///
 /// ```text
 /// Sortino = (annualized mean return) / (annualized downside deviation)
-/// ```
+/// ```ignore
 ///
 /// Downside deviation is computed over the full return series (denominator
 /// is `n`, not the number of negative observations), consistent with the
@@ -468,7 +463,7 @@ pub fn downside_deviation(returns: &[f64], mar: f64, annualize: bool, ann_factor
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::sortino;
 ///
 /// let r = [0.01, 0.02, 0.03, -0.005, 0.01];
@@ -480,7 +475,7 @@ pub fn downside_deviation(returns: &[f64], mar: f64, annualize: bool, ann_factor
 ///
 /// - Sortino & van der Meer (1991): see docs/REFERENCES.md#sortinoVanDerMeer1991
 #[must_use]
-pub fn sortino(returns: &[f64], annualize: bool, ann_factor: f64, mar: f64) -> f64 {
+pub(crate) fn sortino(returns: &[f64], annualize: bool, ann_factor: f64, mar: f64) -> f64 {
     if invalid_annualization_factor(annualize, ann_factor) {
         return f64::NAN;
     }
@@ -508,7 +503,7 @@ pub fn sortino(returns: &[f64], annualize: bool, ann_factor: f64, mar: f64) -> f
 ///
 /// ```text
 /// geo_mean = (Π(1 + r_i))^(1/n) − 1
-/// ```
+/// ```ignore
 ///
 /// Computed in log-space with Kahan summation for numerical stability.
 /// Returns [`f64::NEG_INFINITY`] if any return is `<= -1.0`, which
@@ -525,7 +520,7 @@ pub fn sortino(returns: &[f64], annualize: bool, ann_factor: f64, mar: f64) -> f
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::geometric_mean;
 ///
 /// // +10% then −10%: geometric mean < 0 (volatility drag).
@@ -537,7 +532,7 @@ pub fn sortino(returns: &[f64], annualize: bool, ann_factor: f64, mar: f64) -> f
 /// assert!((gm5 - 0.05).abs() < 1e-12);
 /// ```
 #[must_use]
-pub fn geometric_mean(returns: &[f64]) -> f64 {
+pub(crate) fn geometric_mean(returns: &[f64]) -> f64 {
     if returns.is_empty() {
         return f64::NAN;
     }
@@ -553,7 +548,7 @@ pub fn geometric_mean(returns: &[f64]) -> f64 {
 ///
 /// ```text
 /// Ω(L) = Σ max(r_i − L, 0) / Σ max(L − r_i, 0)
-/// ```
+/// ```ignore
 ///
 /// Unlike the Sharpe ratio (which uses only mean and variance), the Omega
 /// ratio incorporates the full return distribution.
@@ -571,7 +566,7 @@ pub fn geometric_mean(returns: &[f64]) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::omega_ratio;
 ///
 /// let r = [0.05, -0.02, 0.03, -0.01, 0.04];
@@ -583,7 +578,7 @@ pub fn geometric_mean(returns: &[f64]) -> f64 {
 ///
 /// - Keating & Shadwick (2002): see docs/REFERENCES.md#keatingShadwick2002
 #[must_use]
-pub fn omega_ratio(returns: &[f64], threshold: f64) -> f64 {
+pub(crate) fn omega_ratio(returns: &[f64], threshold: f64) -> f64 {
     if returns.is_empty() {
         return f64::NAN;
     }
@@ -606,7 +601,7 @@ pub fn omega_ratio(returns: &[f64], threshold: f64) -> f64 {
 ///
 /// ```text
 /// GtP = Σ r_i / Σ |r_i|   for r_i < 0
-/// ```
+/// ```ignore
 ///
 /// Popular among CTA and systematic macro managers as a simple
 /// measure of return efficiency relative to the pain of drawdowns.
@@ -622,7 +617,7 @@ pub fn omega_ratio(returns: &[f64], threshold: f64) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::gain_to_pain;
 ///
 /// let r = [0.05, -0.02, 0.03, -0.01, 0.04];
@@ -634,7 +629,7 @@ pub fn omega_ratio(returns: &[f64], threshold: f64) -> f64 {
 ///
 /// - Schwager (2012): see docs/REFERENCES.md#schwager2012
 #[must_use]
-pub fn gain_to_pain(returns: &[f64]) -> f64 {
+pub(crate) fn gain_to_pain(returns: &[f64]) -> f64 {
     if returns.is_empty() {
         return f64::NAN;
     }
@@ -653,7 +648,7 @@ pub fn gain_to_pain(returns: &[f64]) -> f64 {
 ///
 /// ```text
 /// Modified Sharpe = (R_p − R_f) / |CF-VaR|
-/// ```
+/// ```ignore
 ///
 /// # Arguments
 ///
@@ -669,7 +664,7 @@ pub fn gain_to_pain(returns: &[f64]) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::modified_sharpe;
 ///
 /// let r = [-0.06, -0.03, -0.02, 0.01, 0.02, 0.025, 0.03, 0.04];
@@ -681,7 +676,7 @@ pub fn gain_to_pain(returns: &[f64]) -> f64 {
 ///
 /// - Gregoriou & Gueyie (2003): see docs/REFERENCES.md#gregoriou2003
 #[must_use]
-pub fn modified_sharpe(
+pub(crate) fn modified_sharpe(
     returns: &[f64],
     risk_free_rate: f64,
     confidence: f64,
@@ -737,11 +732,11 @@ mod tests {
         let r = [0.10];
         let c = cagr(
             &r,
-            CagrBasis::dates_with_convention(
-                jan1(2024),
-                jan1(2025),
-                AnnualizationConvention::Act365Fixed,
-            ),
+            CagrBasis::Dates {
+                start: jan1(2024),
+                end: jan1(2025),
+                convention: AnnualizationConvention::Act365Fixed,
+            },
         )
         .expect("valid CAGR");
         assert!((c - 0.09971358593414137).abs() < 1.0e-12);
@@ -753,11 +748,11 @@ mod tests {
         let c_default = cagr(&r, CagrBasis::dates(jan1(2024), jan1(2025))).expect("valid CAGR");
         let c_fixed = cagr(
             &r,
-            CagrBasis::dates_with_convention(
-                jan1(2024),
-                jan1(2025),
-                AnnualizationConvention::Act365Fixed,
-            ),
+            CagrBasis::Dates {
+                start: jan1(2024),
+                end: jan1(2025),
+                convention: AnnualizationConvention::Act365Fixed,
+            },
         )
         .expect("valid CAGR");
         assert!(c_default > c_fixed);
@@ -769,11 +764,11 @@ mod tests {
         let r = [0.10];
         let c = cagr(
             &r,
-            CagrBasis::dates_with_convention(
-                jan1(2024),
-                jan1(2025),
-                AnnualizationConvention::ActAct,
-            ),
+            CagrBasis::Dates {
+                start: jan1(2024),
+                end: jan1(2025),
+                convention: AnnualizationConvention::ActAct,
+            },
         )
         .expect("valid CAGR");
         assert!((c - 0.10).abs() < 1.0e-12);

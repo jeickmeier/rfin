@@ -178,6 +178,11 @@ impl WasmPerformance {
         to_js(&self.inner.calmar().map_err(to_js_err)?)
     }
 
+    #[wasm_bindgen(js_name = meanDrawdown)]
+    pub fn mean_drawdown(&self) -> Result<JsValue, JsValue> {
+        to_js(&self.inner.mean_drawdown())
+    }
+
     #[wasm_bindgen(js_name = maxDrawdown)]
     pub fn max_drawdown(&self) -> Result<JsValue, JsValue> {
         to_js(&self.inner.max_drawdown())
@@ -460,11 +465,6 @@ impl WasmPerformance {
         n: Option<usize>,
     ) -> Result<JsValue, JsValue> {
         to_js(&self.inner.drawdown_details(ticker_idx, n.unwrap_or(5)))
-    }
-
-    #[wasm_bindgen(js_name = topBenchmarkDrawdownEpisodes)]
-    pub fn top_benchmark_drawdown_episodes(&self, n: Option<usize>) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.top_benchmark_drawdown_episodes(n.unwrap_or(5)))
     }
 
     #[wasm_bindgen(js_name = multiFactorGreeks)]

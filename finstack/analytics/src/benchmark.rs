@@ -1,5 +1,10 @@
 //! Benchmark-relative metrics: tracking error, information ratio, beta, greeks.
 //!
+//! [`beta`] and the result types ([`BetaResult`], [`GreeksResult`],
+//! [`RollingGreeks`], [`MultiFactorResult`]) are re-exported at the crate
+//! root. Everything else is crate-internal; `///` doc examples target crate
+//! developers and are marked `ignore`.
+//!
 //! Delegates to `math::stats` for core statistics (correlation, covariance,
 //! variance, OnlineCovariance).
 
@@ -35,7 +40,7 @@ fn compensated_add(sum: &mut f64, compensation: &mut f64, value: f64) {
 ///
 /// ```text
 /// TE = σ(r_portfolio − r_benchmark) × sqrt(ann_factor)   [if annualized]
-/// ```
+/// ```ignore
 ///
 /// A lower tracking error indicates tighter benchmark replication.
 ///
@@ -55,7 +60,7 @@ fn compensated_add(sum: &mut f64, compensation: &mut f64, value: f64) {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::benchmark::tracking_error;
 ///
 /// // Identical series → zero tracking error.
@@ -67,7 +72,12 @@ fn compensated_add(sum: &mut f64, compensation: &mut f64, value: f64) {
 ///
 /// - Grinold & Kahn (1999): see docs/REFERENCES.md#grinoldKahn1999ActivePortfolio
 #[must_use]
-pub fn tracking_error(returns: &[f64], benchmark: &[f64], annualize: bool, ann_factor: f64) -> f64 {
+pub(crate) fn tracking_error(
+    returns: &[f64],
+    benchmark: &[f64],
+    annualize: bool,
+    ann_factor: f64,
+) -> f64 {
     let n = returns.len().min(benchmark.len());
     if n == 0 {
         return 0.0;
@@ -94,7 +104,7 @@ pub fn tracking_error(returns: &[f64], benchmark: &[f64], annualize: bool, ann_f
 /// ```text
 /// IR = (mean active return × ann_factor) / (σ active return × sqrt(ann_factor))
 ///    = mean active return × sqrt(ann_factor) / σ active return
-/// ```
+/// ```ignore
 ///
 /// A higher IR indicates more reliable outperformance relative to the
 /// benchmark. The IR is related to the Sharpe ratio but uses active
@@ -118,7 +128,7 @@ pub fn tracking_error(returns: &[f64], benchmark: &[f64], annualize: bool, ann_f
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::benchmark::information_ratio;
 ///
 /// let r = [0.02, 0.03, 0.01, 0.04];
@@ -131,7 +141,7 @@ pub fn tracking_error(returns: &[f64], benchmark: &[f64], annualize: bool, ann_f
 ///
 /// - Grinold & Kahn (1999): see docs/REFERENCES.md#grinoldKahn1999ActivePortfolio
 #[must_use]
-pub fn information_ratio(
+pub(crate) fn information_ratio(
     returns: &[f64],
     benchmark: &[f64],
     annualize: bool,
@@ -172,7 +182,7 @@ pub fn information_ratio(
 ///
 /// ```text
 /// R² = corr(r_portfolio, r_benchmark)²
-/// ```
+/// ```ignore
 ///
 /// A value of 1.0 means the portfolio moves perfectly in line with the
 /// benchmark; 0.0 means the two are uncorrelated.
@@ -188,7 +198,7 @@ pub fn information_ratio(
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::benchmark::r_squared;
 ///
 /// // Perfect linear relationship → R² = 1.
@@ -197,7 +207,7 @@ pub fn information_ratio(
 /// assert!((r_squared(&r, &b) - 1.0).abs() < 1e-10);
 /// ```
 #[must_use]
-pub fn r_squared(returns: &[f64], benchmark: &[f64]) -> f64 {
+pub(crate) fn r_squared(returns: &[f64], benchmark: &[f64]) -> f64 {
     let c = correlation(returns, benchmark);
     c * c
 }
@@ -310,7 +320,7 @@ fn beta_ci_critical_value(sample_size: usize) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_analytics::benchmark::beta;
+/// use finstack_analytics::beta;
 ///
 /// // Portfolio returns are approximately 2× the benchmark with noise.
 /// let port  = [0.020, 0.042, 0.058, 0.081, 0.099];
@@ -400,7 +410,7 @@ pub struct GreeksResult {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::benchmark::greeks;
 ///
 /// let r = [0.01, 0.02, 0.03, 0.04, 0.05];
@@ -409,7 +419,7 @@ pub struct GreeksResult {
 /// assert!((g.beta - 2.0).abs() < 1e-10);
 /// assert!((g.r_squared - 1.0).abs() < 1e-10);
 /// ```
-pub fn greeks(returns: &[f64], benchmark: &[f64], ann_factor: f64) -> GreeksResult {
+pub(crate) fn greeks(returns: &[f64], benchmark: &[f64], ann_factor: f64) -> GreeksResult {
     let n = returns.len().min(benchmark.len());
     if n == 0 {
         return GreeksResult {
@@ -476,7 +486,7 @@ pub struct RollingGreeks {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::benchmark::rolling_greeks;
 /// use finstack_core::dates::{Date, Month};
 ///
@@ -488,7 +498,7 @@ pub struct RollingGreeks {
 /// let rg = rolling_greeks(&r, &b, &dates, 5, 252.0);
 /// assert_eq!(rg.betas.len(), 16); // 20 − 5 + 1
 /// ```
-pub fn rolling_greeks(
+pub(crate) fn rolling_greeks(
     returns: &[f64],
     benchmark: &[f64],
     dates: &[Date],
@@ -594,7 +604,7 @@ pub fn rolling_greeks(
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::benchmark::up_capture;
 ///
 /// // Portfolio doubles the benchmark in up periods.
@@ -604,7 +614,7 @@ pub fn rolling_greeks(
 /// assert!(uc > 1.0);
 /// ```
 #[must_use]
-pub fn up_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
+pub(crate) fn up_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
     geometric_capture(returns, benchmark, |bench_return| bench_return >= 0.0)
 }
 
@@ -627,7 +637,7 @@ pub fn up_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::benchmark::down_capture;
 ///
 /// // Portfolio loses less than benchmark in down periods (defensive).
@@ -637,7 +647,7 @@ pub fn up_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
 /// assert!(dc < 1.0);
 /// ```
 #[must_use]
-pub fn down_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
+pub(crate) fn down_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
     geometric_capture(returns, benchmark, |bench_return| bench_return < 0.0)
 }
 
@@ -657,7 +667,7 @@ pub fn down_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::benchmark::capture_ratio;
 ///
 /// let r = [0.04, -0.01, 0.06];
@@ -666,7 +676,7 @@ pub fn down_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
 /// assert!(cr > 1.0);
 /// ```
 #[must_use]
-pub fn capture_ratio(returns: &[f64], benchmark: &[f64]) -> f64 {
+pub(crate) fn capture_ratio(returns: &[f64], benchmark: &[f64]) -> f64 {
     let dc = down_capture(returns, benchmark);
     if dc.is_nan() {
         return f64::NAN;
@@ -685,7 +695,7 @@ pub fn capture_ratio(returns: &[f64], benchmark: &[f64]) -> f64 {
 ///
 /// ```text
 /// BA = count(r_portfolio > r_benchmark) / n
-/// ```
+/// ```ignore
 ///
 /// A value above 0.5 indicates the portfolio beats the benchmark more often
 /// than not, though it says nothing about the magnitude of wins vs losses.
@@ -701,7 +711,7 @@ pub fn capture_ratio(returns: &[f64], benchmark: &[f64]) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::benchmark::batting_average;
 ///
 /// let r = [0.02, 0.01, 0.03, -0.01];
@@ -712,7 +722,7 @@ pub fn capture_ratio(returns: &[f64], benchmark: &[f64]) -> f64 {
 /// assert!((ba - 0.5).abs() < 1e-12);
 /// ```
 #[must_use]
-pub fn batting_average(returns: &[f64], benchmark: &[f64]) -> f64 {
+pub(crate) fn batting_average(returns: &[f64], benchmark: &[f64]) -> f64 {
     let n = returns.len().min(benchmark.len());
     if n == 0 {
         return 0.0;
@@ -842,7 +852,7 @@ where
 ///
 /// ```text
 /// r_portfolio = α + β₁f₁ + β₂f₂ + ... + βₖfₖ + ε
-/// ```
+/// ```ignore
 ///
 /// by solving the least-squares system with a QR decomposition of the design
 /// matrix. Using QR avoids explicitly forming the normal equations and is more
@@ -885,7 +895,7 @@ where
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::benchmark::multi_factor_greeks;
 ///
 /// // y ≈ 2*f1 (single effective factor).
@@ -900,7 +910,7 @@ where
 /// - Fama & French (1993): see docs/REFERENCES.md#fama-french-1993
 /// - Higham: see docs/REFERENCES.md#higham-accuracy-and-stability
 #[tracing::instrument(level = "debug", skip(returns, factors), fields(n = returns.len(), k = factors.len(), ann_factor = ann_factor))]
-pub fn multi_factor_greeks(
+pub(crate) fn multi_factor_greeks(
     returns: &[f64],
     factors: &[&[f64]],
     ann_factor: f64,
@@ -1369,7 +1379,7 @@ mod tests {
 ///
 /// ```text
 /// Treynor = (R_p − R_f) / β
-/// ```
+/// ```ignore
 ///
 /// Complements the Sharpe ratio by using beta (systematic risk) rather
 /// than total volatility as the risk denominator.
@@ -1386,7 +1396,7 @@ mod tests {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::benchmark::treynor;
 ///
 /// // 10% return, 2% risk-free, beta = 1.2 → Treynor ≈ 0.0667.
@@ -1398,7 +1408,7 @@ mod tests {
 ///
 /// - Treynor (1965): see docs/REFERENCES.md#treynor1965
 #[must_use]
-pub fn treynor(ann_return: f64, risk_free_rate: f64, beta: f64) -> f64 {
+pub(crate) fn treynor(ann_return: f64, risk_free_rate: f64, beta: f64) -> f64 {
     if beta.abs() < 1e-10 {
         let excess = ann_return - risk_free_rate;
         return if excess > 0.0 {
@@ -1420,7 +1430,7 @@ pub fn treynor(ann_return: f64, risk_free_rate: f64, beta: f64) -> f64 {
 ///
 /// ```text
 /// M² = R_f + (R_p − R_f) × (σ_bench / σ_portfolio)
-/// ```
+/// ```ignore
 ///
 /// # Arguments
 ///
@@ -1435,7 +1445,7 @@ pub fn treynor(ann_return: f64, risk_free_rate: f64, beta: f64) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::benchmark::m_squared;
 ///
 /// // Portfolio: 12% return, 20% vol; Benchmark: 15% vol; Rf: 2%
@@ -1448,7 +1458,7 @@ pub fn treynor(ann_return: f64, risk_free_rate: f64, beta: f64) -> f64 {
 ///
 /// - Modigliani & Modigliani (1997): see docs/REFERENCES.md#modigliani1997
 #[must_use]
-pub fn m_squared(ann_return: f64, ann_vol: f64, bench_vol: f64, risk_free_rate: f64) -> f64 {
+pub(crate) fn m_squared(ann_return: f64, ann_vol: f64, bench_vol: f64, risk_free_rate: f64) -> f64 {
     if ann_vol.abs() < 1e-10 {
         return risk_free_rate;
     }
@@ -1487,5 +1497,104 @@ mod benchmark_ratio_tests {
     #[test]
     fn m_squared_zero_vol() {
         assert_eq!(m_squared(0.10, 0.0, 0.15, 0.02), 0.02);
+    }
+}
+
+#[cfg(test)]
+mod multi_factor_error_regression_tests {
+    use super::*;
+    use crate::dates::{Month, PeriodKind};
+    use crate::performance::Performance;
+
+    fn jan(day: u8) -> Date {
+        Date::from_calendar_date(2024, Month::January, day).expect("valid date")
+    }
+
+    #[test]
+    fn standalone_multi_factor_greeks_errors_on_singular_factor_matrix() {
+        let returns = [0.02, 0.04, 0.06, 0.08, 0.10];
+        let factor_a = [0.01, 0.02, 0.03, 0.04, 0.05];
+        let factor_b = [0.02, 0.04, 0.06, 0.08, 0.10];
+
+        let result = multi_factor_greeks(&returns, &[&factor_a, &factor_b], 252.0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn performance_multi_factor_greeks_errors_on_invalid_factor_input() {
+        let dates = vec![jan(1), jan(2), jan(3), jan(4), jan(5), jan(6)];
+        let prices = vec![
+            vec![100.0, 101.0, 102.0, 103.0, 104.0, 105.0],
+            vec![100.0, 100.5, 101.0, 101.5, 102.0, 102.5],
+        ];
+        let perf = Performance::new(
+            dates,
+            prices,
+            vec!["BENCH".to_string(), "PORT".to_string()],
+            Some("BENCH"),
+            PeriodKind::Daily,
+        )
+        .expect("performance should build");
+
+        let invalid_factor = [0.01, 0.02];
+        let result = perf.multi_factor_greeks(1, &[&invalid_factor]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn standalone_multi_factor_greeks_errors_on_near_singular_factor_matrix() {
+        let returns = [0.02, 0.04, 0.06, 0.08, 0.10, 0.12];
+        let factor_a = [0.01, 0.02, 0.03, 0.04, 0.05, 0.06];
+        let factor_b = [
+            0.010_000_000_001,
+            0.020_000_000_002,
+            0.029_999_999_999,
+            0.040_000_000_001,
+            0.050_000_000_003,
+            0.060_000_000_000,
+        ];
+
+        let result = multi_factor_greeks(&returns, &[&factor_a, &factor_b], 252.0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn standalone_multi_factor_greeks_errors_on_non_positive_ann_factor() {
+        let returns = [0.02, 0.04, 0.06, 0.08, 0.10];
+        let factor = [0.01, 0.02, 0.03, 0.04, 0.05];
+
+        assert!(multi_factor_greeks(&returns, &[&factor], 0.0).is_err());
+        assert!(multi_factor_greeks(&returns, &[&factor], -252.0).is_err());
+    }
+
+    #[test]
+    fn standalone_multi_factor_greeks_errors_on_hidden_multicollinearity() {
+        let returns = [0.04, 0.01, 0.03, 0.02, 0.05, 0.06];
+        let factor_a = [0.01, -0.02, 0.03, -0.01, 0.02, 0.01];
+        let factor_b = [0.02, 0.01, -0.01, 0.03, -0.02, 0.04];
+        let factor_c: Vec<f64> = factor_a
+            .iter()
+            .zip(factor_b.iter())
+            .map(|(a, b)| a + b)
+            .collect();
+
+        let result = multi_factor_greeks(&returns, &[&factor_a, &factor_b, &factor_c], 252.0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn standalone_multi_factor_greeks_handles_full_rank_scaled_factors() {
+        let factor_a = [1.0e8, 2.0e8, 3.0e8, 4.0e8, 5.0e8, 6.0e8];
+        let factor_b = [1.0e-4, -2.0e-4, 3.0e-4, -4.0e-4, 5.0e-4, -6.0e-4];
+        let returns: Vec<f64> = factor_a
+            .iter()
+            .zip(factor_b.iter())
+            .map(|(a, b)| 2.0 * a - 3.0 * b)
+            .collect();
+
+        let result = multi_factor_greeks(&returns, &[&factor_a, &factor_b], 252.0)
+            .expect("scaled factors should solve successfully");
+        assert!((result.betas[0] - 2.0).abs() < 1e-10);
+        assert!((result.betas[1] + 3.0).abs() < 5e-5);
     }
 }

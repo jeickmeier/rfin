@@ -3,8 +3,7 @@
 //! This is intentionally a broad API smoke test: it wires realistic inputs and
 //! invokes most public methods with valid parameters.
 
-use finstack_analytics::performance::Performance;
-use finstack_analytics::returns::{clean_returns, simple_returns};
+use finstack_analytics::Performance;
 use finstack_core::dates::{
     CalendarRegistry, Date, FiscalConfig, HolidayCalendar, Month, PeriodKind,
 };
@@ -85,9 +84,16 @@ fn performance_facade_exercises_broad_api_surface() {
     let _ = perf.pain_index();
     let _ = perf.pain_ratio(0.02).expect("valid Pain ratios");
 
-    let mut bench_series = simple_returns(&col_b);
-    bench_series = bench_series[1..].to_vec();
-    clean_returns(&mut bench_series);
+    let bench_series: Vec<f64> = col_b
+        .windows(2)
+        .map(|w| {
+            if w[0] == 0.0 {
+                0.0
+            } else {
+                (w[1] / w[0]) - 1.0
+            }
+        })
+        .collect();
     let _ = perf
         .multi_factor_greeks(0, &[&bench_series])
         .expect("multi-factor regression");
@@ -116,7 +122,7 @@ fn performance_facade_exercises_broad_api_surface() {
     let _ = perf.correlation_matrix();
     let _ = perf.cumulative_returns_outperformance();
     let _ = perf.drawdown_difference();
-    let _ = perf.top_benchmark_drawdown_episodes(2);
+    let _ = perf.drawdown_details(perf.benchmark_idx(), 2);
 
     let rf = vec![0.0; perf.active_dates().len()];
     let _ = perf.excess_returns(&rf, Some(252.0));

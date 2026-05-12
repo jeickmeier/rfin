@@ -1,5 +1,8 @@
 //! Period aggregation: group returns by period and compute period-level stats.
 //!
+//! Crate-internal except for [`PeriodStats`] (re-exported at the crate root).
+//! `///` doc examples target crate developers and are marked `ignore`.
+//!
 //! Uses `dates::periods::PeriodId` as grouping keys and `DateExt` for
 //! date-to-period mapping.
 
@@ -97,7 +100,7 @@ fn date_to_period_id(
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::aggregation::group_by_period;
 /// use finstack_core::dates::{Date, Month, PeriodId, PeriodKind};
 ///
@@ -111,7 +114,7 @@ fn date_to_period_id(
 /// assert_eq!(grouped.len(), 2);
 /// assert_eq!(grouped[0].0, PeriodId::month(2025, 1));
 /// ```
-pub fn group_by_period(
+pub(crate) fn group_by_period(
     dates: &[Date],
     returns: &[f64],
     freq: PeriodKind,
@@ -162,7 +165,7 @@ pub fn group_by_period(
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::aggregation::period_stats_from_grouped;
 /// use finstack_core::dates::PeriodId;
 ///
@@ -177,7 +180,7 @@ pub fn group_by_period(
 /// assert!((stats.worst - (-0.02)).abs() < 1e-12);
 /// assert!((stats.win_rate - 0.75).abs() < 1e-12);
 /// ```
-pub fn period_stats_from_grouped(grouped: &[(PeriodId, f64)]) -> PeriodStats {
+pub(crate) fn period_stats_from_grouped(grouped: &[(PeriodId, f64)]) -> PeriodStats {
     // The period-id label is discarded; the stats depend only on the return
     // series. Delegating via a slice keeps the two public entry points
     // trivially equivalent and makes it obvious that no synthetic ids matter.
@@ -366,5 +369,20 @@ mod tests {
         assert!(stats.profit_factor.is_infinite());
         assert!(stats.cpc_ratio.is_infinite());
         assert_eq!(stats.kelly_criterion, 1.0);
+    }
+
+    #[test]
+    fn weekly_grouping_uses_iso_week_boundaries_across_year_end() {
+        let dates = vec![d(2024, 12, 30), d(2024, 12, 31), d(2025, 1, 2)];
+        let returns = vec![0.01, 0.02, 0.03];
+
+        let grouped = group_by_period(&dates, &returns, PeriodKind::Weekly, None);
+
+        assert_eq!(
+            grouped.len(),
+            1,
+            "all observations should fall in one ISO week"
+        );
+        assert_eq!(grouped[0].0.to_string(), "2025W01");
     }
 }

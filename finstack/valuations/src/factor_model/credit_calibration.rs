@@ -42,7 +42,7 @@
 //! # Determinism note on OLS
 //!
 //! The OLS slope `β = Cov(y, x) / Var(x)` is delegated to
-//! `finstack_analytics::benchmark::beta`, which implements the same math
+//! `finstack_analytics::beta`, which implements the same math
 //! and is deterministic for the same input slice.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -1048,7 +1048,7 @@ fn apply_shrinkage(rule: &BetaShrinkage, beta_fit: f64) -> f64 {
 /// `Option<f64>` series and `x` is dense.
 ///
 /// Collects valid pairs, then delegates to
-/// `finstack_analytics::benchmark::beta`.  Returns `None` if fewer than 3
+/// `finstack_analytics::beta`.  Returns `None` if fewer than 3
 /// valid pairs are available (mirrors the `n < 3` `NaN` return of `beta`).
 fn ols_slope(y: &[Option<f64>], x: &[f64]) -> Option<f64> {
     let mut xs = Vec::new();
@@ -1059,7 +1059,7 @@ fn ols_slope(y: &[Option<f64>], x: &[f64]) -> Option<f64> {
             ys.push(*v);
         }
     }
-    let result = finstack_analytics::benchmark::beta(&ys, &xs);
+    let result = finstack_analytics::beta(&ys, &xs);
     if result.beta.is_nan() {
         None
     } else {
@@ -1069,7 +1069,7 @@ fn ols_slope(y: &[Option<f64>], x: &[f64]) -> Option<f64> {
 
 /// OLS slope when both series are sparse; align on positions where both are `Some`.
 ///
-/// Delegates to `finstack_analytics::benchmark::beta` after collecting the
+/// Delegates to `finstack_analytics::beta` after collecting the
 /// valid pairs.  Returns `None` when fewer than 3 joint observations exist.
 fn ols_slope_owned(y: &[Option<f64>], x: &[Option<f64>]) -> Option<f64> {
     let mut xs = Vec::new();
@@ -1080,7 +1080,7 @@ fn ols_slope_owned(y: &[Option<f64>], x: &[Option<f64>]) -> Option<f64> {
             xs.push(*xv);
         }
     }
-    let result = finstack_analytics::benchmark::beta(&ys, &xs);
+    let result = finstack_analytics::beta(&ys, &xs);
     if result.beta.is_nan() {
         None
     } else {

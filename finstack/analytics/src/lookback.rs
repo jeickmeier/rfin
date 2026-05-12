@@ -1,5 +1,8 @@
 //! Lookback period selectors: MTD, QTD, YTD, FYTD.
 //!
+//! Crate-internal: callers use these through [`crate::Performance`]. `///`
+//! doc examples target crate developers and are marked `ignore`.
+//!
 //! Each function returns a `Range<usize>` into the dates/returns arrays rather
 //! than sliced data, so callers slice their own arrays.
 //!
@@ -37,7 +40,7 @@ fn select_range(dates: &[Date], period_start: Date, ref_date: Date) -> Range<usi
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_core::dates::{Date, Month};
 /// use finstack_analytics::lookback::mtd_select;
 ///
@@ -48,7 +51,7 @@ fn select_range(dates: &[Date], period_start: Date, ref_date: Date) -> Range<usi
 /// assert_eq!(range.start, 0);
 /// assert_eq!(range.end, 15);
 /// ```
-pub fn mtd_select(dates: &[Date], ref_date: Date) -> Range<usize> {
+pub(crate) fn mtd_select(dates: &[Date], ref_date: Date) -> Range<usize> {
     let month_start = ref_date.end_of_month();
     let month_start = month_start.replace_day(1).unwrap_or(month_start);
     select_range(dates, month_start, ref_date)
@@ -71,7 +74,7 @@ pub fn mtd_select(dates: &[Date], ref_date: Date) -> Range<usize> {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_core::dates::{Date, Duration, Month};
 /// use finstack_analytics::lookback::qtd_select;
 ///
@@ -83,7 +86,7 @@ pub fn mtd_select(dates: &[Date], ref_date: Date) -> Range<usize> {
 /// assert_eq!(range.start, 0);
 /// assert!(range.end > 30);
 /// ```
-pub fn qtd_select(dates: &[Date], ref_date: Date) -> Range<usize> {
+pub(crate) fn qtd_select(dates: &[Date], ref_date: Date) -> Range<usize> {
     let q = ref_date.quarter();
     let quarter_start_month = (q - 1) * 3 + 1;
     let (year, _month, _day) = ref_date.to_calendar_date();
@@ -110,7 +113,7 @@ pub fn qtd_select(dates: &[Date], ref_date: Date) -> Range<usize> {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_core::dates::{Date, Duration, Month};
 /// use finstack_analytics::lookback::ytd_select;
 ///
@@ -122,7 +125,7 @@ pub fn qtd_select(dates: &[Date], ref_date: Date) -> Range<usize> {
 /// assert_eq!(range.start, 0);
 /// assert!(range.end > 30);
 /// ```
-pub fn ytd_select(dates: &[Date], ref_date: Date) -> Range<usize> {
+pub(crate) fn ytd_select(dates: &[Date], ref_date: Date) -> Range<usize> {
     let (year, _month, _day) = ref_date.to_calendar_date();
     let year_start = crate::dates::create_date(year, Month::January, 1).unwrap_or(ref_date);
     select_range(dates, year_start, ref_date)
@@ -147,7 +150,7 @@ pub fn ytd_select(dates: &[Date], ref_date: Date) -> Range<usize> {
 /// # Errors
 /// Returns an error when business-day adjustment fails for the supplied
 /// calendar.
-pub fn fytd_select(
+pub(crate) fn fytd_select(
     dates: &[Date],
     ref_date: Date,
     fiscal_config: FiscalConfig,

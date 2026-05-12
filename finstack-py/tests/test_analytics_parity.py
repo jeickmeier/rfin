@@ -25,8 +25,7 @@ def _fixture() -> dict[str, Any]:
         Path(__file__).resolve().parents[2]
         / "finstack"
         / "analytics"
-        / "tests"
-        / "fixtures"
+        / "src"
         / "api_invariants_data.json"
     )
     return json.loads(path.read_text())

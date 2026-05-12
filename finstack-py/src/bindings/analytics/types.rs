@@ -94,7 +94,7 @@ impl PyPeriodStats {
 /// Regression beta with confidence interval.
 #[pyclass(name = "BetaResult", module = "finstack.analytics", frozen)]
 pub struct PyBetaResult {
-    pub(super) inner: fa::benchmark::BetaResult,
+    pub(super) inner: fa::BetaResult,
 }
 
 #[pymethods]
@@ -135,7 +135,7 @@ impl PyBetaResult {
 /// Alpha, beta, and R-squared from a single-index regression.
 #[pyclass(name = "GreeksResult", module = "finstack.analytics", frozen)]
 pub struct PyGreeksResult {
-    pub(super) inner: fa::benchmark::GreeksResult,
+    pub(super) inner: fa::GreeksResult,
 }
 
 #[pymethods]
@@ -176,7 +176,7 @@ impl PyGreeksResult {
 /// Rolling alpha and beta time series.
 #[pyclass(name = "RollingGreeks", module = "finstack.analytics", frozen)]
 pub struct PyRollingGreeks {
-    pub(super) inner: fa::benchmark::RollingGreeks,
+    pub(super) inner: fa::RollingGreeks,
 }
 
 #[pymethods]
@@ -222,7 +222,7 @@ impl PyRollingGreeks {
 /// Multi-factor regression result.
 #[pyclass(name = "MultiFactorResult", module = "finstack.analytics", frozen)]
 pub struct PyMultiFactorResult {
-    pub(super) inner: fa::benchmark::MultiFactorResult,
+    pub(super) inner: fa::MultiFactorResult,
 }
 
 #[pymethods]
@@ -268,7 +268,7 @@ impl PyMultiFactorResult {
 /// A single drawdown episode with timing and depth information.
 #[pyclass(name = "DrawdownEpisode", module = "finstack.analytics", frozen)]
 pub struct PyDrawdownEpisode {
-    pub(super) inner: fa::drawdown::DrawdownEpisode,
+    pub(super) inner: fa::DrawdownEpisode,
 }
 
 #[pymethods]
@@ -380,7 +380,7 @@ impl PyLookbackReturns {
 /// Rolling Sharpe ratio time series.
 #[pyclass(name = "RollingSharpe", module = "finstack.analytics", frozen)]
 pub struct PyRollingSharpe {
-    pub(super) inner: fa::risk_metrics::RollingSharpe,
+    pub(super) inner: fa::RollingSharpe,
 }
 
 #[pymethods]
@@ -416,7 +416,7 @@ impl PyRollingSharpe {
 /// Rolling Sortino ratio time series.
 #[pyclass(name = "RollingSortino", module = "finstack.analytics", frozen)]
 pub struct PyRollingSortino {
-    pub(super) inner: fa::risk_metrics::RollingSortino,
+    pub(super) inner: fa::RollingSortino,
 }
 
 #[pymethods]
@@ -452,7 +452,7 @@ impl PyRollingSortino {
 /// Rolling volatility time series.
 #[pyclass(name = "RollingVolatility", module = "finstack.analytics", frozen)]
 pub struct PyRollingVolatility {
-    pub(super) inner: fa::risk_metrics::RollingVolatility,
+    pub(super) inner: fa::RollingVolatility,
 }
 
 #[pymethods]
@@ -492,7 +492,7 @@ impl PyRollingVolatility {
 /// Rolling total compounded return time series.
 #[pyclass(name = "RollingReturns", module = "finstack.analytics", frozen)]
 pub struct PyRollingReturns {
-    pub(super) inner: fa::risk_metrics::DatedSeries,
+    pub(super) inner: fa::DatedSeries,
 }
 
 #[pymethods]

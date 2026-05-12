@@ -295,6 +295,11 @@ impl PyPerformance {
         self.inner.max_drawdown()
     }
 
+    /// Mean drawdown (path-weighted average) for each ticker.
+    fn mean_drawdown(&self) -> Vec<f64> {
+        self.inner.mean_drawdown()
+    }
+
     /// Historical VaR for each ticker.
     #[pyo3(signature = (confidence = 0.95))]
     fn value_at_risk(&self, confidence: f64) -> Vec<f64> {
@@ -572,16 +577,6 @@ impl PyPerformance {
     fn drawdown_details(&self, ticker_idx: usize, n: usize) -> Vec<PyDrawdownEpisode> {
         self.inner
             .drawdown_details(ticker_idx, n)
-            .into_iter()
-            .map(|e| PyDrawdownEpisode { inner: e })
-            .collect()
-    }
-
-    /// Top benchmark drawdown episodes.
-    #[pyo3(signature = (n = 5))]
-    fn top_benchmark_drawdown_episodes(&self, n: usize) -> Vec<PyDrawdownEpisode> {
-        self.inner
-            .top_benchmark_drawdown_episodes(n)
             .into_iter()
             .map(|e| PyDrawdownEpisode { inner: e })
             .collect()

@@ -482,6 +482,7 @@ export declare class Performance {
   sortino(mar?: number): number[];
   calmar(): number[];
   maxDrawdown(): number[];
+  meanDrawdown(): number[];
   valueAtRisk(confidence?: number): number[];
   expectedShortfall(confidence?: number): number[];
   trackingError(): number[];
@@ -526,7 +527,6 @@ export declare class Performance {
   rollingSharpe(tickerIdx: number, window?: number, riskFreeRate?: number): RollingSharpe;
   rollingReturns(tickerIdx: number, window: number): RollingReturns;
   drawdownDetails(tickerIdx: number, n?: number): DrawdownEpisode[];
-  topBenchmarkDrawdownEpisodes(n?: number): DrawdownEpisode[];
   multiFactorGreeks(tickerIdx: number, factorReturns: NumericMatrix): MultiFactorResult;
   lookbackReturns(refDate: string, fiscalYearStartMonth?: number): LookbackReturns;
   periodStats(

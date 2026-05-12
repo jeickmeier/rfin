@@ -1,5 +1,8 @@
 //! Tail-risk and distribution-shape metrics: VaR, ES, skewness, kurtosis.
 //!
+//! Crate-internal: callers use these through [`crate::Performance`]. `///`
+//! doc examples target crate developers and are marked `ignore`.
+//!
 //! All functions operate on `&[f64]` return slices and return scalar `f64`.
 //!
 //! Conventions:
@@ -94,7 +97,7 @@ fn quantile_finite(data: &mut [f64], p: f64) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::value_at_risk;
 ///
 /// let data: Vec<f64> = (-100..=100).map(|i| i as f64 / 100.0).collect();
@@ -106,7 +109,7 @@ fn quantile_finite(data: &mut [f64], p: f64) -> f64 {
 ///
 /// - J.P. Morgan RiskMetrics (1996): see docs/REFERENCES.md#jpmorgan1996RiskMetrics
 #[must_use]
-pub fn value_at_risk(returns: &[f64], confidence: f64) -> f64 {
+pub(crate) fn value_at_risk(returns: &[f64], confidence: f64) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }
@@ -130,7 +133,7 @@ pub fn value_at_risk(returns: &[f64], confidence: f64) -> f64 {
 ///
 /// ```text
 /// ES_α = E[r | r ≤ VaR_α]
-/// ```
+/// ```ignore
 ///
 /// ES is always at least as bad (negative) as VaR at the same confidence
 /// level, and satisfies the sub-additivity axiom of coherent risk measures.
@@ -149,7 +152,7 @@ pub fn value_at_risk(returns: &[f64], confidence: f64) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::{value_at_risk, expected_shortfall};
 ///
 /// let data: Vec<f64> = (-100..=100).map(|i| i as f64 / 100.0).collect();
@@ -163,7 +166,7 @@ pub fn value_at_risk(returns: &[f64], confidence: f64) -> f64 {
 ///
 /// - Artzner et al. (1999): see docs/REFERENCES.md#artzner1999CoherentRisk
 #[must_use]
-pub fn expected_shortfall(returns: &[f64], confidence: f64) -> f64 {
+pub(crate) fn expected_shortfall(returns: &[f64], confidence: f64) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }
@@ -200,7 +203,7 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64) -> f64 {
 ///
 /// ```text
 /// tail_ratio = |quantile(confidence)| / |quantile(1 - confidence)|
-/// ```
+/// ```ignore
 ///
 /// A value greater than 1.0 indicates that the right tail (gains) is larger
 /// than the left tail (losses) at the symmetric confidence level.
@@ -219,7 +222,7 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::tail_ratio;
 ///
 /// // Symmetric distribution → tail ratio ≈ 1.
@@ -228,7 +231,7 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64) -> f64 {
 /// assert!((tr - 1.0).abs() < 0.1);
 /// ```
 #[must_use]
-pub fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
+pub(crate) fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }
@@ -254,7 +257,7 @@ pub fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
 ///
 /// ```text
 /// G₁ = [n / ((n-1)(n-2))] × Σ((r_i − x̄) / s)³
-/// ```
+/// ```ignore
 ///
 /// where `s` is the sample standard deviation (n-1 denominator).
 ///
@@ -269,7 +272,7 @@ pub fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::skewness;
 ///
 /// // Symmetric distribution → skewness ≈ 0.
@@ -281,7 +284,7 @@ pub fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
 ///
 /// - Joanes & Gill (1998): see docs/REFERENCES.md#joanesGill1998
 #[must_use]
-pub fn skewness(returns: &[f64]) -> f64 {
+pub(crate) fn skewness(returns: &[f64]) -> f64 {
     let (_, _, skew, _) = moments4(returns);
     skew
 }
@@ -298,7 +301,7 @@ pub fn skewness(returns: &[f64]) -> f64 {
 /// ```text
 /// G₂ = [n(n+1) / ((n-1)(n-2)(n-3))] × Σ((r_i − x̄) / s)⁴
 ///      − 3(n-1)² / ((n-2)(n-3))
-/// ```
+/// ```ignore
 ///
 /// where `s` is the sample standard deviation (n-1 denominator).
 ///
@@ -313,7 +316,7 @@ pub fn skewness(returns: &[f64]) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::kurtosis;
 ///
 /// // Uniform distribution has negative excess kurtosis.
@@ -325,7 +328,7 @@ pub fn skewness(returns: &[f64]) -> f64 {
 ///
 /// - Joanes & Gill (1998): see docs/REFERENCES.md#joanesGill1998
 #[must_use]
-pub fn kurtosis(returns: &[f64]) -> f64 {
+pub(crate) fn kurtosis(returns: &[f64]) -> f64 {
     let (_, _, _, kurt) = moments4(returns);
     kurt
 }
@@ -336,7 +339,7 @@ pub fn kurtosis(returns: &[f64]) -> f64 {
 ///
 /// ```text
 /// VaR = μ + z_(1−α) × σ
-/// ```
+/// ```ignore
 ///
 /// where `z_(1−α)` is the standard normal quantile at `(1 - confidence)`.
 ///
@@ -353,7 +356,7 @@ pub fn kurtosis(returns: &[f64]) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::parametric_var;
 ///
 /// let r: Vec<f64> = (-100..=100).map(|i| i as f64 / 100.0).collect();
@@ -365,7 +368,7 @@ pub fn kurtosis(returns: &[f64]) -> f64 {
 ///
 /// - J.P. Morgan RiskMetrics (1996): see docs/REFERENCES.md#jpmorgan1996RiskMetrics
 #[must_use]
-pub fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>) -> f64 {
+pub(crate) fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }
@@ -391,7 +394,7 @@ pub fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>)
 /// ```text
 /// z_cf = z + (z² − 1)S/6 + (z³ − 3z)K/24 − (2z³ − 5z)S²/36
 /// VaR_CF = μ + z_cf × σ
-/// ```
+/// ```ignore
 ///
 /// where `S` is skewness and `K` is excess kurtosis.
 ///
@@ -418,7 +421,7 @@ pub fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>)
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::risk_metrics::{parametric_var, cornish_fisher_var};
 ///
 /// let r: Vec<f64> = (-100..=100).map(|i| i as f64 / 100.0).collect();
@@ -432,7 +435,7 @@ pub fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>)
 ///
 /// - Cornish & Fisher (1937): see docs/REFERENCES.md#cornishFisher1937
 #[must_use]
-pub fn cornish_fisher_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>) -> f64 {
+pub(crate) fn cornish_fisher_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }
@@ -701,5 +704,53 @@ mod tests {
         let expected = m * ann_factor + z_cf * vol * ann_factor.sqrt();
         let actual = cornish_fisher_var(&returns, 0.95, Some(ann_factor));
         assert!((actual - expected).abs() < 1e-14, "{actual} vs {expected}");
+    }
+
+    // ─── Moved from tests/api_invariants.rs::tail_risk_api ───────────────────
+
+    fn large_data() -> Vec<f64> {
+        (0..201).map(|i| (i as f64 - 100.0) / 100.0).collect()
+    }
+
+    #[test]
+    fn es_le_var_invariant() {
+        let data = large_data();
+        let confidence = 0.95;
+        let var = value_at_risk(&data, confidence);
+        let es = expected_shortfall(&data, confidence);
+        assert!(es <= var + 1e-12, "ES must be <= VaR: es={es}, var={var}");
+    }
+
+    #[test]
+    fn empty_input_consistency() {
+        let empty: Vec<f64> = vec![];
+        assert_eq!(value_at_risk(&empty, 0.95), 0.0);
+        assert_eq!(expected_shortfall(&empty, 0.95), 0.0);
+        assert_eq!(tail_ratio(&empty, 0.95), 0.0);
+    }
+
+    // ─── Moved from tests/correctness_regressions.rs ─────────────────────────
+
+    #[test]
+    fn value_at_risk_requires_strict_confidence_bounds() {
+        let returns = [-0.03, -0.01, 0.01, 0.02];
+        assert!(value_at_risk(&returns, 0.0).is_nan());
+        assert!(value_at_risk(&returns, 1.0).is_nan());
+    }
+
+    #[test]
+    fn parametric_var_rejects_non_positive_or_non_finite_horizon() {
+        let returns = [-0.03, -0.01, 0.01, 0.02];
+        assert!(parametric_var(&returns, 0.95, Some(0.0)).is_nan());
+        assert!(parametric_var(&returns, 0.95, Some(-12.0)).is_nan());
+        assert!(parametric_var(&returns, 0.95, Some(f64::INFINITY)).is_nan());
+    }
+
+    #[test]
+    fn cornish_fisher_var_rejects_non_positive_or_non_finite_horizon() {
+        let returns = [-0.03, -0.01, 0.01, 0.02];
+        assert!(cornish_fisher_var(&returns, 0.95, Some(0.0)).is_nan());
+        assert!(cornish_fisher_var(&returns, 0.95, Some(-12.0)).is_nan());
+        assert!(cornish_fisher_var(&returns, 0.95, Some(f64::INFINITY)).is_nan());
     }
 }

@@ -63,7 +63,7 @@ status = "exists"
 [crates.analytics.modules]
 aggregation  = { python = "finstack.analytics", status = "flattened", note = "Reachable via Performance.period_stats; freestanding bindings removed in paredown" }
 benchmark    = { python = "finstack.analytics", status = "flattened", note = "Reachable via Performance.beta / .greeks / .rolling_greeks; freestanding bindings removed" }
-drawdown     = { python = "finstack.analytics", status = "flattened", note = "Reachable via Performance.max_drawdown / .drawdown_series / .drawdown_details" }
+drawdown     = { python = "finstack.analytics", status = "flattened", note = "Reachable via Performance.max_drawdown / .mean_drawdown / .drawdown_series / .drawdown_details" }
 lookback     = { python = "finstack.analytics", status = "flattened", note = "Reachable via Performance.lookback_returns" }
 performance  = { python = "finstack.analytics", status = "flattened", note = "Performance class is the sole entry point on finstack.analytics" }
 returns      = { python = "finstack.analytics", status = "flattened", note = "Reachable via Performance constructors (prices) / Performance.from_returns" }

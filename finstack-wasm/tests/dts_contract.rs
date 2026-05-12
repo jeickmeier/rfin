@@ -108,6 +108,8 @@ fn analytics_dts_matches_runtime_hotspots() {
         &dts,
         "multiFactorGreeks(tickerIdx: number, factorReturns: NumericMatrix): MultiFactorResult;",
     ));
+    assert!(contains_ignoring_ws(&dts, "maxDrawdown(): number[];"));
+    assert!(contains_ignoring_ws(&dts, "meanDrawdown(): number[];"));
     // GARCH / VaR-backtesting / ruin types and free functions must be gone.
     assert!(!dts.contains("fitGarch11"));
     assert!(!dts.contains("rollingVarForecasts"));

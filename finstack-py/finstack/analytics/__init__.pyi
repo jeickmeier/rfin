@@ -418,6 +418,9 @@ class Performance:
     def max_drawdown(self) -> list[float]:
         """Max drawdown for each ticker."""
 
+    def mean_drawdown(self) -> list[float]:
+        """Mean drawdown (path-weighted average) for each ticker."""
+
     def value_at_risk(self, confidence: float = 0.95) -> list[float]:
         """Historical VaR for each ticker."""
 
@@ -582,9 +585,6 @@ class Performance:
 
     def drawdown_details(self, ticker_idx: int, n: int = 5) -> list[DrawdownEpisode]:
         """Top-N drawdown episodes for a specific ticker."""
-
-    def top_benchmark_drawdown_episodes(self, n: int = 5) -> list[DrawdownEpisode]:
-        """Top benchmark drawdown episodes."""
 
     def multi_factor_greeks(
         self,

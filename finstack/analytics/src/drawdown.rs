@@ -1,5 +1,8 @@
 //! Drawdown computation: series, episode detection, averaging, and CDaR.
 //!
+//! Crate-internal except for [`DrawdownEpisode`] (re-exported at the crate
+//! root). `///` doc examples target crate developers and are marked `ignore`.
+//!
 //! Drawdown measures the peak-to-trough decline in cumulative wealth.
 //! This module provides four levels of granularity:
 //! - [`to_drawdown_series`]: per-period drawdown depth as a time series.
@@ -37,7 +40,7 @@ pub struct DrawdownEpisode {
 ///
 /// ```text
 /// dd[i] = wealth[i] / peak[i] - 1  (≤ 0)
-/// ```
+/// ```ignore
 ///
 /// where `wealth[i] = Π(1 + r[j]) for j ≤ i` and `peak[i]` is the running
 /// maximum of wealth up to and including `i`.
@@ -59,7 +62,7 @@ pub struct DrawdownEpisode {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::drawdown::to_drawdown_series;
 ///
 /// // No drawdown while returns are positive.
@@ -70,7 +73,7 @@ pub struct DrawdownEpisode {
 /// let dd = to_drawdown_series(&[0.10, -0.20]);
 /// assert!(dd[1] < -0.18);
 /// ```
-pub fn to_drawdown_series(returns: &[f64]) -> Vec<f64> {
+pub(crate) fn to_drawdown_series(returns: &[f64]) -> Vec<f64> {
     if returns.is_empty() {
         return vec![];
     }
@@ -108,7 +111,7 @@ pub fn to_drawdown_series(returns: &[f64]) -> Vec<f64> {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::drawdown::{drawdown_details, to_drawdown_series};
 /// use finstack_core::dates::{Date, Month};
 ///
@@ -121,7 +124,7 @@ pub fn to_drawdown_series(returns: &[f64]) -> Vec<f64> {
 /// assert!(!episodes.is_empty());
 /// assert!(episodes[0].max_drawdown < 0.0);
 /// ```
-pub fn drawdown_details(drawdown: &[f64], dates: &[Date], n: usize) -> Vec<DrawdownEpisode> {
+pub(crate) fn drawdown_details(drawdown: &[f64], dates: &[Date], n: usize) -> Vec<DrawdownEpisode> {
     if drawdown.is_empty() || dates.is_empty() {
         return vec![];
     }
@@ -234,7 +237,7 @@ fn make_episode(
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::drawdown::{mean_episode_drawdown, to_drawdown_series};
 ///
 /// let returns = [0.05, -0.15, 0.10, -0.08, 0.03];
@@ -243,7 +246,7 @@ fn make_episode(
 /// assert!(avg < 0.0);
 /// ```
 #[must_use]
-pub fn mean_episode_drawdown(drawdown: &[f64], n: usize) -> f64 {
+pub(crate) fn mean_episode_drawdown(drawdown: &[f64], n: usize) -> f64 {
     let episode_depths = worst_episode_depths(drawdown, n);
     if episode_depths.is_empty() {
         return 0.0;
@@ -283,7 +286,7 @@ fn worst_episode_depths(drawdown: &[f64], n: usize) -> Vec<f64> {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::drawdown::{max_drawdown_duration, to_drawdown_series};
 /// use finstack_core::dates::{Date, Month};
 ///
@@ -295,7 +298,7 @@ fn worst_episode_depths(drawdown: &[f64], n: usize) -> Vec<f64> {
 /// let max_dur = max_drawdown_duration(&dd, &dates);
 /// assert!(max_dur > 0);
 /// ```
-pub fn max_drawdown_duration(drawdown: &[f64], dates: &[Date]) -> i64 {
+pub(crate) fn max_drawdown_duration(drawdown: &[f64], dates: &[Date]) -> i64 {
     let episodes = drawdown_details(drawdown, dates, usize::MAX);
     episodes.iter().map(|e| e.duration_days).max().unwrap_or(0)
 }
@@ -307,7 +310,7 @@ pub fn max_drawdown_duration(drawdown: &[f64], dates: &[Date]) -> i64 {
 ///
 /// ```text
 /// CDaR_α = E[ |dd| | |dd| ≥ q_{1−α}(|dd|) ]
-/// ```
+/// ```ignore
 ///
 /// CDaR is the drawdown analogue of Expected Shortfall (CVaR).
 ///
@@ -327,7 +330,7 @@ pub fn max_drawdown_duration(drawdown: &[f64], dates: &[Date]) -> i64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::drawdown::cdar;
 ///
 /// let dd = [-0.01, -0.05, -0.10, -0.15, -0.20, 0.0, -0.03, -0.08, -0.12, -0.18];
@@ -339,7 +342,7 @@ pub fn max_drawdown_duration(drawdown: &[f64], dates: &[Date]) -> i64 {
 ///
 /// - Chekhlov, Uryasev & Zabarankin (2005): see docs/REFERENCES.md#chekhlov2005
 #[must_use]
-pub fn cdar(drawdown: &[f64], confidence: f64) -> f64 {
+pub(crate) fn cdar(drawdown: &[f64], confidence: f64) -> f64 {
     if drawdown.is_empty() {
         return 0.0;
     }
@@ -485,7 +488,7 @@ mod tests {
 ///
 /// ```text
 /// UI = sqrt(mean(dd_i^2))
-/// ```
+/// ```ignore
 ///
 /// # Arguments
 ///
@@ -498,7 +501,7 @@ mod tests {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::drawdown::ulcer_index;
 ///
 /// // Flat drawdown of −10% throughout → UI = 0.10.
@@ -510,7 +513,7 @@ mod tests {
 ///
 /// - Martin (1987): see docs/REFERENCES.md#martinUlcer1987
 #[must_use]
-pub fn ulcer_index(drawdown: &[f64]) -> f64 {
+pub(crate) fn ulcer_index(drawdown: &[f64]) -> f64 {
     if drawdown.is_empty() {
         return 0.0;
     }
@@ -522,7 +525,7 @@ pub fn ulcer_index(drawdown: &[f64]) -> f64 {
 ///
 /// ```text
 /// Pain = (1/n) Σ |dd_i|
-/// ```
+/// ```ignore
 ///
 /// Less sensitive to outlier drawdowns than max drawdown.
 ///
@@ -536,7 +539,7 @@ pub fn ulcer_index(drawdown: &[f64]) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::drawdown::pain_index;
 ///
 /// let dd = [-0.05, -0.10, 0.0, -0.03];
@@ -544,7 +547,7 @@ pub fn ulcer_index(drawdown: &[f64]) -> f64 {
 /// assert!((pi - 0.045).abs() < 1e-12);
 /// ```
 #[must_use]
-pub fn pain_index(drawdown: &[f64]) -> f64 {
+pub(crate) fn pain_index(drawdown: &[f64]) -> f64 {
     if drawdown.is_empty() {
         return 0.0;
     }
@@ -559,7 +562,7 @@ pub fn pain_index(drawdown: &[f64]) -> f64 {
 /// To compute directly from a returns series, compose with
 /// [`to_drawdown_series`]: `max_drawdown(&to_drawdown_series(&returns))`.
 #[must_use]
-pub fn max_drawdown(drawdown: &[f64]) -> f64 {
+pub(crate) fn max_drawdown(drawdown: &[f64]) -> f64 {
     drawdown.iter().copied().fold(0.0_f64, f64::min)
 }
 
@@ -576,7 +579,7 @@ pub fn max_drawdown(drawdown: &[f64]) -> f64 {
 /// * `drawdowns` - Slice of per-period drawdown depths (from
 ///   [`to_drawdown_series`]).
 #[must_use]
-pub fn mean_drawdown(drawdowns: &[f64]) -> f64 {
+pub(crate) fn mean_drawdown(drawdowns: &[f64]) -> f64 {
     if drawdowns.is_empty() {
         0.0
     } else {
@@ -620,7 +623,7 @@ fn ratio_or_sign_infinity(numerator: f64, denominator: f64) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::drawdown::calmar;
 ///
 /// // 15% CAGR with 30% max drawdown → Calmar ≈ 0.5
@@ -632,7 +635,7 @@ fn ratio_or_sign_infinity(numerator: f64, denominator: f64) -> f64 {
 ///
 /// - Young (1991): see docs/REFERENCES.md#youngCalmar1991
 #[must_use]
-pub fn calmar(cagr_val: f64, max_dd: f64) -> f64 {
+pub(crate) fn calmar(cagr_val: f64, max_dd: f64) -> f64 {
     ratio_or_sign_infinity(cagr_val, max_dd.abs())
 }
 
@@ -654,7 +657,7 @@ pub fn calmar(cagr_val: f64, max_dd: f64) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::drawdown::recovery_factor;
 ///
 /// // 50% total return with 25% max drawdown → 2.0.
@@ -662,7 +665,7 @@ pub fn calmar(cagr_val: f64, max_dd: f64) -> f64 {
 /// assert_eq!(recovery_factor(0.50, 0.0), f64::INFINITY);
 /// ```
 #[must_use]
-pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
+pub(crate) fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
     ratio_or_sign_infinity(total_return, max_dd.abs())
 }
 
@@ -686,7 +689,7 @@ pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::drawdown::martin_ratio;
 ///
 /// assert!((martin_ratio(0.10, 0.05) - 2.0).abs() < 1e-12);
@@ -698,7 +701,7 @@ pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
 ///
 /// - Martin (1987): see docs/REFERENCES.md#martinUlcer1987
 #[must_use]
-pub fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
+pub(crate) fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
     ratio_or_sign_infinity(cagr_val, ulcer)
 }
 
@@ -706,7 +709,7 @@ pub fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
 ///
 /// ```text
 /// Sterling = (CAGR − R_f) / |mean_episode_drawdown|
-/// ```
+/// ```ignore
 ///
 /// # Arguments
 ///
@@ -721,7 +724,7 @@ pub fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::drawdown::sterling_ratio;
 ///
 /// // 12% CAGR, 2% risk-free, −10% avg drawdown → 1.0.
@@ -732,7 +735,7 @@ pub fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
 ///
 /// - Kestner (1996): see docs/REFERENCES.md#kestner1996
 #[must_use]
-pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
+pub(crate) fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
     ratio_or_sign_infinity(cagr_val - risk_free_rate, avg_dd.abs())
 }
 
@@ -740,7 +743,7 @@ pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
 ///
 /// ```text
 /// Burke = (CAGR − R_f) / sqrt( (1/n) Σ dd_i² )
-/// ```
+/// ```ignore
 ///
 /// where `dd_i` are the max-drawdown depths of the top-N episodes.
 ///
@@ -757,7 +760,7 @@ pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::drawdown::burke_ratio;
 ///
 /// let dds = [-0.10, -0.05, -0.03];
@@ -769,7 +772,7 @@ pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
 ///
 /// - Burke (1994): see docs/REFERENCES.md#burke1994
 #[must_use]
-pub fn burke_ratio(cagr_val: f64, dd_episodes: &[f64], risk_free_rate: f64) -> f64 {
+pub(crate) fn burke_ratio(cagr_val: f64, dd_episodes: &[f64], risk_free_rate: f64) -> f64 {
     if dd_episodes.is_empty() {
         return 0.0;
     }
@@ -783,7 +786,7 @@ pub fn burke_ratio(cagr_val: f64, dd_episodes: &[f64], risk_free_rate: f64) -> f
 ///
 /// ```text
 /// Pain Ratio = (CAGR − R_f) / Pain Index
-/// ```
+/// ```ignore
 ///
 /// # Arguments
 ///
@@ -798,13 +801,13 @@ pub fn burke_ratio(cagr_val: f64, dd_episodes: &[f64], risk_free_rate: f64) -> f
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```ignore
 /// use finstack_analytics::drawdown::pain_ratio;
 ///
 /// assert!((pain_ratio(0.10, 0.05, 0.02) - 1.6).abs() < 1e-12);
 /// ```
 #[must_use]
-pub fn pain_ratio(cagr_val: f64, pain: f64, risk_free_rate: f64) -> f64 {
+pub(crate) fn pain_ratio(cagr_val: f64, pain: f64, risk_free_rate: f64) -> f64 {
     ratio_or_sign_infinity(cagr_val - risk_free_rate, pain)
 }
 
