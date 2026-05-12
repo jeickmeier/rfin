@@ -56,88 +56,77 @@
         "description": "Tier-A wrap (Phase-2 envelope migration, 2026-05-09): the original market snapshot is preserved in initial_market with empty plan.steps. Routes through engine::execute_with_diagnostics without changing pricing math.",
         "quote_sets": {},
         "steps": [],
-        "settings": {}
-      },
-      "initial_market": {
-        "version": 2,
-        "curves": [
-          {
-            "type": "discount",
-            "id": "EUR-OIS",
-            "base": "2026-04-30",
-            "day_count": "Act365F",
-            "knot_points": [
-              [
-                0.0,
-                1.0
-              ],
-              [
-                0.25,
-                0.992
-              ],
-              [
-                1.0,
-                0.95232
-              ]
-            ],
-            "interp_style": "log_linear",
-            "extrapolation": "flat_forward",
-            "min_forward_rate": null,
-            "allow_non_monotonic": false,
-            "min_forward_tenor": 1e-06,
-            "rate_calibration": null
-          },
-          {
-            "type": "discount",
-            "id": "USD-OIS",
-            "base": "2026-04-30",
-            "day_count": "Act365F",
-            "knot_points": [
-              [
-                0.0,
-                1.0
-              ],
-              [
-                0.25,
-                0.99
-              ],
-              [
-                1.0,
-                0.9504
-              ]
-            ],
-            "interp_style": "log_linear",
-            "extrapolation": "flat_forward",
-            "min_forward_rate": null,
-            "allow_non_monotonic": false,
-            "min_forward_tenor": 1e-06,
-            "rate_calibration": null
-          }
-        ],
-        "fx": {
-          "config": {
+        "settings": {
+          "fx": {
             "pivot_currency": "USD",
             "enable_triangulation": true,
             "cache_capacity": 256
-          },
-          "quotes": [
+          }
+        }
+      },
+      "market_data": [
+        {
+          "kind": "fx_spot",
+          "id": "EUR/USD",
+          "from": "EUR",
+          "to": "USD",
+          "rate": 1.1
+        }
+      ],
+      "prior_market": [
+        {
+          "kind": "discount_curve",
+          "id": "EUR-OIS",
+          "base": "2026-04-30",
+          "day_count": "Act365F",
+          "knot_points": [
             [
-              "EUR",
-              "USD",
-              1.1
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.992
+            ],
+            [
+              1.0,
+              0.95232
             ]
-          ]
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward",
+          "min_forward_rate": null,
+          "allow_non_monotonic": false,
+          "min_forward_tenor": 1e-06,
+          "rate_calibration": null
         },
-        "surfaces": [],
-        "prices": {},
-        "series": [],
-        "inflation_indices": [],
-        "dividends": [],
-        "credit_indices": [],
-        "fx_delta_vol_surfaces": [],
-        "vol_cubes": [],
-        "collateral": {}
-      }
+        {
+          "kind": "discount_curve",
+          "id": "USD-OIS",
+          "base": "2026-04-30",
+          "day_count": "Act365F",
+          "knot_points": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.99
+            ],
+            [
+              1.0,
+              0.9504
+            ]
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward",
+          "min_forward_rate": null,
+          "allow_non_monotonic": false,
+          "min_forward_tenor": 1e-06,
+          "rate_calibration": null
+        }
+      ]
     },
     "source_reference": {
       "design_metrics": [

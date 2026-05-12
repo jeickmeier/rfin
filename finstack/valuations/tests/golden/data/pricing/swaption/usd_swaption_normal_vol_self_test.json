@@ -115,484 +115,55 @@
       }
     },
     "market_envelope": {
-      "$schema": "../../schemas/calibration/2/calibration.schema.json",
+      "$schema": "../../schemas/calibration/3/calibration.schema.json",
       "schema": "finstack.calibration",
       "plan": {
         "id": "usd_swaption_normal_vol",
         "description": "USD swaption normal-vol surface calibrated against a 3\u00d73 (expiry \u00d7 tenor) grid of SwaptionVol quotes, chained on a USD-OIS discount curve and USD-SOFR-3M forward curve that are bootstrapped in the same plan. Step 1 produces the USD-OIS discount curve from deposit and IRS quotes; step 2 bootstraps the USD-SOFR-3M forward curve from FRA quotes; step 3 fits per-bucket SABR (\u03b2=0) parameters to normal vols quoted in basis points. The envelope is fully self-bootstrapping from quotes \u2014 no hand-entered curves in initial_market. The produced VolCube is keyed as 'USD-SWAPTION-NORMAL-VOL' and is retrievable via MarketContext::get_vol_provider(). Note: swaption_vol calibration produces a VolCube (not a VolSurface), so the accessor is get_vol_provider rather than get_surface. The grid uses 3 expiries (1y, 2y, 5y from base 2026-05-08) \u00d7 3 swap tenors (2y, 5y, 10y) \u00d7 3 strikes (ATM-50bp, ATM, ATM+50bp) for a total of 27 quotes. Normal vols range from 55\u201380 bp, representative of a 5% rate environment.",
         "quote_sets": {
           "usd_rate_quotes": [
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-SOFR-DEP-1M",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 1,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.0525
-            },
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-SOFR-DEP-3M",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 3,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.052
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-OIS-SWAP-1Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 1,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.051
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-OIS-SWAP-2Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 2,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.049
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-OIS-SWAP-5Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 5,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.045
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-OIS-SWAP-10Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 10,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.041
-            }
+            "USD-SOFR-DEP-1M",
+            "USD-SOFR-DEP-3M",
+            "USD-OIS-SWAP-1Y",
+            "USD-OIS-SWAP-2Y",
+            "USD-OIS-SWAP-5Y",
+            "USD-OIS-SWAP-10Y"
           ],
           "sofr_3m_quotes": [
-            {
-              "class": "rates",
-              "type": "fra",
-              "id": "FRA-SOFR-3M-0X3",
-              "index": "USD-SOFR-3M",
-              "start": {
-                "date": "2026-05-08"
-              },
-              "end": {
-                "date": "2026-08-08"
-              },
-              "rate": 0.0495
-            },
-            {
-              "class": "rates",
-              "type": "fra",
-              "id": "FRA-SOFR-3M-3X6",
-              "index": "USD-SOFR-3M",
-              "start": {
-                "date": "2026-08-08"
-              },
-              "end": {
-                "date": "2026-11-08"
-              },
-              "rate": 0.05
-            },
-            {
-              "class": "rates",
-              "type": "fra",
-              "id": "FRA-SOFR-3M-6X9",
-              "index": "USD-SOFR-3M",
-              "start": {
-                "date": "2026-11-08"
-              },
-              "end": {
-                "date": "2027-02-08"
-              },
-              "rate": 0.051
-            },
-            {
-              "class": "rates",
-              "type": "fra",
-              "id": "FRA-SOFR-3M-9X12",
-              "index": "USD-SOFR-3M",
-              "start": {
-                "date": "2027-02-08"
-              },
-              "end": {
-                "date": "2027-05-08"
-              },
-              "rate": 0.0515
-            },
-            {
-              "class": "rates",
-              "type": "fra",
-              "id": "FRA-SOFR-3M-12X18",
-              "index": "USD-SOFR-3M",
-              "start": {
-                "date": "2027-05-08"
-              },
-              "end": {
-                "date": "2027-11-08"
-              },
-              "rate": 0.052
-            }
+            "FRA-SOFR-3M-0X3",
+            "FRA-SOFR-3M-3X6",
+            "FRA-SOFR-3M-6X9",
+            "FRA-SOFR-3M-9X12",
+            "FRA-SOFR-3M-12X18"
           ],
           "swaption_vol_quotes": [
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20270508-20290508-0.045",
-                "expiry": "2027-05-08",
-                "maturity": "2029-05-08",
-                "strike": 0.045,
-                "vol": 72.0,
-                "quote_type": "ATM-50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20270508-20290508-0.05",
-                "expiry": "2027-05-08",
-                "maturity": "2029-05-08",
-                "strike": 0.05,
-                "vol": 65.0,
-                "quote_type": "ATM",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20270508-20290508-0.055",
-                "expiry": "2027-05-08",
-                "maturity": "2029-05-08",
-                "strike": 0.055,
-                "vol": 72.0,
-                "quote_type": "ATM+50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20270508-20320508-0.045",
-                "expiry": "2027-05-08",
-                "maturity": "2032-05-08",
-                "strike": 0.045,
-                "vol": 67.0,
-                "quote_type": "ATM-50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20270508-20320508-0.05",
-                "expiry": "2027-05-08",
-                "maturity": "2032-05-08",
-                "strike": 0.05,
-                "vol": 60.0,
-                "quote_type": "ATM",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20270508-20320508-0.055",
-                "expiry": "2027-05-08",
-                "maturity": "2032-05-08",
-                "strike": 0.055,
-                "vol": 67.0,
-                "quote_type": "ATM+50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20270508-20370508-0.045",
-                "expiry": "2027-05-08",
-                "maturity": "2037-05-08",
-                "strike": 0.045,
-                "vol": 62.0,
-                "quote_type": "ATM-50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20270508-20370508-0.05",
-                "expiry": "2027-05-08",
-                "maturity": "2037-05-08",
-                "strike": 0.05,
-                "vol": 55.0,
-                "quote_type": "ATM",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20270508-20370508-0.055",
-                "expiry": "2027-05-08",
-                "maturity": "2037-05-08",
-                "strike": 0.055,
-                "vol": 62.0,
-                "quote_type": "ATM+50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20280508-20300508-0.045",
-                "expiry": "2028-05-08",
-                "maturity": "2030-05-08",
-                "strike": 0.045,
-                "vol": 74.0,
-                "quote_type": "ATM-50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20280508-20300508-0.05",
-                "expiry": "2028-05-08",
-                "maturity": "2030-05-08",
-                "strike": 0.05,
-                "vol": 68.0,
-                "quote_type": "ATM",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20280508-20300508-0.055",
-                "expiry": "2028-05-08",
-                "maturity": "2030-05-08",
-                "strike": 0.055,
-                "vol": 74.0,
-                "quote_type": "ATM+50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20280508-20330508-0.045",
-                "expiry": "2028-05-08",
-                "maturity": "2033-05-08",
-                "strike": 0.045,
-                "vol": 69.0,
-                "quote_type": "ATM-50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20280508-20330508-0.05",
-                "expiry": "2028-05-08",
-                "maturity": "2033-05-08",
-                "strike": 0.05,
-                "vol": 63.0,
-                "quote_type": "ATM",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20280508-20330508-0.055",
-                "expiry": "2028-05-08",
-                "maturity": "2033-05-08",
-                "strike": 0.055,
-                "vol": 69.0,
-                "quote_type": "ATM+50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20280508-20380508-0.045",
-                "expiry": "2028-05-08",
-                "maturity": "2038-05-08",
-                "strike": 0.045,
-                "vol": 64.0,
-                "quote_type": "ATM-50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20280508-20380508-0.05",
-                "expiry": "2028-05-08",
-                "maturity": "2038-05-08",
-                "strike": 0.05,
-                "vol": 57.0,
-                "quote_type": "ATM",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20280508-20380508-0.055",
-                "expiry": "2028-05-08",
-                "maturity": "2038-05-08",
-                "strike": 0.055,
-                "vol": 64.0,
-                "quote_type": "ATM+50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20310508-20330508-0.045",
-                "expiry": "2031-05-08",
-                "maturity": "2033-05-08",
-                "strike": 0.045,
-                "vol": 80.0,
-                "quote_type": "ATM-50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20310508-20330508-0.05",
-                "expiry": "2031-05-08",
-                "maturity": "2033-05-08",
-                "strike": 0.05,
-                "vol": 74.0,
-                "quote_type": "ATM",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20310508-20330508-0.055",
-                "expiry": "2031-05-08",
-                "maturity": "2033-05-08",
-                "strike": 0.055,
-                "vol": 80.0,
-                "quote_type": "ATM+50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20310508-20360508-0.045",
-                "expiry": "2031-05-08",
-                "maturity": "2036-05-08",
-                "strike": 0.045,
-                "vol": 74.0,
-                "quote_type": "ATM-50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20310508-20360508-0.05",
-                "expiry": "2031-05-08",
-                "maturity": "2036-05-08",
-                "strike": 0.05,
-                "vol": 68.0,
-                "quote_type": "ATM",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20310508-20360508-0.055",
-                "expiry": "2031-05-08",
-                "maturity": "2036-05-08",
-                "strike": 0.055,
-                "vol": 74.0,
-                "quote_type": "ATM+50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20310508-20410508-0.045",
-                "expiry": "2031-05-08",
-                "maturity": "2041-05-08",
-                "strike": 0.045,
-                "vol": 67.0,
-                "quote_type": "ATM-50",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20310508-20410508-0.05",
-                "expiry": "2031-05-08",
-                "maturity": "2041-05-08",
-                "strike": 0.05,
-                "vol": 61.0,
-                "quote_type": "ATM",
-                "convention": "USD"
-              }
-            },
-            {
-              "class": "vol",
-              "swaption_vol": {
-                "id": "USD-SWPTN-VOL-20310508-20410508-0.055",
-                "expiry": "2031-05-08",
-                "maturity": "2041-05-08",
-                "strike": 0.055,
-                "vol": 67.0,
-                "quote_type": "ATM+50",
-                "convention": "USD"
-              }
-            }
+            "USD-SWPTN-VOL-20270508-20290508-0.045",
+            "USD-SWPTN-VOL-20270508-20290508-0.05",
+            "USD-SWPTN-VOL-20270508-20290508-0.055",
+            "USD-SWPTN-VOL-20270508-20320508-0.045",
+            "USD-SWPTN-VOL-20270508-20320508-0.05",
+            "USD-SWPTN-VOL-20270508-20320508-0.055",
+            "USD-SWPTN-VOL-20270508-20370508-0.045",
+            "USD-SWPTN-VOL-20270508-20370508-0.05",
+            "USD-SWPTN-VOL-20270508-20370508-0.055",
+            "USD-SWPTN-VOL-20280508-20300508-0.045",
+            "USD-SWPTN-VOL-20280508-20300508-0.05",
+            "USD-SWPTN-VOL-20280508-20300508-0.055",
+            "USD-SWPTN-VOL-20280508-20330508-0.045",
+            "USD-SWPTN-VOL-20280508-20330508-0.05",
+            "USD-SWPTN-VOL-20280508-20330508-0.055",
+            "USD-SWPTN-VOL-20280508-20380508-0.045",
+            "USD-SWPTN-VOL-20280508-20380508-0.05",
+            "USD-SWPTN-VOL-20280508-20380508-0.055",
+            "USD-SWPTN-VOL-20310508-20330508-0.045",
+            "USD-SWPTN-VOL-20310508-20330508-0.05",
+            "USD-SWPTN-VOL-20310508-20330508-0.055",
+            "USD-SWPTN-VOL-20310508-20360508-0.045",
+            "USD-SWPTN-VOL-20310508-20360508-0.05",
+            "USD-SWPTN-VOL-20310508-20360508-0.055",
+            "USD-SWPTN-VOL-20310508-20410508-0.045",
+            "USD-SWPTN-VOL-20310508-20410508-0.05",
+            "USD-SWPTN-VOL-20310508-20410508-0.055"
           ]
         },
         "steps": [
@@ -656,20 +227,476 @@
         ],
         "settings": {}
       },
-      "initial_market": {
-        "version": 2,
-        "curves": [],
-        "fx": null,
-        "surfaces": [],
-        "prices": {},
-        "series": [],
-        "inflation_indices": [],
-        "dividends": [],
-        "credit_indices": [],
-        "fx_delta_vol_surfaces": [],
-        "vol_cubes": [],
-        "collateral": {}
-      }
+      "market_data": [
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-SOFR-DEP-1M",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "months"
+            }
+          },
+          "rate": 0.0525
+        },
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-SOFR-DEP-3M",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "months"
+            }
+          },
+          "rate": 0.052
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-OIS-SWAP-1Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "years"
+            }
+          },
+          "rate": 0.051
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-OIS-SWAP-2Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 2,
+              "unit": "years"
+            }
+          },
+          "rate": 0.049
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-OIS-SWAP-5Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 5,
+              "unit": "years"
+            }
+          },
+          "rate": 0.045
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-OIS-SWAP-10Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 10,
+              "unit": "years"
+            }
+          },
+          "rate": 0.041
+        },
+        {
+          "kind": "rate_quote",
+          "type": "fra",
+          "id": "FRA-SOFR-3M-0X3",
+          "index": "USD-SOFR-3M",
+          "start": {
+            "date": "2026-05-08"
+          },
+          "end": {
+            "date": "2026-08-08"
+          },
+          "rate": 0.0495
+        },
+        {
+          "kind": "rate_quote",
+          "type": "fra",
+          "id": "FRA-SOFR-3M-3X6",
+          "index": "USD-SOFR-3M",
+          "start": {
+            "date": "2026-08-08"
+          },
+          "end": {
+            "date": "2026-11-08"
+          },
+          "rate": 0.05
+        },
+        {
+          "kind": "rate_quote",
+          "type": "fra",
+          "id": "FRA-SOFR-3M-6X9",
+          "index": "USD-SOFR-3M",
+          "start": {
+            "date": "2026-11-08"
+          },
+          "end": {
+            "date": "2027-02-08"
+          },
+          "rate": 0.051
+        },
+        {
+          "kind": "rate_quote",
+          "type": "fra",
+          "id": "FRA-SOFR-3M-9X12",
+          "index": "USD-SOFR-3M",
+          "start": {
+            "date": "2027-02-08"
+          },
+          "end": {
+            "date": "2027-05-08"
+          },
+          "rate": 0.0515
+        },
+        {
+          "kind": "rate_quote",
+          "type": "fra",
+          "id": "FRA-SOFR-3M-12X18",
+          "index": "USD-SOFR-3M",
+          "start": {
+            "date": "2027-05-08"
+          },
+          "end": {
+            "date": "2027-11-08"
+          },
+          "rate": 0.052
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20290508-0.045",
+            "expiry": "2027-05-08",
+            "maturity": "2029-05-08",
+            "strike": 0.045,
+            "vol": 72.0,
+            "quote_type": "ATM-50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20290508-0.05",
+            "expiry": "2027-05-08",
+            "maturity": "2029-05-08",
+            "strike": 0.05,
+            "vol": 65.0,
+            "quote_type": "ATM",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20290508-0.055",
+            "expiry": "2027-05-08",
+            "maturity": "2029-05-08",
+            "strike": 0.055,
+            "vol": 72.0,
+            "quote_type": "ATM+50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20320508-0.045",
+            "expiry": "2027-05-08",
+            "maturity": "2032-05-08",
+            "strike": 0.045,
+            "vol": 67.0,
+            "quote_type": "ATM-50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20320508-0.05",
+            "expiry": "2027-05-08",
+            "maturity": "2032-05-08",
+            "strike": 0.05,
+            "vol": 60.0,
+            "quote_type": "ATM",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20320508-0.055",
+            "expiry": "2027-05-08",
+            "maturity": "2032-05-08",
+            "strike": 0.055,
+            "vol": 67.0,
+            "quote_type": "ATM+50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20370508-0.045",
+            "expiry": "2027-05-08",
+            "maturity": "2037-05-08",
+            "strike": 0.045,
+            "vol": 62.0,
+            "quote_type": "ATM-50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20370508-0.05",
+            "expiry": "2027-05-08",
+            "maturity": "2037-05-08",
+            "strike": 0.05,
+            "vol": 55.0,
+            "quote_type": "ATM",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20270508-20370508-0.055",
+            "expiry": "2027-05-08",
+            "maturity": "2037-05-08",
+            "strike": 0.055,
+            "vol": 62.0,
+            "quote_type": "ATM+50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20300508-0.045",
+            "expiry": "2028-05-08",
+            "maturity": "2030-05-08",
+            "strike": 0.045,
+            "vol": 74.0,
+            "quote_type": "ATM-50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20300508-0.05",
+            "expiry": "2028-05-08",
+            "maturity": "2030-05-08",
+            "strike": 0.05,
+            "vol": 68.0,
+            "quote_type": "ATM",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20300508-0.055",
+            "expiry": "2028-05-08",
+            "maturity": "2030-05-08",
+            "strike": 0.055,
+            "vol": 74.0,
+            "quote_type": "ATM+50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20330508-0.045",
+            "expiry": "2028-05-08",
+            "maturity": "2033-05-08",
+            "strike": 0.045,
+            "vol": 69.0,
+            "quote_type": "ATM-50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20330508-0.05",
+            "expiry": "2028-05-08",
+            "maturity": "2033-05-08",
+            "strike": 0.05,
+            "vol": 63.0,
+            "quote_type": "ATM",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20330508-0.055",
+            "expiry": "2028-05-08",
+            "maturity": "2033-05-08",
+            "strike": 0.055,
+            "vol": 69.0,
+            "quote_type": "ATM+50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20380508-0.045",
+            "expiry": "2028-05-08",
+            "maturity": "2038-05-08",
+            "strike": 0.045,
+            "vol": 64.0,
+            "quote_type": "ATM-50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20380508-0.05",
+            "expiry": "2028-05-08",
+            "maturity": "2038-05-08",
+            "strike": 0.05,
+            "vol": 57.0,
+            "quote_type": "ATM",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20280508-20380508-0.055",
+            "expiry": "2028-05-08",
+            "maturity": "2038-05-08",
+            "strike": 0.055,
+            "vol": 64.0,
+            "quote_type": "ATM+50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20330508-0.045",
+            "expiry": "2031-05-08",
+            "maturity": "2033-05-08",
+            "strike": 0.045,
+            "vol": 80.0,
+            "quote_type": "ATM-50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20330508-0.05",
+            "expiry": "2031-05-08",
+            "maturity": "2033-05-08",
+            "strike": 0.05,
+            "vol": 74.0,
+            "quote_type": "ATM",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20330508-0.055",
+            "expiry": "2031-05-08",
+            "maturity": "2033-05-08",
+            "strike": 0.055,
+            "vol": 80.0,
+            "quote_type": "ATM+50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20360508-0.045",
+            "expiry": "2031-05-08",
+            "maturity": "2036-05-08",
+            "strike": 0.045,
+            "vol": 74.0,
+            "quote_type": "ATM-50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20360508-0.05",
+            "expiry": "2031-05-08",
+            "maturity": "2036-05-08",
+            "strike": 0.05,
+            "vol": 68.0,
+            "quote_type": "ATM",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20360508-0.055",
+            "expiry": "2031-05-08",
+            "maturity": "2036-05-08",
+            "strike": 0.055,
+            "vol": 74.0,
+            "quote_type": "ATM+50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20410508-0.045",
+            "expiry": "2031-05-08",
+            "maturity": "2041-05-08",
+            "strike": 0.045,
+            "vol": 67.0,
+            "quote_type": "ATM-50",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20410508-0.05",
+            "expiry": "2031-05-08",
+            "maturity": "2041-05-08",
+            "strike": 0.05,
+            "vol": 61.0,
+            "quote_type": "ATM",
+            "convention": "USD"
+          }
+        },
+        {
+          "kind": "vol_quote",
+          "swaption_vol": {
+            "id": "USD-SWPTN-VOL-20310508-20410508-0.055",
+            "expiry": "2031-05-08",
+            "maturity": "2041-05-08",
+            "strike": 0.055,
+            "vol": 67.0,
+            "quote_type": "ATM+50",
+            "convention": "USD"
+          }
+        }
+      ],
+      "prior_market": []
     },
     "source_reference": {
       "note": "Self-test fixture closing the swaption_vol step coverage gap. The SABR fit converges with rmse ~3e-4 (typical for a 3\u00d73 swaption grid); the self-test contract is bit-stable round-trip reproduction of priced metrics, not zero residual on calibration.",

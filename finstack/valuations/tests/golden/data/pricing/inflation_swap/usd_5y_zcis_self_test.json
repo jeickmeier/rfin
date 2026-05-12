@@ -53,224 +53,26 @@
         "description": "Two-step plan: USD-OIS discount step (12 SOFR OIS quotes with rate-cutoff override) followed by US-CPI inflation step (6 ZCIS quotes against the calibrated discount). Sequential dependency exercises the engine's plan ordering for the inflation step kind.",
         "quote_sets": {
           "sofr_ois": [
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-SOFR-OIS-DEP-1W",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 1,
-                  "unit": "weeks"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-SOFR-OIS-DEP-2W",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 2,
-                  "unit": "weeks"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-SOFR-OIS-DEP-3W",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 3,
-                  "unit": "weeks"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-1M",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 1,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-3M",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 3,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-6M",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 6,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-1Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 1,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-2Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 2,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.041
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-3Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 3,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.042
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-5Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 5,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.043
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-7Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 7,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.044
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-10Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 10,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.045
-            }
+            "USD-SOFR-OIS-DEP-1W",
+            "USD-SOFR-OIS-DEP-2W",
+            "USD-SOFR-OIS-DEP-3W",
+            "USD-SOFR-OIS-SWP-1M",
+            "USD-SOFR-OIS-SWP-3M",
+            "USD-SOFR-OIS-SWP-6M",
+            "USD-SOFR-OIS-SWP-1Y",
+            "USD-SOFR-OIS-SWP-2Y",
+            "USD-SOFR-OIS-SWP-3Y",
+            "USD-SOFR-OIS-SWP-5Y",
+            "USD-SOFR-OIS-SWP-7Y",
+            "USD-SOFR-OIS-SWP-10Y"
           ],
           "us_cpi_zcis": [
-            {
-              "class": "inflation",
-              "inflation_swap": {
-                "id": "US-CPI-ZCIS-20270430",
-                "maturity": "2027-04-30",
-                "rate": 0.02,
-                "index": "US-CPI",
-                "convention": "USD-CPI"
-              }
-            },
-            {
-              "class": "inflation",
-              "inflation_swap": {
-                "id": "US-CPI-ZCIS-20280430",
-                "maturity": "2028-04-30",
-                "rate": 0.021,
-                "index": "US-CPI",
-                "convention": "USD-CPI"
-              }
-            },
-            {
-              "class": "inflation",
-              "inflation_swap": {
-                "id": "US-CPI-ZCIS-20290430",
-                "maturity": "2029-04-30",
-                "rate": 0.022,
-                "index": "US-CPI",
-                "convention": "USD-CPI"
-              }
-            },
-            {
-              "class": "inflation",
-              "inflation_swap": {
-                "id": "US-CPI-ZCIS-20310430",
-                "maturity": "2031-04-30",
-                "rate": 0.0225,
-                "index": "US-CPI",
-                "convention": "USD-CPI"
-              }
-            },
-            {
-              "class": "inflation",
-              "inflation_swap": {
-                "id": "US-CPI-ZCIS-20330430",
-                "maturity": "2033-04-30",
-                "rate": 0.023,
-                "index": "US-CPI",
-                "convention": "USD-CPI"
-              }
-            },
-            {
-              "class": "inflation",
-              "inflation_swap": {
-                "id": "US-CPI-ZCIS-20360430",
-                "maturity": "2036-04-30",
-                "rate": 0.024,
-                "index": "US-CPI",
-                "convention": "USD-CPI"
-              }
-            }
+            "US-CPI-ZCIS-20270430",
+            "US-CPI-ZCIS-20280430",
+            "US-CPI-ZCIS-20290430",
+            "US-CPI-ZCIS-20310430",
+            "US-CPI-ZCIS-20330430",
+            "US-CPI-ZCIS-20360430"
           ]
         },
         "steps": [
@@ -311,7 +113,226 @@
           }
         ],
         "settings": {}
-      }
+      },
+      "market_data": [
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-SOFR-OIS-DEP-1W",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "weeks"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-SOFR-OIS-DEP-2W",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 2,
+              "unit": "weeks"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-SOFR-OIS-DEP-3W",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "weeks"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-1M",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "months"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-3M",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "months"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-6M",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 6,
+              "unit": "months"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-1Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "years"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-2Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 2,
+              "unit": "years"
+            }
+          },
+          "rate": 0.041
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-3Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "years"
+            }
+          },
+          "rate": 0.042
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-5Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 5,
+              "unit": "years"
+            }
+          },
+          "rate": 0.043
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-7Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 7,
+              "unit": "years"
+            }
+          },
+          "rate": 0.044
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-10Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 10,
+              "unit": "years"
+            }
+          },
+          "rate": 0.045
+        },
+        {
+          "kind": "inflation_quote",
+          "inflation_swap": {
+            "id": "US-CPI-ZCIS-20270430",
+            "maturity": "2027-04-30",
+            "rate": 0.02,
+            "index": "US-CPI",
+            "convention": "USD-CPI"
+          }
+        },
+        {
+          "kind": "inflation_quote",
+          "inflation_swap": {
+            "id": "US-CPI-ZCIS-20280430",
+            "maturity": "2028-04-30",
+            "rate": 0.021,
+            "index": "US-CPI",
+            "convention": "USD-CPI"
+          }
+        },
+        {
+          "kind": "inflation_quote",
+          "inflation_swap": {
+            "id": "US-CPI-ZCIS-20290430",
+            "maturity": "2029-04-30",
+            "rate": 0.022,
+            "index": "US-CPI",
+            "convention": "USD-CPI"
+          }
+        },
+        {
+          "kind": "inflation_quote",
+          "inflation_swap": {
+            "id": "US-CPI-ZCIS-20310430",
+            "maturity": "2031-04-30",
+            "rate": 0.0225,
+            "index": "US-CPI",
+            "convention": "USD-CPI"
+          }
+        },
+        {
+          "kind": "inflation_quote",
+          "inflation_swap": {
+            "id": "US-CPI-ZCIS-20330430",
+            "maturity": "2033-04-30",
+            "rate": 0.023,
+            "index": "US-CPI",
+            "convention": "USD-CPI"
+          }
+        },
+        {
+          "kind": "inflation_quote",
+          "inflation_swap": {
+            "id": "US-CPI-ZCIS-20360430",
+            "maturity": "2036-04-30",
+            "rate": 0.024,
+            "index": "US-CPI",
+            "convention": "USD-CPI"
+          }
+        }
+      ],
+      "prior_market": []
     },
     "source_reference": {
       "note": "Self-test fixture closing the inflation step coverage gap (plan \u00a718 follow-up #1). Expected outputs captured from Finstack's calibrate + price round-trip; contract is bit-stable reproduction within 1e-9 absolute / 5e-9 relative tolerance.",

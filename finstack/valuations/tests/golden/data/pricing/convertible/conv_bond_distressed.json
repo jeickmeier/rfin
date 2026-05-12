@@ -70,268 +70,28 @@
         "description": "Two-step calibration (term_loan pattern, plan \u00a717): USD-OIS bootstrapped from synthetic SOFR OIS quotes, USD-SOFR-3M bootstrapped from synthetic 3M-Term-SOFR IRS quotes. The convertible bond's credit (USD-CORP), hazard (ACME-HZD, HYCO-HZD), auxiliary (USD-TREASURY) curves and equity prices/dividend yield/vol are preserved verbatim in initial_market. Self-test contract.",
         "quote_sets": {
           "sofr_ois": [
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-SOFR-OIS-DEP-1W",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 1,
-                  "unit": "weeks"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-SOFR-OIS-DEP-2W",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 2,
-                  "unit": "weeks"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-SOFR-OIS-DEP-3W",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 3,
-                  "unit": "weeks"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-1M",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 1,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-3M",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 3,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-6M",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 6,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-1Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 1,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-2Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 2,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.041
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-3Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 3,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.042
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-5Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 5,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.043
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-7Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 7,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.044
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-10Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 10,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.045
-            }
+            "USD-SOFR-OIS-DEP-1W",
+            "USD-SOFR-OIS-DEP-2W",
+            "USD-SOFR-OIS-DEP-3W",
+            "USD-SOFR-OIS-SWP-1M",
+            "USD-SOFR-OIS-SWP-3M",
+            "USD-SOFR-OIS-SWP-6M",
+            "USD-SOFR-OIS-SWP-1Y",
+            "USD-SOFR-OIS-SWP-2Y",
+            "USD-SOFR-OIS-SWP-3Y",
+            "USD-SOFR-OIS-SWP-5Y",
+            "USD-SOFR-OIS-SWP-7Y",
+            "USD-SOFR-OIS-SWP-10Y"
           ],
           "sofr_3m_term": [
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-3M-IRS-3M",
-              "index": "USD-SOFR-3M",
-              "pillar": {
-                "tenor": {
-                  "count": 3,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.0405
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-3M-IRS-6M",
-              "index": "USD-SOFR-3M",
-              "pillar": {
-                "tenor": {
-                  "count": 6,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.0405
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-3M-IRS-1Y",
-              "index": "USD-SOFR-3M",
-              "pillar": {
-                "tenor": {
-                  "count": 1,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.0405
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-3M-IRS-2Y",
-              "index": "USD-SOFR-3M",
-              "pillar": {
-                "tenor": {
-                  "count": 2,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.0415
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-3M-IRS-3Y",
-              "index": "USD-SOFR-3M",
-              "pillar": {
-                "tenor": {
-                  "count": 3,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.0425
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-3M-IRS-5Y",
-              "index": "USD-SOFR-3M",
-              "pillar": {
-                "tenor": {
-                  "count": 5,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.0435
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-3M-IRS-7Y",
-              "index": "USD-SOFR-3M",
-              "pillar": {
-                "tenor": {
-                  "count": 7,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.0445
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-3M-IRS-10Y",
-              "index": "USD-SOFR-3M",
-              "pillar": {
-                "tenor": {
-                  "count": 10,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.0455
-            }
+            "USD-SOFR-3M-IRS-3M",
+            "USD-SOFR-3M-IRS-6M",
+            "USD-SOFR-3M-IRS-1Y",
+            "USD-SOFR-3M-IRS-2Y",
+            "USD-SOFR-3M-IRS-3Y",
+            "USD-SOFR-3M-IRS-5Y",
+            "USD-SOFR-3M-IRS-7Y",
+            "USD-SOFR-3M-IRS-10Y"
           ]
         },
         "steps": [
@@ -372,203 +132,462 @@
             }
           }
         ],
-        "settings": {}
-      },
-      "initial_market": {
-        "version": 2,
-        "curves": [
-          {
-            "type": "hazard",
-            "id": "ACME-HZD",
-            "base": "2026-04-30",
-            "knot_points": [
-              [
-                0.25,
-                0.012
-              ],
-              [
-                1.0,
-                0.014
-              ],
-              [
-                3.0,
-                0.018
-              ],
-              [
-                5.0,
-                0.022
-              ],
-              [
-                10.0,
-                0.028
-              ]
-            ],
-            "recovery_rate": 0.4,
-            "issuer": null,
-            "seniority": null,
-            "currency": null,
-            "day_count": "Act365F",
-            "par_points": [],
-            "par_interp": "Linear"
-          },
-          {
-            "type": "hazard",
-            "id": "HYCO-HZD",
-            "base": "2026-04-30",
-            "knot_points": [
-              [
-                0.25,
-                0.035
-              ],
-              [
-                1.0,
-                0.045
-              ],
-              [
-                3.0,
-                0.06
-              ],
-              [
-                5.0,
-                0.075
-              ],
-              [
-                10.0,
-                0.09
-              ]
-            ],
-            "recovery_rate": 0.35,
-            "issuer": null,
-            "seniority": null,
-            "currency": null,
-            "day_count": "Act365F",
-            "par_points": [],
-            "par_interp": "Linear"
-          },
-          {
-            "type": "discount",
-            "id": "USD-CORP",
-            "base": "2026-04-30",
-            "day_count": "Act365F",
-            "knot_points": [
-              [
-                0.0,
-                1.0
-              ],
-              [
-                0.25,
-                0.9875
-              ],
-              [
-                0.5,
-                0.975
-              ],
-              [
-                1.0,
-                0.95
-              ],
-              [
-                2.0,
-                0.9025
-              ],
-              [
-                5.0,
-                0.76
-              ],
-              [
-                7.0,
-                0.68
-              ],
-              [
-                10.0,
-                0.56
-              ]
-            ],
-            "interp_style": "log_linear",
-            "extrapolation": "flat_forward",
-            "min_forward_rate": null,
-            "allow_non_monotonic": false,
-            "min_forward_tenor": 1e-06,
-            "rate_calibration": null
-          },
-          {
-            "type": "discount",
-            "id": "USD-TREASURY",
-            "base": "2026-04-30",
-            "day_count": "Act365F",
-            "knot_points": [
-              [
-                0.0,
-                1.0
-              ],
-              [
-                0.25,
-                0.9895
-              ],
-              [
-                0.5,
-                0.9792
-              ],
-              [
-                1.0,
-                0.9589
-              ],
-              [
-                2.0,
-                0.9185
-              ],
-              [
-                5.0,
-                0.804
-              ],
-              [
-                10.0,
-                0.6466
-              ],
-              [
-                30.0,
-                0.2967
-              ]
-            ],
-            "interp_style": "log_linear",
-            "extrapolation": "flat_forward",
-            "min_forward_rate": null,
-            "allow_non_monotonic": false,
-            "min_forward_tenor": 1e-06,
-            "rate_calibration": null
-          }
-        ],
-        "fx": {
-          "config": {
+        "settings": {
+          "fx": {
             "pivot_currency": "USD",
             "enable_triangulation": true,
             "cache_capacity": 256
+          }
+        }
+      },
+      "market_data": [
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-SOFR-OIS-DEP-1W",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "weeks"
+            }
           },
-          "quotes": []
+          "rate": 0.04
         },
-        "surfaces": [],
-        "prices": {
-          "ACME": {
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-SOFR-OIS-DEP-2W",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 2,
+              "unit": "weeks"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-SOFR-OIS-DEP-3W",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "weeks"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-1M",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "months"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-3M",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "months"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-6M",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 6,
+              "unit": "months"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-1Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "years"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-2Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 2,
+              "unit": "years"
+            }
+          },
+          "rate": 0.041
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-3Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "years"
+            }
+          },
+          "rate": 0.042
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-5Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 5,
+              "unit": "years"
+            }
+          },
+          "rate": 0.043
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-7Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 7,
+              "unit": "years"
+            }
+          },
+          "rate": 0.044
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-10Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 10,
+              "unit": "years"
+            }
+          },
+          "rate": 0.045
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-3M-IRS-3M",
+          "index": "USD-SOFR-3M",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "months"
+            }
+          },
+          "rate": 0.0405
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-3M-IRS-6M",
+          "index": "USD-SOFR-3M",
+          "pillar": {
+            "tenor": {
+              "count": 6,
+              "unit": "months"
+            }
+          },
+          "rate": 0.0405
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-3M-IRS-1Y",
+          "index": "USD-SOFR-3M",
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "years"
+            }
+          },
+          "rate": 0.0405
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-3M-IRS-2Y",
+          "index": "USD-SOFR-3M",
+          "pillar": {
+            "tenor": {
+              "count": 2,
+              "unit": "years"
+            }
+          },
+          "rate": 0.0415
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-3M-IRS-3Y",
+          "index": "USD-SOFR-3M",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "years"
+            }
+          },
+          "rate": 0.0425
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-3M-IRS-5Y",
+          "index": "USD-SOFR-3M",
+          "pillar": {
+            "tenor": {
+              "count": 5,
+              "unit": "years"
+            }
+          },
+          "rate": 0.0435
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-3M-IRS-7Y",
+          "index": "USD-SOFR-3M",
+          "pillar": {
+            "tenor": {
+              "count": 7,
+              "unit": "years"
+            }
+          },
+          "rate": 0.0445
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-3M-IRS-10Y",
+          "index": "USD-SOFR-3M",
+          "pillar": {
+            "tenor": {
+              "count": 10,
+              "unit": "years"
+            }
+          },
+          "rate": 0.0455
+        },
+        {
+          "kind": "price",
+          "id": "ACME",
+          "scalar": {
             "price": {
               "amount": "35",
               "currency": "USD"
             }
-          },
-          "ACME-DIVYIELD": {
-            "unitless": 0.0
-          },
-          "ACME-VOL": {
-            "unitless": 0.4
           }
         },
-        "series": [],
-        "inflation_indices": [],
-        "dividends": [],
-        "credit_indices": [],
-        "fx_delta_vol_surfaces": [],
-        "vol_cubes": [],
-        "collateral": {}
-      }
+        {
+          "kind": "price",
+          "id": "ACME-DIVYIELD",
+          "scalar": {
+            "unitless": 0.0
+          }
+        },
+        {
+          "kind": "price",
+          "id": "ACME-VOL",
+          "scalar": {
+            "unitless": 0.4
+          }
+        }
+      ],
+      "prior_market": [
+        {
+          "kind": "hazard_curve",
+          "id": "ACME-HZD",
+          "base": "2026-04-30",
+          "knot_points": [
+            [
+              0.25,
+              0.012
+            ],
+            [
+              1.0,
+              0.014
+            ],
+            [
+              3.0,
+              0.018
+            ],
+            [
+              5.0,
+              0.022
+            ],
+            [
+              10.0,
+              0.028
+            ]
+          ],
+          "recovery_rate": 0.4,
+          "issuer": null,
+          "seniority": null,
+          "currency": null,
+          "day_count": "Act365F",
+          "par_points": [],
+          "par_interp": "Linear"
+        },
+        {
+          "kind": "hazard_curve",
+          "id": "HYCO-HZD",
+          "base": "2026-04-30",
+          "knot_points": [
+            [
+              0.25,
+              0.035
+            ],
+            [
+              1.0,
+              0.045
+            ],
+            [
+              3.0,
+              0.06
+            ],
+            [
+              5.0,
+              0.075
+            ],
+            [
+              10.0,
+              0.09
+            ]
+          ],
+          "recovery_rate": 0.35,
+          "issuer": null,
+          "seniority": null,
+          "currency": null,
+          "day_count": "Act365F",
+          "par_points": [],
+          "par_interp": "Linear"
+        },
+        {
+          "kind": "discount_curve",
+          "id": "USD-CORP",
+          "base": "2026-04-30",
+          "day_count": "Act365F",
+          "knot_points": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.9875
+            ],
+            [
+              0.5,
+              0.975
+            ],
+            [
+              1.0,
+              0.95
+            ],
+            [
+              2.0,
+              0.9025
+            ],
+            [
+              5.0,
+              0.76
+            ],
+            [
+              7.0,
+              0.68
+            ],
+            [
+              10.0,
+              0.56
+            ]
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward",
+          "min_forward_rate": null,
+          "allow_non_monotonic": false,
+          "min_forward_tenor": 1e-06,
+          "rate_calibration": null
+        },
+        {
+          "kind": "discount_curve",
+          "id": "USD-TREASURY",
+          "base": "2026-04-30",
+          "day_count": "Act365F",
+          "knot_points": [
+            [
+              0.0,
+              1.0
+            ],
+            [
+              0.25,
+              0.9895
+            ],
+            [
+              0.5,
+              0.9792
+            ],
+            [
+              1.0,
+              0.9589
+            ],
+            [
+              2.0,
+              0.9185
+            ],
+            [
+              5.0,
+              0.804
+            ],
+            [
+              10.0,
+              0.6466
+            ],
+            [
+              30.0,
+              0.2967
+            ]
+          ],
+          "interp_style": "log_linear",
+          "extrapolation": "flat_forward",
+          "min_forward_rate": null,
+          "allow_non_monotonic": false,
+          "min_forward_tenor": 1e-06,
+          "rate_calibration": null
+        }
+      ]
     },
     "source_reference": {
       "note": "Formula fixture; expected_outputs are populated from the live Rust/Python golden runners.",

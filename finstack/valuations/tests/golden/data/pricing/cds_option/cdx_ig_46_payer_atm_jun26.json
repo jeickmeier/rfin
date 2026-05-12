@@ -112,264 +112,35 @@
         "description": "Phase 2 migration: bootstraps the USD-S531 swap discount curve and the CDX.NA.IG.46 hazard curve from raw quotes. The SABR vol surface continues to ship as a snapshot in initial_market.surfaces (calibrating it from raw option quotes is deferred to a later sweep).",
         "quote_sets": {
           "s531_rates": [
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-S531-DEP-1M",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 1, "unit": "months" } },
-              "rate": 0.036363
-            },
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-S531-DEP-2M",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 2, "unit": "months" } },
-              "rate": 0.036438
-            },
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-S531-DEP-3M",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 3, "unit": "months" } },
-              "rate": 0.036488
-            },
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-S531-DEP-6M",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 6, "unit": "months" } },
-              "rate": 0.036618
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-S531-SWAP-1Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 1, "unit": "years" } },
-              "rate": 0.03724
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-S531-SWAP-2Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 2, "unit": "years" } },
-              "rate": 0.037105
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-S531-SWAP-3Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 3, "unit": "years" } },
-              "rate": 0.03683
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-S531-SWAP-4Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 4, "unit": "years" } },
-              "rate": 0.036885
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-S531-SWAP-5Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 5, "unit": "years" } },
-              "rate": 0.03717
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-S531-SWAP-6Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 6, "unit": "years" } },
-              "rate": 0.037595
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-S531-SWAP-7Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 7, "unit": "years" } },
-              "rate": 0.03805
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-S531-SWAP-8Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 8, "unit": "years" } },
-              "rate": 0.038495
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-S531-SWAP-9Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 9, "unit": "years" } },
-              "rate": 0.03894
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-S531-SWAP-10Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 10, "unit": "years" } },
-              "rate": 0.03938
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-S531-SWAP-12Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 12, "unit": "years" } },
-              "rate": 0.04024
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-S531-SWAP-15Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 15, "unit": "years" } },
-              "rate": 0.04131
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-S531-SWAP-20Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 20, "unit": "years" } },
-              "rate": 0.0422
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-S531-SWAP-25Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 25, "unit": "years" } },
-              "rate": 0.042265
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-S531-SWAP-30Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": { "tenor": { "count": 30, "unit": "years" } },
-              "rate": 0.04196
-            }
+            "USD-S531-DEP-1M",
+            "USD-S531-DEP-2M",
+            "USD-S531-DEP-3M",
+            "USD-S531-DEP-6M",
+            "USD-S531-SWAP-1Y",
+            "USD-S531-SWAP-2Y",
+            "USD-S531-SWAP-3Y",
+            "USD-S531-SWAP-4Y",
+            "USD-S531-SWAP-5Y",
+            "USD-S531-SWAP-6Y",
+            "USD-S531-SWAP-7Y",
+            "USD-S531-SWAP-8Y",
+            "USD-S531-SWAP-9Y",
+            "USD-S531-SWAP-10Y",
+            "USD-S531-SWAP-12Y",
+            "USD-S531-SWAP-15Y",
+            "USD-S531-SWAP-20Y",
+            "USD-S531-SWAP-25Y",
+            "USD-S531-SWAP-30Y"
           ],
           "cdx_ig_46_cds": [
-            {
-              "class": "cds",
-              "type": "cds_par_spread",
-              "id": "CDX-IG-46-CBBT-6M",
-              "entity": "CDX.NA.IG.46",
-              "convention": {
-                "currency": "USD",
-                "doc_clause": "isda_na"
-              },
-              "pillar": { "tenor": { "count": 6, "unit": "months" } },
-              "spread_bp": 16.14,
-              "recovery_rate": 0.4
-            },
-            {
-              "class": "cds",
-              "type": "cds_par_spread",
-              "id": "CDX-IG-46-CBBT-1Y",
-              "entity": "CDX.NA.IG.46",
-              "convention": {
-                "currency": "USD",
-                "doc_clause": "isda_na"
-              },
-              "pillar": { "tenor": { "count": 1, "unit": "years" } },
-              "spread_bp": 16.14,
-              "recovery_rate": 0.4
-            },
-            {
-              "class": "cds",
-              "type": "cds_par_spread",
-              "id": "CDX-IG-46-CBBT-2Y",
-              "entity": "CDX.NA.IG.46",
-              "convention": {
-                "currency": "USD",
-                "doc_clause": "isda_na"
-              },
-              "pillar": { "tenor": { "count": 2, "unit": "years" } },
-              "spread_bp": 24.14,
-              "recovery_rate": 0.4
-            },
-            {
-              "class": "cds",
-              "type": "cds_par_spread",
-              "id": "CDX-IG-46-CBBT-3Y",
-              "entity": "CDX.NA.IG.46",
-              "convention": {
-                "currency": "USD",
-                "doc_clause": "isda_na"
-              },
-              "pillar": { "tenor": { "count": 3, "unit": "years" } },
-              "spread_bp": 32.36,
-              "recovery_rate": 0.4
-            },
-            {
-              "class": "cds",
-              "type": "cds_par_spread",
-              "id": "CDX-IG-46-CBBT-4Y",
-              "entity": "CDX.NA.IG.46",
-              "convention": {
-                "currency": "USD",
-                "doc_clause": "isda_na"
-              },
-              "pillar": { "tenor": { "count": 4, "unit": "years" } },
-              "spread_bp": 42.9932,
-              "recovery_rate": 0.4
-            },
-            {
-              "class": "cds",
-              "type": "cds_par_spread",
-              "id": "CDX-IG-46-CBBT-5Y",
-              "entity": "CDX.NA.IG.46",
-              "convention": {
-                "currency": "USD",
-                "doc_clause": "isda_na"
-              },
-              "pillar": { "tenor": { "count": 5, "unit": "years" } },
-              "spread_bp": 53.6264,
-              "recovery_rate": 0.4
-            },
-            {
-              "class": "cds",
-              "type": "cds_par_spread",
-              "id": "CDX-IG-46-CBBT-7Y",
-              "entity": "CDX.NA.IG.46",
-              "convention": {
-                "currency": "USD",
-                "doc_clause": "isda_na"
-              },
-              "pillar": { "tenor": { "count": 7, "unit": "years" } },
-              "spread_bp": 72.64,
-              "recovery_rate": 0.4
-            },
-            {
-              "class": "cds",
-              "type": "cds_par_spread",
-              "id": "CDX-IG-46-CBBT-10Y",
-              "entity": "CDX.NA.IG.46",
-              "convention": {
-                "currency": "USD",
-                "doc_clause": "isda_na"
-              },
-              "pillar": { "tenor": { "count": 10, "unit": "years" } },
-              "spread_bp": 92.35,
-              "recovery_rate": 0.4
-            }
+            "CDX-IG-46-CBBT-6M",
+            "CDX-IG-46-CBBT-1Y",
+            "CDX-IG-46-CBBT-2Y",
+            "CDX-IG-46-CBBT-3Y",
+            "CDX-IG-46-CBBT-4Y",
+            "CDX-IG-46-CBBT-5Y",
+            "CDX-IG-46-CBBT-7Y",
+            "CDX-IG-46-CBBT-10Y"
           ]
         },
         "steps": [
@@ -407,60 +178,440 @@
             "doc_clause": "isda_na"
           }
         ],
-        "settings": {}
-      },
-      "initial_market": {
-        "version": 2,
-        "curves": [],
-        "fx": {
-          "config": {
+        "settings": {
+          "fx": {
             "pivot_currency": "USD",
             "enable_triangulation": true,
             "cache_capacity": 256
-          },
-          "quotes": []
-        },
-        "surfaces": [
-          {
-            "id": "CDX-NA-IG-46-CDSO-VOL",
-            "expiries": [
-              0.08333333333333333,
-              0.25,
-              0.5,
-              1.0
-            ],
-            "strikes": [
-              0.004,
-              0.00552848,
-              0.0075
-            ],
-            "secondary_axis": "strike",
-            "interpolation_mode": "vol",
-            "vols_row_major": [
-              0.3603,
-              0.3603,
-              0.3603,
-              0.3603,
-              0.3603,
-              0.3603,
-              0.3603,
-              0.3603,
-              0.3603,
-              0.3603,
-              0.3603,
-              0.3603
-            ]
           }
-        ],
-        "prices": {},
-        "series": [],
-        "inflation_indices": [],
-        "dividends": [],
-        "credit_indices": [],
-        "fx_delta_vol_surfaces": [],
-        "vol_cubes": [],
-        "collateral": {}
-      }
+        }
+      },
+      "market_data": [
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-S531-DEP-1M",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "months"
+            }
+          },
+          "rate": 0.036363
+        },
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-S531-DEP-2M",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 2,
+              "unit": "months"
+            }
+          },
+          "rate": 0.036438
+        },
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-S531-DEP-3M",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "months"
+            }
+          },
+          "rate": 0.036488
+        },
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-S531-DEP-6M",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 6,
+              "unit": "months"
+            }
+          },
+          "rate": 0.036618
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-S531-SWAP-1Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "years"
+            }
+          },
+          "rate": 0.03724
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-S531-SWAP-2Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 2,
+              "unit": "years"
+            }
+          },
+          "rate": 0.037105
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-S531-SWAP-3Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "years"
+            }
+          },
+          "rate": 0.03683
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-S531-SWAP-4Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 4,
+              "unit": "years"
+            }
+          },
+          "rate": 0.036885
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-S531-SWAP-5Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 5,
+              "unit": "years"
+            }
+          },
+          "rate": 0.03717
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-S531-SWAP-6Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 6,
+              "unit": "years"
+            }
+          },
+          "rate": 0.037595
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-S531-SWAP-7Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 7,
+              "unit": "years"
+            }
+          },
+          "rate": 0.03805
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-S531-SWAP-8Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 8,
+              "unit": "years"
+            }
+          },
+          "rate": 0.038495
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-S531-SWAP-9Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 9,
+              "unit": "years"
+            }
+          },
+          "rate": 0.03894
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-S531-SWAP-10Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 10,
+              "unit": "years"
+            }
+          },
+          "rate": 0.03938
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-S531-SWAP-12Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 12,
+              "unit": "years"
+            }
+          },
+          "rate": 0.04024
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-S531-SWAP-15Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 15,
+              "unit": "years"
+            }
+          },
+          "rate": 0.04131
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-S531-SWAP-20Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 20,
+              "unit": "years"
+            }
+          },
+          "rate": 0.0422
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-S531-SWAP-25Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 25,
+              "unit": "years"
+            }
+          },
+          "rate": 0.042265
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-S531-SWAP-30Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 30,
+              "unit": "years"
+            }
+          },
+          "rate": 0.04196
+        },
+        {
+          "kind": "cds_quote",
+          "type": "cds_par_spread",
+          "id": "CDX-IG-46-CBBT-6M",
+          "entity": "CDX.NA.IG.46",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 6,
+              "unit": "months"
+            }
+          },
+          "spread_bp": 16.14,
+          "recovery_rate": 0.4
+        },
+        {
+          "kind": "cds_quote",
+          "type": "cds_par_spread",
+          "id": "CDX-IG-46-CBBT-1Y",
+          "entity": "CDX.NA.IG.46",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 16.14,
+          "recovery_rate": 0.4
+        },
+        {
+          "kind": "cds_quote",
+          "type": "cds_par_spread",
+          "id": "CDX-IG-46-CBBT-2Y",
+          "entity": "CDX.NA.IG.46",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 2,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 24.14,
+          "recovery_rate": 0.4
+        },
+        {
+          "kind": "cds_quote",
+          "type": "cds_par_spread",
+          "id": "CDX-IG-46-CBBT-3Y",
+          "entity": "CDX.NA.IG.46",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 32.36,
+          "recovery_rate": 0.4
+        },
+        {
+          "kind": "cds_quote",
+          "type": "cds_par_spread",
+          "id": "CDX-IG-46-CBBT-4Y",
+          "entity": "CDX.NA.IG.46",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 4,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 42.9932,
+          "recovery_rate": 0.4
+        },
+        {
+          "kind": "cds_quote",
+          "type": "cds_par_spread",
+          "id": "CDX-IG-46-CBBT-5Y",
+          "entity": "CDX.NA.IG.46",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 5,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 53.6264,
+          "recovery_rate": 0.4
+        },
+        {
+          "kind": "cds_quote",
+          "type": "cds_par_spread",
+          "id": "CDX-IG-46-CBBT-7Y",
+          "entity": "CDX.NA.IG.46",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 7,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 72.64,
+          "recovery_rate": 0.4
+        },
+        {
+          "kind": "cds_quote",
+          "type": "cds_par_spread",
+          "id": "CDX-IG-46-CBBT-10Y",
+          "entity": "CDX.NA.IG.46",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 10,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 92.35,
+          "recovery_rate": 0.4
+        }
+      ],
+      "prior_market": [
+        {
+          "kind": "vol_surface",
+          "id": "CDX-NA-IG-46-CDSO-VOL",
+          "expiries": [
+            0.08333333333333333,
+            0.25,
+            0.5,
+            1.0
+          ],
+          "strikes": [
+            0.004,
+            0.00552848,
+            0.0075
+          ],
+          "secondary_axis": "strike",
+          "interpolation_mode": "vol",
+          "vols_row_major": [
+            0.3603,
+            0.3603,
+            0.3603,
+            0.3603,
+            0.3603,
+            0.3603,
+            0.3603,
+            0.3603,
+            0.3603,
+            0.3603,
+            0.3603,
+            0.3603
+          ]
+        }
+      ]
     },
     "source_reference": {
       "design_metrics": [
@@ -486,7 +637,7 @@
       "trade_spread_bp": 53.6264,
       "strike_spread_bp": 55.2848,
       "atm_forward_bp": 55.2848,
-      "forward_spread_adjust_bp": 2.005054738380,
+      "forward_spread_adjust_bp": 2.00505473838,
       "spread_vol_pct": 36.03,
       "recovery_rate": 0.4,
       "position": "long_payer",
@@ -588,7 +739,7 @@
           "rate": 4.196
         }
       ],
-      "hazard_curve_note": "CDX.NA.IG.46 CBBT Mid curve spot par spreads are transcribed directly from the CDSD forward CDS matrix screen. Hazard knots are properly bootstrapped (sequential Brent root finding, IMM-rolled maturities) from the par_points using `finstack_valuations::calibration::bumps::bump_hazard_spreads` with a zero parallel bump — i.e. the same procedure the cs01/dv01 paths use, applied once at fixture-prep time. The bootstrapped 5Y hazard ≈ 0.0172 (vs the previous spread/(1-recovery) approximation of 0.00894), which roughly doubles the forward protection PV and brings the natural model forward from ~25 bp to ~53 bp — close to Bloomberg ATM Fwd 55.2848 bp without a large per-fixture forward_spread_adjust knob. The remaining ~2 bp residual is absorbed by forward_spread_adjust = 0.000201.",
+      "hazard_curve_note": "CDX.NA.IG.46 CBBT Mid curve spot par spreads are transcribed directly from the CDSD forward CDS matrix screen. Hazard knots are properly bootstrapped (sequential Brent root finding, IMM-rolled maturities) from the par_points using `finstack_valuations::calibration::bumps::bump_hazard_spreads` with a zero parallel bump \u2014 i.e. the same procedure the cs01/dv01 paths use, applied once at fixture-prep time. The bootstrapped 5Y hazard \u2248 0.0172 (vs the previous spread/(1-recovery) approximation of 0.00894), which roughly doubles the forward protection PV and brings the natural model forward from ~25 bp to ~53 bp \u2014 close to Bloomberg ATM Fwd 55.2848 bp without a large per-fixture forward_spread_adjust knob. The remaining ~2 bp residual is absorbed by forward_spread_adjust = 0.000201.",
       "vol_surface_note": "Bloomberg displays a single Spread Vol of 36.03%; the surface and pricing override are flat at 0.3603.",
       "credit_curve_spreads_bp": [
         {
@@ -662,15 +813,15 @@
         "ir_dv01": 228.21,
         "vega_1pct": 3411.78,
         "theta_per_day": -1499.93,
-        "delta_pct_n_d1": 50.70,
-        "gamma_5bp_pct": 54.70,
+        "delta_pct_n_d1": 50.7,
+        "gamma_5bp_pct": 54.7,
         "breakeven_bp": 57.8824
       },
       "finstack_reconciliation": {
         "expected_outputs_policy": "Expected outputs are raw Bloomberg CDSO screen values. Executable comparison tolerances include the documented finstack-vs-Bloomberg residuals below so the fixture remains both source-faithful and runnable in CI.",
         "last_checked_on": "2026-05-09",
         "command": "GOLDEN_FIXTURE_FILTER=cdx_ig_46_payer_atm_jun26 cargo test -p finstack-valuations --test golden golden::pricing::golden_pricing_fixtures_from_existing_json_files -- --exact",
-        "reference_implementation": "Bloomberg L.P. Quantitative Analytics, *Pricing Credit Index Options* (DOCS 2055833, March 2012); Bloomberg L.P. Quantitative Analytics, *The Bloomberg CDS Model* (DOCS 2057273, August 2024); CDSO Loss Amount Calculation (DOCS 2151513). The legacy closed-form Black-on-spreads model — used in finstack's old pricer — was decommissioned on the Bloomberg CDSO screen in 2010 (DOCS 2055833 §1.2). finstack now implements the Bloomberg quadrature model `O = P(t_e) · E_0[(V_te + H(K) + D)+]` (DOCS 2055833 Eq. 2.5) with: V_te = ξN(S_te − c)L_te (random swap value at expiry), H(K) = ξN(c − K)A(K) (deterministic strike adjustment), D = ξN_0·loss(t_v) (deterministic loss settlement, currently 0 for this fixture). The lognormal mean m is calibrated by Brent root-finding so that F_0 = E[V_te], where F_0 includes the no-knockout (1−R)(1−q_te) FEP-equivalent for index options only (single-name options knock out on default and skip this term). The legacy Black pricer is retained only under `model_config.cds_option_use_legacy_black_model` for migration testing and is marked `#[deprecated]` in the source.",
+        "reference_implementation": "Bloomberg L.P. Quantitative Analytics, *Pricing Credit Index Options* (DOCS 2055833, March 2012); Bloomberg L.P. Quantitative Analytics, *The Bloomberg CDS Model* (DOCS 2057273, August 2024); CDSO Loss Amount Calculation (DOCS 2151513). The legacy closed-form Black-on-spreads model \u2014 used in finstack's old pricer \u2014 was decommissioned on the Bloomberg CDSO screen in 2010 (DOCS 2055833 \u00a71.2). finstack now implements the Bloomberg quadrature model `O = P(t_e) \u00b7 E_0[(V_te + H(K) + D)+]` (DOCS 2055833 Eq. 2.5) with: V_te = \u03beN(S_te \u2212 c)L_te (random swap value at expiry), H(K) = \u03beN(c \u2212 K)A(K) (deterministic strike adjustment), D = \u03beN_0\u00b7loss(t_v) (deterministic loss settlement, currently 0 for this fixture). The lognormal mean m is calibrated by Brent root-finding so that F_0 = E[V_te], where F_0 includes the no-knockout (1\u2212R)(1\u2212q_te) FEP-equivalent for index options only (single-name options knock out on default and skip this term). The legacy Black pricer is retained only under `model_config.cds_option_use_legacy_black_model` for migration testing and is marked `#[deprecated]` in the source.",
         "actual_outputs_under_bloomberg_quadrature": {
           "npv": 120463.02,
           "par_spread": 55.2228,
@@ -691,29 +842,29 @@
           "bloomberg_atm_forward_bp": 55.2848,
           "gap_bp": 0.0395,
           "gap_pct": 0.071,
-          "atm_fwd_formula_implementation": "ATM Fwd = Default_Leg(0, T_mat) / Premium_Leg(T_exp, T_mat) per Bloomberg HELP CDSO <GO>. Default_Leg = spot pv_protection_leg integrated from valuation date to maturity, with +1-day inclusive on the end (DOCS 2057273 §3 'TM-T+1 days for protection and coupon'); scoped to the option pricer to preserve standard CDS valuation. Premium_Leg = post-expiry premium PV01 (no AoD per DOCS 2057273 §3.3 risky-annuity definition) with the entire first-cashflow PV01 subtracted when the schedule has a STRADDLING first period (premium.start strictly < T_exp). The displayed `par_spread` uses the literal Bloomberg drop-first formula; the option NPV calibration uses the economically-self-consistent PCD-subtracted variant (preserves put/call parity at ATF for non-straddling schedules and matches Bloomberg's NPV within 0.6%).",
+          "atm_fwd_formula_implementation": "ATM Fwd = Default_Leg(0, T_mat) / Premium_Leg(T_exp, T_mat) per Bloomberg HELP CDSO <GO>. Default_Leg = spot pv_protection_leg integrated from valuation date to maturity, with +1-day inclusive on the end (DOCS 2057273 \u00a73 'TM-T+1 days for protection and coupon'); scoped to the option pricer to preserve standard CDS valuation. Premium_Leg = post-expiry premium PV01 (no AoD per DOCS 2057273 \u00a73.3 risky-annuity definition) with the entire first-cashflow PV01 subtracted when the schedule has a STRADDLING first period (premium.start strictly < T_exp). The displayed `par_spread` uses the literal Bloomberg drop-first formula; the option NPV calibration uses the economically-self-consistent PCD-subtracted variant (preserves put/call parity at ATF for non-straddling schedules and matches Bloomberg's NPV within 0.6%).",
           "remediation_steps": [
-            "Phase 4c: hazard-curve day_count fix (Act365F→Act360). $73k spot CDS / 1.7 bp ATM Fwd / 28% option-NPV residual.",
-            "Phase 4d: AoD removed from annuity (DOCS 2057273 §3.3). 0.06 bp tighter.",
-            "Phase 4e: +1-day inclusive on protection integration end (DOCS 2057273 §3). 0.06 bp tighter.",
+            "Phase 4c: hazard-curve day_count fix (Act365F\u2192Act360). $73k spot CDS / 1.7 bp ATM Fwd / 28% option-NPV residual.",
+            "Phase 4d: AoD removed from annuity (DOCS 2057273 \u00a73.3). 0.06 bp tighter.",
+            "Phase 4e: +1-day inclusive on protection integration end (DOCS 2057273 \u00a73). 0.06 bp tighter.",
             "Phase 4f: decoupled display ATM Fwd (drop-first per HELP CDSO) from calibration anchor (PCD-corrected economic par). 0.16 bp tighter."
           ]
         },
         "remediation_history": [
-          "Phase 1 — Surgery: deleted legacy Black-on-spreads pricer per DOCS 2055833 §1.2; reimplemented around DOCS 2055833 numerical-quadrature model.",
-          "Phase 2 — Bloomberg CDSO quadrature pricer (trapezoidal on z ∈ [-6, 6] step 0.05; Brent calibration of m so E[V_te] = F_0; H(K) strike adjustment; credit-triangle flat-spread L(s)).",
-          "Phase 3 — Spot CDS reconciliation diagnostic (test_bloomberg_cdsw_parity).",
-          "Phase 4a — PCD subtraction in forward annuity for self-consistency between `bootstrapped_l_at_expiry` and `flat_annuity(s)`.",
-          "Phase 4b — ATM Fwd numerator switched to *spot* protection from valuation date per Bloomberg HELP CDSO methodology; removed `cds.protection_effective_date = Some(option.expiry)` override.",
-          "Phase 4c — Hazard curve day_count Act365F→Act360 (matched bootstrap output emitted by `bump_hazard_spreads` under IsdaNa conventions). Closed $73k spot CDS gap and 1.7 bp ATM Fwd / 28% option-NPV residual.",
-          "Phase 4d — Annuity uses no-AoD risky-annuity (DOCS 2057273 §3.3 par-spread denominator).",
-          "Phase 4e — +1-day inclusive on protection-leg END (DOCS 2057273 §3 'TM-T+1 days'), scoped to the option's spot-protection calc.",
-          "Phase 4f — Decoupled display ATM Fwd (drop-first per HELP CDSO) from calibration anchor (PCD-corrected economic par); preserves put/call parity at ATF for non-straddling schedules.",
-          "Phase 5a — IR DV01 sign convention: now positive (bond-convention: NPV increase per −1bp rate move) per Bloomberg CDSO screen. Hazard rates held constant during the rate bump (DOCS 2057273 §4 'holding all other inputs constant'); previously rebootstrapped from par spreads. Result: −$18 → +$115 (vs Bloomberg's $228).",
-          "Phase 5b — Theta convention: implemented DOCS 2055833 §2.5 pure exercise-time shortening by 1/365.25 while retaining the same calibrated forward price and lognormal mean. Result: −$1,479.45 vs Bloomberg's −$1,499.93; this is much closer than the prior as-of-shift implementation (−$1,704.95).",
-          "Phase 5c — Protection-leg integration sub-step subdivision: per DOCS 2057273 §3 ('the timeline from T to TM is discretized into segments that are sufficiently small to justify constant forward discounting rates and constant hazard rate on each segment, no longer than any accrual period'), the protection-leg integration now subdivides the time axis at ~25 sub-steps per year (matching FinancePy's `GLOB_NUM_STEPS_PER_YEAR`, ≈14-day spacing) on top of the curve-knot boundaries. The previous knot-only segmentation used the average-rate approximation across each curve segment — for LogLinear DF curves where the continuous rate varies within a knot interval, this introduces a bias of order 0.005% on cdx_ig_46. Empirical effect on the option metrics: NPV $119,448 → $119,504 (+$56), theta −$1,718 → −$1,705 (closer to Bloomberg by $13), dv01 +$115.14 → +$115.03 (−$0.11), vega +$0.14, cs01 +$0.01. The diagnostic guard rail in `test_bloomberg_cdsw_parity` was updated from $1.0 to $200.0 to reflect the new fine-step integration's floating-point summation floor (~$114 on a 100M-notional 5Y CDS at par).",
-          "Phase 5d — IR DV01 quote-bump convention: added Bloomberg S531 USD swap-curve quote calibration metadata, rebuilt the discount curve from shocked swap/deposit quotes, and matched the CDSO screen's symmetric ±1bp quote-shock amount with hazard rates held constant. Result: $225.84 vs Bloomberg $228.21; fixture tolerance tightened from $115 to $3 while expected_outputs remains the raw Bloomberg screen value.",
-          "Phase 2 market-bootstrap migration — discount and hazard curves now bootstrapped from raw S531 swap-curve deposit/swap quotes and CDX par-spread quotes via market_envelope CalibrationEnvelope (was: hand-entered knot points in inputs.market). The SABR vol surface continues to ship as a materialized snapshot in initial_market.surfaces. Bootstrap-vs-snapshot drift: npv −$514, par_spread −0.025 bp, vega +$0.65, dv01 −$0.77, cs01 −$33.64, theta −$0.28. Tolerances widened: par_spread 0.05→0.07 bp, vega $2.0→$2.5, dv01 $3.0→$3.5, cs01 $350→$400. npv and theta tolerances unchanged. Bloomberg expected_outputs unchanged. Also: calibration engine extended to propagate rate_calibration metadata from deposit/swap quotes to the bootstrapped DiscountCurve (required by CDS option IR DV01 quote-bump path) and par_spread points from CDS quotes to the bootstrapped HazardCurve (required by CDS option CS01 quote-bump path)."
+          "Phase 1 \u2014 Surgery: deleted legacy Black-on-spreads pricer per DOCS 2055833 \u00a71.2; reimplemented around DOCS 2055833 numerical-quadrature model.",
+          "Phase 2 \u2014 Bloomberg CDSO quadrature pricer (trapezoidal on z \u2208 [-6, 6] step 0.05; Brent calibration of m so E[V_te] = F_0; H(K) strike adjustment; credit-triangle flat-spread L(s)).",
+          "Phase 3 \u2014 Spot CDS reconciliation diagnostic (test_bloomberg_cdsw_parity).",
+          "Phase 4a \u2014 PCD subtraction in forward annuity for self-consistency between `bootstrapped_l_at_expiry` and `flat_annuity(s)`.",
+          "Phase 4b \u2014 ATM Fwd numerator switched to *spot* protection from valuation date per Bloomberg HELP CDSO methodology; removed `cds.protection_effective_date = Some(option.expiry)` override.",
+          "Phase 4c \u2014 Hazard curve day_count Act365F\u2192Act360 (matched bootstrap output emitted by `bump_hazard_spreads` under IsdaNa conventions). Closed $73k spot CDS gap and 1.7 bp ATM Fwd / 28% option-NPV residual.",
+          "Phase 4d \u2014 Annuity uses no-AoD risky-annuity (DOCS 2057273 \u00a73.3 par-spread denominator).",
+          "Phase 4e \u2014 +1-day inclusive on protection-leg END (DOCS 2057273 \u00a73 'TM-T+1 days'), scoped to the option's spot-protection calc.",
+          "Phase 4f \u2014 Decoupled display ATM Fwd (drop-first per HELP CDSO) from calibration anchor (PCD-corrected economic par); preserves put/call parity at ATF for non-straddling schedules.",
+          "Phase 5a \u2014 IR DV01 sign convention: now positive (bond-convention: NPV increase per \u22121bp rate move) per Bloomberg CDSO screen. Hazard rates held constant during the rate bump (DOCS 2057273 \u00a74 'holding all other inputs constant'); previously rebootstrapped from par spreads. Result: \u2212$18 \u2192 +$115 (vs Bloomberg's $228).",
+          "Phase 5b \u2014 Theta convention: implemented DOCS 2055833 \u00a72.5 pure exercise-time shortening by 1/365.25 while retaining the same calibrated forward price and lognormal mean. Result: \u2212$1,479.45 vs Bloomberg's \u2212$1,499.93; this is much closer than the prior as-of-shift implementation (\u2212$1,704.95).",
+          "Phase 5c \u2014 Protection-leg integration sub-step subdivision: per DOCS 2057273 \u00a73 ('the timeline from T to TM is discretized into segments that are sufficiently small to justify constant forward discounting rates and constant hazard rate on each segment, no longer than any accrual period'), the protection-leg integration now subdivides the time axis at ~25 sub-steps per year (matching FinancePy's `GLOB_NUM_STEPS_PER_YEAR`, \u224814-day spacing) on top of the curve-knot boundaries. The previous knot-only segmentation used the average-rate approximation across each curve segment \u2014 for LogLinear DF curves where the continuous rate varies within a knot interval, this introduces a bias of order 0.005% on cdx_ig_46. Empirical effect on the option metrics: NPV $119,448 \u2192 $119,504 (+$56), theta \u2212$1,718 \u2192 \u2212$1,705 (closer to Bloomberg by $13), dv01 +$115.14 \u2192 +$115.03 (\u2212$0.11), vega +$0.14, cs01 +$0.01. The diagnostic guard rail in `test_bloomberg_cdsw_parity` was updated from $1.0 to $200.0 to reflect the new fine-step integration's floating-point summation floor (~$114 on a 100M-notional 5Y CDS at par).",
+          "Phase 5d \u2014 IR DV01 quote-bump convention: added Bloomberg S531 USD swap-curve quote calibration metadata, rebuilt the discount curve from shocked swap/deposit quotes, and matched the CDSO screen's symmetric \u00b11bp quote-shock amount with hazard rates held constant. Result: $225.84 vs Bloomberg $228.21; fixture tolerance tightened from $115 to $3 while expected_outputs remains the raw Bloomberg screen value.",
+          "Phase 2 market-bootstrap migration \u2014 discount and hazard curves now bootstrapped from raw S531 swap-curve deposit/swap quotes and CDX par-spread quotes via market_envelope CalibrationEnvelope (was: hand-entered knot points in inputs.market). The SABR vol surface continues to ship as a materialized snapshot in initial_market.surfaces. Bootstrap-vs-snapshot drift: npv \u2212$514, par_spread \u22120.025 bp, vega +$0.65, dv01 \u2212$0.77, cs01 \u2212$33.64, theta \u2212$0.28. Tolerances widened: par_spread 0.05\u21920.07 bp, vega $2.0\u2192$2.5, dv01 $3.0\u2192$3.5, cs01 $350\u2192$400. npv and theta tolerances unchanged. Bloomberg expected_outputs unchanged. Also: calibration engine extended to propagate rate_calibration metadata from deposit/swap quotes to the bootstrapped DiscountCurve (required by CDS option IR DV01 quote-bump path) and par_spread points from CDS quotes to the bootstrapped HazardCurve (required by CDS option CS01 quote-bump path)."
         ],
         "investigated_but_not_changed": [
           "BloombergCdswClean final-period +1-day inclusive rule on coupon_accrual: kept. Standard CDSW convention.",
@@ -722,10 +873,10 @@
         ],
         "known_gaps": [
           "ATM Fwd: current displayed par_spread is 55.2477 bp vs Bloomberg's 55.2848 bp, within the 0.05 bp source-display tolerance after settlement-window and protection-start convention alignment.",
-          "NPV: $2,195 over (1.85%). The drop-first annuity used for the displayed ATM Fwd matches Bloomberg's screen formula, but using it ALSO for the calibration anchor F_0 = (par − c)·L_te empirically overshoots NPV. PCD-corrected par for calibration remains the most internally consistent anchor. Closing the residual to within $1.0 absolute requires Bloomberg-quant clarification on the exact F_0 formulation (DOCS 2055833 §2.3 doesn't specify whether display ATM Fwd or economic forward enters F_0).",
-          "IR DV01: $225.84 vs Bloomberg $228.21 (under by 1.04%). The executable convention now bumps the stored Bloomberg S531 swap/deposit quotes, rebuilds the discount curve, and reports the CDSO screen's symmetric ±1bp quote-shock amount with hazard rates held constant. Rebootstrapping hazard under the bumped swap curve worsens the residual to $21.42.",
+          "NPV: $2,195 over (1.85%). The drop-first annuity used for the displayed ATM Fwd matches Bloomberg's screen formula, but using it ALSO for the calibration anchor F_0 = (par \u2212 c)\u00b7L_te empirically overshoots NPV. PCD-corrected par for calibration remains the most internally consistent anchor. Closing the residual to within $1.0 absolute requires Bloomberg-quant clarification on the exact F_0 formulation (DOCS 2055833 \u00a72.3 doesn't specify whether display ATM Fwd or economic forward enters F_0).",
+          "IR DV01: $225.84 vs Bloomberg $228.21 (under by 1.04%). The executable convention now bumps the stored Bloomberg S531 swap/deposit quotes, rebuilds the discount curve, and reports the CDSO screen's symmetric \u00b11bp quote-shock amount with hazard rates held constant. Rebootstrapping hazard under the bumped swap curve worsens the residual to $21.42.",
           "Spread DV01 (CS01): $25,004 vs Bloomberg $25,352 (under by 1.37%). Same convention-noise family as the spot-CDS protection-PV residual.",
-          "Theta: −$1,461 vs Bloomberg −$1,500 (under by 2.58%). Remaining difference is sensitive to small accrual and internal forward-calibration details not specified in the public document.",
+          "Theta: \u2212$1,461 vs Bloomberg \u2212$1,500 (under by 2.58%). Remaining difference is sensitive to small accrual and internal forward-calibration details not specified in the public document.",
           "Vega: $3,413.53 vs Bloomberg $3,411.78 (over by 0.05%).",
           "Achieving the published $0.05 absolute tolerances on the Greeks would require Bloomberg's exact CDSO internal algorithm. Phase 5 has aligned all KNOWN published conventions; remaining residuals reflect proprietary algorithm details."
         ]
@@ -734,7 +885,7 @@
         "npv": "Bloomberg Market Value is the option premium in USD for 100MM notional.",
         "par_spread": "Bloomberg ATM Fwd (bp) is the forward CDS spread used as the ATM strike.",
         "vega": "Bloomberg Vega(1%) is the dollar PV change for a +1 absolute percentage point move in lognormal spread vol.",
-        "dv01": "Bloomberg IR DV01 is the swap-curve quote-bump sensitivity displayed on CDSO; finstack reports the symmetric ±1bp quote-shock amount in bond sign.",
+        "dv01": "Bloomberg IR DV01 is the swap-curve quote-bump sensitivity displayed on CDSO; finstack reports the symmetric \u00b11bp quote-shock amount in bond sign.",
         "cs01": "Bloomberg Spread DV01 is the spread sensitivity displayed on CDSO.",
         "theta": "Bloomberg Theta is the displayed one-day time decay in dollars."
       }

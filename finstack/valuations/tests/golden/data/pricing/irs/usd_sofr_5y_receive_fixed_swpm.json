@@ -133,344 +133,32 @@
         "description": "USD-SOFR discount curve calibrated from Bloomberg SWPM Curve 490 Market Rates (transcribed 2026-04-30). 26 quotes total: 3 short-end deposits (1W-3W) and 23 OIS swaps (1M-12Y). The step's `conventions.ois_compounding` override sets the bootstrap-internal float-leg compounding to `CompoundedWithRateCutoff{cutoff_days: 1}` to match Bloomberg SWPM's convention (which differs from ARRC's `CompoundedInArrears{lookback_days: 2}` default). Without this override, calibrated DFs at the 5Y zone drift by ~3-4e-4 from Bloomberg's screen values.",
         "quote_sets": {
           "swpm_490_rates": [
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-SOFR-DEPOSIT-1W",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 1,
-                  "unit": "weeks"
-                }
-              },
-              "rate": 0.036355
-            },
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-SOFR-DEPOSIT-2W",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 2,
-                  "unit": "weeks"
-                }
-              },
-              "rate": 0.036425
-            },
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-SOFR-DEPOSIT-3W",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 3,
-                  "unit": "weeks"
-                }
-              },
-              "rate": 0.036379999999999996
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-1M",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 1,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.03644
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-2M",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 2,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.0365342
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-3M",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 3,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.0365665
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-4M",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 4,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.0365978
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-5M",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 5,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.0366465
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-6M",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 6,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.036695000000000005
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-7M",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 7,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.036749000000000004
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-8M",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 8,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.036840000000000005
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-9M",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 9,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.036924
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-10M",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 10,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.037010999999999995
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-11M",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 11,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.037124000000000004
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-12M",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 12,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.03722
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-18M",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 18,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.0372225
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-2Y",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 2,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.037075
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-3Y",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 3,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.036739
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-4Y",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 4,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.036764899999999996
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-5Y",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 5,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.0370075
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-6Y",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 6,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.0374452
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-7Y",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 7,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.03789
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-8Y",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 8,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.0383675
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-9Y",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 9,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.0388245
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-10Y",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 10,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.0392685
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-SWAP-12Y",
-              "index": "USD-SOFR",
-              "pillar": {
-                "tenor": {
-                  "count": 12,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.0401351
-            }
+            "USD-SOFR-DEPOSIT-1W",
+            "USD-SOFR-DEPOSIT-2W",
+            "USD-SOFR-DEPOSIT-3W",
+            "USD-SOFR-SWAP-1M",
+            "USD-SOFR-SWAP-2M",
+            "USD-SOFR-SWAP-3M",
+            "USD-SOFR-SWAP-4M",
+            "USD-SOFR-SWAP-5M",
+            "USD-SOFR-SWAP-6M",
+            "USD-SOFR-SWAP-7M",
+            "USD-SOFR-SWAP-8M",
+            "USD-SOFR-SWAP-9M",
+            "USD-SOFR-SWAP-10M",
+            "USD-SOFR-SWAP-11M",
+            "USD-SOFR-SWAP-12M",
+            "USD-SOFR-SWAP-18M",
+            "USD-SOFR-SWAP-2Y",
+            "USD-SOFR-SWAP-3Y",
+            "USD-SOFR-SWAP-4Y",
+            "USD-SOFR-SWAP-5Y",
+            "USD-SOFR-SWAP-6Y",
+            "USD-SOFR-SWAP-7Y",
+            "USD-SOFR-SWAP-8Y",
+            "USD-SOFR-SWAP-9Y",
+            "USD-SOFR-SWAP-10Y",
+            "USD-SOFR-SWAP-12Y"
           ]
         },
         "steps": [
@@ -496,29 +184,355 @@
             }
           }
         ],
-        "settings": {}
-      },
-      "initial_market": {
-        "version": 2,
-        "curves": [],
-        "fx": {
-          "config": {
+        "settings": {
+          "fx": {
             "pivot_currency": "USD",
             "enable_triangulation": true,
             "cache_capacity": 256
+          }
+        }
+      },
+      "market_data": [
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-SOFR-DEPOSIT-1W",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "weeks"
+            }
           },
-          "quotes": []
+          "rate": 0.036355
         },
-        "surfaces": [],
-        "prices": {},
-        "series": [],
-        "inflation_indices": [],
-        "dividends": [],
-        "credit_indices": [],
-        "fx_delta_vol_surfaces": [],
-        "vol_cubes": [],
-        "collateral": {}
-      }
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-SOFR-DEPOSIT-2W",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 2,
+              "unit": "weeks"
+            }
+          },
+          "rate": 0.036425
+        },
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-SOFR-DEPOSIT-3W",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "weeks"
+            }
+          },
+          "rate": 0.036379999999999996
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-1M",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "months"
+            }
+          },
+          "rate": 0.03644
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-2M",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 2,
+              "unit": "months"
+            }
+          },
+          "rate": 0.0365342
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-3M",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "months"
+            }
+          },
+          "rate": 0.0365665
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-4M",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 4,
+              "unit": "months"
+            }
+          },
+          "rate": 0.0365978
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-5M",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 5,
+              "unit": "months"
+            }
+          },
+          "rate": 0.0366465
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-6M",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 6,
+              "unit": "months"
+            }
+          },
+          "rate": 0.036695000000000005
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-7M",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 7,
+              "unit": "months"
+            }
+          },
+          "rate": 0.036749000000000004
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-8M",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 8,
+              "unit": "months"
+            }
+          },
+          "rate": 0.036840000000000005
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-9M",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 9,
+              "unit": "months"
+            }
+          },
+          "rate": 0.036924
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-10M",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 10,
+              "unit": "months"
+            }
+          },
+          "rate": 0.037010999999999995
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-11M",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 11,
+              "unit": "months"
+            }
+          },
+          "rate": 0.037124000000000004
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-12M",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 12,
+              "unit": "months"
+            }
+          },
+          "rate": 0.03722
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-18M",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 18,
+              "unit": "months"
+            }
+          },
+          "rate": 0.0372225
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-2Y",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 2,
+              "unit": "years"
+            }
+          },
+          "rate": 0.037075
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-3Y",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "years"
+            }
+          },
+          "rate": 0.036739
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-4Y",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 4,
+              "unit": "years"
+            }
+          },
+          "rate": 0.036764899999999996
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-5Y",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 5,
+              "unit": "years"
+            }
+          },
+          "rate": 0.0370075
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-6Y",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 6,
+              "unit": "years"
+            }
+          },
+          "rate": 0.0374452
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-7Y",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 7,
+              "unit": "years"
+            }
+          },
+          "rate": 0.03789
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-8Y",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 8,
+              "unit": "years"
+            }
+          },
+          "rate": 0.0383675
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-9Y",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 9,
+              "unit": "years"
+            }
+          },
+          "rate": 0.0388245
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-10Y",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 10,
+              "unit": "years"
+            }
+          },
+          "rate": 0.0392685
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-SWAP-12Y",
+          "index": "USD-SOFR",
+          "pillar": {
+            "tenor": {
+              "count": 12,
+              "unit": "years"
+            }
+          },
+          "rate": 0.0401351
+        }
+      ],
+      "prior_market": []
     },
     "source_reference": {
       "screen_outputs": {

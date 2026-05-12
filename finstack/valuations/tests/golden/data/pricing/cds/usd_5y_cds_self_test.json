@@ -71,254 +71,25 @@
         "id": "usd_5y_cds_self_test_market",
         "quote_sets": {
           "sofr_ois": [
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-SOFR-OIS-DEP-1W",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 1,
-                  "unit": "weeks"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-SOFR-OIS-DEP-2W",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 2,
-                  "unit": "weeks"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "deposit",
-              "id": "USD-SOFR-OIS-DEP-3W",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 3,
-                  "unit": "weeks"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-1M",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 1,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-3M",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 3,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-6M",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 6,
-                  "unit": "months"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-1Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 1,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.04
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-2Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 2,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.041
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-3Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 3,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.042
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-5Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 5,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.043
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-7Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 7,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.044
-            },
-            {
-              "class": "rates",
-              "type": "swap",
-              "id": "USD-SOFR-OIS-SWP-10Y",
-              "index": "USD-SOFR-OIS",
-              "pillar": {
-                "tenor": {
-                  "count": 10,
-                  "unit": "years"
-                }
-              },
-              "rate": 0.045
-            }
+            "USD-SOFR-OIS-DEP-1W",
+            "USD-SOFR-OIS-DEP-2W",
+            "USD-SOFR-OIS-DEP-3W",
+            "USD-SOFR-OIS-SWP-1M",
+            "USD-SOFR-OIS-SWP-3M",
+            "USD-SOFR-OIS-SWP-6M",
+            "USD-SOFR-OIS-SWP-1Y",
+            "USD-SOFR-OIS-SWP-2Y",
+            "USD-SOFR-OIS-SWP-3Y",
+            "USD-SOFR-OIS-SWP-5Y",
+            "USD-SOFR-OIS-SWP-7Y",
+            "USD-SOFR-OIS-SWP-10Y"
           ],
           "acme_cds": [
-            {
-              "class": "cds",
-              "type": "cds_par_spread",
-              "id": "ACME-CDS-1Y",
-              "entity": "ACME-CORP",
-              "convention": {
-                "currency": "USD",
-                "doc_clause": "isda_na"
-              },
-              "pillar": {
-                "tenor": {
-                  "count": 1,
-                  "unit": "years"
-                }
-              },
-              "spread_bp": 60.0,
-              "recovery_rate": 0.4
-            },
-            {
-              "class": "cds",
-              "type": "cds_par_spread",
-              "id": "ACME-CDS-3Y",
-              "entity": "ACME-CORP",
-              "convention": {
-                "currency": "USD",
-                "doc_clause": "isda_na"
-              },
-              "pillar": {
-                "tenor": {
-                  "count": 3,
-                  "unit": "years"
-                }
-              },
-              "spread_bp": 85.0,
-              "recovery_rate": 0.4
-            },
-            {
-              "class": "cds",
-              "type": "cds_par_spread",
-              "id": "ACME-CDS-5Y",
-              "entity": "ACME-CORP",
-              "convention": {
-                "currency": "USD",
-                "doc_clause": "isda_na"
-              },
-              "pillar": {
-                "tenor": {
-                  "count": 5,
-                  "unit": "years"
-                }
-              },
-              "spread_bp": 110.0,
-              "recovery_rate": 0.4
-            },
-            {
-              "class": "cds",
-              "type": "cds_par_spread",
-              "id": "ACME-CDS-7Y",
-              "entity": "ACME-CORP",
-              "convention": {
-                "currency": "USD",
-                "doc_clause": "isda_na"
-              },
-              "pillar": {
-                "tenor": {
-                  "count": 7,
-                  "unit": "years"
-                }
-              },
-              "spread_bp": 130.0,
-              "recovery_rate": 0.4
-            },
-            {
-              "class": "cds",
-              "type": "cds_par_spread",
-              "id": "ACME-CDS-10Y",
-              "entity": "ACME-CORP",
-              "convention": {
-                "currency": "USD",
-                "doc_clause": "isda_na"
-              },
-              "pillar": {
-                "tenor": {
-                  "count": 10,
-                  "unit": "years"
-                }
-              },
-              "spread_bp": 150.0,
-              "recovery_rate": 0.4
-            }
+            "ACME-CDS-1Y",
+            "ACME-CDS-3Y",
+            "ACME-CDS-5Y",
+            "ACME-CDS-7Y",
+            "ACME-CDS-10Y"
           ]
         },
         "steps": [
@@ -362,7 +133,256 @@
           }
         ],
         "settings": {}
-      }
+      },
+      "market_data": [
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-SOFR-OIS-DEP-1W",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "weeks"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-SOFR-OIS-DEP-2W",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 2,
+              "unit": "weeks"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "deposit",
+          "id": "USD-SOFR-OIS-DEP-3W",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "weeks"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-1M",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "months"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-3M",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "months"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-6M",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 6,
+              "unit": "months"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-1Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "years"
+            }
+          },
+          "rate": 0.04
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-2Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 2,
+              "unit": "years"
+            }
+          },
+          "rate": 0.041
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-3Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "years"
+            }
+          },
+          "rate": 0.042
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-5Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 5,
+              "unit": "years"
+            }
+          },
+          "rate": 0.043
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-7Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 7,
+              "unit": "years"
+            }
+          },
+          "rate": 0.044
+        },
+        {
+          "kind": "rate_quote",
+          "type": "swap",
+          "id": "USD-SOFR-OIS-SWP-10Y",
+          "index": "USD-SOFR-OIS",
+          "pillar": {
+            "tenor": {
+              "count": 10,
+              "unit": "years"
+            }
+          },
+          "rate": 0.045
+        },
+        {
+          "kind": "cds_quote",
+          "type": "cds_par_spread",
+          "id": "ACME-CDS-1Y",
+          "entity": "ACME-CORP",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 1,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 60.0,
+          "recovery_rate": 0.4
+        },
+        {
+          "kind": "cds_quote",
+          "type": "cds_par_spread",
+          "id": "ACME-CDS-3Y",
+          "entity": "ACME-CORP",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 3,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 85.0,
+          "recovery_rate": 0.4
+        },
+        {
+          "kind": "cds_quote",
+          "type": "cds_par_spread",
+          "id": "ACME-CDS-5Y",
+          "entity": "ACME-CORP",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 5,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 110.0,
+          "recovery_rate": 0.4
+        },
+        {
+          "kind": "cds_quote",
+          "type": "cds_par_spread",
+          "id": "ACME-CDS-7Y",
+          "entity": "ACME-CORP",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 7,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 130.0,
+          "recovery_rate": 0.4
+        },
+        {
+          "kind": "cds_quote",
+          "type": "cds_par_spread",
+          "id": "ACME-CDS-10Y",
+          "entity": "ACME-CORP",
+          "convention": {
+            "currency": "USD",
+            "doc_clause": "isda_na"
+          },
+          "pillar": {
+            "tenor": {
+              "count": 10,
+              "unit": "years"
+            }
+          },
+          "spread_bp": 150.0,
+          "recovery_rate": 0.4
+        }
+      ],
+      "prior_market": []
     },
     "source_reference": {
       "note": "Self-test fixture closing the hazard-step coverage gap on a single-name CDS (plan \u00a718 follow-up #3). Prior hazard-step coverage was only via CDX IG 46 (cds_option). Expected outputs captured from Finstack's calibrate + CDS-price round-trip; contract is bit-stable reproduction within 1e-9 absolute / 5e-9 relative tolerance.",
