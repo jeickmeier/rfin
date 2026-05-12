@@ -143,4 +143,14 @@ inflation_curve: InflationCurveSolveConfig,
  * pricing. Legacy or exploratory workflows that want to inspect the
  * report without aborting can set this to `false`.
  */
-fail_on_bad_fit: boolean, };
+fail_on_bad_fit: boolean, 
+/**
+ * FX matrix runtime config (pivot currency, triangulation, cache capacity).
+ * Hoisted out of `initial_market.fx.config` in v3 envelopes.
+ */
+fx: Record<string, unknown>, 
+/**
+ * Optional market-data hierarchy snapshot.
+ * Hoisted out of `initial_market.hierarchy` in v3 envelopes.
+ */
+hierarchy?: Record<string, unknown> | null, };

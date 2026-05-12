@@ -8,7 +8,8 @@
 //   const envelope: CalibrationEnvelope = {
 //     schema: 'finstack.calibration',
 //     plan: { id: 'usd_curves', quote_sets: {...}, steps: [...], settings: {} },
-//     initial_market: null,
+//     market_data: [],   // flat id-addressable quotes/snapshots
+//     prior_market: [],  // optional pre-built curves/surfaces
 //   };
 //   const result = valuations.calibrate(envelope);  // CalibrationResultEnvelope
 //   const marketJson = JSON.stringify(result.result.final_market);
@@ -36,6 +37,8 @@ export type { CalibrationEnvelope } from './types/generated/CalibrationEnvelope'
 export type { CalibrationPlan } from './types/generated/CalibrationPlan';
 export type { CalibrationStep } from './types/generated/CalibrationStep';
 export type { StepParams } from './types/generated/StepParams';
+export type { MarketDatum } from './types/generated/MarketDatum';
+export type { PriorMarketObject } from './types/generated/PriorMarketObject';
 export type { CalibrationResultEnvelope } from './types/generated/CalibrationResultEnvelope';
 export type { CalibrationResult } from './types/generated/CalibrationResult';
 export type { CalibrationReport } from './types/generated/CalibrationReport';

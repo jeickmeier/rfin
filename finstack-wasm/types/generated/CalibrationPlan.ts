@@ -18,9 +18,9 @@ id: string,
  */
 description: string | null, 
 /**
- * Market data organized by set name (referenced by steps).
+ * Named ID lists; each ID must resolve to a quote in `market_data`.
  */
-quote_sets: Record<string, Array<unknown>>, 
+quote_sets: Record<string, Array<string>>, 
 /**
  * Sequence of calibration steps to execute.
  */

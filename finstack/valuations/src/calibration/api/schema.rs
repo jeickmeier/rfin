@@ -120,6 +120,7 @@ pub struct CalibrationPlan {
     pub description: Option<String>,
     /// Named ID lists; each ID must resolve to a quote in `market_data`.
     #[serde(default)]
+    #[cfg_attr(feature = "ts_export", ts(type = "Record<string, Array<string>>"))]
     pub quote_sets: HashMap<String, Vec<QuoteId>>,
     /// Sequence of calibration steps to execute.
     pub steps: Vec<CalibrationStep>,

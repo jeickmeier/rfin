@@ -13,6 +13,8 @@ use finstack_core::market_data::term_structures::{
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "ts_export")]
+use ts_rs::TS;
 
 /// A pre-built calibrated market object.
 ///
@@ -20,58 +22,72 @@ use serde::{Deserialize, Serialize};
 /// callers can author flat heterogeneous lists in JSON/YAML. None of the
 /// underlying curve / surface types currently derive [`JsonSchema`] directly,
 /// so we apply the established `#[schemars(with = "serde_json::Value")]`
-/// workaround (matching the pattern in `market_datum.rs`).
+/// workaround (matching the pattern in `market_datum.rs`). The same applies
+/// on the TypeScript side via `#[ts(type = "unknown")]`.
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum PriorMarketObject {
     /// Pre-built discount-factor curve.
     DiscountCurve(
         #[schemars(with = "serde_json::Value")] //
+        #[cfg_attr(feature = "ts_export", ts(type = "unknown"))]
         DiscountCurve,
     ),
     /// Pre-built forward-rate curve.
     ForwardCurve(
         #[schemars(with = "serde_json::Value")] //
+        #[cfg_attr(feature = "ts_export", ts(type = "unknown"))]
         ForwardCurve,
     ),
     /// Pre-built default hazard-rate curve.
     HazardCurve(
         #[schemars(with = "serde_json::Value")] //
+        #[cfg_attr(feature = "ts_export", ts(type = "unknown"))]
         HazardCurve,
     ),
     /// Pre-built inflation (breakeven / index) curve.
     InflationCurve(
         #[schemars(with = "serde_json::Value")] //
+        #[cfg_attr(feature = "ts_export", ts(type = "unknown"))]
         InflationCurve,
     ),
     /// Pre-built CDS-index base-correlation curve.
     BaseCorrelationCurve(
         #[schemars(with = "serde_json::Value")] //
+        #[cfg_attr(feature = "ts_export", ts(type = "unknown"))]
         BaseCorrelationCurve,
     ),
     /// Pre-built tenor-basis spread curve.
     BasisSpreadCurve(
         #[schemars(with = "serde_json::Value")] //
+        #[cfg_attr(feature = "ts_export", ts(type = "unknown"))]
         BasisSpreadCurve,
     ),
     /// Pre-built parametric (e.g. Nelson-Siegel) curve.
     ParametricCurve(
         #[schemars(with = "serde_json::Value")] //
+        #[cfg_attr(feature = "ts_export", ts(type = "unknown"))]
         ParametricCurve,
     ),
     /// Pre-built spot / forward price curve.
     PriceCurve(
         #[schemars(with = "serde_json::Value")] //
+        #[cfg_attr(feature = "ts_export", ts(type = "unknown"))]
         PriceCurve,
     ),
     /// Pre-built volatility-index forward curve.
     VolatilityIndexCurve(
         #[schemars(with = "serde_json::Value")] //
+        #[cfg_attr(feature = "ts_export", ts(type = "unknown"))]
         VolatilityIndexCurve,
     ),
     /// Pre-built volatility surface (expiry x strike).
     VolSurface(
         #[schemars(with = "serde_json::Value")] //
+        #[cfg_attr(feature = "ts_export", ts(type = "unknown"))]
         VolSurface,
     ),
 }

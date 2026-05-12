@@ -31,7 +31,8 @@ pub fn validate_calibration_json(json: &str) -> Result<String, JsValue> {
 /// Execute a calibration plan and return the full result envelope as JSON.
 ///
 /// Accepts a serialized `CalibrationEnvelope` (plan + quote sets + optional
-/// initial market state) and returns a serialized `CalibrationResultEnvelope`.
+/// flat `market_data` / `prior_market` lists) and returns a serialized
+/// `CalibrationResultEnvelope`.
 #[wasm_bindgen(js_name = calibrate)]
 pub fn calibrate(envelope_json: &str) -> Result<String, JsValue> {
     let envelope: CalibrationEnvelope = serde_json::from_str(envelope_json).map_err(|e| {
@@ -117,7 +118,8 @@ mod tests {
             schema_url: None,
             schema: CALIBRATION_SCHEMA.to_string(),
             plan,
-            initial_market: None,
+            market_data: Vec::new(),
+            prior_market: Vec::new(),
         };
         serde_json::to_string(&envelope).expect("serialize")
     }

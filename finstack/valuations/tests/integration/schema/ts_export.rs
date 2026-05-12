@@ -1,3 +1,7 @@
+use finstack_valuations::calibration::api::market_datum::{
+    CollateralEntry, DividendScheduleDatum, FxSpotDatum, MarketDatum, PriceDatum,
+};
+use finstack_valuations::calibration::api::prior_market::PriorMarketObject;
 use finstack_valuations::calibration::api::schema::{
     AtmStrikeConvention, BaseCorrelationParams, CalibrationEnvelope, CalibrationPlan,
     CalibrationResult, CalibrationResultEnvelope, CalibrationStep, CapFloorHullWhiteStepParams,
@@ -64,6 +68,14 @@ fn export_calibration_envelope_types() {
     CalibrationEnvelope::export(cfg).expect("export CalibrationEnvelope");
     CalibrationPlan::export(cfg).expect("export CalibrationPlan");
     CalibrationStep::export(cfg).expect("export CalibrationStep");
+
+    // v3 envelope payload types (market_data / prior_market lists).
+    MarketDatum::export(cfg).expect("export MarketDatum");
+    FxSpotDatum::export(cfg).expect("export FxSpotDatum");
+    PriceDatum::export(cfg).expect("export PriceDatum");
+    DividendScheduleDatum::export(cfg).expect("export DividendScheduleDatum");
+    CollateralEntry::export(cfg).expect("export CollateralEntry");
+    PriorMarketObject::export(cfg).expect("export PriorMarketObject");
 
     // StepParams tagged union and all variant Params
     StepParams::export(cfg).expect("export StepParams");
