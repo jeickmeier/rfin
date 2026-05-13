@@ -3,8 +3,14 @@
 use crate::bindings::core::dates::utils::date_to_py;
 use crate::bindings::pandas_utils::{dates_to_pylist, dict_to_dataframe};
 use finstack_analytics as fa;
+use numpy::PyArray1;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
+
+#[inline]
+fn slice_to_pyarray<'py>(py: Python<'py>, values: &[f64]) -> Bound<'py, PyArray1<f64>> {
+    PyArray1::from_slice(py, values)
+}
 
 // ---------------------------------------------------------------------------
 // PeriodStats
@@ -191,20 +197,20 @@ impl PyRollingGreeks {
     }
     /// Rolling alpha values.
     #[getter]
-    fn alphas(&self) -> Vec<f64> {
-        self.inner.alphas.clone()
+    fn alphas<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
+        slice_to_pyarray(py, &self.inner.alphas)
     }
     /// Rolling beta values.
     #[getter]
-    fn betas(&self) -> Vec<f64> {
-        self.inner.betas.clone()
+    fn betas<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
+        slice_to_pyarray(py, &self.inner.betas)
     }
 
     /// Convert to a pandas ``DataFrame`` with date index and alpha/beta columns.
     fn to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let data = PyDict::new(py);
-        data.set_item("alpha", &self.inner.alphas)?;
-        data.set_item("beta", &self.inner.betas)?;
+        data.set_item("alpha", slice_to_pyarray(py, &self.inner.alphas))?;
+        data.set_item("beta", slice_to_pyarray(py, &self.inner.betas))?;
         let dates = dates_to_pylist(py, &self.inner.dates)?;
         let idx = dates.into_pyobject(py)?.into_any();
         dict_to_dataframe(py, &data, Some(idx))
@@ -234,8 +240,8 @@ impl PyMultiFactorResult {
     }
     /// Factor betas.
     #[getter]
-    fn betas(&self) -> Vec<f64> {
-        self.inner.betas.clone()
+    fn betas<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
+        slice_to_pyarray(py, &self.inner.betas)
     }
     /// R-squared.
     #[getter]
@@ -332,23 +338,23 @@ pub struct PyLookbackReturns {
 impl PyLookbackReturns {
     /// Month-to-date returns per ticker.
     #[getter]
-    fn mtd(&self) -> Vec<f64> {
-        self.inner.mtd.clone()
+    fn mtd<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
+        slice_to_pyarray(py, &self.inner.mtd)
     }
     /// Quarter-to-date returns per ticker.
     #[getter]
-    fn qtd(&self) -> Vec<f64> {
-        self.inner.qtd.clone()
+    fn qtd<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
+        slice_to_pyarray(py, &self.inner.qtd)
     }
     /// Year-to-date returns per ticker.
     #[getter]
-    fn ytd(&self) -> Vec<f64> {
-        self.inner.ytd.clone()
+    fn ytd<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
+        slice_to_pyarray(py, &self.inner.ytd)
     }
     /// Fiscal-year-to-date returns (``None`` if no fiscal config).
     #[getter]
-    fn fytd(&self) -> Option<Vec<f64>> {
-        self.inner.fytd.clone()
+    fn fytd<'py>(&self, py: Python<'py>) -> Option<Bound<'py, PyArray1<f64>>> {
+        self.inner.fytd.as_deref().map(|v| slice_to_pyarray(py, v))
     }
 
     /// Convert to a pandas ``DataFrame`` with ticker names as index.
@@ -360,11 +366,11 @@ impl PyLookbackReturns {
         ticker_names: Vec<String>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let data = PyDict::new(py);
-        data.set_item("mtd", &self.inner.mtd)?;
-        data.set_item("qtd", &self.inner.qtd)?;
-        data.set_item("ytd", &self.inner.ytd)?;
+        data.set_item("mtd", slice_to_pyarray(py, &self.inner.mtd))?;
+        data.set_item("qtd", slice_to_pyarray(py, &self.inner.qtd))?;
+        data.set_item("ytd", slice_to_pyarray(py, &self.inner.ytd))?;
         if let Some(ref fytd) = self.inner.fytd {
-            data.set_item("fytd", fytd)?;
+            data.set_item("fytd", slice_to_pyarray(py, fytd))?;
         }
         let idx = ticker_names.into_pyobject(py)?.into_any();
         dict_to_dataframe(py, &data, Some(idx))
@@ -409,8 +415,8 @@ impl PyDatedSeries {
 impl PyDatedSeries {
     /// Numeric values, one per window.
     #[getter]
-    fn values(&self) -> Vec<f64> {
-        self.inner.values.clone()
+    fn values<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
+        slice_to_pyarray(py, &self.inner.values)
     }
     /// Window-end dates aligned 1:1 with [`values`](Self::values).
     fn dates<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
@@ -430,7 +436,10 @@ impl PyDatedSeries {
     /// single value column named after [`value_column`](Self::value_column).
     fn to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let data = PyDict::new(py);
-        data.set_item(self.value_column.as_str(), &self.inner.values)?;
+        data.set_item(
+            self.value_column.as_str(),
+            slice_to_pyarray(py, &self.inner.values),
+        )?;
         let dates = dates_to_pylist(py, &self.inner.dates)?;
         let idx = dates.into_pyobject(py)?.into_any();
         dict_to_dataframe(py, &data, Some(idx))

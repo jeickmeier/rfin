@@ -5,8 +5,8 @@
 
 use super::Performance;
 use crate::benchmark::{
-    batting_average, beta, capture_ratio, down_capture, greeks, information_ratio, m_squared,
-    multi_factor_greeks, r_squared, rolling_greeks, tracking_error, treynor, up_capture,
+    batting_average, beta, beta_only, capture_ratio, down_capture, greeks, information_ratio,
+    m_squared, multi_factor_greeks, r_squared, rolling_greeks, tracking_error, treynor, up_capture,
     BetaResult, GreeksResult, MultiFactorResult, RollingGreeks,
 };
 use crate::risk_metrics;
@@ -28,7 +28,7 @@ impl Performance {
         self.map_tickers(|i| {
             let r = self.active_returns(i);
             let ann_ret = risk_metrics::mean_return(r, true, ann);
-            let beta = greeks(r, bench, ann).beta;
+            let beta = beta_only(r, bench);
             treynor(ann_ret, risk_free_rate, beta)
         })
     }
@@ -113,11 +113,9 @@ impl Performance {
     pub fn m_squared(&self, risk_free_rate: f64) -> Vec<f64> {
         let ann = self.ann();
         let bench = self.active_bench();
-        let bench_vol = risk_metrics::volatility(bench, true, ann);
+        let (_, bench_vol) = risk_metrics::mean_vol_annualized(bench, ann);
         self.map_tickers(|i| {
-            let r = self.active_returns(i);
-            let ann_ret = risk_metrics::mean_return(r, true, ann);
-            let ann_vol = risk_metrics::volatility(r, true, ann);
+            let (ann_ret, ann_vol) = risk_metrics::mean_vol_annualized(self.active_returns(i), ann);
             m_squared(ann_ret, ann_vol, bench_vol, risk_free_rate)
         })
     }

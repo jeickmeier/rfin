@@ -8,7 +8,7 @@
 //! Annualization uses the caller-supplied factor (typically from
 //! `PeriodKind::annualization_factor()`).
 
-use crate::math::stats::{mean, variance};
+use crate::math::stats::{mean, mean_var, variance};
 use crate::math::summation::kahan_sum;
 
 use super::tail_risk::cornish_fisher_var;
@@ -264,6 +264,23 @@ pub(crate) fn mean_return(returns: &[f64], annualize: bool, ann_factor: f64) -> 
 /// let vol_ann = volatility(&r, true, 252.0);
 /// assert!((vol_ann - vol * 252.0_f64.sqrt()).abs() < 1e-12);
 /// ```
+/// Annualized mean and volatility from one Welford pass.
+///
+/// Equivalent to `(mean_return(returns, true, ann_factor),
+/// volatility(returns, true, ann_factor))` but walks the slice once instead
+/// of twice. Used by callers (e.g. Sharpe / M²) that need both.
+///
+/// Returns `(NaN, NaN)` for the same invalid annualization-factor cases as
+/// the individual functions.
+#[must_use]
+pub(crate) fn mean_vol_annualized(returns: &[f64], ann_factor: f64) -> (f64, f64) {
+    if invalid_annualization_factor(true, ann_factor) {
+        return (f64::NAN, f64::NAN);
+    }
+    let (m, var) = mean_var(returns);
+    (m * ann_factor, var.sqrt() * ann_factor.sqrt())
+}
+
 #[must_use]
 pub(crate) fn volatility(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
     if invalid_annualization_factor(annualize, ann_factor) {

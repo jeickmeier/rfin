@@ -3,11 +3,47 @@
 //! Pure layout split from `performance.rs`; no behavior changes.
 
 use super::Performance;
-use crate::returns::comp_total;
 use crate::risk_metrics::{
     rolling_sharpe, rolling_sortino, rolling_volatility, DatedSeries, RollingSharpe,
     RollingSortino, RollingVolatility,
 };
+
+/// Smallest growth factor allowed before taking the log.
+///
+/// Matches the floor used by `returns::comp_sum` / `comp_total` so the
+/// incremental rolling kernel produces the same wipeout handling as the
+/// per-window full recomputation.
+const MIN_GROWTH_FACTOR: f64 = 1e-18;
+
+/// Recompute precision interval for the sliding log-sum used by
+/// `rolling_returns`. Mirrors `risk_metrics::rolling::ROLLING_KERNEL_RECOMPUTE_INTERVAL`.
+const ROLLING_LOG_SUM_RECOMPUTE_INTERVAL: usize = 1024;
+
+#[inline]
+fn log_factor(r: f64) -> Option<f64> {
+    if !r.is_finite() {
+        None
+    } else {
+        Some((1.0 + r).max(MIN_GROWTH_FACTOR).ln())
+    }
+}
+
+fn recompute_log_sum(window: &[f64]) -> Option<f64> {
+    let mut sum = 0.0_f64;
+    let mut comp = 0.0_f64;
+    for &r in window {
+        let lf = log_factor(r)?;
+        // Neumaier-style compensated summation, matching `comp_total`.
+        let t = sum + lf;
+        if sum.abs() >= lf.abs() {
+            comp += (sum - t) + lf;
+        } else {
+            comp += (lf - t) + sum;
+        }
+        sum = t;
+    }
+    Some(sum + comp)
+}
 
 impl Performance {
     /// Rolling compounded returns for a specific ticker.
@@ -36,9 +72,42 @@ impl Performance {
         let count = n - window + 1;
         let mut values = Vec::with_capacity(count);
         let mut out_dates = Vec::with_capacity(count);
-        for end in window..=n {
-            let start = end - window;
-            values.push(comp_total(&returns[start..end]));
+
+        // Incremental sliding log-sum. NaN/Inf inside the active window mark
+        // the affected outputs as NaN, matching `comp_total`'s contract.
+        let mut log_sum = recompute_log_sum(&returns[..window]).unwrap_or(f64::NAN);
+        values.push(if log_sum.is_finite() {
+            log_sum.exp() - 1.0
+        } else {
+            f64::NAN
+        });
+        out_dates.push(dates[window - 1]);
+
+        let mut steps_since_recompute = 0_usize;
+        for end in (window + 1)..=n {
+            let add = returns[end - 1];
+            let rem = returns[end - 1 - window];
+            match (log_factor(add), log_factor(rem)) {
+                (Some(a), Some(r)) if log_sum.is_finite() => {
+                    log_sum += a - r;
+                }
+                _ => {
+                    // A non-finite return entering or leaving the window
+                    // forces a full recompute against the next slice.
+                    log_sum = f64::NAN;
+                }
+            }
+            steps_since_recompute += 1;
+            if !log_sum.is_finite() || steps_since_recompute >= ROLLING_LOG_SUM_RECOMPUTE_INTERVAL {
+                let start = end - window;
+                log_sum = recompute_log_sum(&returns[start..end]).unwrap_or(f64::NAN);
+                steps_since_recompute = 0;
+            }
+            values.push(if log_sum.is_finite() {
+                log_sum.exp() - 1.0
+            } else {
+                f64::NAN
+            });
             out_dates.push(dates[end - 1]);
         }
         Ok(DatedSeries {

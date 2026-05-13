@@ -13,13 +13,13 @@ mod tail_risk;
 
 pub(crate) use return_based::invalid_annualization_factor;
 pub(crate) use return_based::{
-    cagr, downside_deviation, gain_to_pain, geometric_mean, mean_return, modified_sharpe,
-    omega_ratio, sharpe, sortino, volatility,
+    cagr, downside_deviation, gain_to_pain, geometric_mean, mean_return, mean_vol_annualized,
+    modified_sharpe, omega_ratio, sharpe, sortino, volatility,
 };
 pub use return_based::{AnnualizationConvention, CagrBasis};
 pub(crate) use rolling::{rolling_sharpe, rolling_sortino, rolling_volatility};
 pub use rolling::{DatedSeries, RollingSharpe, RollingSortino, RollingVolatility};
 pub(crate) use tail_risk::{
-    cornish_fisher_var, expected_shortfall, kurtosis, parametric_var, skewness, tail_ratio,
-    value_at_risk,
+    cornish_fisher_var, expected_shortfall, kurtosis, parametric_var, skew_kurt, skewness,
+    tail_ratio, value_at_risk, value_at_risk_and_es,
 };

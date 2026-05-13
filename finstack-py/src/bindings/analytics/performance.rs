@@ -6,10 +6,22 @@ use crate::bindings::pandas_utils::{dates_to_pylist, dict_to_dataframe};
 use crate::errors::analytics_to_py as core_to_py;
 use finstack_analytics as fa;
 use finstack_core::dates::{CalendarRegistry, FiscalConfig, HolidayCalendar, PeriodKind};
+use numpy::PyArray1;
 use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
+
+/// Wrap a `Vec<f64>` as a NumPy `float64` array, taking ownership of the
+/// buffer so no per-element `PyFloat` boxing occurs.
+fn vec_to_pyarray<'py>(py: Python<'py>, values: Vec<f64>) -> Bound<'py, PyArray1<f64>> {
+    PyArray1::from_vec(py, values)
+}
+
+/// Wrap a borrowed `&[f64]` as a NumPy `float64` array (one copy).
+fn slice_to_pyarray<'py>(py: Python<'py>, values: &[f64]) -> Bound<'py, PyArray1<f64>> {
+    PyArray1::from_slice(py, values)
+}
 
 /// Default fiscal-year start month (January) when callers do not override.
 const DEFAULT_FISCAL_START_MONTH: u8 = 1;
@@ -703,8 +715,12 @@ impl PyPerformance {
         risk_free_rate: f64,
         confidence: f64,
     ) -> PyResult<Bound<'py, PyAny>> {
-        // (name, value) pairs driven by a single source of truth so adding a
-        // metric is one line, not three places to update.
+        // Share work where the analytics layer offers combined helpers, so
+        // pairs that always travel together (VaR/ES, skewness/kurtosis) only
+        // walk each ticker once.
+        let (var, es) = self.inner.value_at_risk_and_es(confidence);
+        let (skew, kurt) = self.inner.skew_kurt();
+
         let metrics: [(&str, Vec<f64>); 22] = [
             ("cagr", self.inner.cagr().map_err(core_to_py)?),
             ("mean_return", self.inner.mean_return(true)),
@@ -713,15 +729,12 @@ impl PyPerformance {
             ("sortino", self.inner.sortino(0.0)),
             ("calmar", self.inner.calmar().map_err(core_to_py)?),
             ("max_drawdown", self.inner.max_drawdown()),
-            ("value_at_risk", self.inner.value_at_risk(confidence)),
-            (
-                "expected_shortfall",
-                self.inner.expected_shortfall(confidence),
-            ),
+            ("value_at_risk", var),
+            ("expected_shortfall", es),
             ("tracking_error", self.inner.tracking_error()),
             ("information_ratio", self.inner.information_ratio()),
-            ("skewness", self.inner.skewness()),
-            ("kurtosis", self.inner.kurtosis()),
+            ("skewness", skew),
+            ("kurtosis", kurt),
             ("geometric_mean", self.inner.geometric_mean()),
             ("downside_deviation", self.inner.downside_deviation(0.0)),
             ("omega_ratio", self.inner.omega_ratio(0.0)),
@@ -735,7 +748,7 @@ impl PyPerformance {
 
         let data = PyDict::new(py);
         for (name, values) in metrics {
-            data.set_item(name, values)?;
+            data.set_item(name, vec_to_pyarray(py, values))?;
         }
 
         let names = self.inner.ticker_names();
@@ -751,8 +764,8 @@ impl PyPerformance {
         let data = PyDict::new(py);
         let names = self.inner.ticker_names();
         let cum_rets = self.inner.cumulative_returns();
-        for (name, series) in names.iter().zip(cum_rets.iter()) {
-            data.set_item(name, series)?;
+        for (name, series) in names.iter().zip(cum_rets.into_iter()) {
+            data.set_item(name, vec_to_pyarray(py, series))?;
         }
         let dates = dates_to_pylist(py, self.inner.active_dates())?;
         let idx = dates.into_pyobject(py)?.into_any();
@@ -766,8 +779,8 @@ impl PyPerformance {
         let data = PyDict::new(py);
         let names = self.inner.ticker_names();
         let dd = self.inner.drawdown_series();
-        for (name, series) in names.iter().zip(dd.iter()) {
-            data.set_item(name, series)?;
+        for (name, series) in names.iter().zip(dd.into_iter()) {
+            data.set_item(name, vec_to_pyarray(py, series))?;
         }
         let dates = dates_to_pylist(py, self.inner.active_dates())?;
         let idx = dates.into_pyobject(py)?.into_any();
@@ -864,11 +877,11 @@ impl PyPerformance {
             .map_err(core_to_py)?;
 
         let data = PyDict::new(py);
-        data.set_item("mtd", &lb.mtd)?;
-        data.set_item("qtd", &lb.qtd)?;
-        data.set_item("ytd", &lb.ytd)?;
+        data.set_item("mtd", slice_to_pyarray(py, &lb.mtd))?;
+        data.set_item("qtd", slice_to_pyarray(py, &lb.qtd))?;
+        data.set_item("ytd", slice_to_pyarray(py, &lb.ytd))?;
         if let Some(ref fytd) = lb.fytd {
-            data.set_item("fytd", fytd)?;
+            data.set_item("fytd", slice_to_pyarray(py, fytd))?;
         }
 
         let names = self.inner.ticker_names();

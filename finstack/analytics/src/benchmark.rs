@@ -381,6 +381,27 @@ pub fn beta(portfolio: &[f64], benchmark: &[f64]) -> BetaResult {
     }
 }
 
+/// OLS beta only — slope of `r_portfolio` on `r_benchmark`.
+///
+/// Equivalent to `greeks(returns, benchmark, _).beta` but skips the alpha,
+/// correlation, and adjusted-R² arithmetic. Used by callers (e.g. Treynor)
+/// that need only the slope and otherwise pay for unused outputs.
+///
+/// Returns `0.0` for empty inputs (matching the [`greeks`] sentinel) and the
+/// running `OnlineCovariance::optimal_beta()` value otherwise.
+#[must_use]
+pub(crate) fn beta_only(returns: &[f64], benchmark: &[f64]) -> f64 {
+    let n = returns.len().min(benchmark.len());
+    if n == 0 {
+        return 0.0;
+    }
+    let mut oc = OnlineCovariance::new();
+    for i in 0..n {
+        oc.update(returns[i], benchmark[i]);
+    }
+    oc.optimal_beta()
+}
+
 /// Greeks (alpha, beta, R-squared, adjusted R-squared) from a single-factor regression.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct GreeksResult {

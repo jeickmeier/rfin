@@ -14,8 +14,7 @@
 //!   (matching Excel `SKEW()` / `KURT()`)
 //! - empty inputs return `0.0` rather than panicking
 
-use crate::math::stats::{mean, variance};
-use finstack_core::math::neumaier_sum;
+use crate::math::stats::mean_var;
 
 fn has_strict_confidence(confidence: f64) -> bool {
     confidence.is_finite() && confidence > 0.0 && confidence < 1.0
@@ -192,13 +191,49 @@ pub(crate) fn expected_shortfall(returns: &[f64], confidence: f64) -> f64 {
         return f64::NAN;
     };
     let var_threshold = quantile_finite(&mut data, 1.0 - confidence);
-    let tail_sum = neumaier_sum(data.iter().copied().filter(|&v| v <= var_threshold));
-    let tail_count = data.iter().filter(|&&v| v <= var_threshold).count();
+    let (tail_sum, tail_count) = data
+        .iter()
+        .filter(|&&v| v <= var_threshold)
+        .fold((0.0_f64, 0usize), |(s, n), &v| (s + v, n + 1));
     if tail_count == 0 {
         var_threshold
     } else {
         tail_sum / tail_count as f64
     }
+}
+
+/// Compute historical VaR and Expected Shortfall in a single pass.
+///
+/// Shares the `finite_returns_copy` allocation and `quantile_finite`
+/// partition between the two metrics, which is the common case for
+/// summary outputs that report both.
+///
+/// Returns `(value_at_risk, expected_shortfall)`. Sentinel rules match the
+/// standalone [`value_at_risk`] / [`expected_shortfall`] functions:
+/// `(0.0, 0.0)` for an empty slice and `(NaN, NaN)` for non-finite inputs
+/// or out-of-range `confidence`.
+#[must_use]
+pub(crate) fn value_at_risk_and_es(returns: &[f64], confidence: f64) -> (f64, f64) {
+    if returns.is_empty() {
+        return (0.0, 0.0);
+    }
+    if !has_strict_confidence(confidence) {
+        return (f64::NAN, f64::NAN);
+    }
+    let Some(mut data) = finite_returns_copy(returns) else {
+        return (f64::NAN, f64::NAN);
+    };
+    let var_threshold = quantile_finite(&mut data, 1.0 - confidence);
+    let (tail_sum, tail_count) = data
+        .iter()
+        .filter(|&&v| v <= var_threshold)
+        .fold((0.0_f64, 0usize), |(s, n), &v| (s + v, n + 1));
+    let es = if tail_count == 0 {
+        var_threshold
+    } else {
+        tail_sum / tail_count as f64
+    };
+    (var_threshold, es)
 }
 /// Tail ratio = |upper tail| / |lower tail|.
 ///
@@ -337,6 +372,16 @@ pub(crate) fn kurtosis(returns: &[f64]) -> f64 {
     kurt
 }
 
+/// Bias-corrected sample skewness and excess kurtosis in one pass.
+///
+/// Avoids running `moments4` twice when both metrics are needed (e.g. in
+/// summary outputs).
+#[must_use]
+pub(crate) fn skew_kurt(returns: &[f64]) -> (f64, f64) {
+    let (_, _, skew, kurt) = moments4(returns);
+    (skew, kurt)
+}
+
 /// Parametric (Gaussian) Value-at-Risk.
 ///
 /// Assumes normally distributed returns:
@@ -382,8 +427,8 @@ pub(crate) fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Optio
     if !valid_horizon(ann_factor) {
         return f64::NAN;
     }
-    let m = mean(returns);
-    let vol = variance(returns).sqrt();
+    let (m, var) = mean_var(returns);
+    let vol = var.sqrt();
     let z = crate::math::special_functions::standard_normal_inv_cdf(1.0 - confidence);
     match ann_factor {
         Some(af) => m * af + z * vol * af.sqrt(),

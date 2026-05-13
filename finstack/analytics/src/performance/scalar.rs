@@ -105,9 +105,7 @@ impl Performance {
     pub fn sharpe(&self, risk_free_rate: f64) -> Vec<f64> {
         let ann = self.ann();
         self.map_tickers(|i| {
-            let r = self.active_returns(i);
-            let m = risk_metrics::mean_return(r, true, ann);
-            let v = risk_metrics::volatility(r, true, ann);
+            let (m, v) = risk_metrics::mean_vol_annualized(self.active_returns(i), ann);
             risk_metrics::sharpe(m, v, risk_free_rate)
         })
     }
@@ -252,6 +250,40 @@ impl Performance {
     /// values indicate fatter tails than a normal distribution.
     pub fn kurtosis(&self) -> Vec<f64> {
         self.map_tickers(|i| risk_metrics::kurtosis(self.active_returns(i)))
+    }
+
+    /// Per-ticker `(skewness, kurtosis)` from one moments pass per ticker.
+    ///
+    /// Returns two parallel vectors `(skewness_per_ticker, kurtosis_per_ticker)`
+    /// in column order. Equivalent to calling [`Self::skewness`] and
+    /// [`Self::kurtosis`] but walks each ticker once instead of twice.
+    pub fn skew_kurt(&self) -> (Vec<f64>, Vec<f64>) {
+        let n = self.ticker_names().len();
+        let mut sk = Vec::with_capacity(n);
+        let mut ku = Vec::with_capacity(n);
+        for i in 0..n {
+            let (s, k) = risk_metrics::skew_kurt(self.active_returns(i));
+            sk.push(s);
+            ku.push(k);
+        }
+        (sk, ku)
+    }
+
+    /// Per-ticker `(value_at_risk, expected_shortfall)` from one tail pass per ticker.
+    ///
+    /// Returns two parallel vectors `(var_per_ticker, es_per_ticker)` in
+    /// column order. Equivalent to calling [`Self::value_at_risk`] and
+    /// [`Self::expected_shortfall`] but shares the partition / allocation.
+    pub fn value_at_risk_and_es(&self, confidence: f64) -> (Vec<f64>, Vec<f64>) {
+        let n = self.ticker_names().len();
+        let mut vars = Vec::with_capacity(n);
+        let mut ess = Vec::with_capacity(n);
+        for i in 0..n {
+            let (v, e) = risk_metrics::value_at_risk_and_es(self.active_returns(i), confidence);
+            vars.push(v);
+            ess.push(e);
+        }
+        (vars, ess)
     }
 
     /// Geometric mean return for each ticker.

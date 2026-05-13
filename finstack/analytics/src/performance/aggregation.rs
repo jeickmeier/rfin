@@ -47,20 +47,55 @@ impl Performance {
     pub fn correlation_matrix(&self) -> Vec<Vec<f64>> {
         let n = self.ticker_names().len();
         let mut matrix = vec![vec![0.0; n]; n];
+        if n == 0 {
+            return matrix;
+        }
 
-        let variances: Vec<f64> = (0..n)
-            .map(|i| crate::math::stats::variance(self.active_returns(i)))
-            .collect();
+        // Use the shortest active series so all column lookups are bounds-safe
+        // when callers feed misaligned panels through `active_returns`.
+        let t = (0..n)
+            .map(|i| self.active_returns(i).len())
+            .min()
+            .unwrap_or(0);
+        if t == 0 {
+            for (i, row) in matrix.iter_mut().enumerate().take(n) {
+                row[i] = 1.0;
+            }
+            return matrix;
+        }
 
+        // One Welford pass per column gives mean+variance; centering once
+        // avoids the n²-mean recomputation hidden inside pairwise `covariance`.
+        let mut centered: Vec<Vec<f64>> = Vec::with_capacity(n);
+        let mut std_devs: Vec<f64> = Vec::with_capacity(n);
+        for i in 0..n {
+            let series = &self.active_returns(i)[..t];
+            let (m, var) = crate::math::stats::mean_var(series);
+            let mut c = Vec::with_capacity(t);
+            for &v in series {
+                c.push(v - m);
+            }
+            centered.push(c);
+            std_devs.push(var.sqrt());
+        }
+
+        let denom = if t > 1 { (t - 1) as f64 } else { 1.0 };
         for i in 0..n {
             matrix[i][i] = 1.0;
-            let ri = self.active_returns(i);
             for j in (i + 1)..n {
-                let rj = self.active_returns(j);
-                let len = ri.len().min(rj.len());
-                let cov = crate::math::stats::covariance(&ri[..len], &rj[..len]);
-                let denom = variances[i].sqrt() * variances[j].sqrt();
-                let corr = if denom == 0.0 { 0.0 } else { cov / denom };
+                let scale = std_devs[i] * std_devs[j];
+                let corr = if scale == 0.0 {
+                    0.0
+                } else {
+                    let ci = &centered[i];
+                    let cj = &centered[j];
+                    let mut dot = 0.0_f64;
+                    for k in 0..t {
+                        dot += ci[k] * cj[k];
+                    }
+                    let cov = dot / denom;
+                    cov / scale
+                };
                 matrix[i][j] = corr;
                 matrix[j][i] = corr;
             }

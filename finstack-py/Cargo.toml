@@ -32,6 +32,7 @@ finstack-statements-analytics = { path = "../finstack/statements-analytics" }
 finstack-scenarios = { path = "../finstack/scenarios" }
 finstack-portfolio = { path = "../finstack/portfolio" }
 nalgebra = "0.34"
+numpy = "0.28"
 pyo3 = { version = "0.28", features = ["multiple-pymethods"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
