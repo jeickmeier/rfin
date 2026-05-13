@@ -1,9 +1,8 @@
-//! Stable public-API invariants that should survive internal refactors.
+//! Public-API invariants for scalar `PriceCurve` and `VolatilityIndexCurve`.
 //!
-//! Analytics-specific fixture/standalone-fn tests now live inline in
-//! `finstack-analytics/src/fixture_test.rs` and the per-module `#[cfg(test)]`
-//! blocks. The curve-related invariants below test `finstack_core` curve types
-//! and remain here as integration coverage.
+//! These tests previously lived in `finstack-analytics/tests/api_invariants.rs`
+//! but they only cover `finstack_core` curve types, so they now belong here
+//! as `finstack-core` integration coverage.
 
 use finstack_core::dates::{Date, Duration, Month};
 use finstack_core::market_data::term_structures::{PriceCurve, VolatilityIndexCurve};
@@ -11,7 +10,7 @@ use finstack_core::market_data::term_structures::{PriceCurve, VolatilityIndexCur
 const TOL: f64 = 1e-12;
 
 mod scalar_curve_invariants {
-    use super::*;
+    use super::{Date, Duration, Month, PriceCurve, VolatilityIndexCurve, TOL};
     use finstack_core::math::interp::InterpStyle;
 
     fn base_date() -> Date {

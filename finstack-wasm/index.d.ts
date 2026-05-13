@@ -379,19 +379,19 @@ export interface PeriodStats {
 
 /** Dated rolling Sharpe result returned by `rollingSharpe`. */
 export interface RollingSharpe {
-  values: number[];
+  sharpe: Float64Array;
   dates: string[];
 }
 
 /** Dated rolling Sortino result returned by `rollingSortino`. */
 export interface RollingSortino {
-  values: number[];
+  sortino: Float64Array;
   dates: string[];
 }
 
 /** Dated rolling volatility result returned by `rollingVolatility`. */
 export interface RollingVolatility {
-  values: number[];
+  volatility: Float64Array;
   dates: string[];
 }
 
@@ -414,8 +414,8 @@ export interface GreeksResult {
 /** Rolling greeks output aligned with rolling-window end dates. */
 export interface RollingGreeksResult {
   dates: string[];
-  alphas: number[];
-  betas: number[];
+  alphas: Float64Array;
+  betas: Float64Array;
 }
 
 /** Multi-factor regression result. */
@@ -429,7 +429,7 @@ export interface MultiFactorResult {
 
 /** Dated rolling N-period compounded return result returned by `rollingReturns`. */
 export interface RollingReturns {
-  values: number[];
+  return: Float64Array;
   dates: string[];
 }
 
@@ -476,50 +476,50 @@ export declare class Performance {
   freq(): string;
   /** Active observation dates as ISO date strings. */
   dates(): string[];
-  cagr(): number[];
-  meanReturn(annualize?: boolean): number[];
-  volatility(annualize?: boolean): number[];
-  sharpe(riskFreeRate?: number): number[];
-  sortino(mar?: number): number[];
-  calmar(): number[];
-  maxDrawdown(): number[];
-  meanDrawdown(): number[];
-  valueAtRisk(confidence?: number): number[];
-  expectedShortfall(confidence?: number): number[];
-  trackingError(): number[];
-  informationRatio(): number[];
-  skewness(): number[];
-  kurtosis(): number[];
-  geometricMean(): number[];
-  downsideDeviation(mar?: number): number[];
+  cagr(): Float64Array;
+  meanReturn(annualize?: boolean): Float64Array;
+  volatility(annualize?: boolean): Float64Array;
+  sharpe(riskFreeRate?: number): Float64Array;
+  sortino(mar?: number): Float64Array;
+  calmar(): Float64Array;
+  maxDrawdown(): Float64Array;
+  meanDrawdown(): Float64Array;
+  valueAtRisk(confidence?: number): Float64Array;
+  expectedShortfall(confidence?: number): Float64Array;
+  trackingError(): Float64Array;
+  informationRatio(): Float64Array;
+  skewness(): Float64Array;
+  kurtosis(): Float64Array;
+  geometricMean(): Float64Array;
+  downsideDeviation(mar?: number): Float64Array;
   maxDrawdownDuration(): number[];
-  upCapture(): number[];
-  downCapture(): number[];
-  captureRatio(): number[];
-  omegaRatio(threshold?: number): number[];
-  treynor(riskFreeRate?: number): number[];
-  gainToPain(): number[];
-  ulcerIndex(): number[];
-  martinRatio(): number[];
-  recoveryFactor(): number[];
-  painIndex(): number[];
-  painRatio(riskFreeRate?: number): number[];
-  tailRatio(confidence?: number): number[];
-  rSquared(): number[];
-  battingAverage(): number[];
-  parametricVar(confidence?: number): number[];
-  cornishFisherVar(confidence?: number): number[];
-  cdar(confidence?: number): number[];
-  mSquared(riskFreeRate?: number): number[];
-  modifiedSharpe(riskFreeRate?: number, confidence?: number): number[];
-  sterlingRatio(riskFreeRate?: number, n?: number): number[];
-  burkeRatio(riskFreeRate?: number, n?: number): number[];
-  cumulativeReturns(): number[][];
-  drawdownSeries(): number[][];
-  correlationMatrix(): number[][];
-  cumulativeReturnsOutperformance(): number[][];
-  drawdownDifference(): number[][];
-  excessReturns(rf: NumericArray, nperiods?: number): number[][];
+  upCapture(): Float64Array;
+  downCapture(): Float64Array;
+  captureRatio(): Float64Array;
+  omegaRatio(threshold?: number): Float64Array;
+  treynor(riskFreeRate?: number): Float64Array;
+  gainToPain(): Float64Array;
+  ulcerIndex(): Float64Array;
+  martinRatio(): Float64Array;
+  recoveryFactor(): Float64Array;
+  painIndex(): Float64Array;
+  painRatio(riskFreeRate?: number): Float64Array;
+  tailRatio(confidence?: number): Float64Array;
+  rSquared(): Float64Array;
+  battingAverage(): Float64Array;
+  parametricVar(confidence?: number): Float64Array;
+  cornishFisherVar(confidence?: number): Float64Array;
+  cdar(confidence?: number): Float64Array;
+  mSquared(riskFreeRate?: number): Float64Array;
+  modifiedSharpe(riskFreeRate?: number, confidence?: number): Float64Array;
+  sterlingRatio(riskFreeRate?: number, n?: number): Float64Array;
+  burkeRatio(riskFreeRate?: number, n?: number): Float64Array;
+  cumulativeReturns(): Float64Array[];
+  drawdownSeries(): Float64Array[];
+  correlationMatrix(): Float64Array[];
+  cumulativeReturnsOutperformance(): Float64Array[];
+  drawdownDifference(): Float64Array[];
+  excessReturns(rf: NumericArray, nperiods?: number): Float64Array[];
   beta(): BetaResult[];
   greeks(): GreeksResult[];
   rollingGreeks(tickerIdx: number, window?: number): RollingGreeksResult;

@@ -8,6 +8,7 @@
 use crate::utils::{date_to_iso, to_js_err};
 use finstack_analytics as fa;
 use finstack_core::dates::{CalendarRegistry, FiscalConfig, HolidayCalendar, PeriodKind};
+use js_sys::{Array, Float64Array, Reflect};
 use wasm_bindgen::prelude::*;
 
 use super::support::{parse_f64_matrix, parse_f64_vec, parse_iso_date};
@@ -46,6 +47,64 @@ fn parse_dates(dates: JsValue) -> Result<Vec<time::Date>, JsValue> {
 
 fn to_js<T: serde::Serialize>(value: &T) -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(value).map_err(to_js_err)
+}
+
+/// Serialize a `Vec<f64>` as a JavaScript `Float64Array`.
+///
+/// Used for hot numeric outputs (per-ticker scalars, drawdowns, cumulative
+/// returns) so the JS side gets a contiguous typed array instead of a generic
+/// `Array<number>` whose `Number` boxing dominates allocation cost on large
+/// panels.
+fn vec_f64_to_js(values: &[f64]) -> JsValue {
+    Float64Array::from(values).into()
+}
+
+/// Serialize a `Vec<Vec<f64>>` as a JavaScript `Array<Float64Array>`.
+fn matrix_f64_to_js(values: &[Vec<f64>]) -> JsValue {
+    let outer = Array::new_with_length(values.len() as u32);
+    for (i, row) in values.iter().enumerate() {
+        outer.set(i as u32, Float64Array::from(row.as_slice()).into());
+    }
+    outer.into()
+}
+
+/// Build a plain JS object `{ dates: string[], <numeric_field>: Float64Array, ... }`
+/// from a series of (key, JsValue) pairs.
+fn obj_from_pairs(pairs: &[(&str, JsValue)]) -> Result<JsValue, JsValue> {
+    let obj = js_sys::Object::new();
+    for (key, value) in pairs {
+        Reflect::set(&obj, &JsValue::from_str(key), value)?;
+    }
+    Ok(obj.into())
+}
+
+/// Serialize a `DatedSeries`-like rolling result with parallel `dates` /
+/// numeric vectors as a plain JS object whose numeric vector is a typed array.
+fn dated_series_to_js(
+    values: &[f64],
+    dates: &[time::Date],
+    value_key: &str,
+) -> Result<JsValue, JsValue> {
+    let date_array = Array::new_with_length(dates.len() as u32);
+    for (i, &d) in dates.iter().enumerate() {
+        date_array.set(i as u32, JsValue::from_str(&date_to_iso(d)));
+    }
+    obj_from_pairs(&[
+        ("dates", date_array.into()),
+        (value_key, vec_f64_to_js(values)),
+    ])
+}
+
+fn rolling_greeks_to_js(rg: &fa::RollingGreeks) -> Result<JsValue, JsValue> {
+    let date_array = Array::new_with_length(rg.dates.len() as u32);
+    for (i, &d) in rg.dates.iter().enumerate() {
+        date_array.set(i as u32, JsValue::from_str(&date_to_iso(d)));
+    }
+    obj_from_pairs(&[
+        ("dates", date_array.into()),
+        ("alphas", vec_f64_to_js(&rg.alphas)),
+        ("betas", vec_f64_to_js(&rg.betas)),
+    ])
 }
 
 /// Stateful performance analytics engine over a panel of ticker price (or return) series.
@@ -154,183 +213,182 @@ impl WasmPerformance {
     // ── Scalar metrics ──
 
     pub fn cagr(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.cagr().map_err(to_js_err)?)
+        Ok(vec_f64_to_js(&self.inner.cagr().map_err(to_js_err)?))
     }
 
     #[wasm_bindgen(js_name = meanReturn)]
-    pub fn mean_return(&self, annualize: Option<bool>) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.mean_return(annualize.unwrap_or(true)))
+    pub fn mean_return(&self, annualize: Option<bool>) -> JsValue {
+        vec_f64_to_js(&self.inner.mean_return(annualize.unwrap_or(true)))
     }
 
-    pub fn volatility(&self, annualize: Option<bool>) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.volatility(annualize.unwrap_or(true)))
+    pub fn volatility(&self, annualize: Option<bool>) -> JsValue {
+        vec_f64_to_js(&self.inner.volatility(annualize.unwrap_or(true)))
     }
 
-    pub fn sharpe(&self, risk_free_rate: Option<f64>) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.sharpe(risk_free_rate.unwrap_or(0.0)))
+    pub fn sharpe(&self, risk_free_rate: Option<f64>) -> JsValue {
+        vec_f64_to_js(&self.inner.sharpe(risk_free_rate.unwrap_or(0.0)))
     }
 
-    pub fn sortino(&self, mar: Option<f64>) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.sortino(mar.unwrap_or(0.0)))
+    pub fn sortino(&self, mar: Option<f64>) -> JsValue {
+        vec_f64_to_js(&self.inner.sortino(mar.unwrap_or(0.0)))
     }
 
     pub fn calmar(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.calmar().map_err(to_js_err)?)
+        Ok(vec_f64_to_js(&self.inner.calmar().map_err(to_js_err)?))
     }
 
     #[wasm_bindgen(js_name = meanDrawdown)]
-    pub fn mean_drawdown(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.mean_drawdown())
+    pub fn mean_drawdown(&self) -> JsValue {
+        vec_f64_to_js(&self.inner.mean_drawdown())
     }
 
     #[wasm_bindgen(js_name = maxDrawdown)]
-    pub fn max_drawdown(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.max_drawdown())
+    pub fn max_drawdown(&self) -> JsValue {
+        vec_f64_to_js(&self.inner.max_drawdown())
     }
 
     #[wasm_bindgen(js_name = valueAtRisk)]
-    pub fn value_at_risk(&self, confidence: Option<f64>) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.value_at_risk(confidence.unwrap_or(0.95)))
+    pub fn value_at_risk(&self, confidence: Option<f64>) -> JsValue {
+        vec_f64_to_js(&self.inner.value_at_risk(confidence.unwrap_or(0.95)))
     }
 
     #[wasm_bindgen(js_name = expectedShortfall)]
-    pub fn expected_shortfall(&self, confidence: Option<f64>) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.expected_shortfall(confidence.unwrap_or(0.95)))
+    pub fn expected_shortfall(&self, confidence: Option<f64>) -> JsValue {
+        vec_f64_to_js(&self.inner.expected_shortfall(confidence.unwrap_or(0.95)))
     }
 
     #[wasm_bindgen(js_name = trackingError)]
-    pub fn tracking_error(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.tracking_error())
+    pub fn tracking_error(&self) -> JsValue {
+        vec_f64_to_js(&self.inner.tracking_error())
     }
 
     #[wasm_bindgen(js_name = informationRatio)]
-    pub fn information_ratio(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.information_ratio())
+    pub fn information_ratio(&self) -> JsValue {
+        vec_f64_to_js(&self.inner.information_ratio())
     }
 
-    pub fn skewness(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.skewness())
+    pub fn skewness(&self) -> JsValue {
+        vec_f64_to_js(&self.inner.skewness())
     }
 
-    pub fn kurtosis(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.kurtosis())
+    pub fn kurtosis(&self) -> JsValue {
+        vec_f64_to_js(&self.inner.kurtosis())
     }
 
     #[wasm_bindgen(js_name = geometricMean)]
-    pub fn geometric_mean(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.geometric_mean())
+    pub fn geometric_mean(&self) -> JsValue {
+        vec_f64_to_js(&self.inner.geometric_mean())
     }
 
     #[wasm_bindgen(js_name = downsideDeviation)]
-    pub fn downside_deviation(&self, mar: Option<f64>) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.downside_deviation(mar.unwrap_or(0.0)))
+    pub fn downside_deviation(&self, mar: Option<f64>) -> JsValue {
+        vec_f64_to_js(&self.inner.downside_deviation(mar.unwrap_or(0.0)))
     }
 
     #[wasm_bindgen(js_name = maxDrawdownDuration)]
     pub fn max_drawdown_duration(&self) -> Result<JsValue, JsValue> {
+        // `usize` does not fit a typed array; keep the serde path.
         to_js(&self.inner.max_drawdown_duration())
     }
 
     #[wasm_bindgen(js_name = upCapture)]
-    pub fn up_capture(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.up_capture())
+    pub fn up_capture(&self) -> JsValue {
+        vec_f64_to_js(&self.inner.up_capture())
     }
 
     #[wasm_bindgen(js_name = downCapture)]
-    pub fn down_capture(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.down_capture())
+    pub fn down_capture(&self) -> JsValue {
+        vec_f64_to_js(&self.inner.down_capture())
     }
 
     #[wasm_bindgen(js_name = captureRatio)]
-    pub fn capture_ratio(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.capture_ratio())
+    pub fn capture_ratio(&self) -> JsValue {
+        vec_f64_to_js(&self.inner.capture_ratio())
     }
 
     #[wasm_bindgen(js_name = omegaRatio)]
-    pub fn omega_ratio(&self, threshold: Option<f64>) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.omega_ratio(threshold.unwrap_or(0.0)))
+    pub fn omega_ratio(&self, threshold: Option<f64>) -> JsValue {
+        vec_f64_to_js(&self.inner.omega_ratio(threshold.unwrap_or(0.0)))
     }
 
-    pub fn treynor(&self, risk_free_rate: Option<f64>) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.treynor(risk_free_rate.unwrap_or(0.0)))
+    pub fn treynor(&self, risk_free_rate: Option<f64>) -> JsValue {
+        vec_f64_to_js(&self.inner.treynor(risk_free_rate.unwrap_or(0.0)))
     }
 
     #[wasm_bindgen(js_name = gainToPain)]
-    pub fn gain_to_pain(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.gain_to_pain())
+    pub fn gain_to_pain(&self) -> JsValue {
+        vec_f64_to_js(&self.inner.gain_to_pain())
     }
 
     #[wasm_bindgen(js_name = ulcerIndex)]
-    pub fn ulcer_index(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.ulcer_index())
+    pub fn ulcer_index(&self) -> JsValue {
+        vec_f64_to_js(&self.inner.ulcer_index())
     }
 
     #[wasm_bindgen(js_name = martinRatio)]
     pub fn martin_ratio(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.martin_ratio().map_err(to_js_err)?)
+        Ok(vec_f64_to_js(
+            &self.inner.martin_ratio().map_err(to_js_err)?,
+        ))
     }
 
     #[wasm_bindgen(js_name = recoveryFactor)]
-    pub fn recovery_factor(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.recovery_factor())
+    pub fn recovery_factor(&self) -> JsValue {
+        vec_f64_to_js(&self.inner.recovery_factor())
     }
 
     #[wasm_bindgen(js_name = painIndex)]
-    pub fn pain_index(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.pain_index())
+    pub fn pain_index(&self) -> JsValue {
+        vec_f64_to_js(&self.inner.pain_index())
     }
 
     #[wasm_bindgen(js_name = painRatio)]
     pub fn pain_ratio(&self, risk_free_rate: Option<f64>) -> Result<JsValue, JsValue> {
-        to_js(
+        Ok(vec_f64_to_js(
             &self
                 .inner
                 .pain_ratio(risk_free_rate.unwrap_or(0.0))
                 .map_err(to_js_err)?,
-        )
+        ))
     }
 
     #[wasm_bindgen(js_name = tailRatio)]
-    pub fn tail_ratio(&self, confidence: Option<f64>) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.tail_ratio(confidence.unwrap_or(0.95)))
+    pub fn tail_ratio(&self, confidence: Option<f64>) -> JsValue {
+        vec_f64_to_js(&self.inner.tail_ratio(confidence.unwrap_or(0.95)))
     }
 
     #[wasm_bindgen(js_name = rSquared)]
-    pub fn r_squared(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.r_squared())
+    pub fn r_squared(&self) -> JsValue {
+        vec_f64_to_js(&self.inner.r_squared())
     }
 
     #[wasm_bindgen(js_name = battingAverage)]
-    pub fn batting_average(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.batting_average())
+    pub fn batting_average(&self) -> JsValue {
+        vec_f64_to_js(&self.inner.batting_average())
     }
 
     #[wasm_bindgen(js_name = parametricVar)]
-    pub fn parametric_var(&self, confidence: Option<f64>) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.parametric_var(confidence.unwrap_or(0.95)))
+    pub fn parametric_var(&self, confidence: Option<f64>) -> JsValue {
+        vec_f64_to_js(&self.inner.parametric_var(confidence.unwrap_or(0.95)))
     }
 
     #[wasm_bindgen(js_name = cornishFisherVar)]
-    pub fn cornish_fisher_var(&self, confidence: Option<f64>) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.cornish_fisher_var(confidence.unwrap_or(0.95)))
+    pub fn cornish_fisher_var(&self, confidence: Option<f64>) -> JsValue {
+        vec_f64_to_js(&self.inner.cornish_fisher_var(confidence.unwrap_or(0.95)))
     }
 
-    pub fn cdar(&self, confidence: Option<f64>) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.cdar(confidence.unwrap_or(0.95)))
+    pub fn cdar(&self, confidence: Option<f64>) -> JsValue {
+        vec_f64_to_js(&self.inner.cdar(confidence.unwrap_or(0.95)))
     }
 
     #[wasm_bindgen(js_name = mSquared)]
-    pub fn m_squared(&self, risk_free_rate: Option<f64>) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.m_squared(risk_free_rate.unwrap_or(0.0)))
+    pub fn m_squared(&self, risk_free_rate: Option<f64>) -> JsValue {
+        vec_f64_to_js(&self.inner.m_squared(risk_free_rate.unwrap_or(0.0)))
     }
 
     #[wasm_bindgen(js_name = modifiedSharpe)]
-    pub fn modified_sharpe(
-        &self,
-        risk_free_rate: Option<f64>,
-        confidence: Option<f64>,
-    ) -> Result<JsValue, JsValue> {
-        to_js(
+    pub fn modified_sharpe(&self, risk_free_rate: Option<f64>, confidence: Option<f64>) -> JsValue {
+        vec_f64_to_js(
             &self
                 .inner
                 .modified_sharpe(risk_free_rate.unwrap_or(0.0), confidence.unwrap_or(0.95)),
@@ -343,12 +401,12 @@ impl WasmPerformance {
         risk_free_rate: Option<f64>,
         n: Option<usize>,
     ) -> Result<JsValue, JsValue> {
-        to_js(
+        Ok(vec_f64_to_js(
             &self
                 .inner
                 .sterling_ratio(risk_free_rate.unwrap_or(0.0), n.unwrap_or(5))
                 .map_err(to_js_err)?,
-        )
+        ))
     }
 
     #[wasm_bindgen(js_name = burkeRatio)]
@@ -357,45 +415,45 @@ impl WasmPerformance {
         risk_free_rate: Option<f64>,
         n: Option<usize>,
     ) -> Result<JsValue, JsValue> {
-        to_js(
+        Ok(vec_f64_to_js(
             &self
                 .inner
                 .burke_ratio(risk_free_rate.unwrap_or(0.0), n.unwrap_or(5))
                 .map_err(to_js_err)?,
-        )
+        ))
     }
 
     // ── Vector outputs ──
 
     #[wasm_bindgen(js_name = cumulativeReturns)]
-    pub fn cumulative_returns(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.cumulative_returns())
+    pub fn cumulative_returns(&self) -> JsValue {
+        matrix_f64_to_js(&self.inner.cumulative_returns())
     }
 
     #[wasm_bindgen(js_name = drawdownSeries)]
-    pub fn drawdown_series(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.drawdown_series())
+    pub fn drawdown_series(&self) -> JsValue {
+        matrix_f64_to_js(&self.inner.drawdown_series())
     }
 
     #[wasm_bindgen(js_name = correlationMatrix)]
-    pub fn correlation_matrix(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.correlation_matrix())
+    pub fn correlation_matrix(&self) -> JsValue {
+        matrix_f64_to_js(&self.inner.correlation_matrix())
     }
 
     #[wasm_bindgen(js_name = cumulativeReturnsOutperformance)]
-    pub fn cumulative_returns_outperformance(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.cumulative_returns_outperformance())
+    pub fn cumulative_returns_outperformance(&self) -> JsValue {
+        matrix_f64_to_js(&self.inner.cumulative_returns_outperformance())
     }
 
     #[wasm_bindgen(js_name = drawdownDifference)]
-    pub fn drawdown_difference(&self) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.drawdown_difference())
+    pub fn drawdown_difference(&self) -> JsValue {
+        matrix_f64_to_js(&self.inner.drawdown_difference())
     }
 
     #[wasm_bindgen(js_name = excessReturns)]
     pub fn excess_returns(&self, rf: JsValue, nperiods: Option<f64>) -> Result<JsValue, JsValue> {
         let rf = parse_f64_vec(rf)?;
-        to_js(&self.inner.excess_returns(&rf, nperiods))
+        Ok(matrix_f64_to_js(&self.inner.excess_returns(&rf, nperiods)))
     }
 
     // ── Benchmark ──
@@ -414,7 +472,11 @@ impl WasmPerformance {
         ticker_idx: usize,
         window: Option<usize>,
     ) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.rolling_greeks(ticker_idx, window.unwrap_or(63)))
+        let rg = self
+            .inner
+            .rolling_greeks(ticker_idx, window.unwrap_or(63))
+            .map_err(to_js_err)?;
+        rolling_greeks_to_js(&rg)
     }
 
     #[wasm_bindgen(js_name = rollingVolatility)]
@@ -423,11 +485,11 @@ impl WasmPerformance {
         ticker_idx: usize,
         window: Option<usize>,
     ) -> Result<JsValue, JsValue> {
-        to_js(
-            &self
-                .inner
-                .rolling_volatility(ticker_idx, window.unwrap_or(63)),
-        )
+        let series = self
+            .inner
+            .rolling_volatility(ticker_idx, window.unwrap_or(63))
+            .map_err(to_js_err)?;
+        dated_series_to_js(&series.values, &series.dates, "volatility")
     }
 
     #[wasm_bindgen(js_name = rollingSortino)]
@@ -437,11 +499,11 @@ impl WasmPerformance {
         window: Option<usize>,
         mar: Option<f64>,
     ) -> Result<JsValue, JsValue> {
-        to_js(
-            &self
-                .inner
-                .rolling_sortino(ticker_idx, window.unwrap_or(63), mar.unwrap_or(0.0)),
-        )
+        let series = self
+            .inner
+            .rolling_sortino(ticker_idx, window.unwrap_or(63), mar.unwrap_or(0.0))
+            .map_err(to_js_err)?;
+        dated_series_to_js(&series.values, &series.dates, "sortino")
     }
 
     #[wasm_bindgen(js_name = rollingSharpe)]
@@ -451,16 +513,24 @@ impl WasmPerformance {
         window: Option<usize>,
         risk_free_rate: Option<f64>,
     ) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.rolling_sharpe(
-            ticker_idx,
-            window.unwrap_or(63),
-            risk_free_rate.unwrap_or(0.0),
-        ))
+        let series = self
+            .inner
+            .rolling_sharpe(
+                ticker_idx,
+                window.unwrap_or(63),
+                risk_free_rate.unwrap_or(0.0),
+            )
+            .map_err(to_js_err)?;
+        dated_series_to_js(&series.values, &series.dates, "sharpe")
     }
 
     #[wasm_bindgen(js_name = rollingReturns)]
     pub fn rolling_returns(&self, ticker_idx: usize, window: usize) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.rolling_returns(ticker_idx, window))
+        let series = self
+            .inner
+            .rolling_returns(ticker_idx, window)
+            .map_err(to_js_err)?;
+        dated_series_to_js(&series.values, &series.dates, "return")
     }
 
     #[wasm_bindgen(js_name = drawdownDetails)]
@@ -469,7 +539,12 @@ impl WasmPerformance {
         ticker_idx: usize,
         n: Option<usize>,
     ) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.drawdown_details(ticker_idx, n.unwrap_or(5)))
+        to_js(
+            &self
+                .inner
+                .drawdown_details(ticker_idx, n.unwrap_or(5))
+                .map_err(to_js_err)?,
+        )
     }
 
     #[wasm_bindgen(js_name = multiFactorGreeks)]
@@ -511,6 +586,11 @@ impl WasmPerformance {
     ) -> Result<JsValue, JsValue> {
         let pk = parse_freq(agg_freq.as_deref().unwrap_or("monthly"))?;
         let fc = make_fiscal_config(fiscal_year_start_month)?;
-        to_js(&self.inner.period_stats(ticker_idx, pk, Some(fc)))
+        to_js(
+            &self
+                .inner
+                .period_stats(ticker_idx, pk, Some(fc))
+                .map_err(to_js_err)?,
+        )
     }
 }

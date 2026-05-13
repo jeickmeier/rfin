@@ -8,8 +8,6 @@
 //! Annualization uses the caller-supplied factor (typically from
 //! `PeriodKind::annualization_factor()`).
 
-use std::str::FromStr;
-
 use crate::math::stats::{mean, variance};
 use crate::math::summation::kahan_sum;
 
@@ -26,6 +24,12 @@ pub(crate) fn invalid_annualization_factor(annualize: bool, ann_factor: f64) -> 
 }
 
 /// Day-count convention for CAGR annualization over explicit calendar dates.
+///
+/// Only the two simple Act/365 forms are exposed: `Act365_25` (default,
+/// matches the legacy behaviour of `Performance::cagr`) and `Act365Fixed`
+/// for callers that need 365-day year denominators. Add additional
+/// conventions (e.g. an Actual/Actual segment walk) only when an external
+/// caller demands one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
 pub enum AnnualizationConvention {
     /// Actual calendar days divided by 365.0.
@@ -33,26 +37,6 @@ pub enum AnnualizationConvention {
     /// Actual calendar days divided by 365.25 (default).
     #[default]
     Act365_25,
-    /// Actual/Actual using the actual number of days in each calendar year.
-    ActAct,
-}
-
-impl FromStr for AnnualizationConvention {
-    type Err = String;
-
-    /// Parse an annualization convention label (case-insensitive).
-    ///
-    /// Canonical forms: `"act365_25"`, `"act365_fixed"`, `"act_act"`.
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.trim().to_ascii_lowercase().as_str() {
-            "act365_25" => Ok(AnnualizationConvention::Act365_25),
-            "act365_fixed" => Ok(AnnualizationConvention::Act365Fixed),
-            "act_act" => Ok(AnnualizationConvention::ActAct),
-            other => Err(format!(
-                "unknown CAGR convention {other:?}; expected one of act365_25, act365_fixed, act_act"
-            )),
-        }
-    }
 }
 
 /// Basis used to annualize CAGR from either explicit dates or a periods-per-year factor.
@@ -195,38 +179,7 @@ fn annualized_years(
     match convention {
         AnnualizationConvention::Act365Fixed => days / 365.0,
         AnnualizationConvention::Act365_25 => days / 365.25,
-        AnnualizationConvention::ActAct => actual_actual_years(start, end),
     }
-}
-
-fn actual_actual_years(start: crate::dates::Date, end: crate::dates::Date) -> f64 {
-    use crate::dates::Month;
-
-    let mut current = start;
-    let mut years = 0.0;
-
-    while current < end {
-        let next_year_start =
-            match crate::dates::Date::from_calendar_date(current.year() + 1, Month::January, 1) {
-                Ok(date) => date,
-                Err(_) => return years,
-            };
-        let segment_end = next_year_start.min(end);
-        let segment_days = (segment_end - current).whole_days() as f64;
-        years += segment_days
-            / if is_leap_year(current.year()) {
-                366.0
-            } else {
-                365.0
-            };
-        current = segment_end;
-    }
-
-    years
-}
-
-fn is_leap_year(year: i32) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 
 /// Mean return, optionally annualized.
@@ -713,23 +666,6 @@ mod tests {
     }
 
     #[test]
-    fn annualization_convention_parses_canonical_forms() {
-        assert_eq!(
-            "act365_25".parse::<AnnualizationConvention>().unwrap(),
-            AnnualizationConvention::Act365_25
-        );
-        assert_eq!(
-            "act365_fixed".parse::<AnnualizationConvention>().unwrap(),
-            AnnualizationConvention::Act365Fixed
-        );
-        assert_eq!(
-            "  act_act  ".parse::<AnnualizationConvention>().unwrap(),
-            AnnualizationConvention::ActAct
-        );
-        assert!("nope".parse::<AnnualizationConvention>().is_err());
-    }
-
-    #[test]
     fn cagr_basic() {
         let r = [0.10];
         let c = cagr(&r, CagrBasis::dates(jan1(2024), jan1(2025))).expect("valid CAGR");
@@ -766,21 +702,6 @@ mod tests {
         .expect("valid CAGR");
         assert!(c_default > c_fixed);
         assert!((c_default - 0.09978518245839707).abs() < 1.0e-12);
-    }
-
-    #[test]
-    fn cagr_act_act_matches_full_leap_year() {
-        let r = [0.10];
-        let c = cagr(
-            &r,
-            CagrBasis::Dates {
-                start: jan1(2024),
-                end: jan1(2025),
-                convention: AnnualizationConvention::ActAct,
-            },
-        )
-        .expect("valid CAGR");
-        assert!((c - 0.10).abs() < 1.0e-12);
     }
 
     #[test]

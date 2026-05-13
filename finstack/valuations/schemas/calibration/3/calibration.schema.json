@@ -3956,7 +3956,7 @@
       ]
     },
     "PriorMarketObject": {
-      "description": "A pre-built calibrated market object.\n\nVariants are tagged via serde as `{\"kind\": \"<snake_case_variant>\", ...}` so\ncallers can author flat heterogeneous lists in JSON/YAML. None of the\nunderlying curve / surface types currently derive [`JsonSchema`] directly,\nso we apply the established `#[schemars(with = \"serde_json::Value\")]`\nworkaround (matching the pattern in `market_datum.rs`).",
+      "description": "A pre-built calibrated market object.\n\nVariants are tagged via serde as `{\"kind\": \"<snake_case_variant>\", ...}` so\ncallers can author flat heterogeneous lists in JSON/YAML. None of the\nunderlying curve / surface types currently derive [`JsonSchema`] directly,\nso we apply the established `#[schemars(with = \"serde_json::Value\")]`\nworkaround (matching the pattern in `market_datum.rs`). The same applies\non the TypeScript side via `#[ts(type = \"unknown\")]`.",
       "oneOf": [
         {
           "description": "Pre-built discount-factor curve.",

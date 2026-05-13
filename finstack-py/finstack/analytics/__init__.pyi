@@ -29,6 +29,7 @@ __all__ = [
     "RollingGreeks",
     "MultiFactorResult",
     "DrawdownEpisode",
+    "DatedSeries",
     "RollingSharpe",
     "RollingSortino",
     "RollingVolatility",
@@ -244,69 +245,42 @@ class LookbackReturns:
 
     def __repr__(self) -> str: ...
 
-class RollingSharpe:
-    """Rolling Sharpe ratio time series."""
+class DatedSeries:
+    """Date-indexed numeric series returned by the rolling-window analytics.
+
+    Replaces the previous ``RollingSharpe``, ``RollingSortino``,
+    ``RollingVolatility``, and ``RollingReturns`` classes (which were
+    textually identical except for the DataFrame column name). Those names
+    still import as aliases of this class for backwards compatibility.
+    """
 
     @property
     def values(self) -> list[float]:
-        """Rolling Sharpe values."""
+        """Rolling values, one per window."""
 
     def dates(self) -> list[datetime.date]:
-        """Corresponding dates."""
+        """Window-end dates aligned 1:1 with :attr:`values`."""
+
+    @property
+    def value_column(self) -> str:
+        """Column name used by :meth:`to_dataframe`."""
 
     def to_dataframe(self) -> pd.DataFrame:
-        """Convert to a pandas DataFrame with date index and a ``sharpe`` column."""
+        """Convert to a pandas DataFrame with date index and a value column.
+
+        The column is named after :attr:`value_column` (e.g. ``sharpe``,
+        ``sortino``, ``volatility``, or ``return``).
+        """
         ...
 
     def __repr__(self) -> str: ...
 
-class RollingSortino:
-    """Rolling Sortino ratio time series."""
-
-    @property
-    def values(self) -> list[float]:
-        """Rolling Sortino values."""
-
-    def dates(self) -> list[datetime.date]:
-        """Corresponding dates."""
-
-    def to_dataframe(self) -> pd.DataFrame:
-        """Convert to a pandas DataFrame with date index and a ``sortino`` column."""
-        ...
-
-    def __repr__(self) -> str: ...
-
-class RollingVolatility:
-    """Rolling volatility time series."""
-
-    @property
-    def values(self) -> list[float]:
-        """Rolling volatility values."""
-
-    def dates(self) -> list[datetime.date]:
-        """Corresponding dates."""
-
-    def to_dataframe(self) -> pd.DataFrame:
-        """Convert to a pandas DataFrame with date index and a ``volatility`` column."""
-        ...
-
-    def __repr__(self) -> str: ...
-
-class RollingReturns:
-    """Rolling N-period compounded total-return time series."""
-
-    @property
-    def values(self) -> list[float]:
-        """Rolling compounded return values."""
-
-    def dates(self) -> list[datetime.date]:
-        """End-of-window dates aligned with :attr:`values`."""
-
-    def to_dataframe(self) -> pd.DataFrame:
-        """Convert to a pandas DataFrame with date index and a ``return`` column."""
-        ...
-
-    def __repr__(self) -> str: ...
+# Backwards-compatible aliases. Each historical name resolves to ``DatedSeries``
+# at runtime because the underlying Rust types are identical.
+RollingSharpe = DatedSeries
+RollingSortino = DatedSeries
+RollingVolatility = DatedSeries
+RollingReturns = DatedSeries
 
 # ---------------------------------------------------------------------------
 # Performance engine
@@ -570,24 +544,22 @@ class Performance:
     def rolling_greeks(self, ticker_idx: int, window: int = 63) -> RollingGreeks:
         """Rolling greeks for a specific ticker."""
 
-    def rolling_volatility(self, ticker_idx: int, window: int = 63) -> RollingVolatility:
-        """Rolling volatility for a specific ticker."""
+    def rolling_volatility(self, ticker_idx: int, window: int = 63) -> DatedSeries:
+        """Rolling volatility for a specific ticker (column name ``volatility``)."""
 
-    def rolling_sortino(
-        self, ticker_idx: int, window: int = 63, mar: float = 0.0
-    ) -> RollingSortino:
-        """Rolling Sortino for a specific ticker."""
+    def rolling_sortino(self, ticker_idx: int, window: int = 63, mar: float = 0.0) -> DatedSeries:
+        """Rolling Sortino for a specific ticker (column name ``sortino``)."""
 
     def rolling_sharpe(
         self,
         ticker_idx: int,
         window: int = 63,
         risk_free_rate: float = 0.0,
-    ) -> RollingSharpe:
-        """Rolling Sharpe for a specific ticker."""
+    ) -> DatedSeries:
+        """Rolling Sharpe for a specific ticker (column name ``sharpe``)."""
 
-    def rolling_returns(self, ticker_idx: int, window: int) -> RollingReturns:
-        """Rolling N-period compounded total return for a specific ticker."""
+    def rolling_returns(self, ticker_idx: int, window: int) -> DatedSeries:
+        """Rolling N-period compounded total return (column name ``return``)."""
 
     def drawdown_details(self, ticker_idx: int, n: int = 5) -> list[DrawdownEpisode]:
         """Top-N drawdown episodes for a specific ticker."""

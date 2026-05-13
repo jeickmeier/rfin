@@ -20,14 +20,21 @@ GreeksResult = _analytics.GreeksResult
 RollingGreeks = _analytics.RollingGreeks
 MultiFactorResult = _analytics.MultiFactorResult
 DrawdownEpisode = _analytics.DrawdownEpisode
-RollingSharpe = _analytics.RollingSharpe
-RollingSortino = _analytics.RollingSortino
-RollingVolatility = _analytics.RollingVolatility
-RollingReturns = _analytics.RollingReturns
+DatedSeries = _analytics.DatedSeries
+
+# Backwards-compatible aliases. The four rolling result types collapsed into a
+# single ``DatedSeries`` class because the underlying Rust type is identical;
+# the historical names continue to import for callers that did
+# ``isinstance(x, RollingSharpe)``.
+RollingSharpe = DatedSeries
+RollingSortino = DatedSeries
+RollingVolatility = DatedSeries
+RollingReturns = DatedSeries
 
 __all__: list[str] = [
     "AnalyticsError",
     "BetaResult",
+    "DatedSeries",
     "DrawdownEpisode",
     "GreeksResult",
     "LookbackReturns",

@@ -38,10 +38,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
             "RollingGreeks",
             "MultiFactorResult",
             "DrawdownEpisode",
-            "RollingSharpe",
-            "RollingSortino",
-            "RollingVolatility",
-            "RollingReturns",
+            "DatedSeries",
         ],
     )?;
     m.setattr("__all__", all)?;

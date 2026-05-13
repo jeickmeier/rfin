@@ -6,6 +6,7 @@ use crate::bindings::pandas_utils::{dates_to_pylist, dict_to_dataframe};
 use crate::errors::analytics_to_py as core_to_py;
 use finstack_analytics as fa;
 use finstack_core::dates::{CalendarRegistry, FiscalConfig, HolidayCalendar, PeriodKind};
+use pyo3::buffer::PyBuffer;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -59,7 +60,10 @@ struct DataFramePanel {
 
 /// Extract dates, prices matrix, and ticker names from a pandas DataFrame.
 ///
-/// Expects a DataFrame with a date-like index and float columns.
+/// Expects a DataFrame with a date-like index and float64 columns. Numeric
+/// data flows through the NumPy buffer protocol rather than
+/// ``Series.tolist()`` so a 100k×N price panel does not pay for a Python list
+/// of `float` objects per cell.
 fn extract_dataframe(df: &Bound<'_, PyAny>) -> PyResult<DataFramePanel> {
     let index = df.getattr("index")?;
     let dates_list = index.call_method0("tolist")?;
@@ -74,15 +78,44 @@ fn extract_dataframe(df: &Bound<'_, PyAny>) -> PyResult<DataFramePanel> {
     let mut prices = Vec::with_capacity(n_tickers);
     for col in &ticker_names {
         let series = df.get_item(col)?;
-        let values = series.call_method0("tolist")?;
-        let col_data: Vec<f64> = values.extract()?;
-        prices.push(col_data);
+        prices.push(extract_float64_column(&series, col)?);
     }
 
     Ok(DataFramePanel {
         dates,
         prices,
         ticker_names,
+    })
+}
+
+/// Pull a `Series` column out as a contiguous `Vec<f64>` via the NumPy buffer
+/// protocol. Returns explicit `PyTypeError` / `PyValueError` instead of
+/// silently coercing through `Series.tolist()`.
+fn extract_float64_column(series: &Bound<'_, PyAny>, col_label: &str) -> PyResult<Vec<f64>> {
+    // `Series.to_numpy(dtype="float64", copy=False)` keeps existing float64
+    // arrays zero-copy and forces numeric coercion errors at the boundary
+    // rather than letting them propagate as silent NaNs.
+    let py = series.py();
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("dtype", "float64")?;
+    kwargs.set_item("copy", false)?;
+    let array = series
+        .call_method("to_numpy", (), Some(&kwargs))
+        .map_err(|err| {
+            PyTypeError::new_err(format!(
+                "Column {col_label:?} could not be converted to a float64 NumPy array: {err}"
+            ))
+        })?;
+
+    let buffer = PyBuffer::<f64>::get(&array).map_err(|err| {
+        PyValueError::new_err(format!(
+            "Column {col_label:?} did not expose a contiguous float64 buffer: {err}"
+        ))
+    })?;
+    buffer.to_vec(py).map_err(|err| {
+        PyValueError::new_err(format!(
+            "Column {col_label:?} could not be read as float64 buffer: {err}"
+        ))
     })
 }
 
@@ -523,10 +556,16 @@ impl PyPerformance {
 
     /// Rolling greeks for a specific ticker.
     #[pyo3(signature = (ticker_idx, window = 63))]
-    fn rolling_greeks(&self, py: Python<'_>, ticker_idx: usize, window: usize) -> PyRollingGreeks {
-        PyRollingGreeks {
-            inner: py.detach(|| self.inner.rolling_greeks(ticker_idx, window)),
-        }
+    fn rolling_greeks(
+        &self,
+        py: Python<'_>,
+        ticker_idx: usize,
+        window: usize,
+    ) -> PyResult<PyRollingGreeks> {
+        let inner = py
+            .detach(|| self.inner.rolling_greeks(ticker_idx, window))
+            .map_err(core_to_py)?;
+        Ok(PyRollingGreeks { inner })
     }
 
     /// Rolling volatility for a specific ticker.
@@ -536,10 +575,11 @@ impl PyPerformance {
         py: Python<'_>,
         ticker_idx: usize,
         window: usize,
-    ) -> PyRollingVolatility {
-        PyRollingVolatility {
-            inner: py.detach(|| self.inner.rolling_volatility(ticker_idx, window)),
-        }
+    ) -> PyResult<PyDatedSeries> {
+        let inner = py
+            .detach(|| self.inner.rolling_volatility(ticker_idx, window))
+            .map_err(core_to_py)?;
+        Ok(PyDatedSeries::new(inner, "volatility"))
     }
 
     /// Rolling Sortino for a specific ticker.
@@ -550,10 +590,11 @@ impl PyPerformance {
         ticker_idx: usize,
         window: usize,
         mar: f64,
-    ) -> PyRollingSortino {
-        PyRollingSortino {
-            inner: py.detach(|| self.inner.rolling_sortino(ticker_idx, window, mar)),
-        }
+    ) -> PyResult<PyDatedSeries> {
+        let inner = py
+            .detach(|| self.inner.rolling_sortino(ticker_idx, window, mar))
+            .map_err(core_to_py)?;
+        Ok(PyDatedSeries::new(inner, "sortino"))
     }
 
     /// Rolling Sharpe for a specific ticker.
@@ -564,23 +605,26 @@ impl PyPerformance {
         ticker_idx: usize,
         window: usize,
         risk_free_rate: f64,
-    ) -> PyRollingSharpe {
-        PyRollingSharpe {
-            inner: py.detach(|| {
+    ) -> PyResult<PyDatedSeries> {
+        let inner = py
+            .detach(|| {
                 self.inner
                     .rolling_sharpe(ticker_idx, window, risk_free_rate)
-            }),
-        }
+            })
+            .map_err(core_to_py)?;
+        Ok(PyDatedSeries::new(inner, "sharpe"))
     }
 
     /// Drawdown episodes for a specific ticker.
     #[pyo3(signature = (ticker_idx, n = 5))]
-    fn drawdown_details(&self, ticker_idx: usize, n: usize) -> Vec<PyDrawdownEpisode> {
-        self.inner
+    fn drawdown_details(&self, ticker_idx: usize, n: usize) -> PyResult<Vec<PyDrawdownEpisode>> {
+        Ok(self
+            .inner
             .drawdown_details(ticker_idx, n)
+            .map_err(core_to_py)?
             .into_iter()
             .map(|e| PyDrawdownEpisode { inner: e })
-            .collect()
+            .collect())
     }
 
     /// Multi-factor regression for a specific ticker.
@@ -603,10 +647,11 @@ impl PyPerformance {
         py: Python<'_>,
         ticker_idx: usize,
         window: usize,
-    ) -> PyRollingReturns {
-        PyRollingReturns {
-            inner: py.detach(|| self.inner.rolling_returns(ticker_idx, window)),
-        }
+    ) -> PyResult<PyDatedSeries> {
+        let inner = py
+            .detach(|| self.inner.rolling_returns(ticker_idx, window))
+            .map_err(core_to_py)?;
+        Ok(PyDatedSeries::new(inner, "return"))
     }
 
     /// Period-to-date lookback returns.
@@ -638,7 +683,10 @@ impl PyPerformance {
         let pk = parse_freq(agg_freq)?;
         let fc = make_fiscal_config(fiscal_year_start_month)?;
         Ok(PyPeriodStats {
-            inner: self.inner.period_stats(ticker_idx, pk, Some(fc)),
+            inner: self
+                .inner
+                .period_stats(ticker_idx, pk, Some(fc))
+                .map_err(core_to_py)?,
         })
     }
 
@@ -753,7 +801,10 @@ impl PyPerformance {
         ticker_idx: usize,
         n: usize,
     ) -> PyResult<Bound<'py, PyAny>> {
-        let episodes = self.inner.drawdown_details(ticker_idx, n);
+        let episodes = self
+            .inner
+            .drawdown_details(ticker_idx, n)
+            .map_err(core_to_py)?;
         let data = PyDict::new(py);
         let starts: PyResult<Vec<_>> = episodes.iter().map(|e| date_to_py(py, e.start)).collect();
         let valleys: PyResult<Vec<_>> = episodes.iter().map(|e| date_to_py(py, e.valley)).collect();

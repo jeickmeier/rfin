@@ -1330,47 +1330,6 @@
             "description"
           ],
           "type": "object"
-        },
-        {
-          "description": "Jacobian sensitivity matrix (Instruments x Curve Points)",
-          "properties": {
-            "col_labels": {
-              "description": "Column labels (Curve Point Dates/Tenors)",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "kind": {
-              "const": "jacobian",
-              "type": "string"
-            },
-            "row_labels": {
-              "description": "Row labels (Instrument IDs)",
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            "sensitivity_matrix": {
-              "description": "Sensitivity matrix (Rows x Cols)\n`sensitivity[i][j]` = change in `curve_point[j]` / change in `instrument[i]`",
-              "items": {
-                "items": {
-                  "format": "double",
-                  "type": "number"
-                },
-                "type": "array"
-              },
-              "type": "array"
-            }
-          },
-          "required": [
-            "kind",
-            "row_labels",
-            "col_labels",
-            "sensitivity_matrix"
-          ],
-          "type": "object"
         }
       ]
     },

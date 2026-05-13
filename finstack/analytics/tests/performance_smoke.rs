@@ -70,14 +70,14 @@ fn performance_facade_exercises_broad_api_surface() {
     let _ = perf.up_capture();
     let _ = perf.down_capture();
     let _ = perf.capture_ratio();
-    let _ = perf.rolling_volatility(0, 20);
+    let _ = perf.rolling_volatility(0, 20).expect("rolling volatility");
     let _ = perf.omega_ratio(0.0);
     let _ = perf.treynor(0.02);
     let _ = perf.gain_to_pain();
     let _ = perf.martin_ratio().expect("valid Martin ratios");
     let _ = perf.parametric_var(0.95);
     let _ = perf.cornish_fisher_var(0.95);
-    let _ = perf.rolling_sortino(0, 25, 0.0);
+    let _ = perf.rolling_sortino(0, 25, 0.0).expect("rolling sortino");
     let _ = perf.recovery_factor();
     let _ = perf.sterling_ratio(0.02, 3).expect("valid Sterling ratios");
     let _ = perf.burke_ratio(0.02, 3).expect("valid Burke ratios");
@@ -101,28 +101,32 @@ fn performance_facade_exercises_broad_api_surface() {
     let _ = perf.cdar(0.95);
     let _ = perf.cumulative_returns();
     let _ = perf.drawdown_series();
-    let _ = perf.drawdown_details(0, 3);
+    let _ = perf.drawdown_details(0, 3).expect("drawdown details");
     let _ = perf.tracking_error();
     let _ = perf.information_ratio();
     let _ = perf.r_squared();
     let _ = perf.beta();
     let _ = perf.greeks();
-    let _ = perf.rolling_greeks(0, 30);
+    let _ = perf.rolling_greeks(0, 30).expect("rolling greeks");
     let _ = perf.batting_average();
     let _ = perf.m_squared(0.02);
     let _ = perf.modified_sharpe(0.02, 0.95);
-    let _ = perf.rolling_sharpe(0, 30, 0.02);
+    let _ = perf.rolling_sharpe(0, 30, 0.02).expect("rolling sharpe");
 
     let ref_date = *perf.active_dates().last().expect("last active date");
     let _ = perf
         .lookback_returns(ref_date, FiscalConfig::us_federal(), nyse())
         .expect("lookback");
 
-    let _ = perf.period_stats(0, PeriodKind::Monthly, None);
+    let _ = perf
+        .period_stats(0, PeriodKind::Monthly, None)
+        .expect("period stats");
     let _ = perf.correlation_matrix();
     let _ = perf.cumulative_returns_outperformance();
     let _ = perf.drawdown_difference();
-    let _ = perf.drawdown_details(perf.benchmark_idx(), 2);
+    let _ = perf
+        .drawdown_details(perf.benchmark_idx(), 2)
+        .expect("benchmark drawdown details");
 
     let rf = vec![0.0; perf.active_dates().len()];
     let _ = perf.excess_returns(&rf, Some(252.0));
@@ -189,7 +193,10 @@ fn performance_smoke_asserts_fiscal_lookback_and_zero_variance_invariants() {
 
     assert_eq!(flat_perf.sharpe(0.0), vec![0.0]);
     assert_eq!(flat_perf.max_drawdown(), vec![0.0]);
-    assert!(flat_perf.drawdown_details(0, 3).is_empty());
+    assert!(flat_perf
+        .drawdown_details(0, 3)
+        .expect("drawdown details on flat series")
+        .is_empty());
 
     let rising_perf = Performance::new(
         dates,

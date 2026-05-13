@@ -14,3 +14,4 @@ mod flat_tests;
 mod forward;
 mod hazard;
 mod inflation;
+mod scalar_curves_invariants;

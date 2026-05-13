@@ -6,13 +6,13 @@
 #![cfg(target_arch = "wasm32")]
 
 use finstack_wasm::api::analytics::WasmPerformance;
-use js_sys::{Array, Float64Array};
+use js_sys::{Array, Float64Array, Reflect};
 use serde::Deserialize;
-use wasm_bindgen::JsValue;
+use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_test::*;
 
 const API_INVARIANTS_FIXTURE: &str =
-    include_str!("../../finstack/analytics/tests/fixtures/api_invariants_data.json");
+    include_str!("../../finstack/analytics/src/api_invariants_data.json");
 
 #[derive(Deserialize)]
 struct AnalyticsFixture {
@@ -37,6 +37,29 @@ fn to_f64_matrix(rows: &[Vec<f64>]) -> JsValue {
         array.set(i as u32, row_value);
     }
     array.into()
+}
+
+/// Deserialize a binding return that is now a `Float64Array` into a `Vec<f64>`.
+fn typed_vec(value: JsValue) -> Vec<f64> {
+    value
+        .dyn_into::<Float64Array>()
+        .expect("expected Float64Array")
+        .to_vec()
+}
+
+/// Deserialize a binding return that is now `Array<Float64Array>` into a `Vec<Vec<f64>>`.
+fn typed_matrix(value: JsValue) -> Vec<Vec<f64>> {
+    let outer = value.dyn_into::<Array>().expect("expected outer Array");
+    let mut rows = Vec::with_capacity(outer.length() as usize);
+    for i in 0..outer.length() {
+        rows.push(typed_vec(outer.get(i)));
+    }
+    rows
+}
+
+/// Read a key from a plain JS object and convert to f64 array.
+fn obj_typed_vec(obj: &JsValue, key: &str) -> Vec<f64> {
+    typed_vec(Reflect::get(obj, &JsValue::from_str(key)).expect("missing field"))
 }
 
 /// Build a two-ticker Performance ("TARGET", "BENCH") from the fixture's
@@ -80,7 +103,7 @@ fn ticker_names_round_trip() {
 #[wasm_bindgen_test]
 fn cagr_returns_per_ticker_vec() {
     let perf = build_perf();
-    let values: Vec<f64> = serde_wasm_bindgen::from_value(perf.cagr().unwrap()).unwrap();
+    let values = typed_vec(perf.cagr().unwrap());
     assert_eq!(values.len(), 2);
     assert!(values.iter().all(|v| v.is_finite()));
 }
@@ -89,12 +112,12 @@ fn cagr_returns_per_ticker_vec() {
 fn sharpe_sortino_volatility_finite() {
     let perf = build_perf();
     for raw in [
-        perf.sharpe(Some(0.0)).unwrap(),
-        perf.sortino(Some(0.0)).unwrap(),
-        perf.volatility(Some(true)).unwrap(),
-        perf.mean_return(Some(true)).unwrap(),
+        perf.sharpe(Some(0.0)),
+        perf.sortino(Some(0.0)),
+        perf.volatility(Some(true)),
+        perf.mean_return(Some(true)),
     ] {
-        let v: Vec<f64> = serde_wasm_bindgen::from_value(raw).unwrap();
+        let v = typed_vec(raw);
         assert_eq!(v.len(), 2);
         assert!(v.iter().all(|x| x.is_finite()));
     }
@@ -104,13 +127,13 @@ fn sharpe_sortino_volatility_finite() {
 fn tail_metrics_finite() {
     let perf = build_perf();
     for raw in [
-        perf.value_at_risk(Some(0.95)).unwrap(),
-        perf.expected_shortfall(Some(0.95)).unwrap(),
-        perf.parametric_var(Some(0.95)).unwrap(),
-        perf.cornish_fisher_var(Some(0.95)).unwrap(),
-        perf.tail_ratio(Some(0.95)).unwrap(),
+        perf.value_at_risk(Some(0.95)),
+        perf.expected_shortfall(Some(0.95)),
+        perf.parametric_var(Some(0.95)),
+        perf.cornish_fisher_var(Some(0.95)),
+        perf.tail_ratio(Some(0.95)),
     ] {
-        let v: Vec<f64> = serde_wasm_bindgen::from_value(raw).unwrap();
+        let v = typed_vec(raw);
         assert_eq!(v.len(), 2);
         assert!(v.iter().all(|x| x.is_finite()));
     }
@@ -119,11 +142,11 @@ fn tail_metrics_finite() {
 #[wasm_bindgen_test]
 fn drawdown_scalars_match_panel_width() {
     let perf = build_perf();
-    let max_dd: Vec<f64> = serde_wasm_bindgen::from_value(perf.max_drawdown().unwrap()).unwrap();
+    let max_dd = typed_vec(perf.max_drawdown());
     assert_eq!(max_dd.len(), 2);
     assert!(max_dd.iter().all(|v| v <= &0.0));
 
-    let calmar: Vec<f64> = serde_wasm_bindgen::from_value(perf.calmar().unwrap()).unwrap();
+    let calmar = typed_vec(perf.calmar().unwrap());
     assert_eq!(calmar.len(), 2);
 }
 
@@ -132,13 +155,11 @@ fn drawdown_scalars_match_panel_width() {
 #[wasm_bindgen_test]
 fn cumulative_and_drawdown_series_are_per_ticker_panels() {
     let perf = build_perf();
-    let cum: Vec<Vec<f64>> =
-        serde_wasm_bindgen::from_value(perf.cumulative_returns().unwrap()).unwrap();
+    let cum = typed_matrix(perf.cumulative_returns());
     assert_eq!(cum.len(), 2);
     assert_eq!(cum[0].len(), fixture().dates.len());
 
-    let dd: Vec<Vec<f64>> =
-        serde_wasm_bindgen::from_value(perf.drawdown_series().unwrap()).unwrap();
+    let dd = typed_matrix(perf.drawdown_series());
     assert_eq!(dd.len(), 2);
     assert!(dd[0].iter().all(|v| v <= &0.0));
 }
@@ -146,8 +167,7 @@ fn cumulative_and_drawdown_series_are_per_ticker_panels() {
 #[wasm_bindgen_test]
 fn correlation_matrix_is_square() {
     let perf = build_perf();
-    let mat: Vec<Vec<f64>> =
-        serde_wasm_bindgen::from_value(perf.correlation_matrix().unwrap()).unwrap();
+    let mat = typed_matrix(perf.correlation_matrix());
     assert_eq!(mat.len(), 2);
     assert_eq!(mat[0].len(), 2);
     assert!((mat[0][0] - 1.0).abs() < 1e-12);
@@ -169,23 +189,27 @@ fn beta_and_greeks_return_per_ticker_structs() {
 fn rolling_greeks_emit_dates_alphas_betas() {
     let perf = build_perf();
     let raw = perf.rolling_greeks(0, Some(5)).unwrap();
-    let value: serde_json::Value = serde_wasm_bindgen::from_value(raw).unwrap();
-    let dates = value["dates"].as_array().unwrap();
-    let alphas = value["alphas"].as_array().unwrap();
-    let betas = value["betas"].as_array().unwrap();
-    assert_eq!(dates.len(), alphas.len());
+    let date_array: Array = Reflect::get(&raw, &JsValue::from_str("dates"))
+        .unwrap()
+        .dyn_into()
+        .unwrap();
+    let alphas = obj_typed_vec(&raw, "alphas");
+    let betas = obj_typed_vec(&raw, "betas");
+    assert_eq!(date_array.length() as usize, alphas.len());
     assert_eq!(alphas.len(), betas.len());
-    assert!(!dates.is_empty());
+    assert!(!alphas.is_empty());
 }
 
 #[wasm_bindgen_test]
 fn rolling_returns_match_dated_series_shape() {
     let perf = build_perf();
     let raw = perf.rolling_returns(0, 3).unwrap();
-    let value: serde_json::Value = serde_wasm_bindgen::from_value(raw).unwrap();
-    let values = value["values"].as_array().unwrap();
-    let dates = value["dates"].as_array().unwrap();
-    assert_eq!(values.len(), dates.len());
+    let date_array: Array = Reflect::get(&raw, &JsValue::from_str("dates"))
+        .unwrap()
+        .dyn_into()
+        .unwrap();
+    let values = obj_typed_vec(&raw, "return");
+    assert_eq!(values.len(), date_array.length() as usize);
     assert!(!values.is_empty());
 }
 

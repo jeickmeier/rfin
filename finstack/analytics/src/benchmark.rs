@@ -12,8 +12,15 @@ use crate::dates::Date;
 use crate::math::stats::{correlation, mean, OnlineCovariance, OnlineStats};
 use finstack_core::math::neumaier_sum;
 
-// Recompute the rolling sums every 64 steps to bound drift from incremental
-// add/remove updates without turning the whole calculation into O(n * window).
+// Recompute the four sliding-window sums (sr, sb, srb, sb²) every 64 steps to
+// bound drift from incremental add/remove updates without turning the whole
+// calculation into O(n * window). The greeks kernel maintains four cross-term
+// sums that compound floating-point error roughly proportionally to the number
+// of running quantities, so we recompute roughly 16× more often than the
+// single-mean rolling kernels in `risk_metrics::rolling`
+// (`ROLLING_KERNEL_RECOMPUTE_INTERVAL = 1024`). The 64-step interval is
+// validated by `rolling_greeks_stays_close_to_exact_recomputation_on_long_series`,
+// which compares against full re-computation across a long synthetic series.
 const ROLLING_GREEKS_RECOMPUTE_INTERVAL: usize = 64;
 
 #[inline]
@@ -542,12 +549,16 @@ pub(crate) fn rolling_greeks(
 
     for i in window..=n {
         let denom = w * sb2 - sb * sb;
-        let beta = if denom.abs() < 1e-30 {
-            0.0
+        // Degenerate window (e.g. constant benchmark or NaN inputs) cannot
+        // identify a beta; emit a sentinel `NaN` for both greeks so callers
+        // see "do not use this point" instead of a plausible-looking 0.
+        let (alpha, beta) = if denom.abs() < 1e-30 {
+            (f64::NAN, f64::NAN)
         } else {
-            (w * srb - sb * sr) / denom
+            let beta = (w * srb - sb * sr) / denom;
+            let alpha = (sr / w - beta * sb / w) * ann_factor;
+            (alpha, beta)
         };
-        let alpha = (sr / w - beta * sb / w) * ann_factor;
         out_dates.push(dates[i - 1]);
         alphas.push(alpha);
         betas.push(beta);
@@ -750,7 +761,7 @@ pub struct MultiFactorResult {
     pub residual_vol: f64,
 }
 
-fn qr_least_squares(columns: &[Vec<f64>], y: &[f64]) -> crate::Result<Vec<f64>> {
+fn svd_least_squares(columns: &[Vec<f64>], y: &[f64]) -> crate::Result<Vec<f64>> {
     use nalgebra::{DMatrix, DVector};
 
     let p = columns.len();
@@ -852,9 +863,9 @@ where
 /// r_portfolio = α + β₁f₁ + β₂f₂ + ... + βₖfₖ + ε
 /// ```ignore
 ///
-/// by solving the least-squares system with a QR decomposition of the design
-/// matrix. Using QR avoids explicitly forming the normal equations and is more
-/// numerically stable when factors are correlated.
+/// by solving the least-squares system with an SVD of the (column-normalized)
+/// design matrix. SVD avoids explicitly forming the normal equations and is
+/// numerically robust to correlated factors and rank deficiency.
 ///
 /// # Arguments
 ///
@@ -969,7 +980,7 @@ pub(crate) fn multi_factor_greeks(
     columns.push(vec![1.0_f64; n]);
     columns.extend(factors.iter().map(|factor| factor.to_vec()));
 
-    let beta = qr_least_squares(&columns, returns)?;
+    let beta = svd_least_squares(&columns, returns)?;
 
     let alpha_per_period = beta[0];
     let factor_betas: Vec<f64> = beta[1..].to_vec();
@@ -1137,6 +1148,27 @@ mod tests {
     }
 
     #[test]
+    fn rolling_greeks_emits_nan_when_benchmark_window_is_constant() {
+        // Use exactly-representable benchmark values (0.5) so the OLS denominator
+        // collapses to a true zero rather than floating-point noise.
+        let window = 5;
+        let r: Vec<f64> = (0..20).map(|i| (i as f64 + 1.0) * 0.001).collect();
+        let b: Vec<f64> = vec![0.5_f64; 20];
+        let dates: Vec<Date> = (1..=20).map(jan).collect();
+        let rg = rolling_greeks(&r, &b, &dates, window, 252.0);
+        assert_eq!(rg.alphas.len(), rg.dates.len());
+        assert_eq!(rg.betas.len(), rg.dates.len());
+        assert!(
+            rg.alphas.iter().all(|a| a.is_nan()),
+            "constant benchmark window must surface as NaN alpha rather than a plausible 0"
+        );
+        assert!(
+            rg.betas.iter().all(|b| b.is_nan()),
+            "constant benchmark window must surface as NaN beta rather than a plausible 0"
+        );
+    }
+
+    #[test]
     fn rolling_greeks_stays_close_to_exact_recomputation_on_long_series() {
         fn exact_rolling_greeks(
             returns: &[f64],
@@ -1156,12 +1188,13 @@ mod tests {
                 let srb: f64 = rs.iter().zip(bs.iter()).map(|(&r, &b)| r * b).sum();
                 let sb2: f64 = bs.iter().map(|&b| b * b).sum();
                 let denom = w * sb2 - sb * sb;
-                let beta = if denom.abs() < 1e-30 {
-                    0.0
+                let (alpha, beta) = if denom.abs() < 1e-30 {
+                    (f64::NAN, f64::NAN)
                 } else {
-                    (w * srb - sb * sr) / denom
+                    let beta = (w * srb - sb * sr) / denom;
+                    let alpha = (sr / w - beta * sb / w) * ann_factor;
+                    (alpha, beta)
                 };
-                let alpha = (sr / w - beta * sb / w) * ann_factor;
                 alphas.push(alpha);
                 betas.push(beta);
             }

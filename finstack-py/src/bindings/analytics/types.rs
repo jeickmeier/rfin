@@ -380,135 +380,39 @@ impl PyLookbackReturns {
 }
 
 // ---------------------------------------------------------------------------
-// RollingSharpe / RollingSortino / RollingVolatility
+// DatedSeries (unified Rolling* wrapper)
 // ---------------------------------------------------------------------------
 
-/// Rolling Sharpe ratio time series.
-#[pyclass(name = "RollingSharpe", module = "finstack.analytics", frozen)]
-pub struct PyRollingSharpe {
-    pub(super) inner: fa::RollingSharpe,
-}
-
-#[pymethods]
-impl PyRollingSharpe {
-    /// Rolling Sharpe values.
-    #[getter]
-    fn values(&self) -> Vec<f64> {
-        self.inner.values.clone()
-    }
-    /// Corresponding dates.
-    fn dates<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
-        self.inner
-            .dates
-            .iter()
-            .map(|&d| date_to_py(py, d))
-            .collect()
-    }
-
-    /// Convert to a pandas ``DataFrame`` with date index and a ``sharpe`` column.
-    fn to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let data = PyDict::new(py);
-        data.set_item("sharpe", &self.inner.values)?;
-        let dates = dates_to_pylist(py, &self.inner.dates)?;
-        let idx = dates.into_pyobject(py)?.into_any();
-        dict_to_dataframe(py, &data, Some(idx))
-    }
-
-    fn __repr__(&self) -> String {
-        format!("RollingSharpe(len={})", self.inner.values.len())
-    }
-}
-
-/// Rolling Sortino ratio time series.
-#[pyclass(name = "RollingSortino", module = "finstack.analytics", frozen)]
-pub struct PyRollingSortino {
-    pub(super) inner: fa::RollingSortino,
-}
-
-#[pymethods]
-impl PyRollingSortino {
-    /// Rolling Sortino values.
-    #[getter]
-    fn values(&self) -> Vec<f64> {
-        self.inner.values.clone()
-    }
-    /// Corresponding dates.
-    fn dates<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
-        self.inner
-            .dates
-            .iter()
-            .map(|&d| date_to_py(py, d))
-            .collect()
-    }
-
-    /// Convert to a pandas ``DataFrame`` with date index and a ``sortino`` column.
-    fn to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let data = PyDict::new(py);
-        data.set_item("sortino", &self.inner.values)?;
-        let dates = dates_to_pylist(py, &self.inner.dates)?;
-        let idx = dates.into_pyobject(py)?.into_any();
-        dict_to_dataframe(py, &data, Some(idx))
-    }
-
-    fn __repr__(&self) -> String {
-        format!("RollingSortino(len={})", self.inner.values.len())
-    }
-}
-
-/// Rolling volatility time series.
-#[pyclass(name = "RollingVolatility", module = "finstack.analytics", frozen)]
-pub struct PyRollingVolatility {
-    pub(super) inner: fa::RollingVolatility,
-}
-
-#[pymethods]
-impl PyRollingVolatility {
-    /// Rolling volatility values.
-    #[getter]
-    fn values(&self) -> Vec<f64> {
-        self.inner.values.clone()
-    }
-    /// Corresponding dates.
-    fn dates<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
-        self.inner
-            .dates
-            .iter()
-            .map(|&d| date_to_py(py, d))
-            .collect()
-    }
-
-    /// Convert to a pandas ``DataFrame`` with date index and a ``volatility`` column.
-    fn to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let data = PyDict::new(py);
-        data.set_item("volatility", &self.inner.values)?;
-        let dates = dates_to_pylist(py, &self.inner.dates)?;
-        let idx = dates.into_pyobject(py)?.into_any();
-        dict_to_dataframe(py, &data, Some(idx))
-    }
-
-    fn __repr__(&self) -> String {
-        format!("RollingVolatility(len={})", self.inner.values.len())
-    }
-}
-
-// ---------------------------------------------------------------------------
-// RollingReturns
-// ---------------------------------------------------------------------------
-
-/// Rolling total compounded return time series.
-#[pyclass(name = "RollingReturns", module = "finstack.analytics", frozen)]
-pub struct PyRollingReturns {
+/// Date-indexed numeric series returned by the rolling-window analytics.
+///
+/// Replaces the previous `RollingSharpe`, `RollingSortino`, `RollingVolatility`,
+/// and `RollingReturns` classes, which were textually identical except for the
+/// DataFrame column name. The Python facade re-exports each historical name
+/// as an alias of this class.
+#[pyclass(name = "DatedSeries", module = "finstack.analytics", frozen)]
+pub struct PyDatedSeries {
     pub(super) inner: fa::DatedSeries,
+    pub(super) value_column: String,
+}
+
+impl PyDatedSeries {
+    /// Construct from an analytics `DatedSeries` plus the desired column label.
+    pub(crate) fn new(inner: fa::DatedSeries, value_column: impl Into<String>) -> Self {
+        Self {
+            inner,
+            value_column: value_column.into(),
+        }
+    }
 }
 
 #[pymethods]
-impl PyRollingReturns {
-    /// Rolling total-return values, one per completed window.
+impl PyDatedSeries {
+    /// Numeric values, one per window.
     #[getter]
     fn values(&self) -> Vec<f64> {
         self.inner.values.clone()
     }
-    /// Window-end dates aligned 1:1 with `values`.
+    /// Window-end dates aligned 1:1 with [`values`](Self::values).
     fn dates<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
         self.inner
             .dates
@@ -516,18 +420,28 @@ impl PyRollingReturns {
             .map(|&d| date_to_py(py, d))
             .collect()
     }
+    /// Column name used by [`to_dataframe`](Self::to_dataframe).
+    #[getter]
+    fn value_column(&self) -> &str {
+        &self.value_column
+    }
 
-    /// Convert to a pandas ``DataFrame`` with date index and a ``return`` column.
+    /// Convert to a pandas ``DataFrame`` with the date column as index and a
+    /// single value column named after [`value_column`](Self::value_column).
     fn to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let data = PyDict::new(py);
-        data.set_item("return", &self.inner.values)?;
+        data.set_item(self.value_column.as_str(), &self.inner.values)?;
         let dates = dates_to_pylist(py, &self.inner.dates)?;
         let idx = dates.into_pyobject(py)?.into_any();
         dict_to_dataframe(py, &data, Some(idx))
     }
 
     fn __repr__(&self) -> String {
-        format!("RollingReturns(len={})", self.inner.values.len())
+        format!(
+            "DatedSeries(name={:?}, len={})",
+            self.value_column,
+            self.inner.values.len()
+        )
     }
 }
 
@@ -543,10 +457,7 @@ pub fn register(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyMultiFactorResult>()?;
     m.add_class::<PyDrawdownEpisode>()?;
     m.add_class::<PyLookbackReturns>()?;
-    m.add_class::<PyRollingSharpe>()?;
-    m.add_class::<PyRollingSortino>()?;
-    m.add_class::<PyRollingVolatility>()?;
-    m.add_class::<PyRollingReturns>()?;
+    m.add_class::<PyDatedSeries>()?;
     let _ = py;
     Ok(())
 }

@@ -65,7 +65,7 @@ let sharpe = perf.sharpe(0.02);
 let max_drawdown = perf.max_drawdown();
 let beta = perf.beta();
 let info_ratio = perf.information_ratio();
-let rolling = perf.rolling_sharpe(1, 3, 0.02);
+let rolling = perf.rolling_sharpe(1, 3, 0.02).expect("valid ticker index");
 
 assert_eq!(sharpe.len(), 2);
 assert_eq!(beta.len(), 2);

@@ -190,7 +190,9 @@ fn benchmark_drawdown_views_follow_benchmark_switch_with_active_window() {
         "PORT should lag a flat benchmark by its own rebased drawdown"
     );
     assert!(
-        perf.drawdown_details(perf.benchmark_idx(), 1).is_empty(),
+        perf.drawdown_details(perf.benchmark_idx(), 1)
+            .expect("benchmark drawdown details")
+            .is_empty(),
         "positive benchmark window should have no drawdown episodes"
     );
 
@@ -202,7 +204,9 @@ fn benchmark_drawdown_views_follow_benchmark_switch_with_active_window() {
         "drawdown outperformance should use the switched benchmark's windowed drawdown"
     );
 
-    let bench_episodes = perf.drawdown_details(perf.benchmark_idx(), 1);
+    let bench_episodes = perf
+        .drawdown_details(perf.benchmark_idx(), 1)
+        .expect("benchmark drawdown details after switch");
     assert_eq!(bench_episodes.len(), 1);
     assert!(
         (bench_episodes[0].max_drawdown + 0.2).abs() < 1e-12,
@@ -266,6 +270,127 @@ fn performance_new_rejects_negative_price_domain_in_simple_return_mode() {
     assert!(
         result.is_err(),
         "negative price domains should be rejected rather than converted into synthetic returns"
+    );
+}
+
+#[test]
+fn performance_new_rejects_duplicate_dates() {
+    let dates = vec![
+        d(2024, Month::January, 1),
+        d(2024, Month::January, 2),
+        d(2024, Month::January, 2),
+        d(2024, Month::January, 3),
+    ];
+    let prices = vec![vec![100.0, 101.0, 102.0, 103.0]];
+
+    let result = Performance::new(
+        dates,
+        prices,
+        vec!["PORT".to_string()],
+        None,
+        PeriodKind::Daily,
+    );
+
+    assert!(
+        result.is_err(),
+        "duplicate dates should be rejected at construction so downstream lookback / aggregation logic does not silently produce nonsense"
+    );
+}
+
+#[test]
+fn performance_new_rejects_non_monotonic_dates() {
+    let dates = vec![
+        d(2024, Month::January, 1),
+        d(2024, Month::January, 3),
+        d(2024, Month::January, 2),
+        d(2024, Month::January, 4),
+    ];
+    let prices = vec![vec![100.0, 101.0, 102.0, 103.0]];
+
+    let result = Performance::new(
+        dates,
+        prices,
+        vec!["PORT".to_string()],
+        None,
+        PeriodKind::Daily,
+    );
+
+    assert!(
+        result.is_err(),
+        "out-of-order dates should be rejected; partition_point lookups assume strictly ascending order"
+    );
+}
+
+#[test]
+fn performance_from_returns_rejects_duplicate_dates() {
+    let dates = vec![
+        d(2024, Month::January, 1),
+        d(2024, Month::January, 2),
+        d(2024, Month::January, 2),
+    ];
+    let returns = vec![vec![0.01, 0.02, 0.03]];
+
+    let result = Performance::from_returns(
+        dates,
+        returns,
+        vec!["PORT".to_string()],
+        None,
+        PeriodKind::Daily,
+    );
+
+    assert!(
+        result.is_err(),
+        "duplicate return-aligned dates should be rejected at construction"
+    );
+}
+
+#[test]
+fn performance_from_returns_rejects_non_monotonic_dates() {
+    let dates = vec![
+        d(2024, Month::January, 1),
+        d(2024, Month::January, 3),
+        d(2024, Month::January, 2),
+    ];
+    let returns = vec![vec![0.01, 0.02, 0.03]];
+
+    let result = Performance::from_returns(
+        dates,
+        returns,
+        vec!["PORT".to_string()],
+        None,
+        PeriodKind::Daily,
+    );
+
+    assert!(
+        result.is_err(),
+        "out-of-order return-aligned dates should be rejected"
+    );
+}
+
+#[test]
+fn performance_rolling_returns_errors_on_invalid_ticker_index() {
+    let dates = vec![
+        d(2024, Month::January, 1),
+        d(2024, Month::January, 2),
+        d(2024, Month::January, 3),
+    ];
+    let prices = vec![vec![100.0, 101.0, 102.0]];
+    let perf = Performance::new(
+        dates,
+        prices,
+        vec!["PORT".to_string()],
+        None,
+        PeriodKind::Daily,
+    )
+    .expect("performance should build");
+
+    assert!(
+        perf.rolling_returns(7, 2).is_err(),
+        "out-of-range ticker index should surface as an error rather than an empty series"
+    );
+    assert!(
+        perf.drawdown_details(7, 1).is_err(),
+        "out-of-range ticker index should error from drawdown_details rather than silently return no episodes"
     );
 }
 
