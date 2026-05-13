@@ -131,7 +131,7 @@ fn test_floating_rcf_declares_forward_dependency() {
         .commitment_date(as_of)
         .maturity(maturity)
         .base_rate_spec(BaseRateSpec::Floating(
-            finstack_valuations::cashflow::builder::FloatingRateSpec {
+            finstack_cashflows::builder::FloatingRateSpec {
                 index_id: "USD-SOFR-3M".into(),
                 spread_bp: rust_decimal::Decimal::try_from(200.0).expect("valid"),
                 gearing: rust_decimal::Decimal::ONE,
@@ -190,7 +190,7 @@ fn test_floating_rcf_dv01_bumps_forward_curve() {
         .commitment_date(as_of)
         .maturity(maturity)
         .base_rate_spec(BaseRateSpec::Floating(
-            finstack_valuations::cashflow::builder::FloatingRateSpec {
+            finstack_cashflows::builder::FloatingRateSpec {
                 index_id: "USD-SOFR-3M".into(),
                 spread_bp: rust_decimal::Decimal::try_from(200.0).expect("valid"),
                 gearing: rust_decimal::Decimal::ONE,

@@ -131,7 +131,7 @@ pub fn parse_envelope_v3(json: &str) -> Result<CalibrationEnvelope, EnvelopeErro
     if value.get("initial_market").is_some() {
         return Err(EnvelopeError::JsonParse {
             message: "envelope schema v2 is no longer supported; see \
-                      docs/2026-05-10-calibration-envelope-cleanup-design.md \
+                      docs/archive/plans/2026-05-10-calibration-envelope-cleanup-design.md \
                       for the v3 shape"
                 .to_string(),
             line: None,

@@ -1,6 +1,7 @@
 //! Pricing tests for real estate assets.
 
 use crate::finstack_test_utils::date;
+use finstack_cashflows::builder::specs::CouponType;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, StubKind, Tenor};
 use finstack_core::dates::{DayCount, DayCountContext};
@@ -8,7 +9,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::cashflow::builder::specs::CouponType;
 use finstack_valuations::instruments::equity::real_estate::{
     LeveredRealEstateEquity, RealEstateAsset, RealEstateValuationMethod,
 };

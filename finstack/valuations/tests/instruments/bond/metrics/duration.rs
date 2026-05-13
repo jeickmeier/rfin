@@ -1,8 +1,8 @@
 //! Duration calculator tests (Macaulay and Modified).
 
+use finstack_cashflows::CashflowProvider;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::fixed_income::bond::{Bond, CallPut, CallPutSchedule};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;

@@ -4,12 +4,12 @@
 //! and other error scenarios.
 
 use super::test_utils::*;
+use finstack_cashflows::builder::ScheduleParams;
 use finstack_core::currency::Currency::*;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
 use finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 use finstack_valuations::instruments::EquityUnderlyingParams;

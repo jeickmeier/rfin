@@ -5,6 +5,7 @@
 //! 3. OC/IC cure amount diversion mechanism
 //! 4. Clean-up call modeling
 
+use finstack_cashflows::builder::{DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -12,9 +13,6 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::{CreditRating, InstrumentId};
-use finstack_valuations::cashflow::builder::{
-    DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
-};
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     run_simulation, AssetType, DealType, Pool, PoolAsset, Seniority, StructuredCredit, Tranche,
     TrancheCoupon, TrancheStructure,

@@ -1,8 +1,8 @@
 # Credit Factor Hierarchy — Subagent Implementation Plan
 
 > **Workflow:** `superpowers:subagent-driven-development`
-> **Source spec:** [`docs/2026-04-26-credit-factor-hierarchy-design.md`](2026-04-26-credit-factor-hierarchy-design.md)
-> **PR plan:** [`docs/2026-04-26-credit-factor-hierarchy-pr-plan.md`](2026-04-26-credit-factor-hierarchy-pr-plan.md)
+> **Source spec:** [`docs/archive/plans/2026-04-26-credit-factor-hierarchy-design.md`](2026-04-26-credit-factor-hierarchy-design.md)
+> **PR plan:** [`docs/archive/plans/2026-04-26-credit-factor-hierarchy-pr-plan.md`](2026-04-26-credit-factor-hierarchy-pr-plan.md)
 > **Status:** Ready to execute
 > **Date:** 2026-04-26
 

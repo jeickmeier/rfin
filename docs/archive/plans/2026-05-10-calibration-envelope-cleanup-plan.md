@@ -16,7 +16,7 @@ Fixture migration is automated with a one-shot Python script.
 **Tech Stack:** Rust (workspace), `serde`/`serde_json`, `schemars`, `ts-rs`,
 Python 3 (one-shot migration script only), `jq` (smoke checks).
 
-**Spec:** [docs/2026-05-10-calibration-envelope-cleanup-design.md](docs/2026-05-10-calibration-envelope-cleanup-design.md)
+**Spec:** [docs/archive/plans/2026-05-10-calibration-envelope-cleanup-design.md](docs/archive/plans/2026-05-10-calibration-envelope-cleanup-design.md)
 
 ---
 
@@ -1773,8 +1773,8 @@ git commit -m "docs(calibration): update prose to v3 envelope vocabulary"
 ### Task 20: Pointer/superseded notes on prior design docs
 
 **Files:**
-- Modify (one-line addition each): `docs/2026-05-08-market-bootstrap-phase-{1,2,4,5}-*.md`,
-  `docs/2026-05-09-golden-fixture-envelope-migration-plan.md`
+- Modify (one-line addition each): `docs/archive/plans/2026-05-08-market-bootstrap-phase-{1,2,4,5}-*.md`,
+  `docs/archive/plans/2026-05-09-golden-fixture-envelope-migration-plan.md`
 
 - [ ] **Step 1: Add a top-of-file note**
 
@@ -1816,7 +1816,7 @@ pub fn parse_envelope_v3(json: &str) -> std::result::Result<CalibrationEnvelope,
     })?;
     if value.get("initial_market").is_some() {
         return Err(EnvelopeError::JsonParse {
-            message: "envelope schema v2 is no longer supported; see docs/2026-05-10-calibration-envelope-cleanup-design.md for the v3 shape".to_string(),
+            message: "envelope schema v2 is no longer supported; see docs/archive/plans/2026-05-10-calibration-envelope-cleanup-design.md for the v3 shape".to_string(),
             line: None,
             col: None,
         });
@@ -1946,7 +1946,7 @@ gh pr create --title "feat(calibration): v3 envelope — replace initial_market"
 - FX matrix config and hierarchy metadata move into `plan.settings`.
 - Output (`CalibrationResult.final_market`) is unchanged.
 
-See [docs/2026-05-10-calibration-envelope-cleanup-design.md](docs/2026-05-10-calibration-envelope-cleanup-design.md).
+See [docs/archive/plans/2026-05-10-calibration-envelope-cleanup-design.md](docs/archive/plans/2026-05-10-calibration-envelope-cleanup-design.md).
 
 ## Test plan
 - [ ] `cargo test --workspace --all-features`

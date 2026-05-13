@@ -1,13 +1,11 @@
 //! Tests for Discountable trait and NPV calculations.
 
+use finstack_cashflows::builder::{CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::traits::{Discounting, TermStructure};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_valuations::cashflow::builder::{
-    CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams,
-};
 use finstack_valuations::instruments::Discountable;
 use rust_decimal_macros::dec;
 use time::Month;

@@ -1,12 +1,12 @@
 //! Edge cases and boundary condition tests for FX Spot.
 
 use super::common::*;
+use finstack_cashflows::CashflowProvider;
 use finstack_core::{
     currency::Currency, dates::BusinessDayConvention, market_data::context::MarketContext,
     money::Money, types::InstrumentId,
 };
 use finstack_valuations::{
-    cashflow::CashflowProvider,
     instruments::{FxSpot, Instrument},
     pricer::InstrumentType,
 };

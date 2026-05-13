@@ -106,5 +106,5 @@ impl Instrument for TestInstrument {
 
 finstack_valuations::impl_empty_cashflow_provider!(
     TestInstrument,
-    finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+    finstack_cashflows::builder::CashflowRepresentation::NoResidual
 );

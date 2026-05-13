@@ -19,12 +19,12 @@
 use crate::error::{Error, Result};
 use crate::portfolio::Portfolio;
 use crate::types::PositionId;
+use finstack_cashflows::builder::{CashFlowSchedule, CashflowRepresentation};
 use finstack_core::cashflow::CFKind;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::{CashFlowSchedule, CashflowRepresentation};
 use finstack_valuations::instruments::DynInstrument;
 use indexmap::IndexMap;
 use std::collections::HashSet;
@@ -457,7 +457,7 @@ mod tests {
     #[derive(Clone)]
     struct UnsupportedInstrument;
 
-    impl finstack_valuations::cashflow::CashflowProvider for UnsupportedInstrument {
+    impl finstack_cashflows::CashflowProvider for UnsupportedInstrument {
         fn cashflow_schedule(
             &self,
             _market: &MarketContext,

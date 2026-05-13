@@ -4,12 +4,12 @@
 //! NPV calculations, par spreads, and schedule generation.
 
 use crate::finstack_test_utils as test_utils;
+use finstack_cashflows::CashflowProvider;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use rust_decimal::Decimal;

@@ -106,7 +106,7 @@ mod accrual_context_tests {
                 end_of_month: false,
                 overnight_compounding: None,
                 overnight_basis: None,
-                fallback: finstack_valuations::cashflow::builder::FloatingRateFallback::SpreadOnly,
+                fallback: finstack_cashflows::builder::FloatingRateFallback::SpreadOnly,
                 payment_lag_days: 0,
             },
             coupon_type: CouponType::Cash,

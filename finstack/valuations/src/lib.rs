@@ -188,7 +188,7 @@
 //! # Module Organization
 //!
 //! - [`crate::calibration`]: Curve and surface calibration from market quotes
-//! - [`crate::cashflow`]: Cashflow schedule generation and aggregation
+//! - [`finstack_cashflows`]: Cashflow schedule generation and aggregation
 //! - [`crate::instruments`]: Financial instrument definitions (bonds, swaps, options, etc.)
 //! - [`crate::metrics`]: Risk metric calculators and registry
 //! - [`crate::pricer`]: Pricing dispatch and registry infrastructure
@@ -227,7 +227,7 @@
 //! - [`crate::margin`]: Margin calculations (VM/IM/CSA) for collateralized derivatives
 //! - [`crate::attribution`]: P&L attribution analysis
 //! - [`crate::covenants`]: Covenant checking for structured products
-//! - [`crate::cashflow`]: Advanced cashflow schedule builders
+//! - [`finstack_cashflows`]: Advanced cashflow schedule builders
 //! - [`crate::instruments`]: Shared traits and parameters, plus the
 //!   [`crate::instruments::pricing`] and [`crate::instruments::models`]
 //!   submodules for reusable schedules, pricing helpers, models, and MC primitives
@@ -353,7 +353,7 @@ extern crate self as finstack_valuations;
 /// Curve and surface calibration tooling.
 pub mod calibration;
 /// Cashflow schedule generation and builders.
-pub use finstack_cashflows as cashflow;
+pub(crate) use finstack_cashflows as cashflow;
 /// Shared numerical constants and basis point helpers.
 pub mod constants;
 pub(crate) mod contract_specs;
@@ -383,6 +383,13 @@ pub mod results;
 pub mod schema;
 pub(crate) mod serde_defaults;
 
+/// Hidden support paths for exported macros.
+#[doc(hidden)]
+pub mod __private {
+    /// Cashflow crate path used by exported macros without exposing `cashflow`.
+    pub use finstack_cashflows;
+}
+
 #[macro_use]
 /// Financial instrument definitions and builders.
 pub mod instruments;
@@ -395,3 +402,37 @@ pub mod metrics;
 
 // Re-export unified valuations error type.
 pub use error::{Error, Result};
+
+/// Construct tagged bond instrument JSON from a cashflow schedule JSON payload.
+///
+/// This is the Rust-canonical bridge used by Python and WASM bindings for
+/// `cashflows.bond_from_cashflows`. It parses a [`finstack_cashflows`] schedule,
+/// constructs a [`crate::instruments::fixed_income::bond::Bond`], wraps it in
+/// [`crate::instruments::InstrumentJson::Bond`], and serializes the tagged
+/// instrument envelope.
+///
+/// # Errors
+///
+/// Returns an error if the schedule JSON is invalid, bond construction fails, or
+/// the tagged instrument cannot be serialized.
+pub fn bond_from_cashflows_json(
+    instrument_id: &str,
+    schedule_json: &str,
+    discount_curve_id: &str,
+    quoted_clean: Option<f64>,
+) -> finstack_core::Result<String> {
+    let schedule: finstack_cashflows::builder::CashFlowSchedule =
+        serde_json::from_str(schedule_json).map_err(|err| {
+            finstack_core::Error::Validation(format!("invalid cashflow schedule JSON: {err}"))
+        })?;
+    let bond = instruments::fixed_income::bond::Bond::from_cashflows(
+        instrument_id,
+        schedule,
+        discount_curve_id,
+        quoted_clean,
+    )?;
+    let instrument = instruments::InstrumentJson::Bond(bond);
+    serde_json::to_string(&instrument).map_err(|err| {
+        finstack_core::Error::Validation(format!("failed to serialize bond instrument JSON: {err}"))
+    })
+}

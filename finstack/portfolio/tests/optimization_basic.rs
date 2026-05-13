@@ -34,7 +34,7 @@ struct FixedValueInstrument {
 
 finstack_valuations::impl_empty_cashflow_provider!(
     FixedValueInstrument,
-    finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+    finstack_cashflows::builder::CashflowRepresentation::NoResidual
 );
 
 impl FixedValueInstrument {

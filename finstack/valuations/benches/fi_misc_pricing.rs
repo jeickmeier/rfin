@@ -11,13 +11,13 @@
 #![allow(clippy::unwrap_used)]
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use finstack_cashflows::builder::specs::CouponType;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::cashflow::builder::specs::CouponType;
 use finstack_valuations::instruments::fixed_income::cmo::AgencyCmo;
 use finstack_valuations::instruments::fixed_income::dollar_roll::DollarRoll;
 use finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
@@ -80,7 +80,7 @@ fn revolving_credit_floating(maturity: Date) -> RevolvingCredit {
         .commitment_date(as_of())
         .maturity(maturity)
         .base_rate_spec(BaseRateSpec::Floating(
-            finstack_valuations::cashflow::builder::FloatingRateSpec {
+            finstack_cashflows::builder::FloatingRateSpec {
                 index_id: "USD-SOFR-3M".into(),
                 spread_bp: Decimal::try_from(100.0).unwrap(),
                 gearing: Decimal::try_from(1.0).unwrap(),

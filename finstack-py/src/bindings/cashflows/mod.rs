@@ -139,17 +139,13 @@ fn bond_from_cashflows(
     quoted_clean: Option<f64>,
 ) -> PyResult<String> {
     py.detach(|| {
-        let schedule: finstack_cashflows::builder::CashFlowSchedule =
-            serde_json::from_str(schedule_json).map_err(crate::errors::display_to_py)?;
-        let bond = finstack_valuations::instruments::fixed_income::bond::Bond::from_cashflows(
+        finstack_valuations::bond_from_cashflows_json(
             instrument_id,
-            schedule,
+            schedule_json,
             discount_curve_id,
             quoted_clean,
         )
-        .map_err(crate::errors::core_to_py)?;
-        let instrument = finstack_valuations::instruments::InstrumentJson::Bond(bond);
-        serde_json::to_string(&instrument).map_err(crate::errors::display_to_py)
+        .map_err(crate::errors::core_to_py)
     })
 }
 

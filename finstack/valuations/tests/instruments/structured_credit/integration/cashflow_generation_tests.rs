@@ -3,6 +3,7 @@
 //! Tests end-to-end waterfall execution and cashflow scheduling
 //! across different deal types.
 
+use finstack_cashflows::CashflowProvider;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -11,7 +12,6 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::CreditRating;
 use finstack_core::types::InstrumentId;
-use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     AssetType, DealType, Pool, Seniority, StructuredCredit, Tranche, TrancheCoupon,
     TrancheStructure,
@@ -83,7 +83,7 @@ fn create_test_tranches() -> TrancheStructure {
         100.0,
         Seniority::Senior,
         Money::new(135_000_000.0, Currency::USD),
-        TrancheCoupon::Floating(finstack_valuations::cashflow::builder::FloatingRateSpec {
+        TrancheCoupon::Floating(finstack_cashflows::builder::FloatingRateSpec {
             index_id: finstack_core::types::CurveId::new("SOFR-3M".to_string()),
             spread_bp: rust_decimal::Decimal::try_from(200.0).expect("valid"),
             gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),

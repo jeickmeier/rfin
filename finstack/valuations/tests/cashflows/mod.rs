@@ -2,7 +2,7 @@
 //!
 //! This module consolidates:
 //! - `provider_contract`: `CashflowProvider` trait contract compliance
-//! - `bridge_smoke`: compatibility smoke tests for `finstack_valuations::cashflow::*`
+//! - `bridge_smoke`: compatibility smoke tests for `finstack_cashflows::*`
 
 pub(crate) mod helpers;
 

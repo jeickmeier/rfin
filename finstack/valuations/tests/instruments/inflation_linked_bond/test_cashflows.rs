@@ -8,8 +8,8 @@
 //! - Empty schedules for edge cases
 
 use super::common::*;
+use finstack_cashflows::CashflowProvider;
 use finstack_core::dates::Tenor;
-use finstack_valuations::cashflow::CashflowProvider;
 
 #[test]
 fn test_dated_cashflows_semi_annual() {
@@ -61,14 +61,11 @@ fn test_dated_cashflows_annual() {
     let cal_id = "weekends_only";
     let bdc = finstack_core::dates::BusinessDayConvention::Following;
     let expected_2021 =
-        finstack_valuations::cashflow::builder::calendar::adjust_date(d(2021, 1, 15), bdc, cal_id)
-            .unwrap();
+        finstack_cashflows::builder::calendar::adjust_date(d(2021, 1, 15), bdc, cal_id).unwrap();
     let expected_2022 =
-        finstack_valuations::cashflow::builder::calendar::adjust_date(d(2022, 1, 15), bdc, cal_id)
-            .unwrap();
+        finstack_cashflows::builder::calendar::adjust_date(d(2022, 1, 15), bdc, cal_id).unwrap();
     let expected_2023 =
-        finstack_valuations::cashflow::builder::calendar::adjust_date(d(2023, 1, 15), bdc, cal_id)
-            .unwrap();
+        finstack_cashflows::builder::calendar::adjust_date(d(2023, 1, 15), bdc, cal_id).unwrap();
     assert_eq!(flows[0].0, expected_2021);
     assert_eq!(flows[1].0, expected_2022);
     assert_eq!(flows[2].0, expected_2023);

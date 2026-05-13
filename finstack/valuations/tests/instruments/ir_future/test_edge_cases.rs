@@ -224,7 +224,7 @@ fn test_inverted_period_dates() {
 
 #[test]
 fn test_cashflow_expired() {
-    use finstack_valuations::cashflow::CashflowProvider;
+    use finstack_cashflows::CashflowProvider;
 
     let as_of = date!(2024 - 07 - 15);
     let expiry = date!(2024 - 07 - 01); // Already expired
@@ -252,7 +252,7 @@ fn test_cashflow_expired() {
 
 #[test]
 fn test_cashflow_active() {
-    use finstack_valuations::cashflow::CashflowProvider;
+    use finstack_cashflows::CashflowProvider;
 
     let (as_of, start, end) = standard_dates();
     let future = create_standard_future(start, end);

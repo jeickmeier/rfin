@@ -3,6 +3,7 @@
 //! Ensures attribution envelopes, configuration types, and model parameters
 //! can be serialized to JSON and deserialized back without loss.
 
+use finstack_cashflows::builder::{DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec};
 use finstack_core::currency::Currency;
 use finstack_core::dates::create_date;
 use finstack_core::market_data::context::MarketContextState;
@@ -10,9 +11,6 @@ use finstack_core::money::Money;
 use finstack_valuations::attribution::{
     AttributionConfig, AttributionEnvelope, AttributionFactor, AttributionMethod, AttributionSpec,
     ModelParamsSnapshot,
-};
-use finstack_valuations::cashflow::builder::{
-    DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
 };
 use finstack_valuations::instruments::fixed_income::convertible::{
     AntiDilutionPolicy, ConversionPolicy, ConversionSpec, DividendAdjustment,

@@ -76,15 +76,11 @@ pub fn bond_from_cashflows(
     discount_curve_id: &str,
     quoted_clean: Option<f64>,
 ) -> Result<String, JsValue> {
-    let schedule: finstack_cashflows::builder::CashFlowSchedule =
-        serde_json::from_str(schedule_json).map_err(to_js_err)?;
-    let bond = finstack_valuations::instruments::fixed_income::bond::Bond::from_cashflows(
+    finstack_valuations::bond_from_cashflows_json(
         instrument_id,
-        schedule,
+        schedule_json,
         discount_curve_id,
         quoted_clean,
     )
-    .map_err(to_js_err)?;
-    let instrument = finstack_valuations::instruments::InstrumentJson::Bond(bond);
-    serde_json::to_string(&instrument).map_err(to_js_err)
+    .map_err(to_js_err)
 }

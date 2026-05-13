@@ -326,7 +326,7 @@ fn schema_roundtrip_mtm_resetting() {
 /// uses payment-date FX, just like the pricer).
 #[test]
 fn mtm_reset_cashflow_schedule_npv_matches_base_value() {
-    use finstack_valuations::cashflow::CashflowProvider;
+    use finstack_cashflows::CashflowProvider;
 
     let ctx = build_market_context();
     let as_of = base_date();

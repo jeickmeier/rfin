@@ -1,10 +1,10 @@
-//! Smoke tests for the `finstack_valuations::cashflow` bridge re-export.
+//! Smoke tests for the `finstack_cashflows` bridge re-export.
 
+use finstack_cashflows::builder::specs::{CouponType, FixedCouponSpec, ScheduleParams};
+use finstack_cashflows::builder::CashFlowSchedule;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec, ScheduleParams};
-use finstack_valuations::cashflow::builder::CashFlowSchedule;
 use serde::{Deserialize, Serialize};
 use time::Month;
 
@@ -60,7 +60,7 @@ fn bridge_date_generation_build_dates_works() {
         payment_lag_days: 0,
     };
 
-    let dates = finstack_valuations::cashflow::builder::date_generation::build_dates(
+    let dates = finstack_cashflows::builder::date_generation::build_dates(
         issue,
         maturity,
         params.freq,

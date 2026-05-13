@@ -31,7 +31,7 @@
 //! use finstack_valuations::instruments::fixed_income::mbs_passthrough::{
 //!     AgencyMbsPassthrough, AgencyProgram, PoolType,
 //! };
-//! use finstack_valuations::cashflow::builder::specs::PrepaymentModelSpec;
+//! use finstack_cashflows::builder::specs::PrepaymentModelSpec;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_core::dates::Date;

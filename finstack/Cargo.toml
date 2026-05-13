@@ -10,6 +10,7 @@ authors.workspace = true
 [dependencies]
 finstack_core = { package = "finstack-core", path = "core" }
 finstack_analytics = { package = "finstack-analytics", path = "analytics" }
+finstack_cashflows = { package = "finstack-cashflows", path = "cashflows" }
 finstack_margin = { package = "finstack-margin", path = "margin" }
 finstack_statements = { package = "finstack-statements", path = "statements" }
 finstack_statements_analytics = { package = "finstack-statements-analytics", path = "statements-analytics" }

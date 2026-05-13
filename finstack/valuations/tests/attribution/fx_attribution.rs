@@ -602,5 +602,5 @@ fn test_waterfall_factor_ordering_sensitivity() {
 
 finstack_valuations::impl_empty_cashflow_provider!(
     FxLinkedInstrument,
-    finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+    finstack_cashflows::builder::CashflowRepresentation::NoResidual
 );

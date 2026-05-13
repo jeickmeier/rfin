@@ -17,6 +17,8 @@
 //! Market Standards Review (Week 5)
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use finstack_cashflows::builder::specs::{CouponType, FixedCouponSpec};
+use finstack_cashflows::builder::ScheduleParams;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
@@ -35,8 +37,6 @@ use finstack_portfolio::position::{Position, PositionUnit};
 use finstack_portfolio::types::Entity;
 use finstack_portfolio::valuation::{revalue_affected, value_portfolio};
 use finstack_portfolio::PortfolioBuilder;
-use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
-use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::credit_derivatives::cds::{
     CDSConvention, CdsValuationConvention, CreditDefaultSwap, PayReceive, PremiumLegSpec,
     ProtectionLegSpec,

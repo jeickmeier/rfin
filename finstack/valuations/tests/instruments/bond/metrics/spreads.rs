@@ -1,9 +1,9 @@
 //! Z-spread and I-spread calculator tests.
 
+use finstack_cashflows::CashflowProvider;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::{Error, InputError};
-use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::fixed_income::bond::pricing::quote_conversions::price_from_oas;
 use finstack_valuations::instruments::fixed_income::bond::ZSpreadCalculator;
 use finstack_valuations::instruments::fixed_income::bond::{
@@ -841,12 +841,9 @@ fn test_callable_bdt_oas_recovers_settlement_date_clean_price() {
     let schedule = bond
         .cashflow_schedule(&market, quote_date)
         .expect("cashflow schedule");
-    let accrued_at_quote = finstack_valuations::cashflow::accrued_interest_amount(
-        &schedule,
-        quote_date,
-        &bond.accrual_config(),
-    )
-    .expect("quote-date accrued");
+    let accrued_at_quote =
+        finstack_cashflows::accrued_interest_amount(&schedule, quote_date, &bond.accrual_config())
+            .expect("quote-date accrued");
     let quoted_clean_price = (dirty_at_quote - accrued_at_quote) / notional.amount() * 100.0;
     bond.pricing_overrides.market_quotes.quoted_clean_price = Some(quoted_clean_price);
 
@@ -1050,7 +1047,7 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
         let schedule = base_bond
             .cashflow_schedule(&market, quote_date)
             .expect("build full schedule");
-        let accrued = finstack_valuations::cashflow::accrued_interest_amount(
+        let accrued = finstack_cashflows::accrued_interest_amount(
             &schedule,
             quote_date,
             &base_bond.accrual_config(),

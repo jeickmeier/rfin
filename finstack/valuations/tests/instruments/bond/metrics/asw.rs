@@ -164,8 +164,8 @@ fn test_asw_par_tracks_coupon_minus_par_rate() {
         CashflowSpec::Fixed(spec) => spec,
         _ => panic!("expected fixed bond"),
     };
-    let periods = finstack_valuations::cashflow::builder::periods::build_periods(
-        finstack_valuations::cashflow::builder::periods::BuildPeriodsParams {
+    let periods = finstack_cashflows::builder::periods::build_periods(
+        finstack_cashflows::builder::periods::BuildPeriodsParams {
             start: bond.issue_date,
             end: bond.maturity,
             frequency: spec.freq,

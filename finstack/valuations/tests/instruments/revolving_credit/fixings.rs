@@ -3,13 +3,13 @@
 //! Verifies that seasoned floating-rate facilities use observed fixing rates
 //! for past reset dates instead of projecting from the forward curve.
 
+use finstack_cashflows::builder::FloatingRateSpec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::ScalarTimeSeries;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::FloatingRateSpec;
 use finstack_valuations::instruments::fixed_income::revolving_credit::cashflow_engine::CashflowEngine;
 use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,

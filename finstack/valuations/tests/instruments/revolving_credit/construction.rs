@@ -1,10 +1,10 @@
 //! Revolving credit construction and validation tests.
 
+use finstack_cashflows::builder::{FeeTier, FloatingRateSpec};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_valuations::cashflow::builder::{FeeTier, FloatingRateSpec};
 use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };

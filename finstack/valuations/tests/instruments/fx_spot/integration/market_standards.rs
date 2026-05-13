@@ -1,6 +1,7 @@
 //! Market standards and industry benchmark tests for FX Spot.
 
 use super::super::common::*;
+use finstack_cashflows::CashflowProvider;
 use finstack_core::HashMap;
 use finstack_core::{
     currency::Currency,
@@ -9,7 +10,6 @@ use finstack_core::{
     types::InstrumentId,
 };
 use finstack_valuations::{
-    cashflow::CashflowProvider,
     instruments::{FxSpot, Instrument},
     pricer::InstrumentType,
 };

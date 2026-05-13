@@ -404,8 +404,8 @@ fn test_mc_utilization_mean_reversion() {
 /// difference is entirely due to the cap reducing the interest rate.
 #[test]
 fn test_mc_stochastic_floating_rate_index_cap() {
+    use finstack_cashflows::builder::FloatingRateSpec;
     use finstack_core::market_data::term_structures::ForwardCurve;
-    use finstack_valuations::cashflow::builder::FloatingRateSpec;
     use finstack_valuations::instruments::fixed_income::revolving_credit::RevolvingCreditPricer;
     use rust_decimal::Decimal;
 

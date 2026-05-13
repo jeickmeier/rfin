@@ -7,10 +7,10 @@
 //! - date ordering
 //! - currency consistency
 
+use finstack_cashflows::builder::FeeTier;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::FeeTier;
 use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };

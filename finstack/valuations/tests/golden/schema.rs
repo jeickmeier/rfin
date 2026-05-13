@@ -1,6 +1,6 @@
 //! Serde structs for the `finstack.golden/1` fixture schema.
 //!
-//! See `docs/2026-04-30-golden-tests-framework-design.md` section 5.
+//! See `docs/archive/plans/2026-04-30-golden-tests-framework-design.md` section 5.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

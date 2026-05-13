@@ -9,8 +9,8 @@
 //! - Error propagation
 
 use super::common::*;
+use finstack_cashflows::CashflowProvider;
 use finstack_core::currency::Currency;
-use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::Instrument;
 use rust_decimal::Decimal;
 
@@ -499,8 +499,7 @@ fn test_cashflow_provider_trait() {
     let as_of = d(2025, 1, 2);
 
     // Act
-    let flows = finstack_valuations::cashflow::CashflowProvider::dated_cashflows(&ilb, &ctx, as_of)
-        .unwrap();
+    let flows = finstack_cashflows::CashflowProvider::dated_cashflows(&ilb, &ctx, as_of).unwrap();
 
     // Assert
     assert!(!flows.is_empty());

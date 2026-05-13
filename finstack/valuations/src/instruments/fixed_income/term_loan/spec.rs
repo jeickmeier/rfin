@@ -26,7 +26,7 @@
 //! ```text
 //! use finstack_valuations::instruments::fixed_income::term_loan::spec::*;
 //! use finstack_valuations::instruments::fixed_income::term_loan::RateSpec;
-//! use finstack_valuations::cashflow::builder::specs::CouponType;
+//! use finstack_cashflows::builder::specs::CouponType;
 //! use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
 //! use finstack_core::money::Money;
 //! use finstack_core::currency::Currency;
@@ -443,8 +443,8 @@ impl AmortizationSpec {
 /// use finstack_valuations::instruments::fixed_income::term_loan::spec::*;
 /// use finstack_valuations::instruments::fixed_income::term_loan::types::RateSpec;
 /// use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
-/// use finstack_valuations::cashflow::builder::specs::CouponType;
-/// use finstack_valuations::cashflow::builder::FloatingRateSpec;
+/// use finstack_cashflows::builder::specs::CouponType;
+/// use finstack_cashflows::builder::FloatingRateSpec;
 /// use finstack_core::money::Money;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::*;

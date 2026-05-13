@@ -7,11 +7,11 @@
 //! directly. For metrics-interface tests (via `MetricId::Accrued`), see
 //! `metrics/accrued.rs` which validates the integration with the metrics framework.
 
+use finstack_cashflows::{accrued_interest_amount, CashflowProvider};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::{accrued_interest_amount, CashflowProvider};
 use finstack_valuations::instruments::fixed_income::bond::{AccrualMethod, Bond};
 use time::Month;
 
@@ -216,12 +216,12 @@ fn test_accrued_interest_at_coupon_boundaries() {
 
 #[test]
 fn test_accrued_interest_amortizing_schedule_driven() {
+    use finstack_cashflows::builder::AmortizationSpec;
     use finstack_core::dates::DayCount;
     use finstack_core::dates::DayCountContext;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
-    use finstack_valuations::cashflow::builder::AmortizationSpec;
     use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
 
     // 3-year annual amortizing bond, 5% coupon, 1/3 principal returned each year.
@@ -283,7 +283,7 @@ fn test_accrued_interest_amortizing_schedule_driven() {
     let schedule = bond
         .cashflow_schedule(&curves, issue)
         .expect("Full schedule retrieval should succeed in test");
-    use finstack_valuations::cashflow::primitives::CFKind;
+    use finstack_cashflows::primitives::CFKind;
     let mut coupon_dates: Vec<(Date, f64)> = Vec::new();
     for cf in &schedule.flows {
         if matches!(cf.kind, CFKind::Fixed | CFKind::Stub) {
@@ -311,7 +311,7 @@ fn test_accrued_interest_amortizing_schedule_driven() {
     //
     // Mirror that convention here so the expected value tracks the impl.
     let coupon_info: Vec<(Date, f64, Option<f64>)> = {
-        use finstack_valuations::cashflow::primitives::CFKind;
+        use finstack_cashflows::primitives::CFKind;
         let mut out: Vec<(Date, f64, Option<f64>)> = Vec::new();
         for cf in &schedule.flows {
             if !matches!(cf.kind, CFKind::Fixed | CFKind::Stub) {

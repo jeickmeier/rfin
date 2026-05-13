@@ -5,7 +5,7 @@
 //! the CashflowProvider implementation.
 
 use super::common::*;
-use finstack_valuations::cashflow::CashflowProvider;
+use finstack_cashflows::CashflowProvider;
 use time::macros::date;
 
 #[test]

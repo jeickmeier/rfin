@@ -1,10 +1,10 @@
 //! Tests for repo cashflow schedule generation.
 
 use super::fixtures::*;
+use finstack_cashflows::CashflowProvider;
 use finstack_core::cashflow::CFKind;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::rates::repo::Repo;
 use finstack_valuations::instruments::Instrument;
 

@@ -12,10 +12,10 @@
 //! through these end-to-end pricing tests and through public metric APIs.
 
 use super::helpers::*;
+use finstack_cashflows::builder::ScheduleParams;
 use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranche;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTrancheParams;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricer;

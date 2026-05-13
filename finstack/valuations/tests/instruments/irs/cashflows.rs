@@ -8,13 +8,13 @@
 //! - Cashflow schedule consistency
 
 use crate::finstack_test_utils as test_utils;
+use finstack_cashflows::builder::date_generation::build_dates;
+use finstack_cashflows::CashflowProvider;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::date_generation::build_dates;
-use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::pricing::swap_legs::add_payment_delay;
 use finstack_valuations::instruments::rates::irs::FloatingLegCompounding;
 use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
@@ -446,7 +446,7 @@ fn test_irs_full_schedule_with_cfkind() {
     let sched = full_schedule.unwrap();
 
     // Verify we have both fixed and floating cashflows
-    use finstack_valuations::cashflow::primitives::CFKind;
+    use finstack_cashflows::primitives::CFKind;
 
     let has_fixed = sched.flows.iter().any(|cf| cf.kind == CFKind::Fixed);
     let has_float = sched.flows.iter().any(|cf| cf.kind == CFKind::FloatReset);
@@ -503,7 +503,7 @@ fn test_regular_short_front_schedule_does_not_tag_first_coupon_as_stub() {
     let fixed_stub_count = schedule
         .flows
         .iter()
-        .filter(|cf| cf.kind == finstack_valuations::cashflow::primitives::CFKind::Stub)
+        .filter(|cf| cf.kind == finstack_cashflows::primitives::CFKind::Stub)
         .count();
 
     assert_eq!(
@@ -561,7 +561,7 @@ fn test_genuine_front_stub_fixed_coupon_is_tagged_as_stub() {
     let fixed_stub_count = schedule
         .flows
         .iter()
-        .filter(|cf| cf.kind == finstack_valuations::cashflow::primitives::CFKind::Stub)
+        .filter(|cf| cf.kind == finstack_cashflows::primitives::CFKind::Stub)
         .count();
 
     assert_eq!(fixed_stub_count, 1);
@@ -616,7 +616,7 @@ fn test_regular_holiday_end_coupon_under_stub_rule_is_not_tagged_stub() {
     let fixed_stub_count = schedule
         .flows
         .iter()
-        .filter(|cf| cf.kind == finstack_valuations::cashflow::primitives::CFKind::Stub)
+        .filter(|cf| cf.kind == finstack_cashflows::primitives::CFKind::Stub)
         .count();
 
     assert_eq!(
@@ -674,7 +674,7 @@ fn test_regular_eom_schedule_under_stub_rule_is_not_tagged_stub() {
     let fixed_stub_count = schedule
         .flows
         .iter()
-        .filter(|cf| cf.kind == finstack_valuations::cashflow::primitives::CFKind::Stub)
+        .filter(|cf| cf.kind == finstack_cashflows::primitives::CFKind::Stub)
         .count();
 
     assert_eq!(
@@ -854,8 +854,8 @@ fn test_irs_explicit_zero_payment_delay_preserved() {
         .filter(|cf| {
             matches!(
                 cf.kind,
-                finstack_valuations::cashflow::primitives::CFKind::Fixed
-                    | finstack_valuations::cashflow::primitives::CFKind::Stub
+                finstack_cashflows::primitives::CFKind::Fixed
+                    | finstack_cashflows::primitives::CFKind::Stub
             )
         })
         .map(|cf| cf.date)
@@ -916,7 +916,7 @@ fn test_irs_explicit_zero_reset_lag_preserved() {
     let first_reset = full_schedule
         .flows
         .iter()
-        .find(|cf| cf.kind == finstack_valuations::cashflow::primitives::CFKind::FloatReset)
+        .find(|cf| cf.kind == finstack_cashflows::primitives::CFKind::FloatReset)
         .and_then(|cf| cf.reset_date)
         .expect("reset date");
     // With reset_lag_days: 0, reset date should equal accrual start (spot reset)
@@ -941,7 +941,7 @@ fn test_irs_receive_fixed_cashflow_signs() {
 
     let full_schedule = swap.cashflow_schedule(&market, as_of).unwrap();
 
-    use finstack_valuations::cashflow::primitives::CFKind;
+    use finstack_cashflows::primitives::CFKind;
 
     // Check signs
     for cf in &full_schedule.flows {
@@ -983,7 +983,7 @@ fn test_irs_pay_fixed_cashflow_signs() {
 
     let full_schedule = swap.cashflow_schedule(&market, as_of).unwrap();
 
-    use finstack_valuations::cashflow::primitives::CFKind;
+    use finstack_cashflows::primitives::CFKind;
 
     // Check signs
     for cf in &full_schedule.flows {
@@ -1015,7 +1015,7 @@ fn test_irs_pay_fixed_cashflow_signs() {
 /// so the swap should be approximately at par.
 #[test]
 fn test_irs_npv_parity_at_par_rate() {
-    use finstack_valuations::cashflow::primitives::CFKind;
+    use finstack_cashflows::primitives::CFKind;
 
     // Build a swap where the fixed rate matches the flat forward curve rate (5%)
     // This should produce a near-zero NPV swap

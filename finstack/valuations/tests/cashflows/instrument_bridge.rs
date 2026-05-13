@@ -1,6 +1,6 @@
 //! Smoke tests for direct `CashflowProvider` coverage.
 
-use finstack_valuations::cashflow::CashflowProvider;
+use finstack_cashflows::CashflowProvider;
 use finstack_valuations::instruments::commodity::commodity_forward::CommodityForward;
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;

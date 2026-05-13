@@ -5,13 +5,13 @@
 
 #[cfg(test)]
 mod tests {
+    use finstack_cashflows::builder::FeeTier;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{Date, DayCount, Tenor};
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve, HazardCurve};
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
-    use finstack_valuations::cashflow::builder::FeeTier;
     use finstack_valuations::instruments::fixed_income::revolving_credit::RevolvingCreditPricer;
     use finstack_valuations::instruments::fixed_income::revolving_credit::{
         BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
@@ -164,7 +164,7 @@ mod tests {
             .commitment_date(start)
             .maturity(end)
             .base_rate_spec(BaseRateSpec::Floating(
-                finstack_valuations::cashflow::builder::FloatingRateSpec {
+                finstack_cashflows::builder::FloatingRateSpec {
                     index_id: "USD-SOFR-3M".into(),
                     spread_bp: rust_decimal::Decimal::try_from(200.0).expect("valid"),
                     gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
@@ -202,7 +202,7 @@ mod tests {
             .commitment_date(start)
             .maturity(end)
             .base_rate_spec(BaseRateSpec::Floating(
-                finstack_valuations::cashflow::builder::FloatingRateSpec {
+                finstack_cashflows::builder::FloatingRateSpec {
                     index_id: "USD-SOFR-3M".into(),
                     spread_bp: rust_decimal::Decimal::try_from(200.0).expect("valid"),
                     gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),

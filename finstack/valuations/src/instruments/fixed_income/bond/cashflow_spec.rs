@@ -630,7 +630,7 @@ impl CashflowSpec {
     ///
     /// ```rust
     /// use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
-    /// use finstack_valuations::cashflow::builder::AmortizationSpec;
+    /// use finstack_cashflows::builder::AmortizationSpec;
     /// use finstack_core::dates::{Tenor, DayCount, Date};
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;

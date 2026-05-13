@@ -149,7 +149,7 @@ fn test_odd_first_coupon_ytm() {
     let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
-    use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
+    use finstack_cashflows::builder::specs::{CouponType, FixedCouponSpec};
     use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     let bond_result = Bond::builder()
         .id("ODD-FIRST".into())
@@ -265,7 +265,7 @@ fn test_eom_february_maturity_ytm() {
 
 #[test]
 fn test_long_first_coupon_ytm() {
-    use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
+    use finstack_cashflows::builder::specs::{CouponType, FixedCouponSpec};
     use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     // Bond with long first coupon period
     let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();

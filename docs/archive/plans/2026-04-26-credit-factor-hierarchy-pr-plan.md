@@ -14,7 +14,7 @@
 
 Primary design spec:
 
-- `docs/2026-04-26-credit-factor-hierarchy-design.md`
+- `docs/archive/plans/2026-04-26-credit-factor-hierarchy-design.md`
 
 The checked-out worktree containing this plan is sparse for some valuation and binding code. For implementation, use the full repo paths below as the canonical targets when a file is absent from the sparse worktree.
 

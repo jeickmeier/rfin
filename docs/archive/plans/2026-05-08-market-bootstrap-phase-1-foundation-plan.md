@@ -10,7 +10,7 @@
 
 **Tech Stack:** Rust (`finstack-valuations`, `finstack-core`), PyO3 (`finstack-py`), wasm-bindgen (`finstack-wasm`), serde JSON envelopes, Jupyter for the notebook scaffold.
 
-**Spec reference:** [`docs/2026-05-08-market-bootstrap-phase-1-foundation-design.md`](2026-05-08-market-bootstrap-phase-1-foundation-design.md)
+**Spec reference:** [`docs/archive/plans/2026-05-08-market-bootstrap-phase-1-foundation-design.md`](2026-05-08-market-bootstrap-phase-1-foundation-design.md)
 
 **Commit policy:** This project's user-policy is *no commits without explicit approval*. Each task ends with a `git commit` step shown for completeness. The implementer **must confirm with the user** before running each commit, or run all commits in a single batch at end if the user prefers. Do not skip-hook (`--no-verify`) under any circumstance.
 
@@ -1362,7 +1362,7 @@ Expected: green across the board. Any new lint/format issues introduced in Tasks
 
 - [ ] **Step 3: Check Phase 1 acceptance criteria**
 
-Walk through `docs/2026-05-08-market-bootstrap-phase-1-foundation-design.md` §7 and tick each:
+Walk through `docs/archive/plans/2026-05-08-market-bootstrap-phase-1-foundation-design.md` §7 and tick each:
 
 - [ ] `calibrate` and `validateCalibrationJson` callable from JavaScript via the public WASM exports. (Task 1)
 - [ ] `finstack/valuations/src/calibration/mod.rs` crate doc opens with the canonical-path narrative. (Task 7)
@@ -1392,4 +1392,4 @@ git commit -m "chore: format and lint cleanup for market bootstrap phase 1"
 
 When this plan is complete, `calibrate(envelope_json).market` is the documented, tested, reachable canonical path across Rust, Python, and JavaScript. Three reference envelopes demonstrate the two-track structure end-to-end. Pricing golden fixtures can be authored against `market_envelope` for any future work. The notebook scaffold is in place.
 
-Phase 2 (reference-catalog completion + CDX IG 46 fixture migration) is the natural next slice. See [`docs/2026-05-08-market-bootstrap-phase-2-reference-catalog-design.md`](2026-05-08-market-bootstrap-phase-2-reference-catalog-design.md).
+Phase 2 (reference-catalog completion + CDX IG 46 fixture migration) is the natural next slice. See [`docs/archive/plans/2026-05-08-market-bootstrap-phase-2-reference-catalog-design.md`](2026-05-08-market-bootstrap-phase-2-reference-catalog-design.md).

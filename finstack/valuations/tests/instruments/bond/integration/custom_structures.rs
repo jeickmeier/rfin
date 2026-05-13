@@ -1,13 +1,11 @@
 //! Custom bond structure integration tests (PIK, step-up, etc.).
 
+use finstack_cashflows::builder::{CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::{
-    CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams,
-};
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::Instrument;
 use rust_decimal::Decimal;

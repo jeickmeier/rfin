@@ -728,7 +728,7 @@ mod tests {
 
     finstack_valuations::impl_empty_cashflow_provider!(
         MockInstrument,
-        finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+        finstack_cashflows::builder::CashflowRepresentation::NoResidual
     );
 
     impl Instrument for MockInstrument {

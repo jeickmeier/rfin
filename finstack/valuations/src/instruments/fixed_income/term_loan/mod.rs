@@ -27,7 +27,7 @@
 //! ```rust,no_run
 //! use finstack_valuations::instruments::fixed_income::term_loan::{TermLoan, TermLoanSpec, RateSpec};
 //! use finstack_valuations::instruments::fixed_income::term_loan::spec::AmortizationSpec;
-//! use finstack_valuations::cashflow::builder::specs::CouponType;
+//! use finstack_cashflows::builder::specs::CouponType;
 //! use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
 //! use finstack_core::money::Money;
 //! use finstack_core::currency::Currency;

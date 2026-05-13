@@ -10,7 +10,7 @@
 
 **Tech Stack:** Rust (`finstack-valuations`), PyO3, wasm-bindgen, serde-json, no new external dependencies.
 
-**Spec reference:** [`docs/2026-05-08-market-bootstrap-phase-4-diagnostics-design.md`](2026-05-08-market-bootstrap-phase-4-diagnostics-design.md)
+**Spec reference:** [`docs/archive/plans/2026-05-08-market-bootstrap-phase-4-diagnostics-design.md`](2026-05-08-market-bootstrap-phase-4-diagnostics-design.md)
 
 **Phase 1+2+3 baseline (assumed present):**
 - `CalibrationEnvelope` with `schema_url: Option<String>` field for `$schema` editor support.
@@ -1556,7 +1556,7 @@ All gates green.
 
 - [ ] **Step 3: Walk the spec's acceptance criteria**
 
-From `docs/2026-05-08-market-bootstrap-phase-4-diagnostics-design.md` §6:
+From `docs/archive/plans/2026-05-08-market-bootstrap-phase-4-diagnostics-design.md` §6:
 
 - [ ] `EnvelopeError` enum with all 8 variants, `Display`, `Serialize`, `to_json`.
 - [ ] `validate_json` (or `validate`) returns all errors in one pass.
@@ -1582,4 +1582,4 @@ git commit -m "chore: format and lint cleanup for market bootstrap phase 4"
 
 When this plan is complete, calibration envelope failures surface with structured, actionable diagnostics across Rust, Python, and JavaScript. Pre-flight `dry_run` runs in microseconds and catches structural issues before the slow solve. The dependency graph is queryable. Solver non-convergence points at the worst-fitting quote.
 
-Phase 5 (Python TypedDict, fast-follow) is the natural next slice. See [`docs/2026-05-08-market-bootstrap-phase-5-fast-follow-design.md`](2026-05-08-market-bootstrap-phase-5-fast-follow-design.md).
+Phase 5 (Python TypedDict, fast-follow) is the natural next slice. See [`docs/archive/plans/2026-05-08-market-bootstrap-phase-5-fast-follow-design.md`](2026-05-08-market-bootstrap-phase-5-fast-follow-design.md).

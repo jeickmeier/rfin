@@ -2,6 +2,7 @@
 //!
 //! Provides shared fixtures, builders, and helpers for TRS unit tests.
 
+use finstack_cashflows::builder::ScheduleParams;
 use finstack_core::{
     currency::Currency,
     dates::{Date, DayCount},
@@ -13,7 +14,6 @@ use finstack_core::{
     money::Money,
     types::CurveId,
 };
-use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
 use finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 use finstack_valuations::instruments::EquityUnderlyingParams;

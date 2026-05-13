@@ -376,7 +376,7 @@ Create `finstack/valuations/tests/golden/schema.rs`:
 ```rust
 //! Serde structs for the `finstack.golden/1` fixture schema.
 //!
-//! See docs/2026-04-30-golden-tests-framework-design.md §5.
+//! See docs/archive/plans/2026-04-30-golden-tests-framework-design.md §5.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -494,7 +494,7 @@ mod tests {
 Create `finstack/valuations/tests/golden/mod.rs` with just the schema module wired up (other modules added in later tasks):
 
 ```rust
-//! Golden test framework — see docs/2026-04-30-golden-tests-framework-design.md.
+//! Golden test framework — see docs/archive/plans/2026-04-30-golden-tests-framework-design.md.
 
 #![allow(dead_code)] // populated incrementally across Phase 1 tasks
 
@@ -683,7 +683,7 @@ mod tests {
 Edit `finstack/valuations/tests/golden/mod.rs`:
 
 ```rust
-//! Golden test framework — see docs/2026-04-30-golden-tests-framework-design.md.
+//! Golden test framework — see docs/archive/plans/2026-04-30-golden-tests-framework-design.md.
 
 #![allow(dead_code)]
 
@@ -859,7 +859,7 @@ fn all_fixtures_well_formed() {
 Edit `finstack/valuations/tests/golden/mod.rs`:
 
 ```rust
-//! Golden test framework — see docs/2026-04-30-golden-tests-framework-design.md.
+//! Golden test framework — see docs/archive/plans/2026-04-30-golden-tests-framework-design.md.
 
 #![allow(dead_code)]
 
@@ -995,7 +995,7 @@ pub mod pricing_irs;
 Edit `finstack/valuations/tests/golden/mod.rs`:
 
 ```rust
-//! Golden test framework — see docs/2026-04-30-golden-tests-framework-design.md.
+//! Golden test framework — see docs/archive/plans/2026-04-30-golden-tests-framework-design.md.
 
 #![allow(dead_code)]
 
@@ -1721,7 +1721,7 @@ Reference table for the default abs/rel tolerances used by `finstack.golden/1`
 fixtures. Authors should start from these defaults and override only when
 necessary, including a `tolerance_reason` field next to the override.
 
-See `docs/2026-04-30-golden-tests-framework-design.md` §5.3 and §6 for
+See `docs/archive/plans/2026-04-30-golden-tests-framework-design.md` §5.3 and §6 for
 the full semantics. A metric matches if **either** the absolute or relative
 tolerance is satisfied (`|actual - expected| ≤ abs` OR
 `|actual - expected| / max(|expected|, 1e-12) ≤ rel`).
@@ -2636,7 +2636,7 @@ fn golden_irs_usd_sofr_5y_par() {
 Edit `finstack/valuations/tests/golden/mod.rs`:
 
 ```rust
-//! Golden test framework — see docs/2026-04-30-golden-tests-framework-design.md.
+//! Golden test framework — see docs/archive/plans/2026-04-30-golden-tests-framework-design.md.
 
 #![allow(dead_code)]
 

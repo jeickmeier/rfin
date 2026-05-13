@@ -523,7 +523,7 @@ fn test_valuation_succeeds_when_as_of_equals_discount_curve_base() {
 
 #[test]
 fn test_cashflow_schedule_is_empty_placeholder() {
-    use finstack_valuations::cashflow::CashflowProvider;
+    use finstack_cashflows::CashflowProvider;
 
     // Arrange
     let swap = sample_swap(PayReceive::Receive);
@@ -538,14 +538,14 @@ fn test_cashflow_schedule_is_empty_placeholder() {
     assert!(schedule.flows.is_empty());
     assert_eq!(
         schedule.meta.representation,
-        finstack_valuations::cashflow::builder::CashflowRepresentation::Placeholder
+        finstack_cashflows::builder::CashflowRepresentation::Placeholder
     );
     assert!(flows.is_empty());
 }
 
 #[test]
 fn test_cashflow_schedule_preserves_currency() {
-    use finstack_valuations::cashflow::CashflowProvider;
+    use finstack_cashflows::CashflowProvider;
 
     // Arrange
     let mut swap = sample_swap(PayReceive::Receive);
@@ -562,7 +562,7 @@ fn test_cashflow_schedule_preserves_currency() {
 
 #[test]
 fn test_cashflow_schedule_has_no_synthetic_zero_amount_before_settlement() {
-    use finstack_valuations::cashflow::CashflowProvider;
+    use finstack_cashflows::CashflowProvider;
 
     // Arrange
     let swap = sample_swap(PayReceive::Receive);

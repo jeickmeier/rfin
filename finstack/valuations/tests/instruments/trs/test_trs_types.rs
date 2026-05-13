@@ -3,8 +3,8 @@
 //! Tests for TrsSide, TrsScheduleSpec, and related type functionality.
 
 use super::test_utils::*;
+use finstack_cashflows::builder::ScheduleParams;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
-use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide};
 
 // ================================================================================================

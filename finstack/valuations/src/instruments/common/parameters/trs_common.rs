@@ -76,7 +76,7 @@ impl TrsSide {
 ///
 /// ```
 /// use finstack_valuations::instruments::TrsScheduleSpec;
-/// use finstack_valuations::cashflow::builder::ScheduleParams;
+/// use finstack_cashflows::builder::ScheduleParams;
 /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
 ///
 /// let schedule = TrsScheduleSpec::from_params(

@@ -1,13 +1,13 @@
 //! FX Spot cashflow generation and settlement tests.
 
 use super::common::*;
+use finstack_cashflows::CashflowProvider;
 use finstack_core::cashflow::CFKind;
 use finstack_core::types::InstrumentId;
 use finstack_core::{
     currency::Currency, dates::BusinessDayConvention, market_data::context::MarketContext,
     money::Money,
 };
-use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::FxSpot;
 use finstack_valuations::instruments::Instrument;
 

@@ -5,7 +5,7 @@ Reference table for the default absolute and relative tolerances used by
 override only when necessary, including a `tolerance_reason` field next to the
 override.
 
-See `docs/2026-04-30-golden-tests-framework-design.md` section 5.3 and section
+See `docs/archive/plans/2026-04-30-golden-tests-framework-design.md` section 5.3 and section
 6 for the full semantics. A metric matches if either the absolute or relative
 tolerance is satisfied:
 

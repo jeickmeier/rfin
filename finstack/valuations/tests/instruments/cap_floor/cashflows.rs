@@ -2,9 +2,9 @@
 //!
 //! Validates period generation for multi-period caps and floors.
 
+use finstack_cashflows::builder::date_generation::build_dates;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::Result;
-use finstack_valuations::cashflow::builder::date_generation::build_dates;
 use time::macros::date;
 
 #[test]

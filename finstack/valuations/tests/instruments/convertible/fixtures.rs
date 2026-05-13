@@ -13,7 +13,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use time::Month;
 
-use finstack_valuations::cashflow::builder::specs::{
+use finstack_cashflows::builder::specs::{
     CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
 };
 use finstack_valuations::instruments::fixed_income::bond::{CallPut, CallPutSchedule};
@@ -271,7 +271,7 @@ pub fn create_floating_convertible() -> ConvertibleBond {
             end_of_month: false,
             overnight_compounding: None,
             overnight_basis: None,
-            fallback: finstack_valuations::cashflow::builder::FloatingRateFallback::SpreadOnly,
+            fallback: finstack_cashflows::builder::FloatingRateFallback::SpreadOnly,
             payment_lag_days: 0,
         },
         coupon_type: CouponType::Cash,

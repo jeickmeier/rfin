@@ -7,17 +7,15 @@
 //! - Custom cashflow schedules
 //! - PIK and step-up structures
 
+use finstack_cashflows::builder::AmortizationSpec;
+use finstack_cashflows::builder::{CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams};
+use finstack_cashflows::CashflowProvider;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_valuations::cashflow::builder::AmortizationSpec;
-use finstack_valuations::cashflow::builder::{
-    CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams,
-};
-use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::fixed_income::bond::{Bond, CashflowSpec};
 use finstack_valuations::instruments::PricingOverrides;
 use rust_decimal::Decimal;
@@ -270,7 +268,7 @@ fn test_pik_cashflows() {
         schedule
             .flows
             .iter()
-            .all(|cf| cf.kind != finstack_valuations::cashflow::primitives::CFKind::PIK),
+            .all(|cf| cf.kind != finstack_cashflows::primitives::CFKind::PIK),
         "holder-view cashflow_schedule should exclude PIK accretion"
     );
     assert!(!schedule.flows.is_empty());
@@ -311,7 +309,7 @@ fn test_cashflows_with_short_front_stub() {
     let as_of = date!(2025 - 01 - 15); // Mid-month start
     let maturity = date!(2027 - 01 - 01);
 
-    use finstack_valuations::cashflow::builder::specs::CouponType;
+    use finstack_cashflows::builder::specs::CouponType;
     let bond = Bond::builder()
         .id("STUB_SHORT".into())
         .notional(Money::new(1000.0, Currency::USD))
@@ -556,8 +554,8 @@ fn test_actact_isma_daycount_context() {
         .filter(|cf| {
             matches!(
                 cf.kind,
-                finstack_valuations::cashflow::primitives::CFKind::Fixed
-                    | finstack_valuations::cashflow::primitives::CFKind::Stub
+                finstack_cashflows::primitives::CFKind::Fixed
+                    | finstack_cashflows::primitives::CFKind::Stub
             )
         })
         .collect();
@@ -639,8 +637,8 @@ fn test_bus252_daycount_with_calendar() {
         .filter(|cf| {
             matches!(
                 cf.kind,
-                finstack_valuations::cashflow::primitives::CFKind::Fixed
-                    | finstack_valuations::cashflow::primitives::CFKind::Stub
+                finstack_cashflows::primitives::CFKind::Fixed
+                    | finstack_cashflows::primitives::CFKind::Stub
             )
         })
         .collect();

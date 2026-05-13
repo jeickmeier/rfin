@@ -324,8 +324,8 @@ Hard cut to v3 in one commit-series. No deserializer-level v2 fallback.
 
 - `examples/market_bootstrap/README.md` — restate Track A/B against the v3
   shape; update the worked example.
-- `docs/2026-05-08-market-bootstrap-phase-*-design.md`,
-  `docs/2026-05-09-golden-fixture-envelope-migration-plan.md` — add a
+- `docs/archive/plans/2026-05-08-market-bootstrap-phase-*-design.md`,
+  `docs/archive/plans/2026-05-09-golden-fixture-envelope-migration-plan.md` — add a
   superseded-by pointer to this design rather than rewriting historical text.
 - `finstack/valuations/src/lib.rs` and `calibration/mod.rs` rustdoc.
 
@@ -355,7 +355,7 @@ serde layer with `unknown field 'initial_market'`. The
 prints a one-line pointer:
 
 > envelope schema v2 is no longer supported; see
-> `docs/2026-05-10-calibration-envelope-cleanup-design.md`
+> `docs/archive/plans/2026-05-10-calibration-envelope-cleanup-design.md`
 > for the v3 shape
 
 ## Open questions

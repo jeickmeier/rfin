@@ -16,7 +16,7 @@ use time::Month;
 fn _generate_deterministic_cashflows_replaced(
     facility: &RevolvingCredit,
     as_of: Date,
-) -> finstack_core::Result<finstack_valuations::cashflow::builder::CashFlowSchedule> {
+) -> finstack_core::Result<finstack_cashflows::builder::CashFlowSchedule> {
     use finstack_valuations::instruments::fixed_income::revolving_credit::cashflow_engine::CashflowEngine;
     let engine = CashflowEngine::new(facility, None, as_of, None)?;
     let path_schedule = engine.generate_deterministic()?;

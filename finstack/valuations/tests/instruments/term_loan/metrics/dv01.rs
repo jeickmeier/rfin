@@ -1,11 +1,11 @@
 //! DV01 (interest rate sensitivity) tests.
 
+use finstack_cashflows::builder::specs::CouponType;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_valuations::cashflow::builder::specs::CouponType;
 use finstack_valuations::instruments::fixed_income::term_loan::{
     AmortizationSpec, RateSpec, TermLoan,
 };

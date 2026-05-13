@@ -8,6 +8,8 @@
 
 #![allow(dead_code, unused_imports, clippy::expect_used, clippy::unwrap_used)]
 
+use finstack_cashflows::builder::specs::{CouponType, FixedCouponSpec};
+use finstack_cashflows::builder::ScheduleParams;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -22,8 +24,6 @@ use finstack_core::money::Money;
 use finstack_portfolio::position::{Position, PositionUnit};
 use finstack_portfolio::types::Entity;
 use finstack_portfolio::{Portfolio, PortfolioBuilder};
-use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
-use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::credit_derivatives::cds::{
     CDSConvention, CdsValuationConvention, CreditDefaultSwap, PayReceive, PremiumLegSpec,
     ProtectionLegSpec,

@@ -49,8 +49,7 @@ families:
 
 Credit correlation, copula, factor-model, and stochastic-recovery tooling used
 by structured-credit and CDS-tranche workflows lives inside this crate, in the
-[`correlation`](src/correlation) submodule (previously the standalone
-`finstack-correlation` crate).
+[`correlation`](src/correlation) submodule.
 
 This crate is also surfaced through:
 

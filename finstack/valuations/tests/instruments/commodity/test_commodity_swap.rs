@@ -1,11 +1,11 @@
 //! Integration tests for CommoditySwap pricing.
 
+use finstack_cashflows::CashflowProvider;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor, TenorUnit};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 use finstack_valuations::instruments::rates::irs::PayReceive;
 use finstack_valuations::instruments::Attributes;

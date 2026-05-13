@@ -70,7 +70,7 @@ macro_rules! impl_empty_cashflow_provider {
         );
     };
     ($ty:ty, $representation:expr, $notional:expr, $day_count:expr) => {
-        impl $crate::cashflow::traits::CashflowProvider for $ty {
+        impl $crate::__private::finstack_cashflows::traits::CashflowProvider for $ty {
             fn notional(&self) -> Option<finstack_core::money::Money> {
                 $notional
             }
@@ -79,16 +79,20 @@ macro_rules! impl_empty_cashflow_provider {
                 &self,
                 _market: &finstack_core::market_data::context::MarketContext,
                 _as_of: finstack_core::dates::Date,
-            ) -> finstack_core::Result<$crate::cashflow::builder::CashFlowSchedule> {
-                Ok($crate::cashflow::traits::schedule_from_classified_flows(
-                    Vec::new(),
-                    $day_count,
-                    $crate::cashflow::traits::ScheduleBuildOpts {
-                        notional_hint: self.notional(),
-                        representation: $representation,
-                        ..Default::default()
-                    },
-                ))
+            ) -> finstack_core::Result<
+                $crate::__private::finstack_cashflows::builder::CashFlowSchedule,
+            > {
+                Ok(
+                    $crate::__private::finstack_cashflows::traits::schedule_from_classified_flows(
+                        Vec::new(),
+                        $day_count,
+                        $crate::__private::finstack_cashflows::traits::ScheduleBuildOpts {
+                            notional_hint: self.notional(),
+                            representation: $representation,
+                            ..Default::default()
+                        },
+                    ),
+                )
             }
         }
     };

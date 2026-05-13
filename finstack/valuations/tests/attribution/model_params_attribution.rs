@@ -38,12 +38,10 @@
 //!
 //! Reference: Moody's Annual Default Study
 
+use finstack_cashflows::builder::{DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec};
 use finstack_valuations::attribution::{
     measure_conversion_shift, measure_default_shift, measure_prepayment_shift,
     measure_recovery_shift, ModelParamsSnapshot,
-};
-use finstack_valuations::cashflow::builder::{
-    DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
 };
 use finstack_valuations::instruments::fixed_income::convertible::{
     AntiDilutionPolicy, ConversionPolicy, ConversionSpec, DividendAdjustment,

@@ -9,6 +9,9 @@
 //! Market Standards Review (Week 5)
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use finstack_cashflows::aggregation::aggregate_cashflows_checked;
+use finstack_cashflows::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
+use finstack_cashflows::CashflowProvider;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -16,9 +19,6 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use finstack_valuations::cashflow::aggregation::aggregate_cashflows_checked;
-use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
-use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 #[allow(dead_code, unused_imports, clippy::expect_used, clippy::unwrap_used)]
 mod test_utils {

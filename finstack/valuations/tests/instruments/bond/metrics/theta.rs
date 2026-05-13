@@ -93,7 +93,7 @@ fn test_theta_sign_diagnostic() {
     eprintln!("df_on_curve(rolled_date) = {df_base_to_rolled}");
     eprintln!("df_on_curve(as_of) = {df_base_to_as_of}");
 
-    use finstack_valuations::cashflow::traits::CashflowProvider;
+    use finstack_cashflows::traits::CashflowProvider;
     let dated_flows_base = CashflowProvider::dated_cashflows(&bond, &market, as_of).unwrap();
     let dated_flows_rolled =
         CashflowProvider::dated_cashflows(&bond, &market, rolled_date).unwrap();

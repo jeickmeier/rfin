@@ -26,6 +26,7 @@
 //! |--------------------|-----------------------------------|
 //! | `core`             | [`finstack_core`]                 |
 //! | `analytics`        | [`finstack_analytics`]            |
+//! | `cashflows`        | [`finstack_cashflows`]            |
 //! | `margin`           | [`finstack_margin`]               |
 //! | `monte_carlo`      | [`finstack_monte_carlo`]          |
 //! | `valuations`       | [`finstack_valuations`]           |
@@ -33,11 +34,9 @@
 //! | `statements_analytics` | [`finstack_statements_analytics`] |
 //! | `portfolio`        | [`finstack_portfolio`]            |
 //! | `scenarios`        | [`finstack_scenarios`]            |
-//!
-//! One pass-through feature remains to gate heavy compile-time cost:
-//! `mc` (Monte Carlo + `nalgebra`).
 
 pub use finstack_analytics as analytics;
+pub use finstack_cashflows as cashflows;
 pub use finstack_core as core;
 pub use finstack_margin as margin;
 pub use finstack_monte_carlo as monte_carlo;

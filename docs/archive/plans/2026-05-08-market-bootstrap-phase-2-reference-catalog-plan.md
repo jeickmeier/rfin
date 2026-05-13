@@ -10,9 +10,9 @@
 
 **Tech Stack:** Rust (`finstack-valuations`), PyO3 (`finstack-py`), `nbformat` for notebook authoring, no new dependencies.
 
-**Spec reference:** [`docs/2026-05-08-market-bootstrap-phase-2-reference-catalog-design.md`](2026-05-08-market-bootstrap-phase-2-reference-catalog-design.md)
+**Spec reference:** [`docs/archive/plans/2026-05-08-market-bootstrap-phase-2-reference-catalog-design.md`](2026-05-08-market-bootstrap-phase-2-reference-catalog-design.md)
 
-**Phase 1 plan reference:** [`docs/2026-05-08-market-bootstrap-phase-1-foundation-plan.md`](2026-05-08-market-bootstrap-phase-1-foundation-plan.md). Phase 1 ships the helpers (`examples_dir`, `load_envelope`, `execute`) in [`reference_envelopes.rs`](../finstack/valuations/tests/calibration/reference_envelopes.rs) marked `pub(crate)` for reuse here.
+**Phase 1 plan reference:** [`docs/archive/plans/2026-05-08-market-bootstrap-phase-1-foundation-plan.md`](2026-05-08-market-bootstrap-phase-1-foundation-plan.md). Phase 1 ships the helpers (`examples_dir`, `load_envelope`, `execute`) in [`reference_envelopes.rs`](../finstack/valuations/tests/calibration/reference_envelopes.rs) marked `pub(crate)` for reuse here.
 
 **Phase 1 learnings to apply throughout:**
 1. `MarketContext::get_*` accessors take `impl AsRef<str>` — pass curve IDs as plain `&str`, no `.parse()` needed.
@@ -1064,7 +1064,7 @@ Expected: green across the board.
 
 - [ ] **Step 3: Walk the spec's acceptance criteria**
 
-From `docs/2026-05-08-market-bootstrap-phase-2-reference-catalog-design.md` §6:
+From `docs/archive/plans/2026-05-08-market-bootstrap-phase-2-reference-catalog-design.md` §6:
 
 - [ ] All twelve envelope files exist under `finstack/valuations/examples/market_bootstrap/` and parse as `CalibrationEnvelope`.
 - [ ] Twelve integration tests pass, each demonstrating a representative accessor query on the produced `MarketContext`.
@@ -1090,4 +1090,4 @@ git commit -m "chore: format and lint cleanup for market bootstrap phase 2"
 
 When this plan is complete, the reference catalog is full: twelve canonical envelopes covering every commonly-needed curve, surface, and snapshot type, the production CDX IG 46 fixture exercises the bootstrap path end-to-end, and the analyst notebook walks the full canonical workflow.
 
-Phase 3 (IDE autocomplete via JSON Schema + TypeScript types) is the natural next slice. See [`docs/2026-05-08-market-bootstrap-phase-3-ide-autocomplete-design.md`](2026-05-08-market-bootstrap-phase-3-ide-autocomplete-design.md).
+Phase 3 (IDE autocomplete via JSON Schema + TypeScript types) is the natural next slice. See [`docs/archive/plans/2026-05-08-market-bootstrap-phase-3-ide-autocomplete-design.md`](2026-05-08-market-bootstrap-phase-3-ide-autocomplete-design.md).

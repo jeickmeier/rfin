@@ -180,8 +180,8 @@ fn test_very_few_tree_steps() {
 
 #[test]
 fn test_time_mapping_with_quarterly_coupons() {
+    use finstack_cashflows::builder::specs::{CouponType, FixedCouponSpec};
     use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
-    use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
 
     let issue = dates::issue();
     let maturity = dates::maturity_1y();

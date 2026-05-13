@@ -420,7 +420,7 @@
         "par_rate",
         "dv01"
       ],
-      "self_test_origin": "Authored 2026-05-09 to close the forward-step coverage gap documented in docs/2026-05-09-golden-fixture-envelope-migration-plan.md \u00a715. None of the 33 pre-existing pricing goldens have a calibratable forward curve; this fixture is the reference pattern for future floating-rate-instrument migrations (term loans, FRBs, structured products)."
+      "self_test_origin": "Authored 2026-05-09 to close the forward-step coverage gap documented in docs/archive/plans/2026-05-09-golden-fixture-envelope-migration-plan.md \u00a715. None of the 33 pre-existing pricing goldens have a calibratable forward curve; this fixture is the reference pattern for future floating-rate-instrument migrations (term loans, FRBs, structured products)."
     }
   },
   "expected_outputs": {

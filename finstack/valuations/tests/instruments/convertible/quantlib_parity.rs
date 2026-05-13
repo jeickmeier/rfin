@@ -18,6 +18,7 @@
 
 #[allow(unused_imports)]
 use crate::parity::*;
+use finstack_cashflows::builder::specs::{CouponType, FixedCouponSpec};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -25,7 +26,6 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
 use finstack_valuations::instruments::fixed_income::bond::{CallPut, CallPutSchedule};
 use finstack_valuations::instruments::fixed_income::convertible::{
     calculate_convertible_greeks, calculate_parity, price_convertible_bond, ConvertibleTreeType,

@@ -2,7 +2,7 @@
 
 ## Project Structure
 
-- Multi-crate Rust workspace: `finstack/core`, `finstack/analytics`, `finstack/valuations`, `finstack/statements`, `finstack/statements-analytics`, `finstack/scenarios`, `finstack/portfolio`, `finstack/margin`, `finstack/correlation`, `finstack/monte_carlo`
+- Multi-crate Rust workspace: `finstack/core`, `finstack/analytics`, `finstack/valuations`, `finstack/statements`, `finstack/statements-analytics`, `finstack/scenarios`, `finstack/portfolio`, `finstack/margin`, `finstack/monte_carlo`
 - Python bindings in `finstack-py/` (PyO3); WASM bindings in `finstack-wasm/` (wasm-bindgen)
 - Python binding Rust code lives under `finstack-py/src/bindings/` (one subdirectory per crate domain)
 - WASM binding Rust code lives under `finstack-wasm/src/api/` with a hand-written JS facade at `finstack-wasm/index.js`

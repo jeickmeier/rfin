@@ -11,6 +11,7 @@
 //! - Market practice for USD swaps
 
 use crate::finstack_test_utils as test_utils;
+use finstack_cashflows::builder::periods::{build_periods, BuildPeriodsParams};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{
     BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount, DayCountContext, StubKind,
@@ -19,7 +20,6 @@ use finstack_core::dates::{
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::periods::{build_periods, BuildPeriodsParams};
 use finstack_valuations::instruments::rates::irs::{
     FixedLegSpec, FloatLegSpec, FloatingLegCompounding, InterestRateSwap, ParRateMethod, PayReceive,
 };
@@ -1253,8 +1253,8 @@ fn test_sofr_ois_par_rate_matches_quantlib_identity() {
 /// cashflow builder correctly used the spec value, causing PV mismatches.
 #[test]
 fn test_eom_pricer_cashflow_consistency() {
+    use finstack_cashflows::CashflowProvider;
     use finstack_core::types::CurveId;
-    use finstack_valuations::cashflow::CashflowProvider;
     use rust_decimal::Decimal;
 
     // 2024-02-29 is a Thursday (last business day of Feb in a leap year)

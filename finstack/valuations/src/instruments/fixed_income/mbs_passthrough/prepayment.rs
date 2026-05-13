@@ -32,7 +32,7 @@ use crate::instruments::fixed_income::structured_credit::pricing::stochastic::pr
 ///
 /// ```rust
 /// use finstack_valuations::instruments::fixed_income::mbs_passthrough::prepayment::AgencyPrepaymentModel;
-/// use finstack_valuations::cashflow::builder::specs::PrepaymentModelSpec;
+/// use finstack_cashflows::builder::specs::PrepaymentModelSpec;
 ///
 /// // Standard 100% PSA
 /// let model = AgencyPrepaymentModel::from_spec(PrepaymentModelSpec::psa(1.0));

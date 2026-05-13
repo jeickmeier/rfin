@@ -927,9 +927,9 @@ fn test_near_maturity_edge_case() {
 
 finstack_valuations::impl_empty_cashflow_provider!(
     ScaledInstrument,
-    finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+    finstack_cashflows::builder::CashflowRepresentation::NoResidual
 );
 finstack_valuations::impl_empty_cashflow_provider!(
     CompositeInstrument,
-    finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+    finstack_cashflows::builder::CashflowRepresentation::NoResidual
 );

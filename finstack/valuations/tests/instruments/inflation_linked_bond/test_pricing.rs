@@ -8,8 +8,8 @@
 //! - Matured bonds (zero value)
 
 use super::common::*;
+use finstack_cashflows::CashflowProvider;
 use finstack_core::currency::Currency;
-use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::Instrument;
 
 #[test]

@@ -1,3 +1,4 @@
+use finstack_cashflows::builder::CashflowRepresentation;
 use finstack_core::cashflow::CFKind;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Month};
@@ -8,7 +9,6 @@ use finstack_portfolio::cashflows::{
 };
 use finstack_portfolio::dependencies::MarketFactorKey;
 use finstack_portfolio::types::PositionId;
-use finstack_valuations::cashflow::builder::CashflowRepresentation;
 use finstack_valuations::instruments::RatesCurveKind;
 use indexmap::IndexMap;
 

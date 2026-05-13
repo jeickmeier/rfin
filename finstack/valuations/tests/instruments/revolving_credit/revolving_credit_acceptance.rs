@@ -25,7 +25,7 @@ fn _generate_deterministic_cashflows_with_curves_replaced(
     facility: &RevolvingCredit,
     market: &MarketContext,
     as_of: Date,
-) -> finstack_core::Result<finstack_valuations::cashflow::builder::CashFlowSchedule> {
+) -> finstack_core::Result<finstack_cashflows::builder::CashFlowSchedule> {
     use finstack_valuations::instruments::fixed_income::revolving_credit::cashflow_engine::CashflowEngine;
     let engine = CashflowEngine::new(facility, Some(market), as_of, None)?;
     let path_schedule = engine.generate_deterministic()?;
@@ -182,7 +182,7 @@ fn test_floating_vs_margin_only() {
         .commitment_date(start)
         .maturity(end)
         .base_rate_spec(BaseRateSpec::Floating(
-            finstack_valuations::cashflow::builder::FloatingRateSpec {
+            finstack_cashflows::builder::FloatingRateSpec {
                 index_id: "USD-SOFR-3M".into(),
                 spread_bp: rust_decimal::Decimal::try_from(100.0).expect("valid"), // 100 bps margin
                 gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
@@ -262,7 +262,7 @@ fn test_reset_frequency_mismatch() {
         .commitment_date(start)
         .maturity(end)
         .base_rate_spec(BaseRateSpec::Floating(
-            finstack_valuations::cashflow::builder::FloatingRateSpec {
+            finstack_cashflows::builder::FloatingRateSpec {
                 index_id: "USD-SOFR-1M".into(),
                 spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"), // No margin to isolate reset effect
                 gearing: rust_decimal::Decimal::try_from(1.0).expect("valid"),
@@ -332,7 +332,7 @@ fn test_utilization_tier() {
     let end = Date::from_calendar_date(2025, Month::April, 1).unwrap();
 
     // Create tiered usage fees: 10 bps below 50%, 20 bps above 50%
-    use finstack_valuations::cashflow::builder::FeeTier;
+    use finstack_cashflows::builder::FeeTier;
     let usage_tiers = vec![
         FeeTier {
             threshold: rust_decimal::Decimal::try_from(0.0).expect("valid"),

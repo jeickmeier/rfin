@@ -1,11 +1,11 @@
+use finstack_cashflows::primitives::CFKind;
+use finstack_cashflows::CashflowProvider;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_valuations::cashflow::primitives::CFKind;
-use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::fixed_income::term_loan::{
     self, CommitmentStepDown, DdtlSpec, DrawEvent, OidEirSpec, OidPolicy, TermLoan,
 };
@@ -42,7 +42,7 @@ fn term_loan_fixed_with_draws_and_fees() {
         .stub(finstack_core::dates::StubKind::None)
         .discount_curve_id(CurveId::from("USD-OIS"))
         .amortization(term_loan::AmortizationSpec::None)
-        .coupon_type(finstack_valuations::cashflow::builder::specs::CouponType::Cash)
+        .coupon_type(finstack_cashflows::builder::specs::CouponType::Cash)
         .upfront_fee_opt(Some(Money::new(25_000.0, Currency::USD)))
         .ddtl_opt(Some(DdtlSpec {
             commitment_limit: Money::new(10_000_000.0, Currency::USD),
@@ -111,7 +111,7 @@ fn term_loan_commitment_fee_step_downs() {
         .stub(finstack_core::dates::StubKind::None)
         .discount_curve_id(CurveId::from("USD-OIS"))
         .amortization(term_loan::AmortizationSpec::None)
-        .coupon_type(finstack_valuations::cashflow::builder::specs::CouponType::Cash)
+        .coupon_type(finstack_cashflows::builder::specs::CouponType::Cash)
         .upfront_fee_opt(None)
         .ddtl_opt(Some(DdtlSpec {
             commitment_limit: Money::new(10_000_000.0, Currency::USD),
@@ -178,7 +178,7 @@ fn term_loan_commitment_fee_windowed_to_availability() {
         .stub(finstack_core::dates::StubKind::None)
         .discount_curve_id(CurveId::from("USD-OIS"))
         .amortization(term_loan::AmortizationSpec::None)
-        .coupon_type(finstack_valuations::cashflow::builder::specs::CouponType::Cash)
+        .coupon_type(finstack_cashflows::builder::specs::CouponType::Cash)
         .upfront_fee_opt(None)
         .ddtl_opt(Some(DdtlSpec {
             commitment_limit: Money::new(10_000_000.0, Currency::USD),
@@ -234,7 +234,7 @@ fn term_loan_oid_eir_amortization_schedule() {
         .stub(finstack_core::dates::StubKind::None)
         .discount_curve_id(CurveId::from("USD-OIS"))
         .amortization(term_loan::AmortizationSpec::None)
-        .coupon_type(finstack_valuations::cashflow::builder::specs::CouponType::Cash)
+        .coupon_type(finstack_cashflows::builder::specs::CouponType::Cash)
         .upfront_fee_opt(None)
         .ddtl_opt(Some(DdtlSpec {
             commitment_limit: Money::new(1_000_000.0, Currency::USD),
@@ -318,7 +318,7 @@ fn term_loan_pik_toggle_and_cash_sweep() {
         .stub(finstack_core::dates::StubKind::None)
         .discount_curve_id(CurveId::from("USD-OIS"))
         .amortization(term_loan::AmortizationSpec::None)
-        .coupon_type(finstack_valuations::cashflow::builder::specs::CouponType::Cash)
+        .coupon_type(finstack_cashflows::builder::specs::CouponType::Cash)
         .upfront_fee_opt(None)
         .ddtl_opt(None)
         .covenants_opt(Some(cov))
@@ -361,7 +361,7 @@ fn term_loan_golden_pv_and_metrics() {
         .stub(StubKind::None)
         .discount_curve_id(CurveId::from("USD-OIS"))
         .amortization(term_loan::AmortizationSpec::None) // Bullet
-        .coupon_type(finstack_valuations::cashflow::builder::specs::CouponType::Cash)
+        .coupon_type(finstack_cashflows::builder::specs::CouponType::Cash)
         .upfront_fee_opt(None)
         .ddtl_opt(None)
         .covenants_opt(None)
@@ -422,9 +422,9 @@ fn term_loan_golden_pv_and_metrics() {
 
 #[test]
 fn term_loan_amortizing_outstanding_path() {
+    use finstack_cashflows::CashflowProvider;
     use finstack_core::dates::BusinessDayConvention;
     use finstack_core::dates::StubKind;
-    use finstack_valuations::cashflow::CashflowProvider;
 
     let issue = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2027, time::Month::January, 1).unwrap();
@@ -444,7 +444,7 @@ fn term_loan_amortizing_outstanding_path() {
         .stub(StubKind::None)
         .discount_curve_id(CurveId::from("USD-OIS"))
         .amortization(term_loan::AmortizationSpec::PercentPerPeriod { bp: 1250 }) // 12.5% per quarter
-        .coupon_type(finstack_valuations::cashflow::builder::specs::CouponType::Cash)
+        .coupon_type(finstack_cashflows::builder::specs::CouponType::Cash)
         .upfront_fee_opt(None)
         .ddtl_opt(None)
         .covenants_opt(None)

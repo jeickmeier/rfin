@@ -10,6 +10,7 @@
 //! Tests across different tranches (equity, mezzanine, senior) and pool sizes.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use finstack_cashflows::builder::ScheduleParams;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -18,7 +19,6 @@ use finstack_core::market_data::term_structures::{
 };
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTrancheParams;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CDSTranche, TrancheSide};
 use finstack_valuations::instruments::Instrument;

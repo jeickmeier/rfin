@@ -1,6 +1,6 @@
 //! Golden test framework.
 //!
-//! See `docs/2026-04-30-golden-tests-framework-design.md`.
+//! See `docs/archive/plans/2026-04-30-golden-tests-framework-design.md`.
 
 mod pricing;
 mod pricing_common;

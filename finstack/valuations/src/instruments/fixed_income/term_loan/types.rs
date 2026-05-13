@@ -81,7 +81,7 @@ fn default_settlement_days() -> u32 {
 /// Floating rate with floor:
 /// ```rust
 /// use finstack_valuations::instruments::fixed_income::term_loan::RateSpec;
-/// use finstack_valuations::cashflow::builder::FloatingRateSpec;
+/// use finstack_cashflows::builder::FloatingRateSpec;
 /// use finstack_core::dates::{DayCount, BusinessDayConvention, Tenor};
 /// use finstack_core::types::CurveId;
 /// use rust_decimal_macros::dec;

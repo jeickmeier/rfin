@@ -97,7 +97,7 @@ impl Bond {
     ///
     /// # Example
     /// ```rust,no_run
-    /// use finstack_valuations::cashflow::CashflowProvider;
+    /// use finstack_cashflows::CashflowProvider;
     /// use finstack_valuations::instruments::fixed_income::bond::Bond;
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
@@ -433,7 +433,7 @@ impl Bond {
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
     /// use finstack_core::money::Money;
-    /// use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
+    /// use finstack_cashflows::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
     /// use finstack_valuations::instruments::Bond;
     /// use rust_decimal_macros::dec;
     /// use time::macros::date;
@@ -594,7 +594,7 @@ impl Bond {
     ///
     /// ```rust,no_run
     /// use finstack_valuations::instruments::fixed_income::bond::Bond;
-    /// use finstack_valuations::cashflow::builder::CashFlowSchedule;
+    /// use finstack_cashflows::builder::CashFlowSchedule;
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::Date;

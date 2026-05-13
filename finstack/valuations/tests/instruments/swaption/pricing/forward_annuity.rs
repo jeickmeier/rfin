@@ -30,14 +30,14 @@ fn expected_single_curve_payment_date_forward(
     as_of: finstack_core::dates::Date,
 ) -> f64 {
     let disc = market.get_discount("USD_OIS").expect("discount curve");
-    let schedule = finstack_valuations::cashflow::builder::periods::build_periods(
-        finstack_valuations::cashflow::builder::periods::BuildPeriodsParams {
+    let schedule = finstack_cashflows::builder::periods::build_periods(
+        finstack_cashflows::builder::periods::BuildPeriodsParams {
             start: spec.start,
             end: spec.end,
             frequency: spec.frequency,
             stub: spec.stub,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: finstack_valuations::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
+            calendar_id: finstack_cashflows::builder::calendar::WEEKENDS_ONLY_ID,
             end_of_month: false,
             day_count: spec.day_count,
             payment_lag_days: spec.payment_lag_days,
