@@ -129,6 +129,19 @@ pub fn error_to_py(e: &dyn std::error::Error) -> PyErr {
     PyValueError::new_err(format_chain(e))
 }
 
+/// Convert a `serde_json::Error` into a Python `ValueError`, with a caller-
+/// supplied context prefix that names what was being (de)serialized.
+///
+/// Use at every `serde_json::{to_string, from_str, to_value, from_value}`
+/// boundary in bindings so the resulting Python messages stay consistent:
+///
+/// ```ignore
+/// serde_json::from_str(json).map_err(|err| serde_json_to_py(err, "invalid config JSON"))?;
+/// ```
+pub fn serde_json_to_py(err: serde_json::Error, context: &str) -> PyErr {
+    PyValueError::new_err(format!("{context}: {err}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

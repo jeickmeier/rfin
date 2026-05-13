@@ -366,6 +366,42 @@ namespaces = [
 ]
 
 # ---------------------------------------------------------------------------
+# WASM core subset
+#
+# The WASM `core` namespace intentionally exposes a strict subset of the
+# Rust `finstack-core` public surface — only the host-language-friendly
+# primitives that browser callers actually need. Modules outside this list
+# are deliberately not bound for WASM (e.g. `cashflow`, `config`, `credit`,
+# `expr`, `factor_model`, `explain`, `prelude`, `validation`).
+#
+# Python tracks the full `finstack-core` surface (see `[crates.core.modules]`
+# above) because it is the canonical consumer; WASM is opt-in per module.
+# This block documents the agreed subset so reviewers do not treat the WASM
+# core surface as drifting from Python.
+# ---------------------------------------------------------------------------
+[wasm_core_subset]
+rust_module_root = "finstack-wasm/src/api/core/"
+js_export_file   = "finstack-wasm/exports/core.js"
+modules = [
+    "currency",
+    "dates",
+    "market_data",
+    "math",
+    "money",
+    "types",
+]
+excluded = [
+    "cashflow",      # XIRR/NPV: deferred until concrete WASM use case
+    "config",        # Configuration model is Rust-internal / Python-only
+    "credit",        # Credit registry not yet needed in browser callers
+    "expr",          # Expression engine not exposed to WASM
+    "explain",       # Trace/audit helpers are server/notebook-side concerns
+    "factor_model",  # Factor model API is Python-only today
+    "prelude",       # Re-export bag; no host-language meaning
+    "validation",    # Internal validation helpers
+]
+
+# ---------------------------------------------------------------------------
 # Intentionally NOT covered by parity tests
 #
 # - Rust public surface. The umbrella `finstack/src/lib.rs` is short enough

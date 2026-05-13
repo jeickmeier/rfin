@@ -537,8 +537,7 @@ mod tests {
     #[test]
     fn test_irr_periodic() {
         let amounts = [-100.0, 110.0];
-        let rate =
-            irr(&amounts, None).expect("IRR calculation should succeed in test");
+        let rate = irr(&amounts, None).expect("IRR calculation should succeed in test");
         assert!((rate - 0.1).abs() < 1e-6); // 10% return
 
         let npv_at_irr = compute_periodic_npv(&amounts, rate);
@@ -548,8 +547,7 @@ mod tests {
     #[test]
     fn test_irr_periodic_multiple_periods() {
         let amounts = [-1000.0, 300.0, 300.0, 300.0, 300.0];
-        let rate =
-            irr(&amounts, None).expect("IRR calculation should succeed in test");
+        let rate = irr(&amounts, None).expect("IRR calculation should succeed in test");
         assert!(rate > 0.07 && rate < 0.08);
 
         let npv_at_irr = compute_periodic_npv(&amounts, rate);
@@ -559,16 +557,14 @@ mod tests {
     #[test]
     fn test_irr_periodic_near_minus_100() {
         let amounts = [-100.0, 1.0];
-        let rate =
-            irr(&amounts, Some(-0.5)).expect("IRR calculation should succeed in test");
+        let rate = irr(&amounts, Some(-0.5)).expect("IRR calculation should succeed in test");
         assert!(rate < -0.9);
     }
 
     #[test]
     fn test_irr_periodic_high_positive() {
         let amounts = [-100.0, 300.0];
-        let rate =
-            irr(&amounts, Some(0.5)).expect("IRR calculation should succeed in test");
+        let rate = irr(&amounts, Some(0.5)).expect("IRR calculation should succeed in test");
         assert!(rate > 1.0);
     }
 

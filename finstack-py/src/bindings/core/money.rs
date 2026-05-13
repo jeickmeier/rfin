@@ -314,20 +314,13 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let all = PyList::new(py, ["Money"])?;
     module.setattr("__all__", all)?;
 
-    parent.add_submodule(&module)?;
-
-    let pkg: String = match parent.getattr("__package__") {
-        Ok(attr) => match attr.extract::<String>() {
-            Ok(s) => s,
-            Err(_) => "finstack.core".to_string(),
-        },
-        Err(_) => "finstack.core".to_string(),
-    };
-    let qual = format!("{pkg}.money");
-    module.setattr("__package__", &qual)?;
-    let sys = PyModule::import(py, "sys")?;
-    let modules = sys.getattr("modules")?;
-    modules.set_item(&qual, &module)?;
+    crate::bindings::module_utils::register_submodule_by_package(
+        py,
+        parent,
+        &module,
+        "money",
+        "finstack.core",
+    )?;
 
     Ok(())
 }

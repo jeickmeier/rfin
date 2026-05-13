@@ -83,7 +83,7 @@
 //! # }
 //! ```
 
-pub use finstack_core::rating_scales::{RatingLevel, RatingScale};
+pub use finstack_core::rating_scales::{RatingLevel, ScorecardScale};
 use finstack_statements::evaluator::StatementResult;
 use finstack_statements::types::FinancialModelSpec;
 use finstack_statements::Result;
@@ -91,7 +91,7 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 /// Get the appropriate rating scale based on name.
-fn get_rating_scale(scale_name: &str) -> Result<&'static RatingScale> {
+fn get_rating_scale(scale_name: &str) -> Result<&'static ScorecardScale> {
     Ok(finstack_core::rating_scales::embedded_registry()?.rating_scale(scale_name)?)
 }
 

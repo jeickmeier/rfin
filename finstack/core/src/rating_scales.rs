@@ -27,10 +27,15 @@ pub struct RatingLevel {
     pub min_score: f64,
 }
 
-/// Rating scale definition.
+/// Scorecard rating-scale definition: a named, ordered list of rating
+/// thresholds used by scorecards.
+///
+/// Named `ScorecardScale` (rather than just `RatingScale`) to disambiguate
+/// from [`crate::credit::migration::RatingScale`], which models the ordered
+/// state set of a credit-migration / transition matrix.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RatingScale {
+pub struct ScorecardScale {
     /// Scale name, for example `S&P` or `Moody's`.
     pub scale_name: String,
     /// Human-readable description.
@@ -83,7 +88,7 @@ impl RatingScaleRegistry {
     }
 
     /// Resolve a scale name or alias to a rating scale.
-    pub fn rating_scale(&self, name: &str) -> Result<&RatingScale> {
+    pub fn rating_scale(&self, name: &str) -> Result<&ScorecardScale> {
         let id = match self.resolve_scale_id(name) {
             Some(id) => id,
             None => match self.scorecard_policy.unknown_scale_policy {
@@ -96,7 +101,7 @@ impl RatingScaleRegistry {
         self.rating_scale_by_id(id).ok_or_else(|| not_found(name))
     }
 
-    fn rating_scale_by_id(&self, id: &str) -> Option<&RatingScale> {
+    fn rating_scale_by_id(&self, id: &str) -> Option<&ScorecardScale> {
         self.rating_scales
             .iter()
             .find(|entry| has_id(&entry.ids, id))
@@ -272,7 +277,7 @@ struct RatingScaleAlias {
 struct RatingScaleEntry {
     ids: Vec<String>,
     source: String,
-    scale: RatingScale,
+    scale: ScorecardScale,
 }
 
 #[cfg(test)]

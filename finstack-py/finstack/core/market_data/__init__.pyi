@@ -23,8 +23,16 @@ import datetime
 from typing import Optional, Union
 
 from finstack.core.currency import Currency
+from finstack.core.market_data import arbitrage as arbitrage
+from finstack.core.market_data import dtsm as dtsm
 
 __all__ = [
+    # submodules
+    "curves",
+    "fx",
+    "context",
+    "dtsm",
+    "arbitrage",
     # curves
     "BaseCorrelationCurve",
     "CreditIndexData",

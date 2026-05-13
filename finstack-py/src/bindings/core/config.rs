@@ -1,6 +1,6 @@
 //! Python bindings for `finstack_core::config`.
 
-use crate::errors::core_to_py;
+use crate::errors::{core_to_py, serde_json_to_py};
 use finstack_core::config::{FinstackConfig, RoundingMode, ToleranceConfig};
 use finstack_core::currency::Currency;
 use finstack_core::Error;
@@ -248,7 +248,7 @@ impl PyFinstackConfig {
             .get(key)
             .map(|value| {
                 serde_json::to_string(value)
-                    .map_err(|err| PyValueError::new_err(format!("invalid extension JSON: {err}")))
+                    .map_err(|err| serde_json_to_py(err, "invalid extension JSON"))
             })
             .transpose()
     }
@@ -271,7 +271,7 @@ impl PyFinstackConfig {
     #[pyo3(text_signature = "(self)")]
     fn to_json(&self) -> PyResult<String> {
         serde_json::to_string(&self.inner)
-            .map_err(|err| PyValueError::new_err(format!("failed to serialize config: {err}")))
+            .map_err(|err| serde_json_to_py(err, "failed to serialize config"))
     }
 
     /// Deserialize a config from JSON.
@@ -280,7 +280,7 @@ impl PyFinstackConfig {
     fn from_json(_cls: &Bound<'_, PyType>, json: &str) -> PyResult<Self> {
         serde_json::from_str(json)
             .map(Self::from_inner)
-            .map_err(|err| PyValueError::new_err(format!("invalid FinstackConfig JSON: {err}")))
+            .map_err(|err| serde_json_to_py(err, "invalid FinstackConfig JSON"))
     }
 
     fn __repr__(&self) -> String {
@@ -295,7 +295,7 @@ fn py_to_json_value<'py>(
 ) -> PyResult<JsonValue> {
     if let Ok(json) = obj.extract::<String>() {
         return serde_json::from_str(&json)
-            .map_err(|err| PyValueError::new_err(format!("invalid {label} JSON: {err}")));
+            .map_err(|err| serde_json_to_py(err, &format!("invalid {label} JSON")));
     }
 
     let json_mod = py.import("json")?;
@@ -304,7 +304,7 @@ fn py_to_json_value<'py>(
         .and_then(|value| value.extract())
         .map_err(|err| PyValueError::new_err(format!("invalid {label}: {err}")))?;
     serde_json::from_str(&json)
-        .map_err(|err| PyValueError::new_err(format!("invalid {label} JSON: {err}")))
+        .map_err(|err| serde_json_to_py(err, &format!("invalid {label} JSON")))
 }
 
 /// Register the `finstack.core.config` submodule.

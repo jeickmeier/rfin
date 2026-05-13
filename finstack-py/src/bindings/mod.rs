@@ -11,6 +11,7 @@ pub mod cashflows;
 pub mod core;
 pub(crate) mod extract;
 pub mod margin;
+pub(crate) mod module_utils;
 pub mod monte_carlo;
 pub(crate) mod pandas_utils;
 pub mod portfolio;

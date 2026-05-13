@@ -37,6 +37,7 @@
 - Error handling: centralized `core_to_py()` in `errors.rs` (Python), `JsValue::from_str` (WASM); never use `.unwrap()` or `.expect()` in non-test binding code
 - Module registration: every submodule sets `__all__` via `PyList` in `register()`; no dynamic export discovery
 - Builder pattern: fluent chaining (e.g., `Type.builder(id).field(val).build()`)
+- **WASM exposes a strict subset of `finstack-core`** (currently `currency`, `dates`, `market_data`, `math`, `money`, `types`). Python tracks the full crate surface; WASM is opt-in per module. The agreed subset is documented in `[wasm_core_subset]` in `finstack-py/parity_contract.toml` — update it whenever the WASM core surface changes.
 
 ## API Conventions
 
