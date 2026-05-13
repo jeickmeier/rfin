@@ -29,8 +29,8 @@ use core::fmt;
 use core::ops::{AddAssign, Div, DivAssign, Mul, MulAssign, SubAssign};
 
 use super::rounding::{
-    amount_from_repr, repr_add, repr_div_f64, repr_mul_f64, repr_sub, round_f64,
-    try_amount_from_repr, try_repr_div_f64, try_repr_mul_f64, AmountRepr,
+    amount_from_repr, repr_add, repr_div_f64, repr_mul_f64, repr_sub, round_f64, try_repr_div_f64,
+    try_repr_mul_f64, AmountRepr,
 };
 
 /// Format an integer string (optionally prefixed by `-`) with thousands
@@ -267,18 +267,6 @@ impl Money {
         Ok(Self { amount, currency })
     }
 
-    /// Explicit alias for [`Money::try_new`] that documents retain-precision
-    /// intent at the call site.
-    ///
-    /// Use this at hot paths where it is important for the reader to see that
-    /// the constructor preserves the full finite input without ISO-4217
-    /// minor-unit rounding. For configurable rounding, use
-    /// [`Money::try_new_with_config`].
-    #[inline]
-    pub fn try_new_retain(amount: f64, currency: Currency) -> Result<Self, Error> {
-        Self::try_new(amount, currency)
-    }
-
     /// Fallible constructor using an explicit configuration for rounding.
     pub fn try_new_with_config(
         amount: f64,
@@ -353,11 +341,6 @@ impl Money {
         (amount_from_repr(self.amount), self.currency)
     }
 
-    #[inline]
-    fn try_amount_and_currency(self) -> Result<(f64, Currency), Error> {
-        Ok((try_amount_from_repr(self.amount)?, self.currency))
-    }
-
     /// Amount accessor (by value).
     ///
     /// This converts the internal [`Decimal`] representation to `f64` for
@@ -386,76 +369,6 @@ impl Money {
     #[must_use]
     pub fn into_parts(self) -> (f64, Currency) {
         self.amount_and_currency()
-    }
-
-    // ---------------------------------------------------------------------
-    // Fallible accessors
-    // ---------------------------------------------------------------------
-
-    /// Fallible amount accessor.
-    ///
-    /// Returns `Err(ConversionOverflow)` if the internal Decimal representation
-    /// cannot be converted to f64. Use this at API boundaries when explicit
-    /// error handling is preferred over panics.
-    ///
-    /// # Examples
-    /// ```rust
-    /// use finstack_core::money::Money;
-    /// use finstack_core::currency::Currency;
-    /// # fn main() -> finstack_core::Result<()> {
-    ///
-    /// let amt = Money::new(1_000_000.0, Currency::USD);
-    /// assert_eq!(amt.try_amount()?, 1_000_000.0);
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[inline]
-    pub fn try_amount(&self) -> Result<f64, Error> {
-        (*self).try_into_amount()
-    }
-
-    /// Fallible consuming amount accessor.
-    ///
-    /// Returns `Err(ConversionOverflow)` if the internal Decimal representation
-    /// cannot be converted to f64.
-    ///
-    /// # Examples
-    /// ```rust
-    /// use finstack_core::money::Money;
-    /// use finstack_core::currency::Currency;
-    /// # fn main() -> finstack_core::Result<()> {
-    ///
-    /// let amt = Money::new(1_000_000.0, Currency::USD);
-    /// assert_eq!(amt.try_into_amount()?, 1_000_000.0);
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[inline]
-    pub fn try_into_amount(self) -> Result<f64, Error> {
-        self.try_into_parts().map(|(amount, _)| amount)
-    }
-
-    /// Fallible consuming parts accessor.
-    ///
-    /// Returns `Err(ConversionOverflow)` if the internal Decimal representation
-    /// cannot be converted to f64.
-    ///
-    /// # Examples
-    /// ```rust
-    /// use finstack_core::money::Money;
-    /// use finstack_core::currency::Currency;
-    /// # fn main() -> finstack_core::Result<()> {
-    ///
-    /// let amt = Money::new(1_000_000.0, Currency::USD);
-    /// let (value, ccy) = amt.try_into_parts()?;
-    /// assert_eq!(value, 1_000_000.0);
-    /// assert_eq!(ccy, Currency::USD);
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[inline]
-    pub fn try_into_parts(self) -> Result<(f64, Currency), Error> {
-        self.try_amount_and_currency()
     }
 
     // ---------------------------------------------------------------------
@@ -949,32 +862,6 @@ mod tests {
         assert!(res.is_err());
     }
 
-    // -------------------------------------------------------------------------
-    // Fallible accessor tests (try_amount, try_into_amount, try_into_parts)
-    // -------------------------------------------------------------------------
-
-    #[test]
-    fn try_amount_returns_ok_for_normal_values() {
-        let m = Money::new(12345.67, Currency::USD);
-        let result = m.try_amount().expect("Conversion should succeed");
-        assert!((result - 12345.67).abs() < 1e-10);
-    }
-
-    #[test]
-    fn try_into_amount_returns_ok_for_normal_values() {
-        let m = Money::new(999.99, Currency::EUR);
-        let result = m.try_into_amount().expect("Conversion should succeed");
-        assert!((result - 999.99).abs() < 1e-10);
-    }
-
-    #[test]
-    fn try_into_parts_returns_ok_for_normal_values() {
-        let m = Money::new(500.0, Currency::GBP);
-        let (amount, currency) = m.try_into_parts().expect("Conversion should succeed");
-        assert!((amount - 500.0).abs() < 1e-10);
-        assert_eq!(currency, Currency::GBP);
-    }
-
     #[test]
     fn amount_does_not_silently_return_zero_for_large_values() {
         // This test documents the fix: large values must NOT silently become 0.
@@ -989,13 +876,6 @@ mod tests {
             (amount - 1_000_000_000_000.0).abs() < 1e3,
             "Amount should preserve the large value"
         );
-    }
-
-    #[test]
-    fn try_amount_preserves_negative_values() {
-        let m = Money::new(-1_000_000.0, Currency::JPY);
-        let amount = m.try_amount().expect("Conversion should succeed");
-        assert!(amount < 0.0, "Negative values must remain negative");
     }
 
     // -------------------------------------------------------------------------
@@ -1061,12 +941,6 @@ mod tests {
     }
 
     #[test]
-    fn try_new_retain_preserves_internal_precision() {
-        let m = Money::try_new_retain(10.005, Currency::USD).expect("Finite should succeed");
-        assert!((m.amount() - 10.005).abs() < 1e-12);
-    }
-
-    #[test]
     fn try_new_with_config_honors_ingest_scale_override() {
         let mut cfg = FinstackConfig::default();
         cfg.rounding.ingest_scale.overrides.insert(Currency::USD, 2);
@@ -1100,13 +974,6 @@ mod tests {
         let small = 1e-15;
         let m = Money::try_new(small, Currency::USD).expect("Small value should succeed");
         // Construction preserves the raw finite amount; formatting/rounding is a separate concern.
-        assert_eq!(m.amount(), small);
-    }
-
-    #[test]
-    fn try_new_retain_handles_very_small_values() {
-        let small = 1e-15;
-        let m = Money::try_new_retain(small, Currency::USD).expect("Small value should succeed");
         assert_eq!(m.amount(), small);
     }
 

@@ -781,11 +781,9 @@ fn qr_least_squares(columns: &[Vec<f64>], y: &[f64]) -> crate::Result<Vec<f64>> 
     let y_vector = DVector::from_column_slice(y);
     let svd = x_matrix.svd(true, true);
     let max_singular = svd.singular_values.iter().copied().fold(0.0_f64, f64::max);
-    if !max_singular.is_finite() || max_singular <= 0.0 {
-        return Err(crate::error::InputError::Invalid.into());
-    }
-
     let tolerance = 1.0e-10 * max_singular.max(1.0);
+    // A column-norm guard above already rejected zero / non-finite columns,
+    // so any remaining failure is rank-deficiency relative to `p`.
     let rank = svd
         .singular_values
         .iter()

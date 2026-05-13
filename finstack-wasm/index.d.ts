@@ -358,6 +358,7 @@ export interface DrawdownEpisode {
   duration_days: number;
   max_drawdown: number;
   near_recovery_threshold: number;
+  truncated_at_start: boolean;
 }
 
 /** Aggregate statistics for grouped periodic returns. */
@@ -523,7 +524,7 @@ export declare class Performance {
   greeks(): GreeksResult[];
   rollingGreeks(tickerIdx: number, window?: number): RollingGreeksResult;
   rollingVolatility(tickerIdx: number, window?: number): RollingVolatility;
-  rollingSortino(tickerIdx: number, window?: number): RollingSortino;
+  rollingSortino(tickerIdx: number, window?: number, mar?: number): RollingSortino;
   rollingSharpe(tickerIdx: number, window?: number, riskFreeRate?: number): RollingSharpe;
   rollingReturns(tickerIdx: number, window: number): RollingReturns;
   drawdownDetails(tickerIdx: number, n?: number): DrawdownEpisode[];

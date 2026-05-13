@@ -100,21 +100,21 @@ fn market_context_getters_accept_preparsed_curve_ids() {
         .insert(sample_hazard_curve("CDX"));
 
     assert_eq!(
-        ctx.get_discount_by_id(&CurveId::from("USD-OIS"))
+        ctx.get_discount(CurveId::from("USD-OIS").as_str())
             .unwrap()
             .id()
             .as_str(),
         "USD-OIS"
     );
     assert_eq!(
-        ctx.get_forward_by_id(&CurveId::from("USD-LIBOR"))
+        ctx.get_forward(CurveId::from("USD-LIBOR").as_str())
             .unwrap()
             .id()
             .as_str(),
         "USD-LIBOR"
     );
     assert_eq!(
-        ctx.get_hazard_by_id(&CurveId::from("CDX"))
+        ctx.get_hazard(CurveId::from("CDX").as_str())
             .unwrap()
             .id()
             .as_str(),

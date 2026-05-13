@@ -11,10 +11,9 @@
 //! - Use [`crate::cashflow::npv_amounts`] / [`crate::cashflow::npv_amounts_with_ctx`] for scalar cashflow studies
 //!   driven by a single continuously compounded annual rate.
 //! - Use [`crate::cashflow::irr`] for periodic cashflows and
-//!   [`crate::cashflow::xirr_with_daycount`] / [`crate::cashflow::xirr_with_daycount_ctx`]
-//!   for dated cashflows when the unknown quantity is the rate that makes NPV equal
-//!   to zero. [`crate::cashflow::InternalRateOfReturn`] remains available as a
-//!   compatibility trait.
+//!   [`crate::cashflow::xirr`] / [`crate::cashflow::xirr_with_daycount`] /
+//!   [`crate::cashflow::xirr_with_daycount_ctx`] for dated cashflows when the
+//!   unknown quantity is the rate that makes NPV equal to zero.
 //!
 //! # Components
 //!
@@ -97,12 +96,12 @@
 //! ## IRR Calculation
 //!
 //! ```rust
-//! use finstack_core::cashflow::InternalRateOfReturn;
+//! use finstack_core::cashflow::irr;
 //!
 //! // Initial investment followed by 4 quarterly returns (20% total return)
 //! let cash_flows = vec![-10000.0, 3000.0, 3000.0, 3000.0, 3000.0];
-//! let irr = cash_flows.irr(None)?;
-//! assert!(irr > 0.0); // Positive return
+//! let rate = irr(&cash_flows, None)?;
+//! assert!(rate > 0.0); // Positive return
 //! # Ok::<(), finstack_core::Error>(())
 //! ```
 //!
@@ -120,4 +119,4 @@ pub use discounting::{
     npv, npv_amounts, npv_amounts_with_ctx, npv_prediscounted_money, npv_with_ctx, Discountable,
 };
 pub use primitives::{CFKind, CashFlow};
-pub use xirr::{irr, xirr, xirr_with_daycount, xirr_with_daycount_ctx, InternalRateOfReturn};
+pub use xirr::{irr, xirr, xirr_with_daycount, xirr_with_daycount_ctx};

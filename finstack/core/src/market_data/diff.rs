@@ -177,29 +177,6 @@ pub fn measure_discount_curve_shift(
     ))
 }
 
-/// Measure bucketed rate shifts for detailed attribution.
-pub fn measure_bucketed_discount_shift(
-    curve_id: impl AsRef<str>,
-    market_t0: &MarketContext,
-    market_t1: &MarketContext,
-    tenors: &[f64],
-) -> Result<Vec<(f64, f64)>> {
-    let curve_t0 = market_t0.get_discount(&curve_id)?;
-    let curve_t1 = market_t1.get_discount(&curve_id)?;
-
-    let mut shifts = Vec::with_capacity(tenors.len());
-    for &tenor in tenors {
-        if tenor <= 0.0 {
-            continue;
-        }
-        let zero_t0 = curve_t0.zero(tenor);
-        let zero_t1 = curve_t1.zero(tenor);
-        let shift_bp = (zero_t1 - zero_t0) * 10_000.0;
-        shifts.push((tenor, shift_bp));
-    }
-    Ok(shifts)
-}
-
 /// Measure average parallel spread shift in hazard curve (basis points).
 pub fn measure_hazard_curve_shift(
     curve_id: impl AsRef<str>,
@@ -230,20 +207,10 @@ pub fn measure_inflation_curve_shift(
     market_t0: &MarketContext,
     market_t1: &MarketContext,
 ) -> Result<f64> {
-    measure_inflation_curve_shift_at(curve_id, market_t0, market_t1, STANDARD_TENORS)
-}
-
-/// Measure average inflation rate shift at specified tenors (basis points).
-pub fn measure_inflation_curve_shift_at(
-    curve_id: impl AsRef<str>,
-    market_t0: &MarketContext,
-    market_t1: &MarketContext,
-    tenors: &[f64],
-) -> Result<f64> {
     let curve_t0 = market_t0.get_inflation_curve(&curve_id)?;
     let curve_t1 = market_t1.get_inflation_curve(&curve_id)?;
     Ok(measure_average_shift(
-        tenors,
+        STANDARD_TENORS,
         10_000.0,
         |t| {
             let ratio = curve_t0.cpi(t) / curve_t0.base_cpi();
@@ -261,23 +228,6 @@ pub fn measure_inflation_curve_shift_at(
                 ratio.powf(1.0 / t) - 1.0
             }
         },
-    ))
-}
-
-/// Measure average correlation shift (percentage points).
-pub fn measure_correlation_shift(
-    curve_id: impl AsRef<str>,
-    market_t0: &MarketContext,
-    market_t1: &MarketContext,
-) -> Result<f64> {
-    let curve_t0 = market_t0.get_base_correlation(&curve_id)?;
-    let curve_t1 = market_t1.get_base_correlation(&curve_id)?;
-
-    Ok(measure_average_shift(
-        curve_t0.detachment_points(),
-        100.0,
-        |t| curve_t0.correlation(t),
-        |t| curve_t1.correlation(t),
     ))
 }
 
@@ -626,45 +576,6 @@ mod tests {
         let shift = measure_average_shift(&[1.0], 10_000.0, |_| 1.0e9, |_| 1.0e9 + 1.0e-6);
 
         assert_eq!(shift, 0.0);
-    }
-
-    #[test]
-    fn test_bucketed_shifts() {
-        let base_date = sample_date();
-
-        // Create base curve
-        let curve_t0 = DiscountCurve::builder("USD-OIS")
-            .base_date(base_date)
-            .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.82), (10.0, 0.67)])
-            .interp(InterpStyle::LogLinear)
-            .build()
-            .expect("Market diff calculation should succeed in test");
-
-        // Create curve with higher rates (+50bp)
-        let curve_t1 = DiscountCurve::builder("USD-OIS")
-            .base_date(base_date)
-            .knots([
-                (0.0, 1.0),
-                (1.0, 0.96 * (-0.005_f64 * 1.0).exp()),
-                (5.0, 0.82 * (-0.005_f64 * 5.0).exp()),
-                (10.0, 0.67 * (-0.005_f64 * 10.0).exp()),
-            ])
-            .interp(InterpStyle::LogLinear)
-            .build()
-            .expect("Market diff calculation should succeed in test");
-
-        let market_t0 = MarketContext::new().insert(curve_t0);
-        let market_t1 = MarketContext::new().insert(curve_t1);
-
-        let tenors = vec![1.0, 5.0, 10.0];
-        let shifts = measure_bucketed_discount_shift("USD-OIS", &market_t0, &market_t1, &tenors)
-            .expect("Bucketed discount shift calculation should succeed in test");
-
-        assert_eq!(shifts.len(), 3);
-
-        for (_tenor, shift_bp) in shifts {
-            assert!((shift_bp - 50.0).abs() < 1.0);
-        }
     }
 
     #[test]

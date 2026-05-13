@@ -159,6 +159,11 @@ impl Clone for CompiledExpr {
 
 impl CompiledExpr {
     /// Construct a new compiled expression from an AST.
+    ///
+    /// Accepts any [`Expr`], including statements-layer functions (`Ttm`,
+    /// `Ytd`, etc.); those will fail at `eval()` time with a typed validation
+    /// error. Callers that know they are operating on a scalar evaluator may
+    /// prefer [`Self::try_new_scalar`] to fail fast at compile time.
     pub fn new(ast: Expr) -> Self {
         Self {
             ast,
@@ -167,6 +172,18 @@ impl CompiledExpr {
             scratch: Mutex::new(ScratchArena::default()),
             lazy_plan: OnceLock::new(),
         }
+    }
+
+    /// Construct a compiled expression and reject statements-layer functions
+    /// up front.
+    ///
+    /// Use this when you know the expression must be evaluable by the core
+    /// scalar evaluator (i.e., not under the `statements` crate). Period-aware
+    /// functions like `Ttm`/`Ytd`/`GrowthRate` etc. return a typed validation
+    /// error instead of being silently accepted and rejected at eval time.
+    pub fn try_new_scalar(ast: Expr) -> crate::Result<Self> {
+        super::ast_walk::ensure_scalar_evaluable(&ast)?;
+        Ok(Self::new(ast))
     }
 
     /// Construct with DAG planning enabled.

@@ -15,7 +15,7 @@ use std::sync::Arc;
 use crate::cashflow::builder::schedule::CashFlowSchedule;
 use crate::instruments::TermLoan;
 use crate::metrics::MetricContext;
-use finstack_core::cashflow::{CFKind, InternalRateOfReturn};
+use finstack_core::cashflow::{xirr_with_daycount, CFKind};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
@@ -155,7 +155,7 @@ pub(super) fn solve_irr_to_exercise(
     // Add explicit redemption at exercise date
     flows.push((exercise_date, redemption.amount()));
 
-    flows.as_slice().irr_with_daycount(loan.day_count, None)
+    xirr_with_daycount(flows.as_slice(), loan.day_count, None)
 }
 
 /// Solve IRR to a fixed horizon using kind-aware filtering and outstanding at horizon.

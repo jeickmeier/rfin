@@ -77,7 +77,7 @@ fn performance_facade_exercises_broad_api_surface() {
     let _ = perf.martin_ratio().expect("valid Martin ratios");
     let _ = perf.parametric_var(0.95);
     let _ = perf.cornish_fisher_var(0.95);
-    let _ = perf.rolling_sortino(0, 25);
+    let _ = perf.rolling_sortino(0, 25, 0.0);
     let _ = perf.recovery_factor();
     let _ = perf.sterling_ratio(0.02, 3).expect("valid Sterling ratios");
     let _ = perf.burke_ratio(0.02, 3).expect("valid Burke ratios");

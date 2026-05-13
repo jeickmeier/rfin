@@ -210,6 +210,10 @@ class DrawdownEpisode:
     def near_recovery_threshold(self) -> float:
         """Near-recovery threshold."""
 
+    @property
+    def truncated_at_start(self) -> bool:
+        """True when the episode began before the first observation (left-censored)."""
+
     def __repr__(self) -> str: ...
 
 class LookbackReturns:
@@ -569,7 +573,9 @@ class Performance:
     def rolling_volatility(self, ticker_idx: int, window: int = 63) -> RollingVolatility:
         """Rolling volatility for a specific ticker."""
 
-    def rolling_sortino(self, ticker_idx: int, window: int = 63) -> RollingSortino:
+    def rolling_sortino(
+        self, ticker_idx: int, window: int = 63, mar: float = 0.0
+    ) -> RollingSortino:
         """Rolling Sortino for a specific ticker."""
 
     def rolling_sharpe(
@@ -648,7 +654,7 @@ class Performance:
         """Top-N drawdown episodes for a ticker as a pandas DataFrame.
 
         Columns: ``start``, ``valley``, ``end``, ``duration_days``,
-        ``max_drawdown``, ``near_recovery_threshold``.
+        ``max_drawdown``, ``near_recovery_threshold``, ``truncated_at_start``.
         """
         ...
 

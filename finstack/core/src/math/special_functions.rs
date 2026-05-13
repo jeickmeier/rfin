@@ -403,14 +403,6 @@ pub fn student_t_cdf(x: f64, df: f64) -> f64 {
     }
 }
 
-/// Checked Student-t cumulative distribution function.
-///
-/// Returns a validation error when the degrees of freedom are not finite and positive.
-pub fn try_student_t_cdf(x: f64, df: f64) -> crate::Result<f64> {
-    validate_finite_positive("df", df)?;
-    Ok(student_t_cdf(x, df))
-}
-
 /// Inverse Student-t cumulative distribution function.
 ///
 /// Computes the inverse CDF (quantile function) of the Student-t distribution.
@@ -458,18 +450,6 @@ pub fn student_t_inv_cdf(p: f64, df: f64) -> f64 {
         Ok(dist) => dist.inverse_cdf(p),
         Err(_) => standard_normal_inv_cdf(p),
     }
-}
-
-/// Checked inverse Student-t cumulative distribution function.
-///
-/// Accepts probabilities in `[0, 1]` for parity with the Python binding and
-/// returns a validation error for invalid inputs.
-pub fn try_student_t_inv_cdf(p: f64, df: f64) -> crate::Result<f64> {
-    if !(0.0..=1.0).contains(&p) {
-        return Err(crate::Error::Validation("p must be in [0, 1]".to_string()));
-    }
-    validate_finite_positive("df", df)?;
-    Ok(student_t_inv_cdf(p, df))
 }
 
 #[cfg(test)]
@@ -799,13 +779,5 @@ mod tests {
     fn test_general_normal_helpers_reject_non_positive_std_dev() {
         assert!(norm_cdf_with_params(0.0, 0.0, 0.0).is_err());
         assert!(norm_pdf_with_params(0.0, 0.0, -1.0).is_err());
-    }
-
-    #[test]
-    fn test_checked_student_t_helpers_reject_invalid_inputs() {
-        assert!(try_student_t_cdf(0.0, 0.0).is_err());
-        assert!(try_student_t_inv_cdf(-0.1, 5.0).is_err());
-        assert!(try_student_t_inv_cdf(1.1, 5.0).is_err());
-        assert!(try_student_t_inv_cdf(0.95, 0.0).is_err());
     }
 }

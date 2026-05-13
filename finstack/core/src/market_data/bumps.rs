@@ -721,7 +721,7 @@ impl Bumpable for MarketScalar {
             }
             MarketScalar::Price(m) => match (spec.mode, spec.units) {
                 (BumpMode::Additive, BumpUnits::Fraction) => {
-                    let bump = crate::money::Money::try_new_retain(spec.value, m.currency())?;
+                    let bump = crate::money::Money::try_new(spec.value, m.currency())?;
                     m.checked_add(bump).map(MarketScalar::Price)
                 }
                 (BumpMode::Additive, BumpUnits::Percent) => {

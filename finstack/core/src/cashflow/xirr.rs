@@ -1,8 +1,9 @@
 //! Internal Rate of Return (IRR) and Extended IRR (XIRR).
 //!
-//! This module provides the `InternalRateOfReturn` trait and implementations for:
-//! - Periodic cashflows (`[f64]`): Standard IRR
-//! - Irregular cashflows (`[(Date, f64)]`): XIRR (Extended internal rate of return)
+//! This module provides:
+//! - `irr` for periodic cashflows (`[f64]`): Standard IRR
+//! - `xirr` / `xirr_with_daycount` / `xirr_with_daycount_ctx` for irregular
+//!   cashflows (`[(Date, f64)]`): XIRR (Extended internal rate of return)
 //!
 //! # Mathematical Foundation
 //!
@@ -202,185 +203,6 @@ pub fn xirr_with_daycount(
     guess: Option<f64>,
 ) -> crate::Result<f64> {
     xirr_with_daycount_ctx(cashflows, day_count, DayCountContext::default(), guess)
-}
-
-/// Trait for calculating the Internal Rate of Return (IRR).
-///
-/// This trait provides a compatibility entry point for periodic cashflows
-/// (represented as `[f64]`) and irregular cashflows (represented as `[(Date, f64)]`).
-/// For dated cashflows, prefer the explicit free functions [`xirr`] and
-/// [`xirr_with_daycount`] so the day-count choice is visible at the call site.
-///
-/// # Required Methods
-///
-/// - [`irr`](Self::irr) - Calculate IRR for periodic cashflows, or compatibility XIRR for dated flows
-/// - [`irr_with_daycount`](Self::irr_with_daycount) - Compatibility entry point for explicit-daycount XIRR
-///
-/// # Provided Implementations
-///
-/// - `[f64]` - Periodic cashflows with unit time intervals (standard IRR)
-/// - `[(Date, f64)]` - Irregular cashflows with explicit dates (XIRR)
-///
-/// # Mathematical Background
-///
-/// IRR is the discount rate `r` that makes the Net Present Value (NPV) equal to zero:
-///
-/// ```text
-/// NPV(r) = Σᵢ CFᵢ / (1 + r)^tᵢ = 0
-/// ```
-///
-/// For periodic cashflows, `tᵢ = i` (integer periods).
-/// For irregular cashflows (XIRR), `tᵢ` is the year fraction from the first date.
-///
-/// # Examples
-///
-/// ## Periodic Cashflows (Standard IRR)
-///
-/// ```rust
-/// use finstack_core::cashflow::InternalRateOfReturn;
-///
-/// // Investment of $100 returning $110 after one period = 10% IRR
-/// let flows = [-100.0, 110.0];
-/// let irr = flows.irr(None).expect("IRR converges");
-/// assert!((irr - 0.1).abs() < 1e-6);
-/// ```
-///
-/// ## Irregular Cashflows (XIRR)
-///
-/// For dated cashflows, prefer [`xirr_with_daycount()`] for explicit day count:
-///
-/// ```rust
-/// use finstack_core::cashflow::InternalRateOfReturn;
-/// use finstack_core::dates::{Date, DayCount};
-/// use time::Month;
-///
-/// let flows = [
-///     (Date::from_calendar_date(2024, Month::January, 1).unwrap(), -100_000.0),
-///     (Date::from_calendar_date(2025, Month::January, 1).unwrap(), 110_000.0),
-/// ];
-///
-/// // Use xirr_with_daycount for explicit day count
-/// let xirr = finstack_core::cashflow::xirr_with_daycount(&flows, DayCount::Act365F, None)
-///     .expect("XIRR converges");
-/// assert!(xirr > 0.09 && xirr < 0.11);
-/// ```
-pub trait InternalRateOfReturn {
-    /// Calculate the Internal Rate of Return.
-    ///
-    /// # Deprecation Note (for dated cashflows)
-    ///
-    /// For `[(Date, f64)]` cashflows, this method uses a hidden default of `Act365F`.
-    /// Prefer [`xirr_with_daycount`] for explicit day count:
-    ///
-    /// ```rust
-    /// use finstack_core::cashflow::InternalRateOfReturn;
-    /// use finstack_core::dates::{Date, DayCount};
-    /// use time::Month;
-    ///
-    /// let flows = [
-    ///     (Date::from_calendar_date(2024, Month::January, 1).unwrap(), -100_000.0),
-    ///     (Date::from_calendar_date(2025, Month::January, 1).unwrap(), 110_000.0),
-    /// ];
-    ///
-    /// // Preferred: explicit day count
-    /// let xirr = finstack_core::cashflow::xirr_with_daycount(&flows, DayCount::Act365F, None)?;
-    /// # Ok::<(), finstack_core::Error>(())
-    /// ```
-    ///
-    /// For periodic `[f64]` cashflows, `irr()` remains the canonical method since
-    /// day count is irrelevant for unitless periods.
-    ///
-    /// # Arguments
-    ///
-    /// * `guess` - Optional initial guess for the rate. If `None`, uses 10%.
-    ///
-    /// # Returns
-    ///
-    /// The rate `r` such that NPV(r) ≈ 0.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when:
-    /// - Fewer than 2 cashflows are provided
-    /// - No sign change in cashflows (all positive or all negative)
-    /// - Solver fails to converge after trying multiple initial guesses
-    fn irr(&self, guess: Option<f64>) -> crate::Result<f64>;
-
-    /// Calculate the Internal Rate of Return with a specific day count convention.
-    ///
-    /// # Arguments
-    ///
-    /// * `day_count` - Day count convention to use for time calculations
-    /// * `guess` - Optional initial guess for the rate
-    ///
-    /// # Returns
-    ///
-    /// The rate `r` such that NPV(r) ≈ 0.
-    ///
-    /// # Errors
-    ///
-    /// Same as [`irr`](Self::irr), plus day count calculation errors.
-    ///
-    /// # Notes
-    ///
-    /// For periodic cashflows (`[f64]`), the day count is ignored since
-    /// periods are unitless integers.
-    fn irr_with_daycount(&self, day_count: DayCount, guess: Option<f64>) -> crate::Result<f64>;
-}
-
-/// Implementation for periodic cashflows.
-impl InternalRateOfReturn for [f64] {
-    fn irr(&self, guess: Option<f64>) -> crate::Result<f64> {
-        irr(self, guess)
-    }
-
-    fn irr_with_daycount(&self, _day_count: DayCount, guess: Option<f64>) -> crate::Result<f64> {
-        // Day count is irrelevant for periodic cashflows as they are unitless periods
-        self.irr(guess)
-    }
-}
-
-/// Implementation for irregular cashflows (XIRR).
-///
-/// Uses `DayCount::Act365F` by default (Excel compatible).
-///
-/// # Recommended Usage
-///
-/// For dated cashflows, prefer using [`xirr_with_daycount()`]
-/// with an explicit day count to avoid confusion about the default convention:
-///
-/// ```rust
-/// use finstack_core::cashflow::xirr_with_daycount;
-/// use finstack_core::dates::{Date, DayCount};
-/// use time::Month;
-///
-/// let flows = [
-///     (Date::from_calendar_date(2024, Month::January, 1).unwrap(), -100_000.0),
-///     (Date::from_calendar_date(2025, Month::January, 1).unwrap(), 110_000.0),
-/// ];
-///
-/// // Explicit day count (recommended)
-/// let xirr = xirr_with_daycount(&flows, DayCount::Act365F, None)?;
-/// # Ok::<(), finstack_core::Error>(())
-/// ```
-impl InternalRateOfReturn for [(Date, f64)] {
-    /// Calculate XIRR with default Act365F day count.
-    ///
-    /// **Note**: This method uses a hidden default of `Act365F`. For explicit
-    /// control over the day count convention, use [`xirr_with_daycount`]
-    /// instead.
-    fn irr(&self, guess: Option<f64>) -> crate::Result<f64> {
-        xirr(self, guess)
-    }
-
-    /// Calculates XIRR (Extended Internal Rate of Return) for irregular cashflows
-    /// with configurable day count convention.
-    ///
-    /// For day-count conventions that require extra context (for example
-    /// `ActActIsma` or `Bus252`), use [`xirr_with_daycount_ctx`] instead.
-    fn irr_with_daycount(&self, day_count: DayCount, guess: Option<f64>) -> crate::Result<f64> {
-        xirr_with_daycount(self, day_count, guess)
-    }
 }
 
 /// Calculate XIRR with an explicit day-count context.
@@ -715,57 +537,51 @@ mod tests {
     #[test]
     fn test_irr_periodic() {
         let amounts = [-100.0, 110.0];
-        let irr = amounts
-            .irr(None)
-            .expect("IRR calculation should succeed in test");
-        assert!((irr - 0.1).abs() < 1e-6); // 10% return
+        let rate =
+            irr(&amounts, None).expect("IRR calculation should succeed in test");
+        assert!((rate - 0.1).abs() < 1e-6); // 10% return
 
-        let npv_at_irr = compute_periodic_npv(&amounts, irr);
+        let npv_at_irr = compute_periodic_npv(&amounts, rate);
         assert!(npv_at_irr.abs() < 1e-6);
     }
 
     #[test]
     fn test_irr_periodic_multiple_periods() {
         let amounts = [-1000.0, 300.0, 300.0, 300.0, 300.0];
-        let irr = amounts
-            .irr(None)
-            .expect("IRR calculation should succeed in test");
-        assert!(irr > 0.07 && irr < 0.08);
+        let rate =
+            irr(&amounts, None).expect("IRR calculation should succeed in test");
+        assert!(rate > 0.07 && rate < 0.08);
 
-        let npv_at_irr = compute_periodic_npv(&amounts, irr);
+        let npv_at_irr = compute_periodic_npv(&amounts, rate);
         assert!(npv_at_irr.abs() < 1e-6);
     }
 
     #[test]
     fn test_irr_periodic_near_minus_100() {
         let amounts = [-100.0, 1.0];
-        let irr = amounts
-            .as_slice()
-            .irr(Some(-0.5))
-            .expect("IRR calculation should succeed in test");
-        assert!(irr < -0.9);
+        let rate =
+            irr(&amounts, Some(-0.5)).expect("IRR calculation should succeed in test");
+        assert!(rate < -0.9);
     }
 
     #[test]
     fn test_irr_periodic_high_positive() {
         let amounts = [-100.0, 300.0];
-        let irr = amounts
-            .as_slice()
-            .irr(Some(0.5))
-            .expect("IRR calculation should succeed in test");
-        assert!(irr > 1.0);
+        let rate =
+            irr(&amounts, Some(0.5)).expect("IRR calculation should succeed in test");
+        assert!(rate > 1.0);
     }
 
     #[test]
     fn test_irr_periodic_no_sign_change() {
         let amounts = [100.0, 200.0, 300.0];
-        assert!(amounts.irr(None).is_err());
+        assert!(irr(&amounts, None).is_err());
     }
 
     #[test]
     fn test_unified_irr_api() {
         let periodic_flows = [-100.0, 110.0];
-        let periodic_irr = periodic_flows.irr(None).expect("Periodic IRR failed");
+        let periodic_irr = irr(&periodic_flows, None).expect("Periodic IRR failed");
         assert!((periodic_irr - 0.1).abs() < 1e-6);
 
         let dated_flows = [
@@ -778,7 +594,7 @@ mod tests {
                 110_000.0,
             ),
         ];
-        let xirr_res = dated_flows.as_slice().irr(None).expect("XIRR failed");
+        let xirr_res = xirr(&dated_flows, None).expect("XIRR failed");
         let expected = (1.1_f64).powf(365.0 / 366.0) - 1.0;
         assert!((xirr_res - expected).abs() < 1e-6);
     }
@@ -796,9 +612,7 @@ mod tests {
             ),
         ];
 
-        let result = flows
-            .irr(None)
-            .expect("XIRR calculation should succeed in test");
+        let result = xirr(&flows, None).expect("XIRR calculation should succeed in test");
         let expected = (1.1_f64).powf(365.0 / 366.0) - 1.0;
         assert!((result - expected).abs() < 1e-6);
     }
@@ -820,9 +634,7 @@ mod tests {
             ),
         ];
 
-        let result = flows
-            .irr(None)
-            .expect("XIRR calculation should succeed in test");
+        let result = xirr(&flows, None).expect("XIRR calculation should succeed in test");
         assert!(result > 0.1 && result < 0.2);
     }
 
@@ -841,13 +653,8 @@ mod tests {
         let mut unsorted = sorted.to_vec();
         unsorted.reverse();
 
-        let r1 = sorted
-            .irr(None)
-            .expect("XIRR calculation should succeed in test");
-        let r2 = unsorted
-            .as_slice()
-            .irr(None)
-            .expect("XIRR calculation should succeed in test");
+        let r1 = xirr(&sorted, None).expect("XIRR calculation should succeed in test");
+        let r2 = xirr(&unsorted, None).expect("XIRR calculation should succeed in test");
         assert!((r1 - r2).abs() < 1e-8);
     }
 
@@ -864,9 +671,7 @@ mod tests {
             ),
         ];
 
-        let result = flows
-            .irr(None)
-            .expect("XIRR calculation should succeed in test");
+        let result = xirr(&flows, None).expect("XIRR calculation should succeed in test");
         let expected = (0.9_f64).powf(365.0 / 366.0) - 1.0;
         assert!((result - expected).abs() < 1e-6);
     }
@@ -884,7 +689,7 @@ mod tests {
             ),
         ];
 
-        let result = flows.irr(None);
+        let result = xirr(&flows, None);
         assert!(result.is_err());
     }
 
@@ -895,7 +700,7 @@ mod tests {
             -100_000.0,
         )];
 
-        let result = flows.irr(None);
+        let result = xirr(&flows, None);
         assert!(result.is_err());
     }
 
@@ -912,12 +717,8 @@ mod tests {
             ),
         ];
 
-        let result1 = flows
-            .irr(None)
-            .expect("XIRR calculation should succeed in test");
-        let result2 = flows
-            .as_slice()
-            .irr_with_daycount(DayCount::Act365F, None)
+        let result1 = xirr(&flows, None).expect("XIRR calculation should succeed in test");
+        let result2 = xirr_with_daycount(&flows, DayCount::Act365F, None)
             .expect("XIRR with Act/365F should succeed in test");
 
         assert!((result1 - result2).abs() < 1e-12);
@@ -936,13 +737,9 @@ mod tests {
             ),
         ];
 
-        let result_365 = flows
-            .as_slice()
-            .irr_with_daycount(DayCount::Act365F, None)
+        let result_365 = xirr_with_daycount(&flows, DayCount::Act365F, None)
             .expect("XIRR with Act/365F should succeed");
-        let result_360 = flows
-            .as_slice()
-            .irr_with_daycount(DayCount::Act360, None)
+        let result_360 = xirr_with_daycount(&flows, DayCount::Act360, None)
             .expect("XIRR with Act/360 should succeed");
 
         assert!(result_365 > 0.0);
@@ -967,11 +764,9 @@ mod tests {
             ),
         ];
 
-        let xirr = flows
-            .as_slice()
-            .irr(Some(0.10))
+        let rate = xirr(&flows, Some(0.10))
             .expect("multiple sign changes should warn but still attempt a solve");
 
-        assert!(xirr.is_finite(), "expected a finite IRR, got {xirr}");
+        assert!(rate.is_finite(), "expected a finite IRR, got {rate}");
     }
 }

@@ -2,13 +2,12 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::diff::{
-    measure_bucketed_discount_shift, measure_correlation_shift, measure_discount_curve_shift,
-    measure_fx_shift, measure_hazard_curve_shift, measure_inflation_curve_shift,
-    measure_scalar_shift, measure_vol_surface_shift, TenorSamplingMethod, STANDARD_TENORS,
+    measure_discount_curve_shift, measure_fx_shift, measure_hazard_curve_shift,
+    measure_inflation_curve_shift, measure_scalar_shift, measure_vol_surface_shift,
+    TenorSamplingMethod, STANDARD_TENORS,
 };
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
-use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::market_data::term_structures::InflationCurve;
@@ -59,10 +58,6 @@ fn market_with_hazard(curve: HazardCurve) -> MarketContext {
 }
 
 fn market_with_inflation(curve: InflationCurve) -> MarketContext {
-    MarketContext::new().insert(curve)
-}
-
-fn market_with_base_correlation(curve: BaseCorrelationCurve) -> MarketContext {
     MarketContext::new().insert(curve)
 }
 
@@ -254,108 +249,6 @@ fn test_discount_curve_custom_sampling() {
 }
 
 // ===================================================================
-// Bucketed Discount Shift Tests
-// ===================================================================
-
-#[test]
-fn test_bucketed_discount_shift_detailed() {
-    let base_date = sample_date();
-
-    let curve_t0 = DiscountCurve::builder("USD-OIS")
-        .base_date(base_date)
-        .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.82), (10.0, 0.67)])
-        .interp(InterpStyle::LogLinear)
-        .build()
-        .expect("Should build curve");
-
-    let curve_t1 = DiscountCurve::builder("USD-OIS")
-        .base_date(base_date)
-        .knots([
-            (0.0, 1.0),
-            (1.0, 0.96 * (-0.005_f64 * 1.0).exp()),
-            (5.0, 0.82 * (-0.005_f64 * 5.0).exp()),
-            (10.0, 0.67 * (-0.005_f64 * 10.0).exp()),
-        ])
-        .interp(InterpStyle::LogLinear)
-        .build()
-        .expect("Should build curve");
-
-    let market_t0 = market_with_discount(curve_t0);
-    let market_t1 = market_with_discount(curve_t1);
-
-    let tenors = vec![1.0, 5.0, 10.0];
-    let shifts = measure_bucketed_discount_shift("USD-OIS", &market_t0, &market_t1, &tenors)
-        .expect("Should measure bucketed shifts");
-
-    assert_eq!(shifts.len(), 3, "Should have three tenor shifts");
-
-    for (tenor, shift_bp) in &shifts {
-        assert!(
-            (shift_bp - 50.0).abs() < 1.0,
-            "Expected ~50bp at tenor {}, got {}",
-            tenor,
-            shift_bp
-        );
-    }
-}
-
-#[test]
-fn test_bucketed_discount_shift_single_tenor() {
-    let base_date = sample_date();
-
-    let curve_t0 = DiscountCurve::builder("USD-OIS")
-        .base_date(base_date)
-        .knots([(0.0, 1.0), (1.0, 0.96)])
-        .interp(InterpStyle::Linear)
-        .build()
-        .expect("Should build curve");
-
-    let curve_t1 = DiscountCurve::builder("USD-OIS")
-        .base_date(base_date)
-        .knots([(0.0, 1.0), (1.0, 0.95)])
-        .interp(InterpStyle::Linear)
-        .build()
-        .expect("Should build curve");
-
-    let market_t0 = market_with_discount(curve_t0);
-    let market_t1 = market_with_discount(curve_t1);
-
-    let shifts = measure_bucketed_discount_shift("USD-OIS", &market_t0, &market_t1, &[1.0])
-        .expect("Should handle single tenor");
-
-    assert_eq!(shifts.len(), 1, "Should return one shift");
-}
-
-#[test]
-fn test_bucketed_discount_shift_filters_negative_tenors() {
-    let base_date = sample_date();
-
-    let curve_t0 = DiscountCurve::builder("USD-OIS")
-        .base_date(base_date)
-        .knots([(0.0, 1.0), (1.0, 0.96)])
-        .interp(InterpStyle::Linear)
-        .build()
-        .expect("Should build curve");
-
-    let curve_t1 = DiscountCurve::builder("USD-OIS")
-        .base_date(base_date)
-        .knots([(0.0, 1.0), (1.0, 0.95)])
-        .interp(InterpStyle::Linear)
-        .build()
-        .expect("Should build curve");
-
-    let market_t0 = market_with_discount(curve_t0);
-    let market_t1 = market_with_discount(curve_t1);
-
-    let tenors = vec![-1.0, 0.0, 1.0];
-    let shifts = measure_bucketed_discount_shift("USD-OIS", &market_t0, &market_t1, &tenors)
-        .expect("Should filter negative tenors");
-
-    assert_eq!(shifts.len(), 1, "Should only include positive tenors");
-    assert_eq!(shifts[0].0, 1.0, "Should be tenor 1.0");
-}
-
-// ===================================================================
 // Hazard Curve Shift Tests
 // ===================================================================
 
@@ -496,47 +389,6 @@ fn test_inflation_curve_missing_error() {
     let market_t1 = MarketContext::new();
 
     let result = measure_inflation_curve_shift("MISSING", &market_t0, &market_t1);
-
-    assert!(result.is_err(), "Should error on missing curve");
-}
-
-// ===================================================================
-// Correlation Shift Tests
-// ===================================================================
-
-#[test]
-fn test_correlation_shift() {
-    let curve_t0 = BaseCorrelationCurve::builder("CDXNA")
-        .knots([(3.0, 0.25), (7.0, 0.35), (10.0, 0.40)])
-        .build()
-        .expect("Should build curve");
-
-    // +5% correlation shift
-    let curve_t1 = BaseCorrelationCurve::builder("CDXNA")
-        .knots([(3.0, 0.30), (7.0, 0.40), (10.0, 0.45)])
-        .build()
-        .expect("Should build curve");
-
-    let market_t0 = market_with_base_correlation(curve_t0);
-    let market_t1 = market_with_base_correlation(curve_t1);
-
-    let shift =
-        measure_correlation_shift("CDXNA", &market_t0, &market_t1).expect("Should measure shift");
-
-    // Should be in percentage points (100x the fractional shift)
-    assert!(
-        (shift - 5.0).abs() < 0.5,
-        "Expected ~5pct pts, got {}",
-        shift
-    );
-}
-
-#[test]
-fn test_correlation_missing_error() {
-    let market_t0 = MarketContext::new();
-    let market_t1 = MarketContext::new();
-
-    let result = measure_correlation_shift("MISSING", &market_t0, &market_t1);
 
     assert!(result.is_err(), "Should error on missing curve");
 }

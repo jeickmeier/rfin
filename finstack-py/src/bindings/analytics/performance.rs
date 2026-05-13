@@ -543,15 +543,16 @@ impl PyPerformance {
     }
 
     /// Rolling Sortino for a specific ticker.
-    #[pyo3(signature = (ticker_idx, window = 63))]
+    #[pyo3(signature = (ticker_idx, window = 63, mar = 0.0))]
     fn rolling_sortino(
         &self,
         py: Python<'_>,
         ticker_idx: usize,
         window: usize,
+        mar: f64,
     ) -> PyRollingSortino {
         PyRollingSortino {
-            inner: py.detach(|| self.inner.rolling_sortino(ticker_idx, window)),
+            inner: py.detach(|| self.inner.rolling_sortino(ticker_idx, window, mar)),
         }
     }
 
@@ -780,6 +781,13 @@ impl PyPerformance {
             episodes
                 .iter()
                 .map(|e| e.near_recovery_threshold)
+                .collect::<Vec<_>>(),
+        )?;
+        data.set_item(
+            "truncated_at_start",
+            episodes
+                .iter()
+                .map(|e| e.truncated_at_start)
                 .collect::<Vec<_>>(),
         )?;
         dict_to_dataframe(py, &data, None)

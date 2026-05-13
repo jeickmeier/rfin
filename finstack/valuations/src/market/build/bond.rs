@@ -223,7 +223,7 @@ fn build_bond_shell(
     Bond::with_convention(
         id,
         Money::new(ctx.notional(), currency),
-        finstack_core::types::Rate::from_decimal(coupon_rate),
+        finstack_core::types::Rate::try_from_decimal(coupon_rate)?,
         issue_date,
         maturity,
         convention_data.market_convention,

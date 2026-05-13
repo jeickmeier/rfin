@@ -17,7 +17,7 @@ This module focuses on **small, composable types** and **deterministic numerics*
   - Re‑exports:
     - `primitives::{CashFlow, CFKind}`
     - `discounting::{npv, Discountable}`
-    - `xirr::{InternalRateOfReturn}`
+    - `xirr::{irr, xirr, xirr_with_daycount, xirr_with_daycount_ctx}`
 - **`primitives.rs`**
   - Defines:
     - `CFKind`: classification enum for cashflows (fixed coupon, fees, margin flows, principal, recovery, etc.).
@@ -31,7 +31,9 @@ This module focuses on **small, composable types** and **deterministic numerics*
   - Integrates with `market_data::traits::Discounting` and `dates::DayCount`.
 - **`xirr.rs`**
   - **Internal Rate of Return**:
-    - `InternalRateOfReturn` trait: unified interface for periodic and irregular flows.
+    - `irr` free function for periodic flows (`[f64]`).
+    - `xirr`, `xirr_with_daycount`, `xirr_with_daycount_ctx` free functions for
+      irregular dated flows (`[(Date, f64)]`).
     - `solve_rate_of_return`: shared numerical solver logic.
 
 ---
@@ -153,16 +155,16 @@ This is independent of market curves and uses a scalar solver; it is not meant f
 
 ### IRR for Periodic Cashflows
 
-When cashflows occur at **evenly spaced periods** (0, 1, 2, …), use the `InternalRateOfReturn` trait:
+When cashflows occur at **evenly spaced periods** (0, 1, 2, …), use the `irr` free function:
 
 ```rust
-use finstack_core::cashflow::xirr::InternalRateOfReturn;
+use finstack_core::cashflow::irr;
 
 // Annual project: -100k now, 30k/year for 5 years
 let amounts = vec![-100_000.0, 30_000.0, 30_000.0, 30_000.0, 30_000.0, 30_000.0];
 
-let irr = amounts.irr(None)?;
-assert!(irr > 0.10 && irr < 0.20); // ~15% annual IRR
+let rate = irr(&amounts, None)?;
+assert!(rate > 0.10 && rate < 0.20); // ~15% annual IRR
 # Ok::<(), finstack_core::Error>(())
 ```
 
@@ -170,10 +172,10 @@ assert!(irr > 0.10 && irr < 0.20); // ~15% annual IRR
 
 ### XIRR for Irregular Cashflows
 
-For **irregularly dated cashflows** (typical in private equity, real estate, or mutual funds), use the `InternalRateOfReturn` trait:
+For **irregularly dated cashflows** (typical in private equity, real estate, or mutual funds), use `xirr` or `xirr_with_daycount`:
 
 ```rust
-use finstack_core::cashflow::xirr::InternalRateOfReturn;
+use finstack_core::cashflow::{xirr, xirr_with_daycount};
 use finstack_core::dates::DayCount;
 use time::macros::date;
 
@@ -186,10 +188,10 @@ let flows = vec![
 ];
 
 // Excel‑compatible (Act/365F)
-let irr_act365f = flows.irr(None)?;
+let irr_act365f = xirr(&flows, None)?;
 
 // Alternate day count (e.g., Act/360 for money‑market style)
-let irr_act360 = flows.as_slice().irr_with_daycount(DayCount::Act360, None)?;
+let irr_act360 = xirr_with_daycount(&flows, DayCount::Act360, None)?;
 
 assert!(irr_act365f != irr_act360);
 # Ok::<(), finstack_core::Error>(())

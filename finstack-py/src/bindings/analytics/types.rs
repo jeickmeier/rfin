@@ -303,6 +303,12 @@ impl PyDrawdownEpisode {
     fn near_recovery_threshold(&self) -> f64 {
         self.inner.near_recovery_threshold
     }
+    /// ``True`` when the episode began before the first observation
+    /// (left-censored: no prior peak observed).
+    #[getter]
+    fn truncated_at_start(&self) -> bool {
+        self.inner.truncated_at_start
+    }
 
     fn __repr__(&self) -> String {
         format!(

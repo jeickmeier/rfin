@@ -93,7 +93,7 @@ Two important convention notes:
 - **`diff.rs`**
   - Market shift measurement helpers between two `MarketContext` instances:
     - `TenorSamplingMethod` (`Standard`, `Dynamic`, `Custom`) controls sampling points along a curve.
-  - `measure_discount_curve_shift` and `measure_bucketed_discount_shift` for rate shifts in basis points.
+  - `measure_discount_curve_shift` for rate shifts in basis points.
   - Additional helpers for hazard spreads and volatility surfaces (P&L attribution and risk reporting).
   - Used primarily for P&L attribution, risk reports (DV01/CS01-style metrics), and calibration diagnostics.
 

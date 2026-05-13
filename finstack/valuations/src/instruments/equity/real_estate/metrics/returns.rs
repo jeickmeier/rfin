@@ -2,7 +2,7 @@
 
 use crate::instruments::equity::real_estate::RealEstateAsset;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::cashflow::InternalRateOfReturn;
+use finstack_core::cashflow::xirr_with_daycount;
 use finstack_core::Error as CoreError;
 use std::collections::BTreeMap;
 
@@ -67,9 +67,7 @@ impl MetricCalculator for UnleveredIrr {
         let flows = build_unlevered_cashflow_map(asset, context.as_of)?;
         let flows_vec: Vec<(finstack_core::dates::Date, f64)> = flows.into_iter().collect();
 
-        flows_vec
-            .as_slice()
-            .irr_with_daycount(asset.day_count, None)
+        xirr_with_daycount(&flows_vec, asset.day_count, None)
     }
 }
 

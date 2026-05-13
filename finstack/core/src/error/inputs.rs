@@ -392,6 +392,24 @@ pub enum InputError {
         reason: String,
     },
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Return Series / Analytics
+    // ─────────────────────────────────────────────────────────────────────────
+    /// A row of a return panel violated the analytics input contract.
+    ///
+    /// Used by `finstack-analytics::Performance` to flag the specific ticker,
+    /// row, and reason a return series was rejected (non-finite value, total
+    /// wipeout, length mismatch with the date grid, etc.).
+    #[error("Invalid return series for ticker {ticker:?} at row {index}: {reason}")]
+    InvalidReturnSeries {
+        /// Ticker name as provided by the caller.
+        ticker: String,
+        /// Zero-based row index of the offending observation.
+        index: usize,
+        /// Human-readable description of the failure.
+        reason: String,
+    },
+
     /// FX triangulation failed - unable to compute cross rate via pivot currency.
     ///
     /// This error identifies which leg of the triangulation was missing.

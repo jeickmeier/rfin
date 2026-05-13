@@ -223,9 +223,10 @@ impl CreditIndexDataBuilder {
             .num_constituents
             .ok_or_else(|| crate::Error::from(crate::error::InputError::Invalid))?;
 
-        let recovery_rate = self
-            .recovery_rate
-            .unwrap_or_else(crate::credit::registry::default_market_recovery_rate_or_panic);
+        let recovery_rate = match self.recovery_rate {
+            Some(r) => r,
+            None => crate::credit::registry::default_market_recovery_rate()?,
+        };
 
         let index_credit_curve = self
             .index_credit_curve

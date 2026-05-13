@@ -15,6 +15,7 @@
 //! - empty inputs return `0.0` rather than panicking
 
 use crate::math::stats::{mean, variance};
+use finstack_core::math::neumaier_sum;
 
 fn has_strict_confidence(confidence: f64) -> bool {
     confidence.is_finite() && confidence > 0.0 && confidence < 1.0
@@ -140,6 +141,15 @@ pub(crate) fn value_at_risk(returns: &[f64], confidence: f64) -> f64 {
 /// Reported in the native period of the input return series; sqrt-T scaling
 /// is invalid for non-parametric tail means.
 ///
+/// # Tail-set convention
+///
+/// The tail set is taken as the **closed** interval `{r : r ≤ VaR_α}`. With
+/// ties at the threshold this is the conservative (more-negative) choice and
+/// matches Rockafellar & Uryasev (2002). For continuous distributions there
+/// are no ties almost surely; for empirical samples with duplicates at the
+/// threshold this convention may include slightly more than `⌈(1−α)·n⌉`
+/// observations.
+///
 /// # Arguments
 ///
 /// * `returns`    - Slice of period simple returns.
@@ -182,14 +192,8 @@ pub(crate) fn expected_shortfall(returns: &[f64], confidence: f64) -> f64 {
         return f64::NAN;
     };
     let var_threshold = quantile_finite(&mut data, 1.0 - confidence);
-    let mut tail_sum = 0.0;
-    let mut tail_count = 0usize;
-    for &value in data.iter() {
-        if value <= var_threshold {
-            tail_sum += value;
-            tail_count += 1;
-        }
-    }
+    let tail_sum = neumaier_sum(data.iter().copied().filter(|&v| v <= var_threshold));
+    let tail_count = data.iter().filter(|&&v| v <= var_threshold).count();
     if tail_count == 0 {
         var_threshold
     } else {
@@ -419,6 +423,15 @@ pub(crate) fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Optio
 /// non-monotonic in confidence level, producing paradoxical results.
 /// Always cross-check against historical VaR for heavily-tailed series.
 ///
+/// # Monotonicity guard (Maillard, 2012)
+///
+/// The implementation evaluates `dz_cf/dz` at the requested `z`. If the
+/// derivative is non-positive at that point, the local Cornish-Fisher
+/// quantile function is non-monotonic and the expansion is unreliable, so
+/// the function falls back to the parametric (Gaussian) VaR and logs a
+/// `tracing::warn!` diagnostic with the offending `(skewness, kurtosis,
+/// confidence)` triple.
+///
 /// # Examples
 ///
 /// ```ignore
@@ -449,6 +462,26 @@ pub(crate) fn cornish_fisher_var(returns: &[f64], confidence: f64, ann_factor: O
     let z = crate::math::special_functions::standard_normal_inv_cdf(1.0 - confidence);
     let z2 = z * z;
     let z3 = z2 * z;
+    // Maillard (2012) monotonicity guard: d z_cf / d z at the target z must
+    // be positive for the expansion to behave like a valid quantile function
+    // locally. If it isn't, the polynomial inversion is unreliable; fall back
+    // to parametric VaR and emit a structured warning.
+    let dz_cf =
+        1.0 + (2.0 * z) * s / 6.0 + (3.0 * z2 - 3.0) * k / 24.0 - (6.0 * z2 - 5.0) * s * s / 36.0;
+    if dz_cf <= 0.0 {
+        tracing::warn!(
+            skewness = s,
+            excess_kurtosis = k,
+            confidence,
+            dz_cf,
+            "Cornish-Fisher expansion non-monotonic at requested confidence; \
+             falling back to parametric (Gaussian) VaR"
+        );
+        return match ann_factor {
+            Some(af) => m * af + z * vol * af.sqrt(),
+            None => m + z * vol,
+        };
+    }
     let z_cf =
         z + (z2 - 1.0) * s / 6.0 + (z3 - 3.0 * z) * k / 24.0 - (2.0 * z3 - 5.0 * z) * s * s / 36.0;
     match ann_factor {
@@ -639,13 +672,32 @@ mod tests {
 
     #[test]
     fn cornish_fisher_var_differs_from_parametric_for_skewed() {
-        let mut r = vec![-0.01_f64; 80];
-        r.extend(vec![0.05; 20]);
+        // Mildly skewed normal-ish sample, well within the Maillard
+        // monotonicity region so the expansion is applied (not falling back
+        // to parametric).
+        let mut r: Vec<f64> = (0..200).map(|i| (i as f64 - 100.0) * 0.001).collect();
+        // Inject a handful of mildly larger losses to create modest skew.
+        for v in r.iter_mut().take(5) {
+            *v -= 0.005;
+        }
         let pvar = parametric_var(&r, 0.95, None);
         let cfvar = cornish_fisher_var(&r, 0.95, None);
         assert!(pvar < 0.0);
         assert!(cfvar < 0.0);
         assert!((cfvar - pvar).abs() > 1e-6);
+    }
+
+    #[test]
+    fn cornish_fisher_var_falls_back_to_parametric_when_non_monotonic() {
+        // Heavily skewed bimodal sample: 80 small losses and 20 large gains.
+        // dz_cf/dz at z ≈ −1.645 is negative for this (S, K), so the
+        // Maillard guard should fire and the function should fall back to
+        // parametric VaR.
+        let mut r = vec![-0.01_f64; 80];
+        r.extend(vec![0.05; 20]);
+        let pvar = parametric_var(&r, 0.95, None);
+        let cfvar = cornish_fisher_var(&r, 0.95, None);
+        assert!((cfvar - pvar).abs() < 1e-12);
     }
 
     #[test]

@@ -32,6 +32,12 @@ pub struct DrawdownEpisode {
     /// a value slightly below zero). Useful for identifying "almost recovered"
     /// drawdowns where the series is within 1% of the prior peak.
     pub near_recovery_threshold: f64,
+    /// `true` when the series began already in drawdown (no observed prior
+    /// peak), so `start` is the first observation rather than a true peak.
+    /// Survival / duration analytics should treat such episodes as
+    /// left-censored.
+    #[serde(default)]
+    pub truncated_at_start: bool,
 }
 
 /// Compute a drawdown series from a simple-return series.
@@ -134,7 +140,7 @@ pub(crate) fn drawdown_details(drawdown: &[f64], dates: &[Date], n: usize) -> Ve
     let mut episodes: Vec<DrawdownEpisode> = Vec::new();
     for_each_episode(
         &drawdown[..len],
-        |start_idx, valley_idx, end_idx, valley_val| {
+        |start_idx, valley_idx, end_idx, valley_val, truncated_at_start| {
             episodes.push(make_episode(
                 dates,
                 start_idx,
@@ -142,6 +148,7 @@ pub(crate) fn drawdown_details(drawdown: &[f64], dates: &[Date], n: usize) -> Ve
                 end_idx,
                 valley_val,
                 len - 1,
+                truncated_at_start,
             ));
         },
     );
@@ -165,10 +172,11 @@ pub(crate) fn drawdown_details(drawdown: &[f64], dates: &[Date], n: usize) -> Ve
 /// episode extends to the end of the series.
 fn for_each_episode<F>(drawdown: &[f64], mut emit: F)
 where
-    F: FnMut(usize, usize, Option<usize>, f64),
+    F: FnMut(usize, usize, Option<usize>, f64, bool),
 {
     let mut in_dd = false;
     let mut start_idx = 0usize;
+    let mut truncated_at_start = false;
     let mut valley_idx = 0usize;
     let mut valley_val = 0.0_f64;
 
@@ -176,7 +184,13 @@ where
         if d < -1e-15 {
             if !in_dd {
                 in_dd = true;
-                start_idx = if i > 0 { i - 1 } else { 0 };
+                if i > 0 {
+                    start_idx = i - 1;
+                    truncated_at_start = false;
+                } else {
+                    start_idx = 0;
+                    truncated_at_start = true;
+                }
                 valley_idx = i;
                 valley_val = d;
             } else if d < valley_val {
@@ -184,15 +198,22 @@ where
                 valley_val = d;
             }
         } else if in_dd {
-            emit(start_idx, valley_idx, Some(i), valley_val);
+            emit(
+                start_idx,
+                valley_idx,
+                Some(i),
+                valley_val,
+                truncated_at_start,
+            );
             in_dd = false;
         }
     }
     if in_dd {
-        emit(start_idx, valley_idx, None, valley_val);
+        emit(start_idx, valley_idx, None, valley_val, truncated_at_start);
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn make_episode(
     dates: &[Date],
     start_idx: usize,
@@ -200,6 +221,7 @@ fn make_episode(
     end_idx: Option<usize>,
     valley_val: f64,
     last_data_idx: usize,
+    truncated_at_start: bool,
 ) -> DrawdownEpisode {
     let start = dates[start_idx];
     let valley = dates[valley_idx];
@@ -213,6 +235,7 @@ fn make_episode(
         duration_days,
         max_drawdown: valley_val,
         near_recovery_threshold: valley_val * 0.01,
+        truncated_at_start,
     }
 }
 
@@ -264,7 +287,7 @@ fn worst_episode_depths(drawdown: &[f64], n: usize) -> Vec<f64> {
     }
 
     let mut depths = Vec::new();
-    for_each_episode(drawdown, |_, _, _, valley_val| depths.push(valley_val));
+    for_each_episode(drawdown, |_, _, _, valley_val, _| depths.push(valley_val));
     depths.sort_by(|a, b| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal));
     depths.truncate(n);
     depths
@@ -299,8 +322,23 @@ fn worst_episode_depths(drawdown: &[f64], n: usize) -> Vec<f64> {
 /// assert!(max_dur > 0);
 /// ```
 pub(crate) fn max_drawdown_duration(drawdown: &[f64], dates: &[Date]) -> i64 {
-    let episodes = drawdown_details(drawdown, dates, usize::MAX);
-    episodes.iter().map(|e| e.duration_days).max().unwrap_or(0)
+    if drawdown.is_empty() || dates.is_empty() {
+        return 0;
+    }
+    let len = drawdown.len().min(dates.len());
+    let last_idx = len - 1;
+    let mut max_days: i64 = 0;
+    for_each_episode(&drawdown[..len], |start_idx, _, end_idx, _, _| {
+        let end_date = match end_idx {
+            Some(i) => dates[i],
+            None => dates[last_idx],
+        };
+        let days = (end_date - dates[start_idx]).whole_days();
+        if days > max_days {
+            max_days = days;
+        }
+    });
+    max_days
 }
 
 /// Conditional Drawdown at Risk (CDaR) at the given confidence level.
@@ -322,10 +360,10 @@ pub(crate) fn max_drawdown_duration(drawdown: &[f64], dates: &[Date]) -> i64 {
 ///
 /// # Returns
 ///
-/// The CDaR as a **non-negative** scalar (expressed as an absolute drawdown
-/// depth). Note that this differs from the non-positive convention used by
-/// [`max_drawdown`] and [`mean_drawdown`]; callers combining CDaR with
-/// those metrics should account for the sign difference.
+/// The CDaR as a **non-positive** scalar, matching the sign convention of
+/// the rest of the drawdown family ([`max_drawdown`], [`mean_drawdown`]).
+/// For example, a 95% CDaR of `-0.25` means the average drawdown depth in
+/// the worst 5% tail is 25%.
 /// Returns `0.0` for an empty slice.
 ///
 /// # Examples
@@ -335,7 +373,7 @@ pub(crate) fn max_drawdown_duration(drawdown: &[f64], dates: &[Date]) -> i64 {
 ///
 /// let dd = [-0.01, -0.05, -0.10, -0.15, -0.20, 0.0, -0.03, -0.08, -0.12, -0.18];
 /// let c = cdar(&dd, 0.80);
-/// assert!(c > 0.10);
+/// assert!(c < -0.10);
 /// ```
 ///
 /// # References
@@ -354,10 +392,12 @@ pub(crate) fn cdar(drawdown: &[f64], confidence: f64) -> f64 {
         .iter()
         .filter(|&&d| d >= threshold)
         .fold((0.0_f64, 0usize), |(s, n), &d| (s + d, n + 1));
-    if count == 0 {
-        return threshold;
-    }
-    sum / count as f64
+    let tail_avg = if count == 0 {
+        threshold
+    } else {
+        sum / count as f64
+    };
+    -tail_avg
 }
 
 #[cfg(test)]
@@ -439,19 +479,21 @@ mod tests {
             -0.10, -0.20, -0.05, -0.15, -0.25, -0.30, -0.02, -0.08, -0.12, -0.18,
         ];
         let c = cdar(&dd, 0.80);
-        assert!((c - 0.275).abs() < 1e-10);
+        assert!((c - (-0.275)).abs() < 1e-10);
     }
 
     #[test]
     fn cdar_worse_than_max_drawdown_var() {
-        // CDaR at any confidence ≥ the quantile threshold (it's a tail average)
+        // CDaR at any confidence ≥ the quantile threshold (it's a tail average,
+        // returned with non-positive sign).
         let dd = [
             -0.01, -0.05, -0.10, -0.15, -0.20, 0.0, -0.03, -0.08, -0.12, -0.18,
         ];
         let c95 = cdar(&dd, 0.95);
         let c80 = cdar(&dd, 0.80);
-        // Higher confidence → fewer, more extreme tail observations → larger CDaR
-        assert!(c95 >= c80);
+        // Higher confidence → fewer, more extreme tail observations → more
+        // negative CDaR (larger in magnitude).
+        assert!(c95 <= c80);
     }
 
     #[test]
@@ -467,10 +509,10 @@ mod tests {
 
     #[test]
     fn cdar_uniform_drawdown() {
-        // All drawdowns identical at −5% → CDaR = 5% regardless of confidence
+        // All drawdowns identical at −5% → CDaR = −5% regardless of confidence
         let dd = [-0.05; 20];
         let c = cdar(&dd, 0.95);
-        assert!((c - 0.05).abs() < 1e-12);
+        assert!((c - (-0.05)).abs() < 1e-12);
     }
 }
 

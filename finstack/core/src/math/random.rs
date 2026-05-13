@@ -89,18 +89,6 @@ pub trait RandomNumberGenerator {
 
     /// Generate Bernoulli random boolean with probability p
     fn bernoulli(&mut self, p: f64) -> bool;
-
-    /// Checked Bernoulli sampler.
-    ///
-    /// Returns an error when `p` is outside `[0, 1]`.
-    fn try_bernoulli(&mut self, p: f64) -> crate::Result<bool> {
-        if !(0.0..=1.0).contains(&p) {
-            return Err(crate::Error::Validation(format!(
-                "bernoulli probability must be in [0, 1], got {p}"
-            )));
-        }
-        Ok(self.bernoulli(p))
-    }
 }
 
 // ============================================================================
@@ -573,14 +561,6 @@ mod tests {
             successes,
             expected
         );
-    }
-
-    #[test]
-    fn test_try_bernoulli_rejects_invalid_probability() {
-        let mut rng = Pcg64Rng::new(42);
-        assert!(rng.try_bernoulli(-0.1).is_err());
-        assert!(rng.try_bernoulli(1.1).is_err());
-        assert!(rng.try_bernoulli(0.25).is_ok());
     }
 
     #[test]

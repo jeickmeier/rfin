@@ -38,10 +38,13 @@ fn recompute_mean_m2(window: &[f64]) -> (f64, f64) {
 }
 
 #[inline]
-fn recompute_sum_sum_ds(window: &[f64]) -> (f64, f64) {
+fn recompute_sum_sum_ds(window: &[f64], mar: f64) -> (f64, f64) {
     (
         neumaier_sum(window.iter().copied()),
-        neumaier_sum(window.iter().filter(|&&r| r < 0.0).map(|&r| r * r)),
+        neumaier_sum(window.iter().filter(|&&r| r < mar).map(|&r| {
+            let d = mar - r;
+            d * d
+        })),
     )
 }
 
@@ -217,17 +220,14 @@ pub type RollingSortino = DatedSeries;
 /// Computes the Sortino ratio independently for each `window`-length
 /// sub-slice, advancing one period at a time.
 ///
-/// The minimum acceptable return (MAR) is fixed at `0.0` for this rolling
-/// kernel: downside is measured against zero. Callers that need a non-zero
-/// MAR should compose the standalone [`super::sortino`] over their own
-/// windowing.
-///
 /// # Arguments
 ///
 /// * `returns`    - Slice of period simple returns.
 /// * `dates`      - Date vector aligned with `returns`.
 /// * `window`     - Look-back window length in periods.
 /// * `ann_factor` - Number of periods per year for annualization.
+/// * `mar`        - Minimum acceptable per-period return. Downside is
+///   measured as `Σ max(mar − r, 0)²` within each window.
 ///
 /// # Returns
 ///
@@ -245,7 +245,7 @@ pub type RollingSortino = DatedSeries;
 ///     .map(|i| Date::from_calendar_date(2025, Month::January, 1).unwrap()
 ///         + Duration::days(i))
 ///     .collect();
-/// let rs = rolling_sortino(&returns, &dates, 5, 252.0);
+/// let rs = rolling_sortino(&returns, &dates, 5, 252.0, 0.0);
 /// assert_eq!(rs.values.len(), 16);
 /// ```
 pub(crate) fn rolling_sortino(
@@ -253,19 +253,20 @@ pub(crate) fn rolling_sortino(
     dates: &[Date],
     window: usize,
     ann_factor: f64,
+    mar: f64,
 ) -> RollingSortino {
     let n = returns.len().min(dates.len());
     if n < window || window == 0 {
         return DatedSeries::default();
     }
-    if invalid_annualization_factor(true, ann_factor) {
+    if invalid_annualization_factor(true, ann_factor) || !mar.is_finite() {
         return nan_series(dates, window - 1, n - window + 1);
     }
     let w = window as f64;
     let mut out = DatedSeries::with_capacity(n - window + 1);
     let mut date_idx = window - 1;
-    rolling_sortino_kernel(returns, n, window, |sum, sum_ds| {
-        let m = sum / w;
+    rolling_sortino_kernel(returns, n, window, mar, |sum, sum_ds| {
+        let m = sum / w - mar;
         let dd = (sum_ds / w).sqrt();
         out.values.push(if dd == 0.0 {
             if m > 0.0 {
@@ -336,28 +337,30 @@ where
 ///
 /// Maintains `(sum, sum_ds)` where `sum_ds = Σ min(r,0)²` and calls
 /// `emit(sum, sum_ds)` for every completed window.
-fn rolling_sortino_kernel<F>(returns: &[f64], n: usize, window: usize, mut emit: F)
+fn rolling_sortino_kernel<F>(returns: &[f64], n: usize, window: usize, mar: f64, mut emit: F)
 where
     F: FnMut(f64, f64),
 {
-    let (mut sum, mut sum_ds) = recompute_sum_sum_ds(&returns[..window]);
+    let (mut sum, mut sum_ds) = recompute_sum_sum_ds(&returns[..window], mar);
     emit(sum, sum_ds);
     let mut steps_since_recompute = 0_usize;
     for i in window..n {
         let add = returns[i];
         let rem = returns[i - window];
         sum += add - rem;
-        if add < 0.0 {
-            sum_ds += add * add;
+        if add < mar {
+            let d = mar - add;
+            sum_ds += d * d;
         }
-        if rem < 0.0 {
-            sum_ds -= rem * rem;
+        if rem < mar {
+            let d = mar - rem;
+            sum_ds -= d * d;
         }
         sum_ds = sum_ds.max(0.0); // guard against floating-point underflow
         steps_since_recompute += 1;
         if steps_since_recompute >= ROLLING_KERNEL_RECOMPUTE_INTERVAL {
             let start = i + 1 - window;
-            (sum, sum_ds) = recompute_sum_sum_ds(&returns[start..=i]);
+            (sum, sum_ds) = recompute_sum_sum_ds(&returns[start..=i], mar);
             steps_since_recompute = 0;
         }
         emit(sum, sum_ds);
@@ -421,7 +424,7 @@ mod tests {
         assert_eq!(rs.dates.len(), 6);
         assert!(rs.values.iter().all(|value| value.is_nan()));
 
-        let rso = rolling_sortino(&returns, &dates, 5, f64::INFINITY);
+        let rso = rolling_sortino(&returns, &dates, 5, f64::INFINITY, 0.0);
         assert_eq!(rso.values.len(), 6);
         assert_eq!(rso.dates.len(), 6);
         assert!(rso.values.iter().all(|value| value.is_nan()));
@@ -431,7 +434,7 @@ mod tests {
     fn rolling_sortino_window_count() {
         let returns: Vec<f64> = (0..20).map(|i| (i as f64 - 10.0) * 0.001).collect();
         let dates: Vec<Date> = (0..20).map(|i| jan1(2025) + Duration::days(i)).collect();
-        let rs = rolling_sortino(&returns, &dates, 5, 252.0);
+        let rs = rolling_sortino(&returns, &dates, 5, 252.0, 0.0);
         assert_eq!(rs.values.len(), 16);
         assert_eq!(rs.dates.len(), 16);
     }
@@ -440,9 +443,28 @@ mod tests {
     fn rolling_sortino_matches_pointwise() {
         let returns: Vec<f64> = (0..10).map(|i| (i as f64 - 5.0) * 0.01).collect();
         let dates: Vec<Date> = (0..10).map(|i| jan1(2025) + Duration::days(i)).collect();
-        let rs = rolling_sortino(&returns, &dates, 5, 252.0);
+        let rs = rolling_sortino(&returns, &dates, 5, 252.0, 0.0);
         let first_window = sortino(&returns[0..5], true, 252.0, 0.0);
         assert!((rs.values[0] - first_window).abs() < 1e-12);
+    }
+
+    #[test]
+    fn rolling_sortino_mar_matches_pointwise() {
+        // Oscillating returns so every 5-window contains values below MAR.
+        let returns: Vec<f64> = (0..12)
+            .map(|i: usize| if i.is_multiple_of(2) { -0.01 } else { 0.015 })
+            .collect();
+        let dates: Vec<Date> = (0..12).map(|i| jan1(2025) + Duration::days(i)).collect();
+        let mar = 0.005;
+        let rs = rolling_sortino(&returns, &dates, 5, 252.0, mar);
+        for window_start in 0..=returns.len() - 5 {
+            let expected = sortino(&returns[window_start..window_start + 5], true, 252.0, mar);
+            let got = rs.values[window_start];
+            assert!(
+                (got - expected).abs() < 1e-10,
+                "window {window_start}: got {got}, expected {expected}",
+            );
+        }
     }
 
     #[test]

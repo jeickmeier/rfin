@@ -18,7 +18,7 @@
 //! These tests are the "behavior-locking" PR recommended by the simplicity
 //! audit; future deprecations can be verified against them.
 
-use finstack_core::cashflow::{xirr_with_daycount_ctx, InternalRateOfReturn};
+use finstack_core::cashflow::{xirr, xirr_with_daycount_ctx};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountContext};
 use finstack_core::market_data::surfaces::{
@@ -317,11 +317,11 @@ fn xirr_trait_matches_ctx_helper_on_act365f_default() {
         (d(2024, 7, 1), 50_000.0),
         (d(2025, 1, 1), 60_000.0),
     ];
-    let a = flows.irr(None).expect("trait irr converges");
+    let a = xirr(&flows, None).expect("xirr converges");
     let b = xirr_with_daycount_ctx(&flows, DayCount::Act365F, DayCountContext::default(), None)
         .expect("ctx helper converges");
     assert!(
         (a - b).abs() < 1e-12,
-        "XIRR parity mismatch: trait={a}, ctx={b}",
+        "XIRR parity mismatch: xirr={a}, ctx={b}",
     );
 }

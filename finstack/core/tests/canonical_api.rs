@@ -10,7 +10,7 @@
 //! - **IRR**: Tests for `irr()` and `irr_with_daycount()`
 //! - **Quadrature**: Tests for `GaussHermiteQuadrature::new()`
 
-use finstack_core::cashflow::{npv, InternalRateOfReturn};
+use finstack_core::cashflow::{irr, npv, xirr, xirr_with_daycount};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::term_structures::FlatCurve;
@@ -129,14 +129,11 @@ mod irr_tests {
             (d(2025, 1, 1), 105_000.0),
         ];
 
-        // irr() uses hidden Act365F default
-        let irr_default = flows.as_slice().irr(None).unwrap();
+        // xirr() uses hidden Act365F default
+        let irr_default = xirr(&flows, None).unwrap();
 
         // Explicit day count should match
-        let irr_explicit = flows
-            .as_slice()
-            .irr_with_daycount(DayCount::Act365F, None)
-            .unwrap();
+        let irr_explicit = xirr_with_daycount(&flows, DayCount::Act365F, None).unwrap();
 
         assert!(
             (irr_default - irr_explicit).abs() < IRR_TOLERANCE,
@@ -151,16 +148,13 @@ mod irr_tests {
     fn periodic_irr_is_canonical() {
         let flows = [-100.0, 10.0, 10.0, 10.0, 110.0];
 
-        let irr1 = flows.as_slice().irr(None).unwrap();
-        let irr2 = flows
-            .as_slice()
-            .irr_with_daycount(DayCount::Act365F, None)
-            .unwrap();
+        let irr1 = irr(&flows, None).unwrap();
+        let irr2 = irr(&flows, Some(0.05)).unwrap();
 
-        // For periodic flows, both should give same result (day count is ignored)
+        // Different initial guesses should converge to the same rate
         assert!(
             (irr1 - irr2).abs() < IRR_TOLERANCE,
-            "Periodic IRR should be consistent: irr()={}, irr_with_daycount()={}",
+            "Periodic IRR should be guess-independent: irr(None)={}, irr(Some(0.05))={}",
             irr1,
             irr2
         );
@@ -185,12 +179,9 @@ mod irr_tests {
         ];
 
         for flows in test_cases {
-            let irr = flows
-                .as_slice()
-                .irr_with_daycount(DayCount::Act365F, None)
-                .unwrap();
+            let rate = xirr_with_daycount(&flows, DayCount::Act365F, None).unwrap();
             // All test cases have positive returns
-            assert!(irr > 0.0, "IRR should be positive for these flows");
+            assert!(rate > 0.0, "IRR should be positive for these flows");
         }
     }
 
@@ -199,14 +190,8 @@ mod irr_tests {
     fn irr_day_count_affects_result() {
         let flows: Vec<(Date, f64)> = vec![(d(2024, 1, 1), -100_000.0), (d(2024, 7, 1), 102_500.0)];
 
-        let irr_365f = flows
-            .as_slice()
-            .irr_with_daycount(DayCount::Act365F, None)
-            .unwrap();
-        let irr_360 = flows
-            .as_slice()
-            .irr_with_daycount(DayCount::Act360, None)
-            .unwrap();
+        let irr_365f = xirr_with_daycount(&flows, DayCount::Act365F, None).unwrap();
+        let irr_360 = xirr_with_daycount(&flows, DayCount::Act360, None).unwrap();
 
         // Different day counts should produce different rates
         assert!(

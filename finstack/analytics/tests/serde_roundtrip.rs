@@ -85,6 +85,7 @@ fn test_analytics_results_and_configs_roundtrip() {
         duration_days: 2,
         max_drawdown: -0.15,
         near_recovery_threshold: -0.0015,
+        truncated_at_start: false,
     });
 
     assert_roundtrip_value(&BetaResult {

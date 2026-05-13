@@ -11,7 +11,7 @@ use crate::cashflow::builder::specs::{
 use crate::cashflow::builder::{CashFlowBuilder, PrincipalEvent};
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use crate::instruments::fixed_income::term_loan::types::TermLoan;
-use finstack_core::cashflow::InternalRateOfReturn;
+use finstack_core::cashflow::xirr_with_daycount;
 use finstack_core::dates::Date;
 use finstack_core::dates::DayCountContext;
 use finstack_core::market_data::context::MarketContext;
@@ -705,7 +705,7 @@ pub(crate) fn build_oid_eir_schedule(
         .filter(|(_, amt)| amt.abs() > 0.0)
         .collect();
 
-    let effective_rate = flows.as_slice().irr_with_daycount(loan.day_count, None)?;
+    let effective_rate = xirr_with_daycount(flows.as_slice(), loan.day_count, None)?;
 
     let mut periods = Vec::new();
     let mut iter = buckets.iter();

@@ -32,14 +32,28 @@ use crate::math::summation::NeumaierAccumulator;
 /// assert_eq!(r.len(), 3);   // two trailing NaNs removed
 /// assert!(r[1].is_nan());   // infinity replaced with NaN
 /// ```
-pub(crate) fn clean_returns(r: &mut Vec<f64>) {
+pub(crate) fn clean_returns(r: &mut Vec<f64>, ticker: &str) {
+    let initial_len = r.len();
+    let mut inf_count = 0usize;
     for v in r.iter_mut() {
         if v.is_infinite() {
             *v = f64::NAN;
+            inf_count += 1;
         }
     }
     while r.last().is_some_and(|v| v.is_nan()) {
         r.pop();
+    }
+    let trimmed = initial_len - r.len();
+    if trimmed > 0 || inf_count > 0 {
+        tracing::warn!(
+            ticker,
+            initial_len,
+            trimmed,
+            infinities_replaced = inf_count,
+            final_len = r.len(),
+            "clean_returns: replaced infinities and stripped trailing NaN rows"
+        );
     }
 }
 
@@ -363,7 +377,7 @@ mod tests {
     #[test]
     fn clean_returns_strips_inf_and_trailing_nan() {
         let mut r = vec![0.01, f64::INFINITY, 0.02, f64::NAN, f64::NAN];
-        clean_returns(&mut r);
+        clean_returns(&mut r, "TEST");
         assert_eq!(r.len(), 3);
         assert!(r[1].is_nan());
         assert!((r[2] - 0.02).abs() < 1e-12);

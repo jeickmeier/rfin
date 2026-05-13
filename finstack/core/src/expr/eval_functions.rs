@@ -797,8 +797,12 @@ impl CompiledExpr {
             | Function::AnnualizeRate
             | Function::Coalesce
             | Function::GrowthRate => {
+                debug_assert!(
+                    !fun.is_scalar_evaluable(),
+                    "Function::is_scalar_evaluable disagrees with eval dispatch for {fun:?}"
+                );
                 Err(crate::Error::Validation(format!(
-                    "Expression function '{fun:?}' is not supported by finstack-core scalar evaluation; evaluate it in the statements layer instead"
+                    "Expression function '{fun}' is a statements-layer function; evaluate it via the statements crate instead of core::expr::eval"
                 )))
             }
         }

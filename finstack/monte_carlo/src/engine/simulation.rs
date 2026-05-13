@@ -267,9 +267,8 @@ impl McEngine {
         let cashflow_amounts = simulated_path.extract_cashflow_amounts();
         if cashflow_amounts.len() >= 2 {
             // Use periodic IRR approximation (assumes roughly equal spacing)
-            use finstack_core::cashflow::InternalRateOfReturn;
-            if let Ok(irr) = cashflow_amounts.irr(None) {
-                simulated_path.set_irr(irr);
+            if let Ok(rate) = finstack_core::cashflow::irr(&cashflow_amounts, None) {
+                simulated_path.set_irr(rate);
             }
         }
 

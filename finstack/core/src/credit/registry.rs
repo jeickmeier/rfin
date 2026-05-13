@@ -4,19 +4,21 @@ use crate::collections::HashMap;
 use crate::config::FinstackConfig;
 use crate::credit::lgd::seniority::{BetaRecovery, SeniorityCalibration, SeniorityClass};
 use crate::credit::pd::MasterScaleGrade;
+use crate::embedded_registry::EmbeddedJsonRegistry;
 use crate::types::CreditRating;
 use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
-use std::sync::OnceLock;
 
 /// Configuration extension key for replacing the embedded credit assumptions registry.
 pub const CREDIT_ASSUMPTIONS_EXTENSION_KEY: &str = "core.credit_assumptions.v1";
 
-const EMBEDDED_CREDIT_ASSUMPTIONS: &str =
-    include_str!("../../data/credit/credit_assumptions.v1.json");
-
-static EMBEDDED_REGISTRY: OnceLock<Result<CreditAssumptionRegistry>> = OnceLock::new();
+static EMBEDDED_REGISTRY: EmbeddedJsonRegistry<CreditAssumptionRegistry> =
+    EmbeddedJsonRegistry::new(
+        include_str!("../../data/credit/credit_assumptions.v1.json"),
+        CREDIT_ASSUMPTIONS_EXTENSION_KEY,
+        "credit assumptions",
+    );
 
 /// Versioned credit-assumption registry loaded from JSON.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -263,13 +265,34 @@ impl CreditAssumptionRegistry {
 
 /// Returns the embedded credit assumptions registry.
 pub fn embedded_registry() -> Result<&'static CreditAssumptionRegistry> {
-    match EMBEDDED_REGISTRY.get_or_init(|| parse_registry_json(EMBEDDED_CREDIT_ASSUMPTIONS)) {
-        Ok(registry) => Ok(registry),
-        Err(err) => Err(err.clone()),
-    }
+    EMBEDDED_REGISTRY.load(validate_registry)
+}
+
+/// Return the embedded default market recovery rate.
+///
+/// Returns `Err` if the embedded credit-assumptions JSON fails to parse or
+/// validate. This is the preferred entry point for fallible call sites and
+/// for any new code; existing infallible builders may use
+/// [`default_market_recovery_rate_or_panic`].
+pub fn default_market_recovery_rate() -> Result<f64> {
+    Ok(embedded_registry()?.default_market_recovery_rate())
 }
 
 /// Return the embedded default market recovery rate for infallible builders.
+///
+/// # Safety invariant
+///
+/// The embedded credit-assumptions JSON is shipped as a compile-time asset
+/// and validated lazily on first access. The unit-test
+/// `embedded_registry_loads_expected_defaults` (see below) and the integration
+/// test `default_market_recovery_rate_or_panic_succeeds_for_embedded_asset`
+/// both load the embedded registry through the same code path used here, so
+/// a malformed or missing asset is guaranteed to fail in CI before this
+/// function can panic at runtime.
+///
+/// Prefer [`default_market_recovery_rate`] in any code that already returns
+/// `Result`; this variant exists solely for builder constructors whose
+/// public signatures must remain infallible.
 #[must_use]
 #[allow(clippy::expect_used)]
 pub fn default_market_recovery_rate_or_panic() -> f64 {
@@ -280,25 +303,7 @@ pub fn default_market_recovery_rate_or_panic() -> f64 {
 
 /// Loads a credit assumptions registry from configuration or falls back to the embedded registry.
 pub fn registry_from_config(config: &FinstackConfig) -> Result<CreditAssumptionRegistry> {
-    if let Some(value) = config.extensions.get(CREDIT_ASSUMPTIONS_EXTENSION_KEY) {
-        let registry = serde_json::from_value(value.clone()).map_err(|err| {
-            Error::Validation(format!(
-                "failed to parse credit assumptions registry extension: {err}"
-            ))
-        })?;
-        validate_registry(registry)
-    } else {
-        Ok(embedded_registry()?.clone())
-    }
-}
-
-fn parse_registry_json(raw: &str) -> Result<CreditAssumptionRegistry> {
-    let registry = serde_json::from_str(raw).map_err(|err| {
-        Error::Validation(format!(
-            "failed to parse embedded credit assumptions registry: {err}"
-        ))
-    })?;
-    validate_registry(registry)
+    EMBEDDED_REGISTRY.load_from_config(config, validate_registry)
 }
 
 fn validate_registry(registry: CreditAssumptionRegistry) -> Result<CreditAssumptionRegistry> {

@@ -1,17 +1,19 @@
 //! Shared credit rating-scale registry for scorecards and analytics.
 
 use crate::config::FinstackConfig;
+use crate::embedded_registry::EmbeddedJsonRegistry;
 use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
-use std::sync::OnceLock;
 
 /// Configuration extension key for replacing the embedded rating-scale registry.
 pub const RATING_SCALES_EXTENSION_KEY: &str = "core.rating_scales.v1";
 
-const EMBEDDED_RATING_SCALES: &str = include_str!("../data/rating_scales/rating_scales.v1.json");
-
-static EMBEDDED_REGISTRY: OnceLock<Result<RatingScaleRegistry>> = OnceLock::new();
+static EMBEDDED_REGISTRY: EmbeddedJsonRegistry<RatingScaleRegistry> = EmbeddedJsonRegistry::new(
+    include_str!("../data/rating_scales/rating_scales.v1.json"),
+    RATING_SCALES_EXTENSION_KEY,
+    "rating-scale",
+);
 
 /// Rating level for credit rating scales.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -188,33 +190,12 @@ impl RatingScaleRegistry {
 
 /// Returns the embedded rating-scale registry.
 pub fn embedded_registry() -> Result<&'static RatingScaleRegistry> {
-    match EMBEDDED_REGISTRY.get_or_init(|| parse_registry_json(EMBEDDED_RATING_SCALES)) {
-        Ok(registry) => Ok(registry),
-        Err(err) => Err(err.clone()),
-    }
+    EMBEDDED_REGISTRY.load(validate_registry)
 }
 
 /// Loads a rating-scale registry from configuration or falls back to the embedded registry.
 pub fn registry_from_config(config: &FinstackConfig) -> Result<RatingScaleRegistry> {
-    if let Some(value) = config.extensions.get(RATING_SCALES_EXTENSION_KEY) {
-        let registry = serde_json::from_value(value.clone()).map_err(|err| {
-            Error::Validation(format!(
-                "failed to parse rating-scale registry extension: {err}"
-            ))
-        })?;
-        validate_registry(registry)
-    } else {
-        Ok(embedded_registry()?.clone())
-    }
-}
-
-fn parse_registry_json(raw: &str) -> Result<RatingScaleRegistry> {
-    let registry = serde_json::from_str(raw).map_err(|err| {
-        Error::Validation(format!(
-            "failed to parse embedded rating-scale registry: {err}"
-        ))
-    })?;
-    validate_registry(registry)
+    EMBEDDED_REGISTRY.load_from_config(config, validate_registry)
 }
 
 fn validate_registry(registry: RatingScaleRegistry) -> Result<RatingScaleRegistry> {

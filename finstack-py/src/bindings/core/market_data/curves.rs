@@ -329,8 +329,11 @@ impl PyHazardCurve {
     ) -> PyResult<Self> {
         let base = py_to_date(base_date)?;
         let dc = parse_day_count(day_count)?;
-        let recovery_rate = recovery_rate
-            .unwrap_or_else(finstack_core::credit::registry::default_market_recovery_rate_or_panic);
+        let recovery_rate = match recovery_rate {
+            Some(r) => r,
+            None => finstack_core::credit::registry::default_market_recovery_rate()
+                .map_err(core_to_py)?,
+        };
 
         let mut builder = HazardCurve::builder(id)
             .base_date(base)

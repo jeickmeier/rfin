@@ -148,13 +148,32 @@ impl Performance {
         freq: PeriodKind,
     ) -> crate::Result<Self> {
         if prices.is_empty() || dates.is_empty() {
-            return Err(crate::error::InputError::Invalid.into());
+            return Err(crate::error::InputError::InvalidReturnSeries {
+                ticker: "<panel>".into(),
+                index: 0,
+                reason: "prices or dates is empty".into(),
+            }
+            .into());
         }
-        if prices
+        if let Some((col_idx, bad)) = prices
             .iter()
-            .any(|price_col| price_col.len() != dates.len())
+            .enumerate()
+            .find(|(_, price_col)| price_col.len() != dates.len())
         {
-            return Err(crate::error::InputError::Invalid.into());
+            let ticker = ticker_names
+                .get(col_idx)
+                .cloned()
+                .unwrap_or_else(|| format!("col[{col_idx}]"));
+            return Err(crate::error::InputError::InvalidReturnSeries {
+                ticker,
+                index: 0,
+                reason: format!(
+                    "price column length {} does not match dates length {}",
+                    bad.len(),
+                    dates.len()
+                ),
+            }
+            .into());
         }
 
         let returns_matrix: Vec<Vec<f64>> = prices
@@ -213,7 +232,12 @@ impl Performance {
         freq: PeriodKind,
     ) -> crate::Result<Self> {
         if returns.is_empty() || dates.is_empty() {
-            return Err(crate::error::InputError::Invalid.into());
+            return Err(crate::error::InputError::InvalidReturnSeries {
+                ticker: "<panel>".into(),
+                index: 0,
+                reason: "returns or dates is empty".into(),
+            }
+            .into());
         }
 
         let prior_date = if dates.len() >= 2 {
@@ -251,28 +275,79 @@ impl Performance {
         freq: PeriodKind,
     ) -> crate::Result<Self> {
         if ticker_names.len() != returns.len() {
-            return Err(crate::error::InputError::Invalid.into());
-        }
-        if returns.iter().any(|col| col.len() != return_dates.len()) {
-            return Err(crate::error::InputError::Invalid.into());
+            return Err(crate::error::InputError::InvalidReturnSeries {
+                ticker: "<panel>".into(),
+                index: 0,
+                reason: format!(
+                    "ticker_names.len() = {} does not match returns.len() = {}",
+                    ticker_names.len(),
+                    returns.len()
+                ),
+            }
+            .into());
         }
 
         let benchmark_idx = match benchmark_ticker {
-            Some(name) => ticker_names
-                .iter()
-                .position(|t| t == name)
-                .ok_or(crate::error::InputError::Invalid)?,
+            Some(name) => ticker_names.iter().position(|t| t == name).ok_or_else(|| {
+                crate::error::InputError::InvalidReturnSeries {
+                    ticker: name.to_string(),
+                    index: 0,
+                    reason: "benchmark ticker not found among supplied ticker_names".into(),
+                }
+            })?,
             None => 0,
         };
 
         let expected_len = return_dates.len();
         let mut all_returns: Vec<Vec<f64>> = Vec::with_capacity(returns.len());
         let mut all_drawdowns: Vec<Vec<f64>> = Vec::with_capacity(returns.len());
-        for col in returns {
+        for (col_idx, col) in returns.into_iter().enumerate() {
+            let ticker = ticker_names[col_idx].clone();
+            if col.len() != expected_len {
+                return Err(crate::error::InputError::InvalidReturnSeries {
+                    ticker,
+                    index: col.len().min(expected_len),
+                    reason: format!(
+                        "column length {} does not match return-date grid length {}",
+                        col.len(),
+                        expected_len
+                    ),
+                }
+                .into());
+            }
             let mut clean = col;
-            clean_returns(&mut clean);
-            if clean.len() != expected_len || clean.iter().any(|&v| !v.is_finite() || v < -1.0) {
-                return Err(crate::error::InputError::Invalid.into());
+            clean_returns(&mut clean, &ticker);
+            if clean.len() != expected_len {
+                return Err(crate::error::InputError::InvalidReturnSeries {
+                    ticker,
+                    index: clean.len(),
+                    reason: format!(
+                        "{} trailing NaN/non-finite rows stripped; series no longer aligned with date grid (length {} vs expected {})",
+                        expected_len - clean.len(),
+                        clean.len(),
+                        expected_len
+                    ),
+                }
+                .into());
+            }
+            if let Some((index, value)) = clean
+                .iter()
+                .enumerate()
+                .find(|(_, &v)| !v.is_finite() || v <= -1.0)
+            {
+                let reason = if !value.is_finite() {
+                    format!("non-finite return ({value})")
+                } else {
+                    format!(
+                        "return <= -1.0 ({value}); total wipeout makes downstream metrics meaningless"
+                    )
+                };
+                return Err(crate::error::InputError::InvalidReturnSeries {
+                    ticker,
+                    index,
+                    reason,
+                }
+                .into());
             }
             let dd = to_drawdown_series(&clean);
             all_drawdowns.push(dd);
@@ -300,6 +375,24 @@ impl Performance {
     /// Finds the index boundaries in the internal date vector using binary
     /// search and stores them as `start_idx`/`end_idx`. All `active_*`
     /// accessors respect this range until it is changed again.
+    ///
+    /// # Drawdown semantics on a windowed range
+    ///
+    /// Drawdown caches are **rebuilt from scratch** within the new window:
+    /// the peak watermark is reset to the first observation of the active
+    /// range, so any drawdown that began before `start` is *not* carried
+    /// over. As a consequence:
+    ///
+    /// - [`Self::max_drawdown`], [`Self::mean_drawdown`],
+    ///   [`Self::drawdown_series`], [`Self::drawdown_details`],
+    ///   [`Self::ulcer_index`], [`Self::pain_index`], [`Self::cdar`],
+    ///   [`Self::recovery_factor`], [`Self::sterling_ratio`],
+    ///   [`Self::burke_ratio`], [`Self::martin_ratio`],
+    ///   [`Self::pain_ratio`], [`Self::calmar`], and
+    ///   [`Self::max_drawdown_duration`] all reflect drawdowns measured
+    ///   *only* over `[start, end]`.
+    /// - To preserve a watermark from before `start`, call these methods on
+    ///   the un-windowed `Performance` first or fork the instance.
     ///
     /// # Arguments
     ///
@@ -331,7 +424,11 @@ impl Performance {
             .ticker_names
             .iter()
             .position(|t| t == ticker)
-            .ok_or(crate::error::InputError::Invalid)?;
+            .ok_or_else(|| crate::error::InputError::InvalidReturnSeries {
+                ticker: ticker.to_string(),
+                index: 0,
+                reason: "ticker not found among loaded ticker_names".into(),
+            })?;
         self.benchmark_idx = idx;
         Ok(())
     }
@@ -475,7 +572,15 @@ impl Performance {
     /// ```
     pub fn cagr(&self) -> crate::Result<Vec<f64>> {
         let Some((start, end)) = self.active_holding_period() else {
-            return Err(crate::error::InputError::Invalid.into());
+            return Err(crate::error::InputError::InvalidReturnSeries {
+                ticker: "<panel>".into(),
+                index: self.start_idx,
+                reason: format!(
+                    "active range [{}..{}] has no positive holding period on the price-date grid",
+                    self.start_idx, self.end_idx
+                ),
+            }
+            .into());
         };
         let basis = risk_metrics::CagrBasis::dates(start, end);
         (0..self.ticker_names.len())
@@ -888,12 +993,16 @@ impl Performance {
     ///
     /// * `ticker_idx` - Zero-based column index of the ticker.
     /// * `window`     - Look-back window length in periods.
-    pub fn rolling_sortino(&self, ticker_idx: usize, window: usize) -> RollingSortino {
+    /// * `mar`        - Minimum acceptable per-period return (decimal). Pass
+    ///   `0.0` for the conventional zero-MAR Sortino, or e.g. a risk-free or
+    ///   target rate scaled to the observation frequency.
+    pub fn rolling_sortino(&self, ticker_idx: usize, window: usize, mar: f64) -> RollingSortino {
         rolling_sortino(
             self.active_returns(ticker_idx),
             self.active_dates(),
             window,
             self.ann(),
+            mar,
         )
     }
 
@@ -1028,8 +1137,10 @@ impl Performance {
     ///
     /// # Returns
     ///
-    /// One non-negative CDaR value per ticker in column order. CDaR is
-    /// reported as an absolute tail drawdown depth.
+    /// One non-positive CDaR value per ticker in column order, matching the
+    /// sign convention of [`Self::max_drawdown`] / [`Self::mean_drawdown`].
+    /// A 95% CDaR of `-0.25` means the average drawdown in the worst 5% tail
+    /// is 25%.
     pub fn cdar(&self, confidence: f64) -> Vec<f64> {
         self.map_tickers(|i| cdar(self.active_drawdown_values(i), confidence))
     }

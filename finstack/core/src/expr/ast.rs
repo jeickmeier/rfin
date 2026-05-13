@@ -423,6 +423,36 @@ pub enum Function {
     GrowthRate,
 }
 
+impl Function {
+    /// Whether this function can be evaluated by the core scalar evaluator.
+    ///
+    /// A small set of period-aware variants (`Ttm`, `Ytd`, `Qtd`, `FiscalYtd`,
+    /// `GrowthRate`, and the multi-arg reducers `Sum`/`Mean`/`Coalesce`,
+    /// plus the annualization helpers) live in the AST so that the
+    /// `statements` crate can parse and evaluate them with knowledge of the
+    /// period grid; they are deliberately rejected by `core::expr::eval`.
+    ///
+    /// This is the single source of truth for that layering boundary.
+    /// Callers in `dag.rs` and `eval_functions.rs` consult it to avoid
+    /// duplicating the list.
+    #[must_use]
+    pub fn is_scalar_evaluable(&self) -> bool {
+        !matches!(
+            self,
+            Function::Sum
+                | Function::Mean
+                | Function::Ttm
+                | Function::Ytd
+                | Function::Qtd
+                | Function::FiscalYtd
+                | Function::Annualize
+                | Function::AnnualizeRate
+                | Function::Coalesce
+                | Function::GrowthRate
+        )
+    }
+}
+
 impl std::fmt::Display for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = match self {

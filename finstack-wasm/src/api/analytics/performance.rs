@@ -435,8 +435,13 @@ impl WasmPerformance {
         &self,
         ticker_idx: usize,
         window: Option<usize>,
+        mar: Option<f64>,
     ) -> Result<JsValue, JsValue> {
-        to_js(&self.inner.rolling_sortino(ticker_idx, window.unwrap_or(63)))
+        to_js(
+            &self
+                .inner
+                .rolling_sortino(ticker_idx, window.unwrap_or(63), mar.unwrap_or(0.0)),
+        )
     }
 
     #[wasm_bindgen(js_name = rollingSharpe)]

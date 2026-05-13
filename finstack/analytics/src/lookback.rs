@@ -52,8 +52,7 @@ fn select_range(dates: &[Date], period_start: Date, ref_date: Date) -> Range<usi
 /// assert_eq!(range.end, 15);
 /// ```
 pub(crate) fn mtd_select(dates: &[Date], ref_date: Date) -> Range<usize> {
-    let month_start = ref_date.end_of_month();
-    let month_start = month_start.replace_day(1).unwrap_or(month_start);
+    let month_start = ref_date.replace_day(1).unwrap_or(ref_date);
     select_range(dates, month_start, ref_date)
 }
 

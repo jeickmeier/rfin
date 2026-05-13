@@ -75,28 +75,6 @@ impl MarketContext {
         }
     }
 
-    fn get_curve_with_type_check_by_id<T, F>(
-        &self,
-        id: &CurveId,
-        expected_type: &'static str,
-        extractor: F,
-    ) -> Result<T>
-    where
-        F: FnOnce(&CurveStorage) -> Option<T>,
-    {
-        match self.curves.get(id) {
-            Some(storage) => extractor(storage).ok_or_else(|| {
-                crate::error::InputError::WrongCurveType {
-                    id: id.to_string(),
-                    expected: expected_type.to_string(),
-                    actual: storage.curve_type().to_string(),
-                }
-                .into()
-            }),
-            None => Err(self.missing_curve_error(id.as_str())),
-        }
-    }
-
     // -----------------------------------------------------------------------------
     // Public API: typed getters
     // -----------------------------------------------------------------------------
@@ -118,13 +96,6 @@ impl MarketContext {
         })
     }
 
-    /// Get a discount curve by pre-parsed [`CurveId`].
-    pub fn get_discount_by_id(&self, id: &CurveId) -> Result<Arc<DiscountCurve>> {
-        self.get_curve_with_type_check_by_id(id, "Discount", |storage| {
-            storage.discount().map(Arc::clone)
-        })
-    }
-
     /// Get a forward curve by identifier.
     ///
     /// Forward-curve identifiers usually encode both the market and tenor, such
@@ -140,13 +111,6 @@ impl MarketContext {
         })
     }
 
-    /// Get a forward curve by pre-parsed [`CurveId`].
-    pub fn get_forward_by_id(&self, id: &CurveId) -> Result<Arc<ForwardCurve>> {
-        self.get_curve_with_type_check_by_id(id, "Forward", |storage| {
-            storage.forward().map(Arc::clone)
-        })
-    }
-
     /// Get a hazard curve by identifier.
     ///
     /// Hazard curves are stored as annualized default intensities keyed by a
@@ -158,13 +122,6 @@ impl MarketContext {
     pub fn get_hazard(&self, id: impl AsRef<str>) -> Result<Arc<HazardCurve>> {
         let id_str = id.as_ref();
         self.get_curve_with_type_check(id_str, "Hazard", |storage| storage.hazard().map(Arc::clone))
-    }
-
-    /// Get a hazard curve by pre-parsed [`CurveId`].
-    pub fn get_hazard_by_id(&self, id: &CurveId) -> Result<Arc<HazardCurve>> {
-        self.get_curve_with_type_check_by_id(id, "Hazard", |storage| {
-            storage.hazard().map(Arc::clone)
-        })
     }
 
     /// Get an inflation curve by identifier.

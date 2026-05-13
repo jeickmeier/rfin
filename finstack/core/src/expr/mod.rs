@@ -70,6 +70,7 @@
 //!   pandas-style usage when parameters match.
 
 mod ast;
+mod ast_walk;
 pub(crate) mod cache;
 mod context;
 mod dag;

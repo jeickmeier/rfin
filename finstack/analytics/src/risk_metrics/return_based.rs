@@ -536,8 +536,17 @@ pub(crate) fn geometric_mean(returns: &[f64]) -> f64 {
     if returns.is_empty() {
         return f64::NAN;
     }
-    if returns.iter().any(|&r| r <= -1.0) {
-        return f64::NEG_INFINITY;
+    let mut saw_total_wipeout = false;
+    for &r in returns {
+        if r < -1.0 {
+            return f64::NEG_INFINITY;
+        }
+        if (r + 1.0).abs() < f64::EPSILON {
+            saw_total_wipeout = true;
+        }
+    }
+    if saw_total_wipeout {
+        return -1.0;
     }
     let n = returns.len() as f64;
     let log_sum = kahan_sum(returns.iter().map(|&r| (1.0 + r).ln()));
@@ -917,8 +926,8 @@ mod tests {
     }
 
     #[test]
-    fn geometric_mean_total_wipeout_is_negative_infinity() {
-        assert_eq!(geometric_mean(&[0.10, -1.0]), f64::NEG_INFINITY);
+    fn geometric_mean_total_wipeout_returns_minus_one() {
+        assert_eq!(geometric_mean(&[0.10, -1.0]), -1.0);
         assert_eq!(geometric_mean(&[-1.5]), f64::NEG_INFINITY);
     }
 

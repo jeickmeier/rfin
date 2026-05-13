@@ -107,6 +107,12 @@ pub mod currency;
 pub mod dates;
 /// Decimal conversion utilities (`f64 ↔ Decimal`) with explicit error propagation.
 pub mod decimal;
+
+/// Shared loader for embedded JSON registries with config override support.
+///
+/// Centralises the boilerplate around `include_str!` + `OnceLock` + serde
+/// parse + validation that crates use to ship versioned compile-time assets.
+pub mod embedded_registry;
 /// Error types for finstack-core.
 ///
 /// The crate uses a unified `Error` enum with specific variants for
