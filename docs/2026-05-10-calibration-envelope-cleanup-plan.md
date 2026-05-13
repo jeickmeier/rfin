@@ -23,6 +23,7 @@ Python 3 (one-shot migration script only), `jq` (smoke checks).
 ## File structure
 
 ### New files
+
 | Path | Responsibility |
 |---|---|
 | `finstack/valuations/src/calibration/api/market_datum.rs` | `MarketDatum` enum + accessors + bucket-partition helper |
@@ -32,6 +33,7 @@ Python 3 (one-shot migration script only), `jq` (smoke checks).
 | `finstack/valuations/schemas/calibration/3/calibration.schema.json` | Regenerated schema |
 
 ### Modified files
+
 | Path | Change |
 |---|---|
 | `finstack/valuations/src/calibration/api/schema.rs` | Replace `CalibrationEnvelope` fields; switch `quote_sets` to ID lists |
@@ -54,6 +56,7 @@ Python 3 (one-shot migration script only), `jq` (smoke checks).
 | `finstack-wasm/index.d.ts`, `finstack-wasm/types/generated/CalibrationEnvelope.ts` | Regenerated TS exports |
 
 ### Deleted at end of migration
+
 - `tools/migrate_envelope_v2_to_v3.py` (script removed after fixtures land)
 
 ---
@@ -415,6 +418,7 @@ mod tests {
 ```
 
 Add to `mod.rs`:
+
 ```rust
 pub mod prior_market;
 ```
@@ -1273,6 +1277,7 @@ grep -n "initial_market:"      finstack/valuations/benches/*.rs
 - [ ] **Step 1: Rewrite `initial_market: None`**
 
 Replace with two fields:
+
 ```rust
 market_data: vec![],
 prior_market: vec![],
@@ -1339,6 +1344,7 @@ Suggested order (smallest → largest):
 7. The rest
 
 After each file:
+
 ```bash
 cargo test -p finstack-valuations --test "<crate-name-of-file>" 2>&1 | tail -10
 ```
@@ -1515,9 +1521,11 @@ if __name__ == "__main__":
 - [ ] **Step 2: Dry-run against one example**
 
 Run:
+
 ```bash
 python3 tools/migrate_envelope_v2_to_v3.py finstack/valuations/examples/market_bootstrap/01_usd_discount.json | jq .
 ```
+
 Expected: a v3 envelope with `market_data: [...]` and `quote_sets` as ID lists.
 Eyeball-verify each quote `kind` matches `class` from the v2 source.
 
@@ -1548,6 +1556,7 @@ done
 ```bash
 git diff -- finstack/valuations/examples/market_bootstrap/09_fx_matrix.json
 ```
+
 Expected: `initial_market` block gone; `market_data` populated with `fx_spot` entries; `plan.settings.fx` carries the FX config.
 
 - [ ] **Step 3: Run the reference-envelope integration tests**
@@ -1605,6 +1614,7 @@ git commit -m "test(golden): migrate pricing fixtures to v3 envelope"
 ```bash
 grep -rn "calibration.schema.json\|schema_for!" finstack/valuations/ --include="*.rs" | head
 ```
+
 There should be a `build.rs`, `xtask`, or `cargo run --example gen-schema`
 target that emits the v2 schema. Find it.
 
@@ -1635,6 +1645,7 @@ Run: `mkdir -p finstack/valuations/schemas/calibration/3 && cargo run --example 
 ```bash
 jq '.properties | keys' finstack/valuations/schemas/calibration/3/calibration.schema.json
 ```
+
 Expected output includes: `["$schema", "market_data", "plan", "prior_market", "schema"]`.
 
 - [ ] **Step 4: Commit**

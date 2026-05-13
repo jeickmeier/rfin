@@ -39,35 +39,35 @@
  * # }
  * ```
  */
-export type CDSTrancheQuote = { "type": "cds_tranche", 
+export type CDSTrancheQuote = { "type": "cds_tranche",
 /**
  * Unique identifier.
  */
-id: string, 
+id: string,
 /**
  * Index identifier (e.g. CDX.NA.HY).
  */
-index: string, 
+index: string,
 /**
  * Attachment point (decimal, e.g. 0.03).
  */
-attachment: number, 
+attachment: number,
 /**
  * Detachment point (decimal, e.g. 0.07).
  */
-detachment: number, 
+detachment: number,
 /**
  * Maturity date.
  */
-maturity: string, 
+maturity: string,
 /**
  * Upfront payment as a decimal fraction of tranche notional (e.g., -0.025 for -2.5%).
  */
-upfront_pct: number, 
+upfront_pct: number,
 /**
  * Running spread (bps).
  */
-running_spread_bp: number, 
+running_spread_bp: number,
 /**
  * Convention key (currency + doc clause).
  */

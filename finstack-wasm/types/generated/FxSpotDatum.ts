@@ -3,19 +3,19 @@
 /**
  * FX-spot quote payload for [`MarketDatum::FxSpot`].
  */
-export type FxSpotDatum = { 
+export type FxSpotDatum = {
 /**
  * Stable identifier for this datum.
  */
-id: string, 
+id: string,
 /**
  * Base currency (e.g. `EUR` in `EUR/USD`).
  */
-from: string, 
+from: string,
 /**
  * Quote currency (e.g. `USD` in `EUR/USD`).
  */
-to: string, 
+to: string,
 /**
  * Rate such that `1 from = rate to`.
  */

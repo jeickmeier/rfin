@@ -3,11 +3,11 @@
 /**
  * Single-name spot-price payload for [`MarketDatum::Price`].
  */
-export type PriceDatum = { 
+export type PriceDatum = {
 /**
  * Stable identifier (e.g., asset ticker).
  */
-id: string, 
+id: string,
 /**
  * Scalar value (unitless or monetary).
  */

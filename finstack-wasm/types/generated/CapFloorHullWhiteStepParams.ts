@@ -3,36 +3,36 @@
 /**
  * Parameters for Hull-White 1-factor calibration to cap/floor volatility quotes.
  */
-export type CapFloorHullWhiteStepParams = { 
+export type CapFloorHullWhiteStepParams = {
 /**
  * Discount curve ID (must already exist in market context).
  */
-discount_curve_id: string, 
+discount_curve_id: string,
 /**
  * Forward/projection curve ID. If equal to `discount_curve_id`, the
  * discount curve is used as the single-curve projection proxy.
  */
-forward_curve_id: string, 
+forward_curve_id: string,
 /**
  * Currency for conventions.
  */
-currency: string, 
+currency: string,
 /**
  * Base date for the calibration.
  */
-base_date: string, 
+base_date: string,
 /**
  * Optional source mean reversion κ. Required for one-quote calibration.
  */
-fixed_kappa: number | null, 
+fixed_kappa: number | null,
 /**
  * Optional initial guess for mean reversion κ when solving both κ and σ.
  */
-initial_kappa: number | null, 
+initial_kappa: number | null,
 /**
  * Optional initial guess for short-rate volatility σ when solving both κ and σ.
  */
-initial_sigma: number | null, 
+initial_sigma: number | null,
 /**
  * Payment frequency used to decompose quoted caps/floors into caplets.
  */

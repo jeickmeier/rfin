@@ -3,11 +3,11 @@
 /**
  * Collateral / CSA mapping payload for [`MarketDatum::Collateral`].
  */
-export type CollateralEntry = { 
+export type CollateralEntry = {
 /**
  * Trade-leg currency this CSA mapping applies to.
  */
-id: string, 
+id: string,
 /**
  * Collateral / CSA currency.
  */

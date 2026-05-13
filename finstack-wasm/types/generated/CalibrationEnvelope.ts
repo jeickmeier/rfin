@@ -10,24 +10,24 @@ import type { PriorMarketObject } from "./PriorMarketObject";
  * the schema version, the plan to execute, and the flat market-data inputs
  * (plus optional pre-built prior calibrated objects) to build upon.
  */
-export type CalibrationEnvelope = { 
+export type CalibrationEnvelope = {
 /**
  * Optional `$schema` URL/path for editor-side JSON Schema discovery.
  * Ignored at runtime; serialized when present.
  */
-$schema?: string | null, 
+$schema?: string | null,
 /**
  * Schema version identifier (must be [`CALIBRATION_SCHEMA`]).
  */
-schema: string, 
+schema: string,
 /**
  * The calibration plan containing steps and quote-set references.
  */
-plan: CalibrationPlan, 
+plan: CalibrationPlan,
 /**
  * Flat, id-addressable market data inputs.
  */
-market_data?: Array<MarketDatum>, 
+market_data?: Array<MarketDatum>,
 /**
  * Pre-built calibrated objects from a prior run.
  */

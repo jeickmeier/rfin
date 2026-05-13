@@ -3,63 +3,63 @@
 /**
  * Market quote for FX instruments.
  */
-export type FxQuote = { "type": "forward_outright", 
+export type FxQuote = { "type": "forward_outright",
 /**
  * Unique identifier for the quote.
  */
-id: string, 
+id: string,
 /**
  * FX pair convention identifier (e.g., `EUR/USD`).
  */
-convention: string, 
+convention: string,
 /**
  * Maturity pillar for the forward settlement date.
  */
-pillar: string, 
+pillar: string,
 /**
  * Forward outright quoted as quote-currency per base-currency.
  */
-forward_rate: number, } | { "type": "swap_outright", 
+forward_rate: number, } | { "type": "swap_outright",
 /**
  * Unique identifier for the quote.
  */
-id: string, 
+id: string,
 /**
  * FX pair convention identifier (e.g., `EUR/USD`).
  */
-convention: string, 
+convention: string,
 /**
  * Far-leg maturity pillar; near leg is the convention spot date.
  */
-far_pillar: string, 
+far_pillar: string,
 /**
  * Near-leg outright rate quoted as quote-currency per base-currency.
  */
-near_rate: number, 
+near_rate: number,
 /**
  * Far-leg outright rate quoted as quote-currency per base-currency.
  */
-far_rate: number, } | { "type": "option_vanilla", 
+far_rate: number, } | { "type": "option_vanilla",
 /**
  * Unique identifier for the quote.
  */
-id: string, 
+id: string,
 /**
  * FX option convention identifier (e.g., `EUR/USD-VANILLA`).
  */
-convention: string, 
+convention: string,
 /**
  * Option expiry date.
  */
-expiry: string, 
+expiry: string,
 /**
  * Strike exchange rate quoted as quote-currency per base-currency.
  */
-strike: number, 
+strike: number,
 /**
  * Call or put on the base currency.
  */
-option_type: "call" | "put", 
+option_type: "call" | "put",
 /**
  * Volatility surface identifier used for pricing.
  */

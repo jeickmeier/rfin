@@ -3,115 +3,115 @@
 /**
  * Market quote for bond instruments.
  */
-export type BondQuote = { "type": "fixed_rate_bullet_clean_price", 
+export type BondQuote = { "type": "fixed_rate_bullet_clean_price",
 /**
  * Unique identifier for the quote.
  */
-id: string, 
+id: string,
 /**
  * Settlement / pricing currency of the bond.
  */
-currency: string, 
+currency: string,
 /**
  * Bond issue date.
  */
-issue_date: string, 
+issue_date: string,
 /**
  * Bond maturity date.
  */
-maturity: string, 
+maturity: string,
 /**
  * Annual coupon rate in decimal form.
  */
-coupon_rate: number, 
+coupon_rate: number,
 /**
  * Bond convention identifier.
  */
-convention: string, 
+convention: string,
 /**
  * Quoted clean price as percent of par.
  */
-clean_price_pct: number, } | { "type": "fixed_rate_bullet_z_spread", 
+clean_price_pct: number, } | { "type": "fixed_rate_bullet_z_spread",
 /**
  * Unique identifier for the quote.
  */
-id: string, 
+id: string,
 /**
  * Settlement / pricing currency of the bond.
  */
-currency: string, 
+currency: string,
 /**
  * Bond issue date.
  */
-issue_date: string, 
+issue_date: string,
 /**
  * Bond maturity date.
  */
-maturity: string, 
+maturity: string,
 /**
  * Annual coupon rate in decimal form.
  */
-coupon_rate: number, 
+coupon_rate: number,
 /**
  * Bond convention identifier.
  */
-convention: string, 
+convention: string,
 /**
  * Z-spread in decimal form (e.g. 0.01 = 100bp).
  */
-z_spread: number, } | { "type": "fixed_rate_bullet_oas", 
+z_spread: number, } | { "type": "fixed_rate_bullet_oas",
 /**
  * Unique identifier for the quote.
  */
-id: string, 
+id: string,
 /**
  * Settlement / pricing currency of the bond.
  */
-currency: string, 
+currency: string,
 /**
  * Bond issue date.
  */
-issue_date: string, 
+issue_date: string,
 /**
  * Bond maturity date.
  */
-maturity: string, 
+maturity: string,
 /**
  * Annual coupon rate in decimal form.
  */
-coupon_rate: number, 
+coupon_rate: number,
 /**
  * Bond convention identifier.
  */
-convention: string, 
+convention: string,
 /**
  * Option-adjusted spread in decimal form (e.g. 0.005 = 50bp).
  */
-oas: number, } | { "type": "fixed_rate_bullet_ytm", 
+oas: number, } | { "type": "fixed_rate_bullet_ytm",
 /**
  * Unique identifier for the quote.
  */
-id: string, 
+id: string,
 /**
  * Settlement / pricing currency of the bond.
  */
-currency: string, 
+currency: string,
 /**
  * Bond issue date.
  */
-issue_date: string, 
+issue_date: string,
 /**
  * Bond maturity date.
  */
-maturity: string, 
+maturity: string,
 /**
  * Annual coupon rate in decimal form.
  */
-coupon_rate: number, 
+coupon_rate: number,
 /**
  * Bond convention identifier.
  */
-convention: string, 
+convention: string,
 /**
  * Yield to maturity in decimal form.
  */

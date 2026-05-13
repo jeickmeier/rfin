@@ -3,7 +3,7 @@
 /**
  * Dividend-schedule payload for [`MarketDatum::DividendSchedule`].
  */
-export type DividendScheduleDatum = { 
+export type DividendScheduleDatum = {
 /**
  * The dividend schedule itself.
  */

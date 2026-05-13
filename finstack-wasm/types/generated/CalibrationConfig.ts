@@ -69,35 +69,35 @@ import type { ValidationMode } from "./ValidationMode";
  * - Multi-curve construction context: `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
  * - Curve interpolation context: `docs/REFERENCES.md#hagan-west-monotone-convex`
  */
-export type CalibrationConfig = { 
+export type CalibrationConfig = {
 /**
  * Solver configuration including numerical method (e.g., Brent) and parameters (tolerance, iterations).
  */
-solver: SolverConfig, 
+solver: SolverConfig,
 /**
  * Use parallel processing when available (e.g., for independent curves).
  */
-use_parallel: boolean, 
+use_parallel: boolean,
 /**
  * Enable verbose logging of the calibration process.
  */
-verbose: boolean, 
+verbose: boolean,
 /**
  * Runtime validation mode (warnings vs errors).
  */
-validation_mode: ValidationMode, 
+validation_mode: ValidationMode,
 /**
  * Validation configuration with thresholds and quality checks.
  */
-validation: Record<string, unknown>, 
+validation: Record<string, unknown>,
 /**
  * Policy for selecting rate bounds (explicit vs currency-derived).
  */
-rate_bounds_policy: RateBoundsPolicy, 
+rate_bounds_policy: RateBoundsPolicy,
 /**
  * Rate bounds for forward/zero rate calibration (when policy is `Explicit`).
  */
-rate_bounds: RateBounds, 
+rate_bounds: RateBounds,
 /**
  * High-level calibration method (bootstrap vs global solve).
  *
@@ -106,7 +106,7 @@ rate_bounds: RateBounds,
  * method always takes precedence. This field serves as runtime state passed
  * from calibration targets to the underlying solvers.
  */
-calibration_method: CalibrationMethod, 
+calibration_method: CalibrationMethod,
 /**
  * Whether to compute detailed calibration diagnostics (condition number,
  * per-quote quality metrics, singular values, R-squared, etc.).
@@ -119,19 +119,19 @@ calibration_method: CalibrationMethod,
  *
  * Default: `false`.
  */
-compute_diagnostics: boolean, 
+compute_diagnostics: boolean,
 /**
  * Discount-curve specific solver configuration.
  */
-discount_curve: DiscountCurveSolveConfig, 
+discount_curve: DiscountCurveSolveConfig,
 /**
  * Hazard-curve specific solver configuration.
  */
-hazard_curve: HazardCurveSolveConfig, 
+hazard_curve: HazardCurveSolveConfig,
 /**
  * Inflation-curve specific solver configuration.
  */
-inflation_curve: InflationCurveSolveConfig, 
+inflation_curve: InflationCurveSolveConfig,
 /**
  * When `true`, a calibration step whose solver reports
  * `report.success == false` is propagated as a
@@ -143,12 +143,12 @@ inflation_curve: InflationCurveSolveConfig,
  * pricing. Legacy or exploratory workflows that want to inspect the
  * report without aborting can set this to `false`.
  */
-fail_on_bad_fit: boolean, 
+fail_on_bad_fit: boolean,
 /**
  * FX matrix runtime config (pivot currency, triangulation, cache capacity).
  * Hoisted out of `initial_market.fx.config` in v3 envelopes.
  */
-fx: Record<string, unknown>, 
+fx: Record<string, unknown>,
 /**
  * Optional market-data hierarchy snapshot.
  * Hoisted out of `initial_market.hierarchy` in v3 envelopes.

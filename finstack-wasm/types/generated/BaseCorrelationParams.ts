@@ -6,58 +6,58 @@
  * Defines the structure for building a base correlation curve from
  * CDS tranche quotes with different detachment points.
  */
-export type BaseCorrelationParams = { 
+export type BaseCorrelationParams = {
 /**
  * Credit index identifier (e.g., CDX, iTraxx).
  */
-index_id: string, 
+index_id: string,
 /**
  * Series number of the credit index.
  */
-series: number, 
+series: number,
 /**
  * Maturity of the tranches in years.
  */
-maturity_years: number, 
+maturity_years: number,
 /**
  * Base date for the calibration.
  */
-base_date: string, 
+base_date: string,
 /**
  * Discount curve identifier for pricing.
  */
-discount_curve_id: string, 
+discount_curve_id: string,
 /**
  * Currency used for synthetic tranche pricing.
  */
-currency: string, 
+currency: string,
 /**
  * Notional used to price synthetic tranches during calibration.
  *
  * Calibration can be expressed in upfront % terms, so this is typically left
  * as unit-notional unless you have a specific reason to change it.
  */
-notional: number, 
+notional: number,
 /**
  * Payment frequency for synthetic tranches (e.g., quarterly).
  */
-frequency: string | null, 
+frequency: string | null,
 /**
  * Day count convention for synthetic tranche premium accrual.
  */
-day_count: string | null, 
+day_count: string | null,
 /**
  * Business day convention for synthetic tranche schedule adjustments.
  */
-bdc: string | null, 
+bdc: string | null,
 /**
  * Optional calendar identifier for schedule generation and date adjustments.
  */
-calendar_id: string | null, 
+calendar_id: string | null,
 /**
  * Detachment points (as percentages) for the tranches.
  */
-detachment_points: Array<number>, 
+detachment_points: Array<number>,
 /**
  * Whether to use IMM dates for coupon schedules.
  */
