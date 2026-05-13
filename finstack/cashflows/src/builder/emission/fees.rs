@@ -160,7 +160,7 @@ pub(in crate::builder) fn emit_fees_on(
     ccy: Currency,
     new_flows: &mut Vec<CashFlow>,
 ) -> finstack_core::Result<()> {
-    let mut twa_buf: Vec<(Date, Decimal)> = Vec::new();
+    let mut twa_buf: Vec<(Date, Decimal)> = Vec::with_capacity(outstanding_history.len());
 
     for pf in periodic_fees {
         if let Some(period) = pf.prev.get(&d) {

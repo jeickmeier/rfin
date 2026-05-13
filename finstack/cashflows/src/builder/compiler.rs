@@ -70,26 +70,24 @@ fn build_dates_with_meta(
     Ok(index_period_schedule(schedule))
 }
 
-/// Compiled fixed-coupon schedule: spec, payment dates, period lookup, and
-/// the set of stub (first/last) dates. Produced by
-/// [`compute_coupon_schedules`] and consumed by the emission pipeline.
-pub(crate) type FixedSchedule = (
-    FixedCouponSpec,
-    &'static dyn HolidayCalendar,
-    Vec<Date>,
-    finstack_core::HashMap<Date, SchedulePeriod>,
-    finstack_core::HashSet<Date>,
-);
+/// Compiled fixed-coupon schedule produced by [`compute_coupon_schedules`].
+#[derive(Clone)]
+pub(crate) struct FixedSchedule {
+    pub(crate) spec: FixedCouponSpec,
+    pub(crate) calendar: &'static dyn HolidayCalendar,
+    pub(crate) dates: Vec<Date>,
+    pub(crate) prev: finstack_core::HashMap<Date, SchedulePeriod>,
+    pub(crate) first_last: finstack_core::HashSet<Date>,
+}
 
-/// Compiled floating-coupon schedule: spec, payment dates, and period lookup.
-/// Produced by [`compute_coupon_schedules`] and consumed by the emission
-/// pipeline.
-pub(crate) type FloatSchedule = (
-    FloatingCouponSpec,
-    &'static dyn HolidayCalendar,
-    Vec<Date>,
-    finstack_core::HashMap<Date, SchedulePeriod>,
-);
+/// Compiled floating-coupon schedule produced by [`compute_coupon_schedules`].
+#[derive(Clone)]
+pub(crate) struct FloatSchedule {
+    pub(crate) spec: FloatingCouponSpec,
+    pub(crate) calendar: &'static dyn HolidayCalendar,
+    pub(crate) dates: Vec<Date>,
+    pub(crate) prev: finstack_core::HashMap<Date, SchedulePeriod>,
+}
 
 /// Periodic fee schedule prepared from fee specs.
 ///
@@ -283,8 +281,8 @@ pub(super) fn collect_dates(
     set.insert(maturity);
 
     // Collect all fixed coupon dates (accrual boundaries + payment dates)
-    for (_, _, _, period_map, _) in fixed_schedules {
-        for period in period_map.values() {
+    for schedule in fixed_schedules {
+        for period in schedule.prev.values() {
             set.insert(period.accrual_start);
             set.insert(period.accrual_end);
             set.insert(period.payment_date);
@@ -292,8 +290,8 @@ pub(super) fn collect_dates(
     }
 
     // Collect all floating coupon dates (accrual boundaries + payment dates)
-    for (_, _, _, period_map) in float_schedules {
-        for period in period_map.values() {
+    for schedule in float_schedules {
+        for period in schedule.prev.values() {
             set.insert(period.accrual_start);
             set.insert(period.accrual_end);
             set.insert(period.payment_date);
@@ -320,6 +318,78 @@ pub(super) fn collect_dates(
     }
 
     set.into_iter().collect()
+}
+
+struct StepUpCompileInput<'a> {
+    split: CouponType,
+    initial_rate: Decimal,
+    step_schedule: &'a [(Date, Decimal)],
+    schedule: &'a ScheduleParams,
+    calendar: &'static dyn HolidayCalendar,
+    dates: &'a [Date],
+    prev: &'a finstack_core::HashMap<Date, SchedulePeriod>,
+    first_last: &'a finstack_core::HashSet<Date>,
+}
+
+fn compile_step_up_schedules(input: StepUpCompileInput<'_>) -> Vec<FixedSchedule> {
+    type RateGroup = (
+        Decimal,
+        Vec<Date>,
+        finstack_core::HashMap<Date, SchedulePeriod>,
+        finstack_core::HashSet<Date>,
+    );
+
+    let rate_for = |period_start: Date| -> Decimal {
+        let mut rate = input.initial_rate;
+        for (step_date, step_rate) in input.step_schedule {
+            if *step_date <= period_start {
+                rate = *step_rate;
+            } else {
+                break;
+            }
+        }
+        rate
+    };
+
+    let mut rate_groups: Vec<RateGroup> = Vec::new();
+    for &payment_date in input.dates {
+        if let Some(period) = input.prev.get(&payment_date) {
+            let period_rate = rate_for(period.accrual_start);
+            let extend_last = rate_groups
+                .last()
+                .map(|(rate, _, _, _)| *rate == period_rate)
+                .unwrap_or(false);
+
+            if extend_last {
+                if let Some(last) = rate_groups.last_mut() {
+                    last.1.push(payment_date);
+                    last.2.insert(payment_date, *period);
+                    if input.first_last.contains(&payment_date) {
+                        last.3.insert(payment_date);
+                    }
+                }
+            } else {
+                let mut period_map = finstack_core::HashMap::default();
+                period_map.insert(payment_date, *period);
+                let mut first_last = finstack_core::HashSet::default();
+                if input.first_last.contains(&payment_date) {
+                    first_last.insert(payment_date);
+                }
+                rate_groups.push((period_rate, vec![payment_date], period_map, first_last));
+            }
+        }
+    }
+
+    rate_groups
+        .into_iter()
+        .map(|(rate, dates, prev, first_last)| FixedSchedule {
+            spec: FixedCouponSpec::from_parts(input.split, rate, input.schedule.clone()),
+            calendar: input.calendar,
+            dates,
+            prev,
+            first_last,
+        })
+        .collect()
 }
 
 pub(super) fn compute_coupon_schedules(
@@ -477,79 +547,28 @@ pub(super) fn compute_coupon_schedules(
             CouponSpec::Fixed { rate } => {
                 let spec =
                     FixedCouponSpec::from_parts(split, *rate, chosen_coupon.schedule.clone());
-                fixed_schedules.push((spec, calendar, dates.clone(), prev.clone(), first_or_last));
+                fixed_schedules.push(FixedSchedule {
+                    spec,
+                    calendar,
+                    dates: dates.clone(),
+                    prev: prev.clone(),
+                    first_last: first_or_last.clone(),
+                });
             }
             CouponSpec::StepUp {
                 initial_rate,
                 step_schedule,
             } => {
-                // For step-up coupons, emit one FixedSchedule per period with
-                // the rate determined by the step schedule. We group consecutive
-                // periods that share the same rate into a single FixedSchedule
-                // so existing emission code works unchanged.
-
-                // Helper: find the applicable rate for a given accrual start
-                let rate_for = |period_start: Date| -> Decimal {
-                    let mut rate = *initial_rate;
-                    for (step_date, step_rate) in step_schedule {
-                        if *step_date <= period_start {
-                            rate = *step_rate;
-                        } else {
-                            break;
-                        }
-                    }
-                    rate
-                };
-
-                // Group consecutive periods by rate into FixedSchedule tuples.
-                // Each group is emitted as a separate FixedSchedule.
-                type RateGroup = (
-                    Decimal,
-                    Vec<Date>,
-                    finstack_core::HashMap<Date, SchedulePeriod>,
-                    finstack_core::HashSet<Date>,
-                );
-                let mut rate_groups: Vec<RateGroup> = Vec::new();
-
-                for &payment_date in &dates {
-                    if let Some(period) = prev.get(&payment_date) {
-                        let period_rate = rate_for(period.accrual_start);
-
-                        // Check if we can extend the last group
-                        let extend_last = rate_groups
-                            .last()
-                            .map(|(r, _, _, _)| *r == period_rate)
-                            .unwrap_or(false);
-
-                        if extend_last {
-                            // Safe: extend_last is true only when last() is Some
-                            if let Some(last) = rate_groups.last_mut() {
-                                last.1.push(payment_date);
-                                last.2.insert(payment_date, *period);
-                                if first_or_last.contains(&payment_date) {
-                                    last.3.insert(payment_date);
-                                }
-                            }
-                        } else {
-                            let mut period_map = finstack_core::HashMap::default();
-                            period_map.insert(payment_date, *period);
-                            let mut fol = finstack_core::HashSet::default();
-                            if first_or_last.contains(&payment_date) {
-                                fol.insert(payment_date);
-                            }
-                            rate_groups.push((period_rate, vec![payment_date], period_map, fol));
-                        }
-                    }
-                }
-
-                for (group_rate, group_dates, group_prev, group_fol) in rate_groups {
-                    let spec = FixedCouponSpec::from_parts(
-                        split,
-                        group_rate,
-                        chosen_coupon.schedule.clone(),
-                    );
-                    fixed_schedules.push((spec, calendar, group_dates, group_prev, group_fol));
-                }
+                fixed_schedules.extend(compile_step_up_schedules(StepUpCompileInput {
+                    split,
+                    initial_rate: *initial_rate,
+                    step_schedule,
+                    schedule: &chosen_coupon.schedule,
+                    calendar,
+                    dates: &dates,
+                    prev: &prev,
+                    first_last: &first_or_last,
+                }));
             }
             CouponSpec::Float { rate_spec } => {
                 let spec = FloatingCouponSpec {
@@ -560,7 +579,12 @@ pub(super) fn compute_coupon_schedules(
                 };
                 spec.rate_spec.validate()?;
                 let calendar = resolve_calendar_strict(&spec.rate_spec.calendar_id)?;
-                float_schedules.push((spec, calendar, dates, prev));
+                float_schedules.push(FloatSchedule {
+                    spec,
+                    calendar,
+                    dates,
+                    prev,
+                });
             }
         }
     }

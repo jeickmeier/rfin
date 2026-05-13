@@ -202,17 +202,18 @@ pub(crate) fn emit_fixed_coupons_on(
 ) -> finstack_core::Result<f64> {
     let mut pik_to_add = 0.0;
 
-    for (spec, calendar, dates, prev_map, first_last) in fixed_schedules {
-        let calendar = *calendar;
+    for schedule in fixed_schedules {
+        let spec = &schedule.spec;
+        let calendar = schedule.calendar;
         // Early exit: skip schedules where `d` is outside the date range.
         // This reduces iteration from O(N × M) to O(N + M) for multi-window instruments.
-        if let (Some(&first), Some(&last)) = (dates.first(), dates.last()) {
+        if let (Some(&first), Some(&last)) = (schedule.dates.first(), schedule.dates.last()) {
             if d < first || d > last {
                 continue;
             }
         }
 
-        if let Some(period) = prev_map.get(&d).copied() {
+        if let Some(period) = schedule.prev.get(&d).copied() {
             let accrual_start = period.accrual_start;
             let accrual_end = period.accrual_end;
             let base_out = *outstanding_after
@@ -245,7 +246,7 @@ pub(crate) fn emit_fixed_coupons_on(
             let rate_f64 = decimal_to_f64(spec.rate)?;
 
             if cash_amt > 0.0 {
-                let kind = if first_last.contains(&d) {
+                let kind = if schedule.first_last.contains(&d) {
                     CFKind::Stub
                 } else {
                     CFKind::Fixed
@@ -495,19 +496,18 @@ pub(crate) fn emit_float_coupons_on(
 ) -> finstack_core::Result<f64> {
     let mut pik_to_add = 0.0;
 
-    for ((spec, calendar, dates, prev_map), resolved_curve) in
-        float_schedules.iter().zip(resolved_curves.iter())
-    {
-        let calendar = *calendar;
+    for (schedule, resolved_curve) in float_schedules.iter().zip(resolved_curves.iter()) {
+        let spec = &schedule.spec;
+        let calendar = schedule.calendar;
         // Early exit: skip schedules where `d` is outside the date range.
         // This reduces iteration from O(N × M) to O(N + M) for multi-window instruments.
-        if let (Some(&first), Some(&last)) = (dates.first(), dates.last()) {
+        if let (Some(&first), Some(&last)) = (schedule.dates.first(), schedule.dates.last()) {
             if d < first || d > last {
                 continue;
             }
         }
 
-        if let Some(period) = prev_map.get(&d).copied() {
+        if let Some(period) = schedule.prev.get(&d).copied() {
             let accrual_start = period.accrual_start;
             let accrual_end = period.accrual_end;
             let base_out = *outstanding_after

@@ -381,6 +381,8 @@ fn validate_schedule_economic_invariants(schedule: &CashFlowSchedule) -> Result<
     let initial = schedule.notional.initial;
     let expected_currency = initial.currency();
     let initial_amount = initial.amount().abs();
+    // Scale tolerance with notional to absorb serde/f64 roundoff; this is not
+    // a permission to over-amortize economically.
     let epsilon = (initial_amount * 1e-8).max(1e-6);
     let mut total_amortization = 0.0_f64;
 

@@ -458,6 +458,24 @@ impl CashFlowSchedule {
         sorted_period_indices.sort_by_key(|&i| periods[i].start);
 
         let mut period_cursor = 0;
+        let dc_ctx = DayCountContext {
+            calendar: resolved_calendar,
+            frequency: options.frequency,
+            bus_basis: None,
+            coupon_period: None,
+        };
+        let disc_dc_ctx = DayCountContext {
+            calendar: resolved_calendar,
+            frequency: options.frequency,
+            bus_basis: None,
+            coupon_period: None,
+        };
+        let fwd_dc_ctx = DayCountContext {
+            calendar: resolved_calendar,
+            frequency: options.frequency,
+            bus_basis: None,
+            coupon_period: None,
+        };
 
         for cf in &self.flows {
             // Advance cursor past periods that end before this cashflow
@@ -523,24 +541,12 @@ impl CashFlowSchedule {
             }
 
             // YrFraq and Days - use proper DayCountContext with frequency/calendar from options
-            let dc_ctx = DayCountContext {
-                calendar: resolved_calendar,
-                frequency: options.frequency,
-                bus_basis: None,
-                coupon_period: None,
-            };
             let yr_fraq = dc.year_fraction(period.start, cf.date, dc_ctx)?;
             out.yr_fraqs.push(yr_fraq);
             out.days.push((cf.date - period.start).whole_days());
 
             // Discount factor using configured discounting basis
             let dc_for_discounting = options.discount_day_count.unwrap_or(dc);
-            let disc_dc_ctx = DayCountContext {
-                calendar: resolved_calendar,
-                frequency: options.frequency,
-                bus_basis: None,
-                coupon_period: None,
-            };
             let t = compute_discount_time(cf.date, base, dc_for_discounting, disc_dc_ctx)?;
             let df = disc_arc.df(t);
             out.discount_factors.push(df);
@@ -587,12 +593,6 @@ impl CashFlowSchedule {
 
             // Floating decomposition (base rate and spread)
             let (base_rate_opt, spread_opt) = if options.include_floating_decomposition {
-                let fwd_dc_ctx = DayCountContext {
-                    calendar: resolved_calendar,
-                    frequency: options.frequency,
-                    bus_basis: None,
-                    coupon_period: None,
-                };
                 compute_floating_decomposition(
                     cf,
                     forward_arc_opt.as_ref(),

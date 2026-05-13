@@ -45,7 +45,11 @@ pub fn dated_flows(schedule_json: &str) -> Result<String, JsValue> {
 /// @param schedule_json - JSON-encoded `CashFlowSchedule`.
 /// @param as_of - ISO-8601 date (YYYY-MM-DD) for the accrual snapshot.
 /// @param config_json - Optional JSON-encoded `AccrualConfig` overriding defaults.
-/// @returns Accrued interest in the schedule's settlement currency.
+/// @returns Accrued interest in the schedule's settlement currency as a JS
+///   number. The Rust engine computes from the canonical schedule and then
+///   crosses the WASM boundary as `f64`; for large notionals, compare with an
+///   absolute tolerance scaled to the schedule notional rather than expecting
+///   decimal-string equality.
 /// @throws If any JSON input is malformed or the accrual computation fails.
 #[wasm_bindgen(js_name = accruedInterest)]
 pub fn accrued_interest(

@@ -999,7 +999,10 @@ export interface CashflowsNamespace {
    * @param scheduleJson JSON-encoded `CashFlowSchedule`.
    * @param asOf         ISO-8601 date (YYYY-MM-DD) for the accrual snapshot.
    * @param configJson   Optional JSON-encoded `AccrualConfig` overriding defaults.
-   * @returns            Accrued interest in the schedule's settlement currency.
+   * @returns            Accrued interest in the schedule's settlement currency
+   *                     as a JS number. For large notionals, compare with an
+   *                     absolute tolerance scaled to notional rather than
+   *                     expecting decimal-string equality.
    * @throws             If any JSON input is malformed or the accrual computation fails.
    */
   accruedInterest(scheduleJson: string, asOf: string, configJson?: string | null): number;

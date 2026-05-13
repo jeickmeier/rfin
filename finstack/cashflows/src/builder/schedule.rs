@@ -81,11 +81,11 @@ pub(crate) fn finalize_flows(
 
     let mut cals: Vec<String> = fixed
         .iter()
-        .map(|(spec, _, _, _, _)| spec.calendar_id.clone())
+        .map(|schedule| schedule.spec.calendar_id.clone())
         .chain(
             floating
                 .iter()
-                .map(|(spec, _, _, _)| spec.rate_spec.calendar_id.clone()),
+                .map(|schedule| schedule.spec.rate_spec.calendar_id.clone()),
         )
         .collect();
     cals.sort_unstable();
@@ -97,10 +97,10 @@ pub(crate) fn finalize_flows(
         representation: CashflowRepresentation::default(),
     };
 
-    let out_dc = if let Some((spec, _, _, _, _)) = fixed.first() {
-        spec.dc
-    } else if let Some((spec, _, _, _)) = floating.first() {
-        spec.rate_spec.dc
+    let out_dc = if let Some(schedule) = fixed.first() {
+        schedule.spec.dc
+    } else if let Some(schedule) = floating.first() {
+        schedule.spec.rate_spec.dc
     } else {
         DayCount::Act365F
     };
@@ -786,12 +786,13 @@ impl CashFlowSchedule {
                     recovery_rate,
                 }) = credit
                 {
-                    crate::aggregation::pv_by_period_credit_adjusted_detailed(
+                    crate::aggregation::pv_by_period_credit_adjusted_detailed_with_timing(
                         &self.flows,
                         periods,
                         disc,
                         Some(hazard_curve),
                         recovery_rate,
+                        crate::aggregation::RecoveryTiming::default(),
                         date_ctx,
                     )
                 } else {

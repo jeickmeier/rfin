@@ -153,10 +153,10 @@ fn derive_amortization_setup(
     // differing frequencies, amortization follows this first leg's cadence.
     let amort_base: Option<&[Date]> = match notional.amort {
         AmortizationSpec::LinearTo { .. } | AmortizationSpec::PercentOfOriginalPerPeriod { .. } => {
-            if let Some((_, _, ds, _, _)) = fixed_schedules.first() {
-                Some(ds.as_slice())
-            } else if let Some((_, _, ds, _)) = float_schedules.first() {
-                Some(ds.as_slice())
+            if let Some(schedule) = fixed_schedules.first() {
+                Some(schedule.dates.as_slice())
+            } else if let Some(schedule) = float_schedules.first() {
+                Some(schedule.dates.as_slice())
             } else {
                 None
             }
@@ -586,8 +586,8 @@ impl CashFlowBuilder {
 
     /// Adds a fixed coupon window with its own schedule and payment split (cash/PIK/split).
     ///
-    /// Internal helper used by `fixed_stepup` / `fixed_to_float` etc. Prefer the
-    /// spec-level entry points (`fixed_cf`, `fixed_stepup`, `fixed_to_float`).
+    /// Internal helper used by step-up and fixed-to-floating schedules. Prefer the
+    /// spec-level entry points (`fixed_cf`, `step_up_cf`, `fixed_to_float`).
     #[must_use = "builder methods should be chained or terminated with .build_with_curves(...)"]
     fn add_fixed_coupon_window(
         &mut self,
@@ -1224,7 +1224,10 @@ impl CompiledCashFlowPlan {
         let resolved_curves: Vec<Option<Arc<ForwardCurve>>> = if let Some(mkt) = curves {
             self.float_schedules
                 .iter()
-                .map(|(spec, _, _, _)| mkt.get_forward(spec.rate_spec.index_id.as_str()).ok())
+                .map(|schedule| {
+                    mkt.get_forward(schedule.spec.rate_spec.index_id.as_str())
+                        .ok()
+                })
                 .collect()
         } else {
             vec![None; self.float_schedules.len()]
