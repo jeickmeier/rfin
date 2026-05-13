@@ -87,7 +87,11 @@ fn dated_flows(py: Python<'_>, schedule_json: &str) -> PyResult<String> {
 /// Returns
 /// -------
 /// float
-///     Accrued interest in the schedule's settlement currency.
+///     Accrued interest in the schedule's settlement currency, returned as a
+///     host-language double. The Rust engine computes from the canonical
+///     schedule and then crosses the binding boundary as `f64`; for large
+///     notionals, compare results with an absolute tolerance scaled to the
+///     schedule notional rather than expecting decimal-string equality.
 #[pyfunction]
 #[pyo3(
     signature = (schedule_json, as_of, config_json = None),

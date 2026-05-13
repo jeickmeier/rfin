@@ -186,7 +186,6 @@ pub fn aggregate_by_period(
 // Precision-Preserving Aggregation
 // =============================================================================
 
-// use finstack_core::dates::DayCountContext;
 use finstack_core::market_data::traits::{Discounting, Survival};
 
 /// Decimal-safe single-currency aggregation with explicit target currency.
@@ -545,60 +544,14 @@ fn time_discount_survival(
 /// Map from `PeriodId` to currency-indexed present values. Periods with no
 /// flows are omitted from the result.
 ///
-/// # Examples
-///
-/// ```rust,ignore
-/// use finstack_cashflows::aggregation::{pv_by_period_credit_adjusted_detailed, DateContext};
-/// use finstack_core::cashflow::CashFlow;
-/// use finstack_core::dates::{Date, DayCount, DayCountContext, Period};
-/// use finstack_core::market_data::traits::{Discounting, Survival};
-///
-/// fn credit_pv(
-///     flows: &[CashFlow],
-///     periods: &[Period],
-///     disc: &dyn Discounting,
-///     hazard: &dyn Survival,
-///     base: Date,
-/// ) -> finstack_core::Result<()> {
-///     let _pv = pv_by_period_credit_adjusted_detailed(
-///         flows,
-///         periods,
-///         disc,
-///         Some(hazard),
-///         Some(0.4),
-///         DateContext::new(base, DayCount::Act365F, DayCountContext::default()),
-///     )?;
-///     Ok(())
-/// }
-/// ```
-pub(crate) fn pv_by_period_credit_adjusted_detailed(
-    flows: &[CashFlow],
-    periods: &[Period],
-    disc: &dyn Discounting,
-    hazard: Option<&dyn Survival>,
-    recovery_rate: Option<f64>,
-    date_ctx: DateContext<'_>,
-) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-    pv_by_period_credit_adjusted_detailed_with_timing(
-        flows,
-        periods,
-        disc,
-        hazard,
-        recovery_rate,
-        RecoveryTiming::AtPaymentDate,
-        date_ctx,
-    )
-}
-
 /// Credit-adjusted period PV aggregation with configurable recovery timing.
 ///
-/// Same contract as [`pv_by_period_credit_adjusted_detailed`] but with an
-/// explicit [`RecoveryTiming`] that controls how the recovery leg on
-/// surviving principal flows is placed in time. See [`RecoveryTiming`].
+/// Uses [`RecoveryTiming::default`] when callers do not need to override how the
+/// recovery leg on surviving principal flows is placed in time.
 ///
 /// # Errors
 ///
-/// Same error conditions as [`pv_by_period_credit_adjusted_detailed`].
+/// Same error conditions as the credit-adjusted period PV contract above.
 pub(crate) fn pv_by_period_credit_adjusted_detailed_with_timing(
     flows: &[CashFlow],
     periods: &[Period],
@@ -885,12 +838,13 @@ mod credit_pv_tests {
         let hazard = FlatSurvival;
         let ctx = DateContext::new(base, DayCount::Act365F, DayCountContext::default());
 
-        let result = pv_by_period_credit_adjusted_detailed(
+        let result = pv_by_period_credit_adjusted_detailed_with_timing(
             &flows,
             &periods,
             &disc,
             Some(&hazard),
             Some(0.40),
+            RecoveryTiming::default(),
             ctx,
         );
         assert!(
@@ -931,12 +885,13 @@ mod credit_pv_tests {
         let hazard = FlatSurvival;
         let ctx = DateContext::new(base, DayCount::Act365F, DayCountContext::default());
 
-        let result = pv_by_period_credit_adjusted_detailed(
+        let result = pv_by_period_credit_adjusted_detailed_with_timing(
             &flows,
             &periods,
             &disc,
             Some(&hazard),
             None,
+            RecoveryTiming::default(),
             ctx,
         );
         assert!(
@@ -959,21 +914,23 @@ mod credit_pv_tests {
         ];
         let unsorted = vec![sorted[2], sorted[0], sorted[3], sorted[1]];
 
-        let sorted_result = pv_by_period_credit_adjusted_detailed(
+        let sorted_result = pv_by_period_credit_adjusted_detailed_with_timing(
             &sorted,
             &periods,
             &disc,
             Some(&hazard),
             Some(0.40),
+            RecoveryTiming::default(),
             DateContext::new(base, DayCount::Act365F, DayCountContext::default()),
         )
         .expect("sorted flows should price");
-        let unsorted_result = pv_by_period_credit_adjusted_detailed(
+        let unsorted_result = pv_by_period_credit_adjusted_detailed_with_timing(
             &unsorted,
             &periods,
             &disc,
             Some(&hazard),
             Some(0.40),
+            RecoveryTiming::default(),
             DateContext::new(base, DayCount::Act365F, DayCountContext::default()),
         )
         .expect("unsorted flows should price");
@@ -995,12 +952,13 @@ mod credit_pv_tests {
         let default_ctx = DateContext::new(base, DayCount::Act365F, DayCountContext::default());
         let explicit_ctx = DateContext::new(base, DayCount::Act365F, DayCountContext::default());
 
-        let default_out = pv_by_period_credit_adjusted_detailed(
+        let default_out = pv_by_period_credit_adjusted_detailed_with_timing(
             &flows,
             &periods,
             &disc,
             Some(&hazard),
             Some(0.40),
+            RecoveryTiming::default(),
             default_ctx,
         )
         .expect("default pricing");

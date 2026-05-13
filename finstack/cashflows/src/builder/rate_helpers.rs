@@ -530,6 +530,8 @@ pub fn project_floating_rate_from_market(
 /// # Returns
 ///
 /// The annualized compounded rate in decimal form.
+/// Returns `0.0` when inputs do not define a valid compounding period,
+/// including non-positive or non-finite day-count bases.
 ///
 /// # References
 ///
@@ -551,13 +553,53 @@ pub fn compute_compounded_rate(
     total_days: u32,
     day_count_basis: f64,
 ) -> f64 {
-    if daily_rates.is_empty() || total_days == 0 {
+    if daily_rates.is_empty()
+        || total_days == 0
+        || day_count_basis <= 0.0
+        || !day_count_basis.is_finite()
+    {
         return 0.0;
     }
     let mut product = 1.0;
     for &(rate, days) in daily_rates {
         product *= 1.0 + rate * (days as f64) / day_count_basis;
     }
+    (product - 1.0) * day_count_basis / (total_days as f64)
+}
+
+fn compute_compounded_rate_with_lockout(
+    daily_rates: &[(f64, u32)],
+    total_days: u32,
+    day_count_basis: f64,
+    lockout_days: u32,
+) -> f64 {
+    if daily_rates.is_empty()
+        || total_days == 0
+        || day_count_basis <= 0.0
+        || !day_count_basis.is_finite()
+    {
+        return 0.0;
+    }
+
+    let n = daily_rates.len();
+    let lockout = lockout_days as usize;
+    let lockout_rate = if n > lockout {
+        daily_rates[n - lockout - 1].0
+    } else {
+        daily_rates[0].0
+    };
+    let lockout_start = n.saturating_sub(lockout);
+
+    let mut product = 1.0;
+    for (i, &(rate, days)) in daily_rates.iter().enumerate() {
+        let effective_rate = if i >= lockout_start {
+            lockout_rate
+        } else {
+            rate
+        };
+        product *= 1.0 + effective_rate * (days as f64) / day_count_basis;
+    }
+
     (product - 1.0) * day_count_basis / (total_days as f64)
 }
 
@@ -667,28 +709,12 @@ pub fn compute_overnight_rate(
             compute_compounded_rate(daily_rates, total_days, day_count_basis)
         }
         OvernightCompoundingMethod::CompoundedWithLockout { lockout_days } => {
-            let n = daily_rates.len();
-            let lockout = lockout_days as usize;
-            if n == 0 {
-                return 0.0;
-            }
-            let lockout_rate = if n > lockout {
-                daily_rates[n - lockout - 1].0
-            } else {
-                daily_rates[0].0
-            };
-            let locked: Vec<(f64, u32)> = daily_rates
-                .iter()
-                .enumerate()
-                .map(|(i, &(rate, days))| {
-                    if i >= n.saturating_sub(lockout) {
-                        (lockout_rate, days)
-                    } else {
-                        (rate, days)
-                    }
-                })
-                .collect();
-            compute_compounded_rate(&locked, total_days, day_count_basis)
+            compute_compounded_rate_with_lockout(
+                daily_rates,
+                total_days,
+                day_count_basis,
+                lockout_days,
+            )
         }
         OvernightCompoundingMethod::CompoundedWithObservationShift { shift_days: _ } => {
             // ISDA 2021 Supp. 70 §7.1(g) "Observation Shift" variant: the
@@ -1123,6 +1149,16 @@ mod tests {
     }
 
     #[test]
+    fn test_compounded_rate_invalid_basis_returns_zero() {
+        let fixings = vec![(0.05, 1u32), (0.05, 1)];
+
+        assert_eq!(compute_compounded_rate(&fixings, 2, 0.0), 0.0);
+        assert_eq!(compute_compounded_rate(&fixings, 2, -360.0), 0.0);
+        assert_eq!(compute_compounded_rate(&fixings, 2, f64::NAN), 0.0);
+        assert_eq!(compute_compounded_rate(&fixings, 2, f64::INFINITY), 0.0);
+    }
+
+    #[test]
     fn test_simple_average_rate() {
         let fixings = vec![(0.05, 1u32), (0.06, 1), (0.04, 1), (0.05, 1), (0.05, 3)];
         let rate = compute_simple_average_rate(&fixings, 7);
@@ -1150,6 +1186,21 @@ mod tests {
     }
 
     #[test]
+    fn test_overnight_compounded_invalid_basis_returns_zero() {
+        use crate::builder::specs::OvernightCompoundingMethod;
+        let fixings = vec![(0.05, 1u32), (0.05, 1)];
+
+        let rate = compute_overnight_rate(
+            OvernightCompoundingMethod::CompoundedInArrears,
+            &fixings,
+            2,
+            0.0,
+        );
+
+        assert_eq!(rate, 0.0);
+    }
+
+    #[test]
     fn test_overnight_lockout() {
         use crate::builder::specs::OvernightCompoundingMethod;
         let fixings = vec![(0.05, 1u32), (0.05, 1), (0.05, 1), (0.06, 1), (0.07, 3)];
@@ -1161,6 +1212,26 @@ mod tests {
         );
         // Lockout freezes last 2 fixings to rate of day 2 (0.05)
         assert!((rate - 0.05).abs() < 0.001, "Lockout rate: {rate:.6}");
+    }
+
+    #[test]
+    fn test_overnight_lockout_matches_explicit_locked_fixings() {
+        use crate::builder::specs::OvernightCompoundingMethod;
+        let fixings = vec![(0.04, 1u32), (0.05, 1), (0.06, 1), (0.07, 1), (0.08, 3)];
+        let explicit_locked = vec![(0.04, 1u32), (0.05, 1), (0.06, 1), (0.06, 1), (0.06, 3)];
+
+        let rate = compute_overnight_rate(
+            OvernightCompoundingMethod::CompoundedWithLockout { lockout_days: 2 },
+            &fixings,
+            7,
+            360.0,
+        );
+        let expected = compute_compounded_rate(&explicit_locked, 7, 360.0);
+
+        assert!(
+            (rate - expected).abs() < 1e-12,
+            "allocation-free lockout should match explicit locked fixings"
+        );
     }
 
     #[test]

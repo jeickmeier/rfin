@@ -161,12 +161,11 @@ pub struct AccrualConfig {
     /// interest for most government bonds.
     pub frequency: Option<Tenor>,
     /// Require schedule.meta.issue_date to be set (or a flow to precede the
-    /// first coupon). When true, accrued_interest_amount returns an error
-    /// instead of silently falling back to the inverse-day-count
-    /// approximation used by derive_horizon_start.
+    /// first coupon).
     ///
-    /// Default: true. Set to false only for legacy schedules that intentionally
-    /// rely on the inverse-day-count approximation.
+    /// Default: true. The current accrual engine always requires an explicit
+    /// horizon start; this field is retained for JSON compatibility with
+    /// existing `AccrualConfig` payloads.
     pub strict_issue_date: bool,
 }
 
@@ -300,8 +299,6 @@ fn is_coupon_kind(kind: CFKind, include_pik: bool) -> bool {
 fn derive_horizon_start(
     schedule: &CashFlowSchedule,
     first_bucket: &CouponBucket,
-    _dc: DayCount,
-    _strict_issue_date: bool,
 ) -> finstack_core::Result<Date> {
     if let Some(issue) = schedule.meta.issue_date {
         return Ok(issue);
@@ -391,11 +388,10 @@ fn build_coupon_periods(
     // 1. If `meta.issue_date` is set, use it directly (most accurate).
     // 2. If schedule.dates().min() differs from the first coupon date, use that
     //    (this handles cases where issue date flow exists in the schedule).
-    // 3. Otherwise, derive issue date from first coupon's accrual factor using
-    //    an inverse day count approximation (least accurate, up to 1-2 day error).
-    //    When `cfg.strict_issue_date` is true, return an error instead.
+    // 3. Otherwise, fail with an explicit issue-date error. The legacy inverse
+    //    day-count approximation is intentionally no longer used.
     let first_bucket = &buckets[0];
-    let horizon_start = derive_horizon_start(schedule, first_bucket, dc, cfg.strict_issue_date)?;
+    let horizon_start = derive_horizon_start(schedule, first_bucket)?;
 
     let mut prev = horizon_start;
 
@@ -605,7 +601,7 @@ mod tests {
         Date::from_calendar_date(y, Month::try_from(m).unwrap(), d).unwrap()
     }
 
-    fn legacy_derivation_config() -> AccrualConfig {
+    fn relaxed_issue_date_config() -> AccrualConfig {
         AccrualConfig {
             strict_issue_date: false,
             ..AccrualConfig::default()
@@ -647,13 +643,13 @@ mod tests {
     // =========================================================================
 
     #[test]
-    fn test_missing_issue_date_errors_in_legacy_mode() {
+    fn test_missing_issue_date_errors_even_with_relaxed_config() {
         let schedule = make_test_schedule(
             &[(make_date(2025, 7, 1), 0.5), (make_date(2026, 1, 1), 0.5)],
             DayCount::Thirty360,
         );
 
-        let cfg = legacy_derivation_config();
+        let cfg = relaxed_issue_date_config();
         let err = build_coupon_periods(&schedule, &cfg).expect_err("missing issue date errors");
 
         assert!(err.to_string().contains("issue_date"));
@@ -711,7 +707,7 @@ mod tests {
         // Calculate accrued at April 1 (halfway through first period)
         let as_of = make_date(2025, 4, 1);
         let accrued =
-            accrued_interest_amount(&schedule, as_of, &legacy_derivation_config()).unwrap();
+            accrued_interest_amount(&schedule, as_of, &relaxed_issue_date_config()).unwrap();
 
         // With explicit issue date Jan 1 and first coupon July 1:
         // - Period length: 180 days (30/360)

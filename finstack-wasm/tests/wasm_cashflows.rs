@@ -41,6 +41,63 @@ fn market_context_json() -> String {
     serde_json::to_string(&ctx).unwrap()
 }
 
+fn floating_cashflow_spec_json() -> String {
+    serde_json::json!({
+        "notional": {
+            "initial": {"amount": "1000000", "currency": "USD"},
+            "amort": "None",
+        },
+        "issue": "2025-01-15",
+        "maturity": "2026-01-15",
+        "floating_coupons": [{
+            "rate_spec": {
+                "index_id": "USD-SOFR-3M",
+                "spread_bp": "150.0",
+                "gearing": "1.0",
+                "gearing_includes_spread": true,
+                "index_floor_bp": null,
+                "all_in_floor_bp": null,
+                "all_in_cap_bp": null,
+                "index_cap_bp": null,
+                "reset_freq": {"count": 3, "unit": "months"},
+                "reset_lag_days": 0,
+                "dc": "Act360",
+                "bdc": "following",
+                "calendar_id": "weekends_only",
+                "fixing_calendar_id": null,
+                "end_of_month": false,
+                "payment_lag_days": 0,
+                "overnight_compounding": null,
+                "overnight_basis": null,
+            },
+            "coupon_type": "Cash",
+            "freq": {"count": 3, "unit": "months"},
+            "stub": "None",
+        }],
+    })
+    .to_string()
+}
+
+fn floating_market_context_json() -> String {
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+
+    let base = time::Date::from_calendar_date(2025, time::Month::January, 15).unwrap();
+    let disc = DiscountCurve::builder("USD-OIS")
+        .base_date(base)
+        .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
+        .build()
+        .unwrap();
+    let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+        .base_date(base)
+        .day_count(finstack_core::dates::DayCount::Act360)
+        .knots([(0.0, 0.03), (1.0, 0.04), (5.0, 0.05)])
+        .build()
+        .unwrap();
+    let ctx = MarketContext::new().insert(disc).insert(fwd);
+    serde_json::to_string(&ctx).unwrap()
+}
+
 #[wasm_bindgen_test]
 fn cashflows_json_bridge_builds_accrues_and_prices_custom_bond() {
     let schedule_json = cashflows::build_cashflow_schedule(&cashflow_spec_json(), None)
@@ -53,7 +110,8 @@ fn cashflows_json_bridge_builds_accrues_and_prices_custom_bond() {
 
     let flows_json = cashflows::dated_flows(&schedule_json).expect("dated flows");
     let flows: Vec<serde_json::Value> = serde_json::from_str(&flows_json).unwrap();
-    assert!(!flows.is_empty());
+    let schedule: serde_json::Value = serde_json::from_str(&schedule_json).unwrap();
+    assert_eq!(flows.len(), schedule["flows"].as_array().unwrap().len());
     assert!(cashflows::accrued_interest(&schedule_json, "2025-02-28", None).unwrap() > 0.0);
 
     let instrument_json =
@@ -68,4 +126,77 @@ fn cashflows_json_bridge_builds_accrues_and_prices_custom_bond() {
     .expect("price custom bond");
     let result: serde_json::Value = serde_json::from_str(&result_json).unwrap();
     assert_eq!(result["instrument_id"], "CUSTOM-CF");
+}
+
+#[wasm_bindgen_test]
+fn cashflows_json_bridge_builds_floating_schedule_with_market_json() {
+    let schedule_json = cashflows::build_cashflow_schedule(
+        &floating_cashflow_spec_json(),
+        Some(floating_market_context_json()),
+    )
+    .expect("floating schedule should build with market");
+    let schedule: serde_json::Value = serde_json::from_str(&schedule_json).unwrap();
+    let float_flows: Vec<_> = schedule["flows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|flow| flow["kind"] == "FloatReset")
+        .collect();
+
+    assert!(!float_flows.is_empty());
+    assert!(float_flows
+        .iter()
+        .all(|flow| flow["rate"].as_f64().unwrap() > 0.015));
+}
+
+#[wasm_bindgen_test]
+fn cashflows_json_bridge_accepts_config_and_missing_quoted_clean() {
+    let schedule_json = cashflows::build_cashflow_schedule(&cashflow_spec_json(), None)
+        .expect("schedule should build");
+    let config_json = serde_json::json!({
+        "method": "Linear",
+        "include_pik": true,
+        "frequency": {"count": 12, "unit": "months"},
+        "strict_issue_date": true,
+    })
+    .to_string();
+
+    assert!(
+        cashflows::accrued_interest(&schedule_json, "2025-02-28", Some(config_json)).unwrap() > 0.0
+    );
+
+    let instrument_json =
+        cashflows::bond_from_cashflows("CUSTOM-CF-NO-QUOTE", &schedule_json, "USD-OIS", None)
+            .expect("bond JSON");
+    let instrument: serde_json::Value = serde_json::from_str(&instrument_json).unwrap();
+    assert_eq!(instrument["spec"]["id"], "CUSTOM-CF-NO-QUOTE");
+}
+
+#[wasm_bindgen_test]
+fn cashflows_json_bridge_rejects_bad_inputs() {
+    let schedule_json = cashflows::build_cashflow_schedule(&cashflow_spec_json(), None)
+        .expect("schedule should build");
+
+    assert!(cashflows::validate_cashflow_schedule("{not json").is_err());
+    assert!(cashflows::accrued_interest(&schedule_json, "2025-02-30", None).is_err());
+}
+
+#[wasm_bindgen_test]
+fn cashflows_json_bridge_rejects_amortization_over_notional() {
+    let schedule_json = cashflows::build_cashflow_schedule(&cashflow_spec_json(), None)
+        .expect("schedule should build");
+    let mut schedule: serde_json::Value = serde_json::from_str(&schedule_json).unwrap();
+    schedule["flows"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "date": "2025-03-31",
+            "reset_date": null,
+            "amount": {"amount": "1000011", "currency": "USD"},
+            "kind": "Amortization",
+            "accrual_factor": 0.0,
+            "rate": null,
+        }));
+
+    assert!(cashflows::validate_cashflow_schedule(&schedule.to_string()).is_err());
 }

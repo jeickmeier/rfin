@@ -6,7 +6,6 @@ use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::DateExt;
 use finstack_core::dates::{adjust, Date};
 use finstack_core::money::Money;
-use tracing::warn;
 
 use super::super::specs::DefaultEvent;
 
@@ -92,6 +91,37 @@ pub fn emit_default_on(
             None
         };
 
+        // Resolve recovery cashflow date before mutating outstanding or output.
+        let recovery_amt = defaulted * event.recovery_rate;
+        let recovery_date = if recovery_amt > 0.0 {
+            let recovery_lag_months = recovery_lag_months.ok_or_else(|| {
+                finstack_core::Error::Validation(
+                    "recovery_lag validation missing for positive recovery".into(),
+                )
+            })?;
+            let base_recovery_date = d.add_months(recovery_lag_months);
+
+            // Apply optional business-day adjustment if both BDC and calendar are provided.
+            Some(
+                if let (Some(bdc), Some(ref cal_id)) =
+                    (event.recovery_bdc, &event.recovery_calendar_id)
+                {
+                    let cal = CalendarRegistry::global()
+                        .resolve_str(cal_id.as_str())
+                        .ok_or_else(|| {
+                            finstack_core::Error::Input(finstack_core::InputError::NotFound {
+                                id: cal_id.clone(),
+                            })
+                        })?;
+                    adjust(base_recovery_date, bdc, cal)?
+                } else {
+                    base_recovery_date
+                },
+            )
+        } else {
+            None
+        };
+
         // Default cashflow
         out.push(CashFlow {
             date: d,
@@ -104,33 +134,7 @@ pub fn emit_default_on(
         *outstanding -= defaulted;
 
         // Recovery cashflow (on future date)
-        let recovery_amt = defaulted * event.recovery_rate;
-        if recovery_amt > 0.0 {
-            let recovery_lag_months = recovery_lag_months.ok_or_else(|| {
-                finstack_core::Error::Validation(
-                    "recovery_lag validation missing for positive recovery".into(),
-                )
-            })?;
-            let base_recovery_date = d.add_months(recovery_lag_months);
-
-            // Apply optional business-day adjustment if both BDC and calendar are provided.
-            let recovery_date = if let (Some(bdc), Some(ref cal_id)) =
-                (event.recovery_bdc, &event.recovery_calendar_id)
-            {
-                // Resolve calendar by string code; warn and fall back to unadjusted date on failure.
-                if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id.as_str()) {
-                    adjust(base_recovery_date, bdc, cal)?
-                } else {
-                    warn!(
-                        calendar_id = %cal_id,
-                        recovery_date = %base_recovery_date,
-                        "Calendar not found for recovery date adjustment, using unadjusted date"
-                    );
-                    base_recovery_date
-                }
-            } else {
-                base_recovery_date
-            };
+        if let Some(recovery_date) = recovery_date {
             out.push(CashFlow {
                 date: recovery_date,
                 reset_date: None,
@@ -226,6 +230,7 @@ pub fn emit_prepayment_on(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use finstack_core::dates::BusinessDayConvention;
     use time::Month;
 
     #[test]
@@ -247,6 +252,29 @@ mod tests {
             .expect_err("oversized recovery lag should fail");
 
         assert!(err.to_string().contains("recovery_lag"));
+        assert_eq!(outstanding, 1_000_000.0);
+        assert!(flows.is_empty());
+    }
+
+    #[test]
+    fn emit_default_rejects_unknown_recovery_calendar_without_partial_mutation() {
+        let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
+        let event = DefaultEvent {
+            default_date: d,
+            defaulted_amount: 100_000.0,
+            recovery_rate: 0.4,
+            recovery_lag: 1,
+            recovery_bdc: Some(BusinessDayConvention::Following),
+            recovery_calendar_id: Some("missing-calendar".to_string()),
+            accrued_on_default: None,
+        };
+        let mut outstanding = 1_000_000.0;
+        let mut flows = Vec::new();
+
+        let err = emit_default_on(d, &[event], &mut outstanding, Currency::USD, &mut flows)
+            .expect_err("unknown recovery calendar should fail");
+
+        assert!(err.to_string().contains("missing-calendar"));
         assert_eq!(outstanding, 1_000_000.0);
         assert!(flows.is_empty());
     }

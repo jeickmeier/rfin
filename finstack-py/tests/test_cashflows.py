@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from finstack.cashflows import (
     accrued_interest,
     bond_from_cashflows,
@@ -68,6 +70,60 @@ def _market_json() -> str:
     })
 
 
+def _floating_cashflow_spec() -> str:
+    return json.dumps({
+        "notional": {
+            "initial": {"amount": "1000000", "currency": "USD"},
+            "amort": "None",
+        },
+        "issue": "2025-01-15",
+        "maturity": "2026-01-15",
+        "floating_coupons": [
+            {
+                "rate_spec": {
+                    "index_id": "USD-SOFR-3M",
+                    "spread_bp": "150.0",
+                    "gearing": "1.0",
+                    "gearing_includes_spread": True,
+                    "index_floor_bp": None,
+                    "all_in_floor_bp": None,
+                    "all_in_cap_bp": None,
+                    "index_cap_bp": None,
+                    "reset_freq": {"count": 3, "unit": "months"},
+                    "reset_lag_days": 0,
+                    "dc": "Act360",
+                    "bdc": "following",
+                    "calendar_id": "weekends_only",
+                    "fixing_calendar_id": None,
+                    "end_of_month": False,
+                    "payment_lag_days": 0,
+                    "overnight_compounding": None,
+                    "overnight_basis": None,
+                },
+                "coupon_type": "Cash",
+                "freq": {"count": 3, "unit": "months"},
+                "stub": "None",
+            }
+        ],
+    })
+
+
+def _floating_market_json() -> str:
+    market = json.loads(_market_json())
+    market["curves"].append({
+        "type": "forward",
+        "id": "USD-SOFR-3M",
+        "base": "2025-01-15",
+        "reset_lag": 0,
+        "day_count": "Act360",
+        "tenor": 0.25,
+        "knot_points": [[0.0, 0.03], [1.0, 0.04], [5.0, 0.05]],
+        "interp_style": "linear",
+        "extrapolation": "flat_forward",
+    })
+    return json.dumps(market)
+
+
 def test_cashflows_namespace_build_validate_accrual_and_price_bond() -> None:
     schedule_json = build_cashflow_schedule(_cashflow_spec())
     schedule = json.loads(schedule_json)
@@ -85,3 +141,59 @@ def test_cashflows_namespace_build_validate_accrual_and_price_bond() -> None:
     result = json.loads(price_instrument(instrument_json, _market_json(), "2024-09-03", "discounting"))
     assert result["instrument_id"] == "CUSTOM-CF"
     assert result["value"]["currency"] == "USD"
+
+
+def test_cashflows_builds_floating_schedule_with_market_json() -> None:
+    schedule_json = build_cashflow_schedule(_floating_cashflow_spec(), _floating_market_json())
+    schedule = json.loads(schedule_json)
+
+    float_flows = [flow for flow in schedule["flows"] if flow["kind"] == "FloatReset"]
+    assert float_flows
+    assert all(flow["rate"] > 0.015 for flow in float_flows)
+
+
+def test_cashflows_accrued_interest_accepts_config_json() -> None:
+    schedule_json = build_cashflow_schedule(_cashflow_spec())
+
+    config_json = json.dumps({
+        "method": "Linear",
+        "include_pik": True,
+        "frequency": {"count": 12, "unit": "months"},
+        "strict_issue_date": True,
+    })
+
+    assert accrued_interest(schedule_json, "2025-02-28", config_json) > 0.0
+
+
+def test_cashflows_bond_from_cashflows_allows_missing_quoted_clean() -> None:
+    schedule_json = build_cashflow_schedule(_cashflow_spec())
+    instrument_json = bond_from_cashflows("CUSTOM-CF-NO-QUOTE", schedule_json, "USD-OIS")
+    instrument = json.loads(instrument_json)
+
+    assert instrument["type"] == "bond"
+    assert instrument["spec"]["id"] == "CUSTOM-CF-NO-QUOTE"
+
+
+def test_cashflows_reject_malformed_json_and_invalid_dates() -> None:
+    schedule_json = build_cashflow_schedule(_cashflow_spec())
+
+    with pytest.raises(Exception, match="invalid cashflow schedule JSON"):
+        validate_cashflow_schedule("{not json")
+
+    with pytest.raises(Exception, match="invalid ISO date"):
+        accrued_interest(schedule_json, "2025-02-30")
+
+
+def test_cashflows_reject_amortization_over_notional() -> None:
+    schedule = json.loads(build_cashflow_schedule(_cashflow_spec()))
+    schedule["flows"].append({
+        "date": "2025-03-31",
+        "reset_date": None,
+        "amount": {"amount": "1000011", "currency": "USD"},
+        "kind": "Amortization",
+        "accrual_factor": 0.0,
+        "rate": None,
+    })
+
+    with pytest.raises(Exception, match="total amortization"):
+        validate_cashflow_schedule(json.dumps(schedule))
