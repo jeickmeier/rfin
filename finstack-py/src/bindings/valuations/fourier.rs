@@ -47,6 +47,7 @@ use pyo3::prelude::*;
 #[pyo3(signature = (spot, strike, rate, dividend, vol, maturity, is_call, n_terms=128))]
 #[allow(clippy::too_many_arguments)]
 fn bs_cos_price(
+    py: Python<'_>,
     spot: f64,
     strike: f64,
     rate: f64,
@@ -56,25 +57,27 @@ fn bs_cos_price(
     is_call: bool,
     n_terms: usize,
 ) -> PyResult<f64> {
-    let cf = BlackScholesCf {
-        r: rate,
-        q: dividend,
-        sigma: vol,
-    };
-    let config = CosConfig {
-        num_terms: n_terms,
-        ..CosConfig::default()
-    };
-    let pricer = CosPricer::new(&cf, config);
-    if is_call {
-        pricer
-            .price_call(spot, strike, rate, maturity)
-            .map_err(display_to_py)
-    } else {
-        pricer
-            .price_put(spot, strike, rate, maturity)
-            .map_err(display_to_py)
-    }
+    py.detach(move || {
+        let cf = BlackScholesCf {
+            r: rate,
+            q: dividend,
+            sigma: vol,
+        };
+        let config = CosConfig {
+            num_terms: n_terms,
+            ..CosConfig::default()
+        };
+        let pricer = CosPricer::new(&cf, config);
+        if is_call {
+            pricer
+                .price_call(spot, strike, rate, maturity)
+                .map_err(display_to_py)
+        } else {
+            pricer
+                .price_put(spot, strike, rate, maturity)
+                .map_err(display_to_py)
+        }
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -114,6 +117,7 @@ fn bs_cos_price(
 #[pyo3(signature = (spot, strike, rate, dividend, sigma, theta, nu, maturity, is_call, n_terms=128))]
 #[allow(clippy::too_many_arguments)]
 fn vg_cos_price(
+    py: Python<'_>,
     spot: f64,
     strike: f64,
     rate: f64,
@@ -125,27 +129,29 @@ fn vg_cos_price(
     is_call: bool,
     n_terms: usize,
 ) -> PyResult<f64> {
-    let cf = VarianceGammaCf {
-        r: rate,
-        q: dividend,
-        sigma,
-        nu,
-        theta,
-    };
-    let config = CosConfig {
-        num_terms: n_terms,
-        ..CosConfig::default()
-    };
-    let pricer = CosPricer::new(&cf, config);
-    if is_call {
-        pricer
-            .price_call(spot, strike, rate, maturity)
-            .map_err(display_to_py)
-    } else {
-        pricer
-            .price_put(spot, strike, rate, maturity)
-            .map_err(display_to_py)
-    }
+    py.detach(move || {
+        let cf = VarianceGammaCf {
+            r: rate,
+            q: dividend,
+            sigma,
+            nu,
+            theta,
+        };
+        let config = CosConfig {
+            num_terms: n_terms,
+            ..CosConfig::default()
+        };
+        let pricer = CosPricer::new(&cf, config);
+        if is_call {
+            pricer
+                .price_call(spot, strike, rate, maturity)
+                .map_err(display_to_py)
+        } else {
+            pricer
+                .price_put(spot, strike, rate, maturity)
+                .map_err(display_to_py)
+        }
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -187,6 +193,7 @@ fn vg_cos_price(
 #[pyo3(signature = (spot, strike, rate, dividend, sigma, mu_jump, sigma_jump, lambda, maturity, is_call, n_terms=128))]
 #[allow(clippy::too_many_arguments)]
 fn merton_jump_cos_price(
+    py: Python<'_>,
     spot: f64,
     strike: f64,
     rate: f64,
@@ -199,28 +206,30 @@ fn merton_jump_cos_price(
     is_call: bool,
     n_terms: usize,
 ) -> PyResult<f64> {
-    let cf = MertonJumpCf {
-        r: rate,
-        q: dividend,
-        sigma,
-        lambda,
-        mu_j: mu_jump,
-        sigma_j: sigma_jump,
-    };
-    let config = CosConfig {
-        num_terms: n_terms,
-        ..CosConfig::default()
-    };
-    let pricer = CosPricer::new(&cf, config);
-    if is_call {
-        pricer
-            .price_call(spot, strike, rate, maturity)
-            .map_err(display_to_py)
-    } else {
-        pricer
-            .price_put(spot, strike, rate, maturity)
-            .map_err(display_to_py)
-    }
+    py.detach(move || {
+        let cf = MertonJumpCf {
+            r: rate,
+            q: dividend,
+            sigma,
+            lambda,
+            mu_j: mu_jump,
+            sigma_j: sigma_jump,
+        };
+        let config = CosConfig {
+            num_terms: n_terms,
+            ..CosConfig::default()
+        };
+        let pricer = CosPricer::new(&cf, config);
+        if is_call {
+            pricer
+                .price_call(spot, strike, rate, maturity)
+                .map_err(display_to_py)
+        } else {
+            pricer
+                .price_put(spot, strike, rate, maturity)
+                .map_err(display_to_py)
+        }
+    })
 }
 
 // ---------------------------------------------------------------------------

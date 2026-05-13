@@ -1,6 +1,6 @@
 use super::FactorId;
+use crate::collections::HashMap;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::collections::HashMap;
 
 /// User-supplied factor covariance matrix with row-major storage.
 ///
@@ -134,7 +134,7 @@ impl FactorCovarianceMatrix {
     }
 
     fn build_index(factor_ids: &[FactorId]) -> crate::Result<HashMap<FactorId, usize>> {
-        let mut index = HashMap::with_capacity(factor_ids.len());
+        let mut index = HashMap::with_capacity_and_hasher(factor_ids.len(), Default::default());
         for (idx, factor_id) in factor_ids.iter().cloned().enumerate() {
             if index.insert(factor_id.clone(), idx).is_some() {
                 return Err(crate::Error::Validation(format!(
@@ -214,9 +214,47 @@ impl<'de> Deserialize<'de> for FactorCovarianceMatrix {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     fn two_factor_ids() -> Vec<FactorId> {
         vec![FactorId::new("Rates"), FactorId::new("Credit")]
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(96))]
+
+        #[test]
+        fn two_factor_psd_covariance_accepts_valid_correlation(
+            variance_a in 1.0e-10_f64..1.0,
+            variance_b in 1.0e-10_f64..1.0,
+            correlation in -0.999_f64..0.999,
+        ) {
+            let covariance = correlation * (variance_a * variance_b).sqrt();
+            let matrix = FactorCovarianceMatrix::new(
+                two_factor_ids(),
+                vec![variance_a, covariance, covariance, variance_b],
+            )
+            .unwrap();
+
+            prop_assert!((matrix.variance(&FactorId::new("Rates")) - variance_a).abs() < 1e-12);
+            prop_assert!((matrix.variance(&FactorId::new("Credit")) - variance_b).abs() < 1e-12);
+            prop_assert!((matrix.correlation(&FactorId::new("Rates"), &FactorId::new("Credit")) - correlation).abs() < 1e-10);
+        }
+
+        #[test]
+        fn two_factor_covariance_rejects_out_of_bounds_correlation(
+            variance_a in 1.0e-6_f64..1.0,
+            variance_b in 1.0e-6_f64..1.0,
+            excess in 1.0e-6_f64..1.0,
+        ) {
+            let covariance = (1.0 + excess) * (variance_a * variance_b).sqrt();
+            let result = FactorCovarianceMatrix::new(
+                two_factor_ids(),
+                vec![variance_a, covariance, covariance, variance_b],
+            );
+
+            prop_assert!(result.is_err());
+        }
     }
 
     #[test]

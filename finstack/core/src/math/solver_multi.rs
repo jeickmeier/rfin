@@ -18,7 +18,7 @@
 //! # Examples
 //!
 //! ```
-//! use finstack_core::math::solver_multi::{LevenbergMarquardtSolver, MultiSolver};
+//! use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
 //!
 //! let solver = LevenbergMarquardtSolver::new().with_tolerance(1e-8);
 //!
@@ -182,32 +182,6 @@ pub struct LmSolution {
     pub stats: LmStats,
 }
 
-/// Multi-dimensional optimization/root-finding trait.
-///
-/// Provides a unified interface for solvers that can handle multiple
-/// parameters simultaneously, essential for calibrating complex models
-/// like SABR volatility surfaces.
-///
-pub trait MultiSolver: Send + Sync {
-    /// Minimize objective function starting from initial guess.
-    ///
-    /// # Arguments
-    /// * `objective` - Function to minimize, takes parameter vector and returns scalar
-    /// * `initial` - Initial parameter guess
-    /// * `bounds` - Optional box constraints for each parameter
-    ///
-    /// # Returns
-    /// Optimal parameter vector that minimizes the objective
-    fn minimize<Obj>(
-        &self,
-        objective: Obj,
-        initial: &[f64],
-        bounds: Option<&[(f64, f64)]>,
-    ) -> Result<Vec<f64>>
-    where
-        Obj: Fn(&[f64]) -> f64;
-}
-
 /// Minimum bound for damping parameter λ.
 ///
 /// Lambda values below this threshold are clamped to prevent numerical instability
@@ -330,6 +304,56 @@ impl LevenbergMarquardtSolver {
     pub fn with_fd_step(mut self, step: f64) -> Self {
         self.fd_step = step;
         self
+    }
+
+    /// Minimize objective function starting from an initial guess.
+    ///
+    /// # Arguments
+    /// * `objective` - Function to minimize, takes a parameter vector and returns a scalar.
+    /// * `initial` - Initial parameter guess.
+    /// * `bounds` - Optional box constraints for each parameter.
+    ///
+    /// # Returns
+    /// Optimal parameter vector that minimizes the objective.
+    pub fn minimize<Obj>(
+        &self,
+        objective: Obj,
+        initial: &[f64],
+        bounds: Option<&[(f64, f64)]>,
+    ) -> Result<Vec<f64>>
+    where
+        Obj: Fn(&[f64]) -> f64,
+    {
+        let residuals_func = |params: &[f64], resid: &mut [f64]| {
+            resid[0] = objective(params);
+        };
+
+        let jacobian_func = |p: &[f64], _r: &[f64], _eval_counter: &mut usize, out: &mut [f64]| {
+            let jac = self.compute_jacobian(&objective, p);
+            out.copy_from_slice(&jac);
+        };
+
+        // Convergence check: Gradient Norm (jac is flat 1×n = gradient)
+        let convergence_check =
+            |_p: &[f64], _r: &[f64], jac: &[f64]| -> Option<LmTerminationReason> {
+                let grad_norm: f64 = jac.iter().map(|g| g * g).sum::<f64>().sqrt();
+                if grad_norm < self.tolerance {
+                    Some(LmTerminationReason::ConvergedGradient)
+                } else {
+                    None
+                }
+            };
+
+        Ok(self
+            .solve_lm_core_with_stats(
+                initial.to_vec(),
+                &residuals_func,
+                jacobian_func,
+                convergence_check,
+                1, // n_residuals
+                bounds,
+            )?
+            .params)
     }
 
     /// Compute Jacobian matrix using finite differences.
@@ -811,49 +835,6 @@ impl LevenbergMarquardtSolver {
             n_residuals,
             None, // bounds
         )
-    }
-}
-
-impl MultiSolver for LevenbergMarquardtSolver {
-    fn minimize<Obj>(
-        &self,
-        objective: Obj,
-        initial: &[f64],
-        bounds: Option<&[(f64, f64)]>,
-    ) -> Result<Vec<f64>>
-    where
-        Obj: Fn(&[f64]) -> f64,
-    {
-        let residuals_func = |params: &[f64], resid: &mut [f64]| {
-            resid[0] = objective(params);
-        };
-
-        let jacobian_func = |p: &[f64], _r: &[f64], _eval_counter: &mut usize, out: &mut [f64]| {
-            let jac = self.compute_jacobian(&objective, p);
-            out.copy_from_slice(&jac);
-        };
-
-        // Convergence check: Gradient Norm (jac is flat 1×n = gradient)
-        let convergence_check =
-            |_p: &[f64], _r: &[f64], jac: &[f64]| -> Option<LmTerminationReason> {
-                let grad_norm: f64 = jac.iter().map(|g| g * g).sum::<f64>().sqrt();
-                if grad_norm < self.tolerance {
-                    Some(LmTerminationReason::ConvergedGradient)
-                } else {
-                    None
-                }
-            };
-
-        Ok(self
-            .solve_lm_core_with_stats(
-                initial.to_vec(),
-                &residuals_func,
-                jacobian_func,
-                convergence_check,
-                1, // n_residuals
-                bounds,
-            )?
-            .params)
     }
 }
 

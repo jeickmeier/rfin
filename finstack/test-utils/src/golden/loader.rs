@@ -3,8 +3,8 @@
 //! This module provides functions for loading golden test suites from
 //! various sources: files, strings, and directories.
 
-use crate::error::Error;
 use crate::golden::types::{GoldenSuite, SuiteMeta};
+use finstack_core::error::Error;
 use serde::de::DeserializeOwned;
 use std::fs;
 use std::path::Path;
@@ -27,7 +27,7 @@ use std::path::Path;
 /// # Example
 ///
 /// ```rust,ignore
-/// use finstack_core::golden::load_suite_from_path;
+/// use finstack_test_utils::golden::load_suite_from_path;
 ///
 /// let suite = load_suite_from_path::<MyTestCase>("tests/golden/data/my_suite.json")?;
 /// for case in &suite.cases {
@@ -104,7 +104,7 @@ where
 /// # Example
 ///
 /// ```rust,ignore
-/// use finstack_core::golden::load_cases_from_dir;
+/// use finstack_test_utils::golden::load_cases_from_dir;
 ///
 /// let cases = load_cases_from_dir::<CdsVector>("tests/golden/cds/", Some("schema"))?;
 /// ```
@@ -241,10 +241,10 @@ pub fn golden_dir(manifest_dir: &str) -> std::path::PathBuf {
 /// # Usage
 ///
 /// ```rust,ignore
-/// use finstack_core::golden_path;
+/// use finstack_test_utils::golden_path;
 ///
 /// let path = golden_path!("data/my_suite.json");
-/// // Expands to: finstack_core::golden::golden_path(env!("CARGO_MANIFEST_DIR"), "data/my_suite.json")
+/// // Expands to: finstack_test_utils::golden::golden_path(env!("CARGO_MANIFEST_DIR"), "data/my_suite.json")
 /// ```
 #[macro_export]
 macro_rules! golden_path {
@@ -258,7 +258,7 @@ macro_rules! golden_path {
 /// # Usage
 ///
 /// ```rust,ignore
-/// use finstack_core::golden_data_dir;
+/// use finstack_test_utils::golden_data_dir;
 ///
 /// let dir = golden_data_dir!();
 /// // Expands to: <crate>/tests/golden/data
@@ -275,7 +275,7 @@ macro_rules! golden_data_dir {
 /// # Usage
 ///
 /// ```rust,ignore
-/// use finstack_core::golden_dir;
+/// use finstack_test_utils::golden_dir;
 ///
 /// let dir = golden_dir!();
 /// // Expands to: <crate>/tests/golden

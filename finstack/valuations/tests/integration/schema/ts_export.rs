@@ -23,6 +23,7 @@ use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote as RatesQuote;
 use finstack_valuations::market::quotes::vol::VolQuote;
 use finstack_valuations::market::quotes::xccy::XccyQuote;
+use std::fs;
 use std::sync::OnceLock;
 use ts_rs::TS;
 
@@ -38,6 +39,26 @@ fn config() -> &'static ts_rs::Config {
         std::fs::create_dir_all(OUT_DIR).expect("create generated types dir");
         ts_rs::Config::new().with_out_dir(OUT_DIR)
     })
+}
+
+fn normalize_generated_types() {
+    for entry in fs::read_dir(OUT_DIR).expect("read generated types dir") {
+        let path = entry.expect("read generated type entry").path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("ts") {
+            continue;
+        }
+
+        let contents = fs::read_to_string(&path).expect("read generated type");
+        let normalized = contents
+            .lines()
+            .map(str::trim_end)
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+        if normalized != contents {
+            fs::write(&path, normalized).expect("write normalized generated type");
+        }
+    }
 }
 
 #[test]
@@ -58,6 +79,7 @@ fn export_calibration_types() {
     InflationQuote::export(cfg).expect("export InflationQuote");
     XccyQuote::export(cfg).expect("export XccyQuote");
     MarketQuote::export(cfg).expect("export MarketQuote");
+    normalize_generated_types();
 }
 
 #[test]
@@ -108,4 +130,5 @@ fn export_calibration_envelope_types() {
     CalibrationReport::export(cfg).expect("export CalibrationReport");
     CalibrationDiagnostics::export(cfg).expect("export CalibrationDiagnostics");
     QuoteQuality::export(cfg).expect("export QuoteQuality");
+    normalize_generated_types();
 }

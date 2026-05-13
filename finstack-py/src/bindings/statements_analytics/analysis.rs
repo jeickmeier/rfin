@@ -33,13 +33,19 @@ use pyo3::types::{PyDict, PyList};
 /// str
 ///     JSON-serialized ``SensitivityResult``.
 #[pyfunction]
-fn run_sensitivity(model: &Bound<'_, PyAny>, config_json: &str) -> PyResult<String> {
-    let model = extract_model_ref(model)?;
+fn run_sensitivity(
+    py: Python<'_>,
+    model: &Bound<'_, PyAny>,
+    config_json: &str,
+) -> PyResult<String> {
+    let model = extract_model_ref(model)?.into_owned();
     let config: finstack_statements_analytics::analysis::SensitivityConfig =
         serde_json::from_str(config_json).map_err(display_to_py)?;
-    let analyzer = finstack_statements_analytics::analysis::SensitivityAnalyzer::new(&model);
-    let result = analyzer.run(&config).map_err(display_to_py)?;
-    serde_json::to_string(&result).map_err(display_to_py)
+    py.detach(move || {
+        let analyzer = finstack_statements_analytics::analysis::SensitivityAnalyzer::new(&model);
+        let result = analyzer.run(&config).map_err(display_to_py)?;
+        serde_json::to_string(&result).map_err(display_to_py)
+    })
 }
 
 /// Generate tornado chart entries for a sensitivity result (JSON in/out).
@@ -93,18 +99,21 @@ fn generate_tornado_entries(
 ///     JSON-serialized ``VarianceConfig``.
 #[pyfunction]
 fn run_variance(
+    py: Python<'_>,
     base: &Bound<'_, PyAny>,
     comparison: &Bound<'_, PyAny>,
     config_json: &str,
 ) -> PyResult<String> {
-    let base = extract_results_ref(base)?;
-    let comparison = extract_results_ref(comparison)?;
+    let base = extract_results_ref(base)?.into_owned();
+    let comparison = extract_results_ref(comparison)?.into_owned();
     let config: finstack_statements_analytics::analysis::VarianceConfig =
         serde_json::from_str(config_json).map_err(display_to_py)?;
-    let analyzer =
-        finstack_statements_analytics::analysis::VarianceAnalyzer::new(&base, &comparison);
-    let report = analyzer.compute(&config).map_err(display_to_py)?;
-    serde_json::to_string(&report).map_err(display_to_py)
+    py.detach(move || {
+        let analyzer =
+            finstack_statements_analytics::analysis::VarianceAnalyzer::new(&base, &comparison);
+        let report = analyzer.compute(&config).map_err(display_to_py)?;
+        serde_json::to_string(&report).map_err(display_to_py)
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -125,14 +134,20 @@ fn run_variance(
 /// str
 ///     JSON object mapping scenario name to its ``StatementResult`` JSON.
 #[pyfunction]
-fn evaluate_scenario_set(model: &Bound<'_, PyAny>, scenario_set_json: &str) -> PyResult<String> {
-    let model = extract_model_ref(model)?;
+fn evaluate_scenario_set(
+    py: Python<'_>,
+    model: &Bound<'_, PyAny>,
+    scenario_set_json: &str,
+) -> PyResult<String> {
+    let model = extract_model_ref(model)?.into_owned();
     let scenario_set: finstack_statements_analytics::analysis::ScenarioSet =
         serde_json::from_str(scenario_set_json).map_err(display_to_py)?;
-    let results = scenario_set.evaluate_all(&model).map_err(display_to_py)?;
-    let map: indexmap::IndexMap<&String, &finstack_statements::evaluator::StatementResult> =
-        results.scenarios.iter().collect();
-    serde_json::to_string(&map).map_err(display_to_py)
+    py.detach(move || {
+        let results = scenario_set.evaluate_all(&model).map_err(display_to_py)?;
+        let map: indexmap::IndexMap<&String, &finstack_statements::evaluator::StatementResult> =
+            results.scenarios.iter().collect();
+        serde_json::to_string(&map).map_err(display_to_py)
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -154,15 +169,21 @@ fn evaluate_scenario_set(model: &Bound<'_, PyAny>, scenario_set_json: &str) -> P
 /// str
 ///     JSON-serialized ``MonteCarloResults``.
 #[pyfunction]
-fn run_monte_carlo(model: &Bound<'_, PyAny>, config_json: &str) -> PyResult<String> {
-    let model = extract_model_ref(model)?;
+fn run_monte_carlo(
+    py: Python<'_>,
+    model: &Bound<'_, PyAny>,
+    config_json: &str,
+) -> PyResult<String> {
+    let model = extract_model_ref(model)?.into_owned();
     let config: finstack_statements::evaluator::MonteCarloConfig =
         serde_json::from_str(config_json).map_err(display_to_py)?;
-    let mut evaluator = finstack_statements::evaluator::Evaluator::new();
-    let results = evaluator
-        .evaluate_monte_carlo(&model, &config)
-        .map_err(display_to_py)?;
-    serde_json::to_string(&results).map_err(display_to_py)
+    py.detach(move || {
+        let mut evaluator = finstack_statements::evaluator::Evaluator::new();
+        let results = evaluator
+            .evaluate_monte_carlo(&model, &config)
+            .map_err(display_to_py)?;
+        serde_json::to_string(&results).map_err(display_to_py)
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -219,6 +240,7 @@ fn backtest_forecast<'py>(
 #[pyo3(signature = (model, target_node, target_period, target_value, driver_node, driver_period, update_model=true, bounds=None))]
 #[allow(clippy::too_many_arguments)]
 fn goal_seek(
+    py: Python<'_>,
     model: &Bound<'_, PyAny>,
     target_node: &str,
     target_period: &str,
@@ -231,25 +253,29 @@ fn goal_seek(
     let mut model = extract_model_ref(model)?.into_owned();
     let tp: finstack_core::dates::PeriodId = target_period.parse().map_err(display_to_py)?;
     let dp: finstack_core::dates::PeriodId = driver_period.parse().map_err(display_to_py)?;
+    let target_node = target_node.to_owned();
+    let driver_node = driver_node.to_owned();
 
-    let result = finstack_statements_analytics::analysis::goal_seek(
-        &mut model,
-        target_node,
-        tp,
-        target_value,
-        driver_node,
-        dp,
-        update_model,
-        bounds,
-    )
-    .map_err(display_to_py)?;
+    py.detach(move || {
+        let result = finstack_statements_analytics::analysis::goal_seek(
+            &mut model,
+            &target_node,
+            tp,
+            target_value,
+            &driver_node,
+            dp,
+            update_model,
+            bounds,
+        )
+        .map_err(display_to_py)?;
 
-    let updated_json = if update_model {
-        serde_json::to_string(&model).map_err(display_to_py)?
-    } else {
-        String::new()
-    };
-    Ok((result, updated_json))
+        let updated_json = if update_model {
+            serde_json::to_string(&model).map_err(display_to_py)?
+        } else {
+            String::new()
+        };
+        Ok((result, updated_json))
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -318,9 +344,10 @@ fn evaluate_dcf<'py>(
 ) -> PyResult<Bound<'py, PyDict>> {
     use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
 
-    let model = extract_model_ref(model)?;
+    let model = extract_model_ref(model)?.into_owned();
     let terminal_value: TerminalValueSpec =
         serde_json::from_str(terminal_value_json).map_err(display_to_py)?;
+    let ufcf_node = ufcf_node.to_owned();
 
     let equity_bridge = equity_bridge_json
         .map(|j| serde_json::from_str(j).map_err(display_to_py))
@@ -339,16 +366,19 @@ fn evaluate_dcf<'py>(
 
     let market = extract_market_opt(market)?;
 
-    let result = finstack_statements_analytics::analysis::evaluate_dcf_with_market(
-        &model,
-        wacc,
-        terminal_value,
-        ufcf_node,
-        net_debt_override,
-        &options,
-        market.as_ref(),
-    )
-    .map_err(display_to_py)?;
+    let result = py
+        .detach(move || {
+            finstack_statements_analytics::analysis::evaluate_dcf_with_market(
+                &model,
+                wacc,
+                terminal_value,
+                &ufcf_node,
+                net_debt_override,
+                &options,
+                market.as_ref(),
+            )
+        })
+        .map_err(display_to_py)?;
 
     let dict = PyDict::new(py);
     dict.set_item("equity_value", result.equity_value.amount())?;
@@ -420,9 +450,10 @@ fn run_corporate_analysis<'py>(
     use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
 
     let model = extract_model_ref(model)?.into_owned();
+    let coverage_node = coverage_node.to_owned();
 
     let mut builder = finstack_statements_analytics::analysis::CorporateAnalysisBuilder::new(model)
-        .coverage_node(coverage_node);
+        .coverage_node(&coverage_node);
 
     if let Some(w) = wacc {
         let tv_json = terminal_value_json.ok_or_else(|| {
@@ -445,7 +476,9 @@ fn run_corporate_analysis<'py>(
         builder = builder.as_of(date);
     }
 
-    let analysis = builder.analyze().map_err(display_to_py)?;
+    let analysis = py
+        .detach(move || builder.analyze())
+        .map_err(display_to_py)?;
 
     let dict = PyDict::new(py);
 

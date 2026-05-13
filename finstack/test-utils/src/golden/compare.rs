@@ -3,9 +3,9 @@
 //! This module provides assertion helpers that produce actionable error
 //! messages including case identifiers, metric labels, and provenance.
 
-use crate::error::Error;
 use crate::golden::types::{Expectation, ExpectedValue, SuiteMeta, Tolerance};
-use crate::money::Money;
+use finstack_core::error::Error;
+use finstack_core::money::Money;
 use std::collections::HashMap;
 
 // =============================================================================
@@ -445,7 +445,7 @@ where
 /// # Usage
 ///
 /// ```rust,ignore
-/// use finstack_core::golden_assert;
+/// use finstack_test_utils::golden_assert;
 ///
 /// golden_assert!(assert_abs("suite", "case", "metric", actual, expected, 0.01));
 /// ```
@@ -463,7 +463,7 @@ macro_rules! golden_assert {
 /// # Usage
 ///
 /// ```rust,ignore
-/// use finstack_core::golden_check;
+/// use finstack_test_utils::golden_check;
 ///
 /// let mut errors = Vec::new();
 /// golden_check!(errors, assert_abs("suite", "case", "metric1", a1, e1, 0.01));
@@ -490,7 +490,7 @@ macro_rules! golden_check {
 /// # Example
 ///
 /// ```rust,ignore
-/// use finstack_core::golden::GoldenAssert;
+/// use finstack_test_utils::golden::GoldenAssert;
 ///
 /// let assert = GoldenAssert::new(&suite.meta, "case_123");
 /// assert.abs("price", actual_price, 100.0, 0.01)?;
@@ -686,8 +686,8 @@ mod tests {
             "suite",
             "case",
             "money",
-            Money::new(100.0, crate::currency::Currency::USD),
-            Money::new(100.0, crate::currency::Currency::JPY),
+            Money::new(100.0, finstack_core::currency::Currency::USD),
+            Money::new(100.0, finstack_core::currency::Currency::JPY),
             0.0,
         );
 
@@ -811,8 +811,8 @@ mod tests {
         assert!(ga
             .money(
                 "pv",
-                Money::new(10.0, crate::currency::Currency::USD),
-                Money::new(10.0, crate::currency::Currency::USD),
+                Money::new(10.0, finstack_core::currency::Currency::USD),
+                Money::new(10.0, finstack_core::currency::Currency::USD),
                 0.01,
             )
             .is_ok());

@@ -212,7 +212,7 @@ impl BracketHint {
 ///
 /// - [`NewtonSolver`] for fast convergence with smooth functions
 /// - [`BrentSolver`] for robust convergence with bracketing
-/// - [`crate::math::solver_multi::MultiSolver`] for multi-dimensional problems
+/// - [`crate::math::solver_multi::LevenbergMarquardtSolver`] for multi-dimensional problems
 pub trait Solver: Send + Sync {
     /// Solve the equation `f(x) = 0` for `x`.
     ///

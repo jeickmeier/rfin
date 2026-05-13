@@ -1,0 +1,14 @@
+[package]
+name = "finstack-test-utils"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+finstack-core = { path = "../core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { version = "0.1", default-features = false }

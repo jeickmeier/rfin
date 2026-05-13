@@ -13,7 +13,31 @@ use super::super::test_helpers::{sample_base_date, sample_discount_curve};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
+use proptest::prelude::*;
 use time::Month;
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(96))]
+
+    #[test]
+    fn positive_flat_rate_discount_curve_interpolates_inside_no_arbitrage_bounds(
+        annual_rate in 0.0_f64..0.25,
+        t in 0.0_f64..3.0,
+    ) {
+        let df = |time: f64| (-annual_rate * time).exp();
+        let curve = DiscountCurve::builder("PROP-FLAT")
+            .base_date(sample_base_date())
+            .knots([(0.0, 1.0), (1.0, df(1.0)), (2.0, df(2.0)), (3.0, df(3.0))])
+            .interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+
+        let interpolated = curve.df(t);
+        prop_assert!(interpolated.is_finite());
+        prop_assert!(interpolated > 0.0);
+        prop_assert!(interpolated <= 1.0 + 1e-12);
+    }
+}
 
 // =============================================================================
 // Builder Validation Tests

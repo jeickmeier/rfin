@@ -19,6 +19,7 @@ members = [
     "finstack/valuations/macros",
     "finstack/portfolio",
     "finstack/scenarios",
+    "finstack/test-utils",
     "finstack-py",
     "finstack-wasm",
     "finstack"

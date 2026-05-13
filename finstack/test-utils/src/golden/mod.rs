@@ -53,8 +53,8 @@
 //! ## Loading fixtures
 //!
 //! ```rust,ignore
-//! use finstack_core::golden::{load_suite_from_path, is_suite_ready};
-//! use finstack_core::golden_path;
+//! use finstack_test_utils::golden::{load_suite_from_path, is_suite_ready};
+//! use finstack_test_utils::golden_path;
 //!
 //! // Load from file
 //! let path = golden_path!("data/my_suite.json");
@@ -73,8 +73,8 @@
 //! ## Making assertions
 //!
 //! ```rust,ignore
-//! use finstack_core::golden::{GoldenAssert, assert_abs, Tolerance};
-//! use finstack_core::golden_assert;
+//! use finstack_test_utils::golden::{GoldenAssert, assert_abs, Tolerance};
+//! use finstack_test_utils::golden_assert;
 //!
 //! // Simple assertion
 //! golden_assert!(assert_abs("suite", "case", "price", actual, expected, 0.01));
@@ -89,7 +89,7 @@
 //! ## Path macros
 //!
 //! ```rust,ignore
-//! use finstack_core::{golden_path, golden_data_dir, golden_dir};
+//! use finstack_test_utils::{golden_path, golden_data_dir, golden_dir};
 //!
 //! // Get paths relative to calling crate's CARGO_MANIFEST_DIR
 //! let path = golden_path!("data/my_suite.json");  // <crate>/tests/golden/data/my_suite.json

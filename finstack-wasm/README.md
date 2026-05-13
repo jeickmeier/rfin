@@ -32,6 +32,15 @@ while the Rust binding implementations live under `src/api/`.
   portfolio, scenarios, statements, statements analytics, and valuations.
 - `pkg/` and `pkg-node/`: generated web and Node.js build output.
 
+## Type Declaration Strategy
+
+`wasm-bindgen` emits raw declarations under `pkg/`, but those declarations are a
+flat implementation artifact and do not describe the package-level namespaced
+facade exported from `index.js`. The published root type contract is therefore
+the hand-maintained `index.d.ts`, supported by contract tests. Generated
+`types/generated/*` files are used only for JSON envelope shapes where Rust can
+own the schema directly.
+
 ## Quick Start
 
 ```javascript
@@ -89,10 +98,25 @@ Python package in `finstack-py`. The bindings are maintained as thin
 conversion-oriented wrappers, so the canonical product structure still lives in
 the Rust crates.
 
-For analytics specifically, the WASM surface is intentionally pure-function
-oriented today. It does not expose the stateful Rust `Performance` panel API;
-use the Python bindings for that facade, or compose the standalone analytics
-functions directly in JS/TS.
+For analytics specifically, the WASM surface exposes the stateful
+`analytics.Performance` panel API plus the documented namespace functions in
+`index.d.ts`.
+
+## WASM Object Disposal
+
+Most functions return plain JavaScript values and need no manual cleanup.
+Classes that expose `free()` own WebAssembly heap memory and should be disposed
+when a long-lived handle is no longer needed:
+
+- `analytics.Performance`
+- `valuations.CreditFactorModel`
+- `valuations.CreditCalibrator`
+- `valuations.LevelsAtDate`
+- `valuations.PeriodDecomposition`
+- `valuations.FactorCovarianceForecast`
+- `portfolio.Portfolio`
+
+Do not use an object after calling `free()`.
 
 ## License
 

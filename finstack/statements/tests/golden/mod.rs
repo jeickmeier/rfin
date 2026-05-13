@@ -7,7 +7,7 @@
 //!
 //! # Framework
 //!
-//! Tests use the unified `finstack_core::golden` framework for consistency.
+//! Tests use the unified `finstack_test_utils::golden` framework for consistency.
 //!
 //! # Suites
 //!
@@ -21,7 +21,7 @@ mod golden_tests;
 
 // Re-export core golden types for use in tests
 #[allow(unused_imports)]
-pub use finstack_core::golden::{
+pub use finstack_test_utils::golden::{
     assert_abs, assert_expected_value, load_suite_from_path, load_suite_from_str, Expectation,
     ExpectedValue, GoldenAssert, GoldenSuite, SuiteMeta, Tolerance,
 };

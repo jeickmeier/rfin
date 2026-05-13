@@ -1,7 +1,7 @@
 //! Golden tests for portfolio calculations.
 //!
 //! This module validates portfolio attribution and valuation calculations
-//! using the `finstack_core::golden` framework.
+//! using the `finstack_test_utils::golden` framework.
 //!
 //! # Approach
 //!
@@ -16,6 +16,6 @@ mod attribution_tests;
 
 // Re-export core golden types
 #[allow(unused_imports)]
-pub use finstack_core::golden::{
+pub use finstack_test_utils::golden::{
     assert_range, load_suite_from_path, Expectation, GoldenAssert, GoldenSuite, SuiteMeta,
 };

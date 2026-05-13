@@ -19,9 +19,10 @@
 use super::common::DAYCOUNT_TOLERANCE;
 use finstack_core::dates::calendar::TARGET2;
 use finstack_core::dates::{
-    act_act_isma_year_fraction_with_reference_period, Date, DayCount, DayCountContext, Tenor,
-    TenorUnit,
+    act_act_isma_year_fraction_with_reference_period, Date, DayCount, DayCountContext, Duration,
+    Tenor, TenorUnit,
 };
+use proptest::prelude::*;
 use time::Month;
 
 fn make_date(y: i32, m: u8, d: u8) -> Date {
@@ -34,6 +35,32 @@ fn d(year: i32, month: u8, day: u8) -> Date {
 }
 
 const TOL: f64 = DAYCOUNT_TOLERANCE;
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(128))]
+
+    #[test]
+    fn actual_daycounts_are_non_negative_and_additive(
+        start_offset in 0_i64..10_000,
+        first_span in 0_i64..2_000,
+        second_span in 0_i64..2_000,
+    ) {
+        let start = d(1990, 1, 1) + Duration::days(start_offset);
+        let middle = start + Duration::days(first_span);
+        let end = middle + Duration::days(second_span);
+        let ctx = DayCountContext::default();
+
+        for day_count in [DayCount::Act360, DayCount::Act365F] {
+            let first = day_count.year_fraction(start, middle, ctx).unwrap();
+            let second = day_count.year_fraction(middle, end, ctx).unwrap();
+            let total = day_count.year_fraction(start, end, ctx).unwrap();
+
+            prop_assert!(first >= 0.0);
+            prop_assert!(second >= 0.0);
+            prop_assert!((first + second - total).abs() < TOL);
+        }
+    }
+}
 
 // =============================================================================
 // 30/360 US (Bond Basis) - ISDA 2006 Section 4.16(f)

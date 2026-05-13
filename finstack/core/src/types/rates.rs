@@ -329,14 +329,6 @@ impl Mul<f64> for Rate {
     }
 }
 
-impl Div<f64> for Rate {
-    type Output = Self;
-
-    fn div(self, rhs: f64) -> Self::Output {
-        Self::from_decimal(self.0 / rhs)
-    }
-}
-
 impl Neg for Rate {
     type Output = Self;
 
@@ -753,14 +745,6 @@ impl Mul<f64> for Percentage {
     }
 }
 
-impl Div<f64> for Percentage {
-    type Output = Self;
-
-    fn div(self, rhs: f64) -> Self::Output {
-        Self::new(self.0 / rhs)
-    }
-}
-
 impl Neg for Percentage {
     type Output = Self;
 
@@ -844,7 +828,7 @@ mod tests {
         let expected_mul = Rate::from_percent(4.0);
         assert!((result_mul.as_decimal() - expected_mul.as_decimal()).abs() < eps);
 
-        let result_div = rate1 / 2.0;
+        let result_div = rate1.checked_div(2.0).unwrap();
         let expected_div = Rate::from_percent(1.0);
         assert!((result_div.as_decimal() - expected_div.as_decimal()).abs() < eps);
 
@@ -889,7 +873,7 @@ mod tests {
         assert_eq!(pct1 + pct2, Percentage::new(15.0));
         assert_eq!(pct1 - pct2, Percentage::new(5.0));
         assert_eq!(pct1 * 2.0, Percentage::new(20.0));
-        assert_eq!(pct1 / 2.0, Percentage::new(5.0));
+        assert_eq!(pct1.checked_div(2.0).unwrap(), Percentage::new(5.0));
         assert_eq!(-pct1, Percentage::new(-10.0));
     }
 

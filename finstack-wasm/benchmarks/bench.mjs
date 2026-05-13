@@ -573,7 +573,7 @@ async function main() {
   const benchRf = returns.map(() => 0.0001);
   const benchBm = returns.map((x) => x * 0.95);
   const benchDates = benchReturns.map((_, i) =>
-    new Date(Date.UTC(2025, 0, 1 + i)).toISOString().slice(0, 10),
+    new Date(Date.UTC(2025, 0, 1 + i)).toISOString().slice(0, 10)
   );
   let ddSeries = benchReturns;
   try {

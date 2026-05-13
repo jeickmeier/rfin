@@ -165,6 +165,18 @@ fn portfolio_cashflow_api_uses_full_cashflow_name_everywhere() {
 }
 
 #[test]
+fn package_dts_documents_hand_facade_over_raw_wasm_bindgen_types() {
+    let dts = index_dts();
+
+    assert!(dts.contains("not the package root contract"));
+    assert!(dts.contains("export declare const core: CoreNamespace;"));
+    assert!(dts.contains("export declare const analytics: AnalyticsNamespace;"));
+    assert!(dts.contains("export declare const valuations: ValuationsNamespace;"));
+    assert!(dts.contains("export declare const portfolio: PortfolioNamespace;"));
+    assert!(dts.contains("generated `types/generated/*` files"));
+}
+
+#[test]
 fn portfolio_dts_exposes_reference_price_for_almgren_chriss() {
     let dts = index_dts();
 
@@ -181,6 +193,39 @@ fn core_daycount_dts_exposes_context_for_context_dependent_conventions() {
         "yearFractionWithContext(startEpochDays: number, endEpochDays: number, ctx: DayCountContext): number;",
     ));
     assert!(dts.contains("DayCountContext: DayCountContextConstructor;"));
+}
+
+#[test]
+fn dts_documents_wasm_owned_handles_and_free_contract() {
+    let dts = index_dts();
+
+    assert!(
+        dts.contains("WASM ownership: classes with a `free(): void` method own wasm heap memory.")
+    );
+
+    for class_name in [
+        "Performance",
+        "CreditFactorModel",
+        "CreditCalibrator",
+        "LevelsAtDate",
+        "PeriodDecomposition",
+        "FactorCovarianceForecast",
+        "Portfolio",
+    ] {
+        let class_start = dts
+            .find(&format!("export declare class {class_name} {{"))
+            .unwrap_or_else(|| panic!("{class_name} class declaration missing"));
+        let class_body = &dts[class_start..];
+        let free_pos = class_body
+            .find("free(): void;")
+            .unwrap_or_else(|| panic!("{class_name}.free() declaration missing"));
+        let before_free = &class_body[..free_pos];
+
+        assert!(
+            before_free.contains("Release the underlying wasm heap allocation"),
+            "{class_name}.free() must document disposal semantics"
+        );
+    }
 }
 
 #[test]

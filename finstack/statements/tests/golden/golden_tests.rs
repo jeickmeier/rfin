@@ -5,12 +5,12 @@
 //!
 //! # Framework
 //!
-//! Uses `finstack_core::golden` for consistent assertion helpers.
+//! Uses `finstack_test_utils::golden` for consistent assertion helpers.
 
 use finstack_core::dates::PeriodId;
-use finstack_core::golden::{GoldenAssert, SuiteMeta};
 use finstack_statements::evaluator::Evaluator;
 use finstack_statements::types::FinancialModelSpec;
+use finstack_test_utils::golden::{GoldenAssert, SuiteMeta};
 use indexmap::IndexMap;
 
 /// Tolerance for floating-point comparisons in golden tests.

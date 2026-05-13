@@ -9,8 +9,7 @@ use std::sync::Arc;
 use crate::collections::HashMap;
 use crate::types::CurveId;
 
-use super::curve_storage::CurveStorage;
-use super::MarketContext;
+use super::{CurveStorage, MarketContext};
 
 use crate::market_data::{
     dividends::DividendSchedule,
@@ -88,7 +87,7 @@ macro_rules! define_curve_state {
     };
 }
 
-super::curve_storage::for_each_context_curve!(define_curve_state);
+super::for_each_context_curve!(define_curve_state);
 
 impl serde::Serialize for CurveStorage {
     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>

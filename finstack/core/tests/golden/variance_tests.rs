@@ -3,9 +3,9 @@
 //! These tests load expected values from `data/realized_variance.json` and
 //! compare against computed results from the `finstack_core::math::stats` module.
 
-use finstack_core::golden::{load_suite_from_path, ExpectedValue, GoldenAssert};
-use finstack_core::golden_path;
 use finstack_core::math::stats::{realized_variance_ohlc, RealizedVarMethod};
+use finstack_test_utils::golden::{load_suite_from_path, ExpectedValue, GoldenAssert};
+use finstack_test_utils::golden_path;
 use serde::Deserialize;
 
 /// Input data for variance tests.

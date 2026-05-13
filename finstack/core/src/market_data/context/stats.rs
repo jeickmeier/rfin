@@ -9,8 +9,7 @@ use std::sync::Arc;
 
 use crate::types::CurveId;
 
-use super::curve_storage::CurveStorage;
-use super::MarketContext;
+use super::{CurveStorage, MarketContext};
 
 use crate::market_data::{
     dividends::DividendSchedule,

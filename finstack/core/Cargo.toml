@@ -49,6 +49,8 @@ serde_json = { workspace = true }
 [dev-dependencies]
 serde_json = { workspace = true }
 criterion = { workspace = true }
+proptest = "1.11.0"
+finstack-test-utils = { path = "../test-utils" }
 
 [[bench]]
 name = "money_operations"

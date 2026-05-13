@@ -17,7 +17,7 @@
 //! - ICMA (2010). "ICMA Rule Book." Rule 251.
 
 use finstack_core::dates::{Date, DayCount, DayCountContext, Tenor};
-use finstack_core::golden::{load_suite_from_path, GoldenSuite};
+use finstack_test_utils::golden::{load_suite_from_path, GoldenSuite};
 use serde::Deserialize;
 use time::Month;
 

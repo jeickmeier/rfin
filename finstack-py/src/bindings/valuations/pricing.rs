@@ -26,16 +26,27 @@ use pyo3::prelude::*;
 #[pyfunction]
 #[pyo3(signature = (instrument_json, market, as_of, model="default"))]
 fn price_instrument(
+    py: Python<'_>,
     instrument_json: &str,
     market: &Bound<'_, PyAny>,
     as_of: &str,
     model: &str,
 ) -> PyResult<String> {
     let market = extract_market(market)?;
-    let result =
-        finstack_valuations::pricer::price_instrument_json(instrument_json, &market, as_of, model)
-            .map_err(display_to_py)?;
-    serde_json::to_string(&result).map_err(display_to_py)
+    let instrument_json = instrument_json.to_owned();
+    let as_of = as_of.to_owned();
+    let model = model.to_owned();
+
+    py.detach(move || {
+        let result = finstack_valuations::pricer::price_instrument_json(
+            &instrument_json,
+            &market,
+            &as_of,
+            &model,
+        )
+        .map_err(display_to_py)?;
+        serde_json::to_string(&result).map_err(display_to_py)
+    })
 }
 
 /// Price an instrument with explicit metric requests.
@@ -69,6 +80,7 @@ fn price_instrument(
 #[pyfunction]
 #[pyo3(signature = (instrument_json, market, as_of, model="default", metrics=vec![], pricing_options=None, market_history=None))]
 fn price_instrument_with_metrics(
+    py: Python<'_>,
     instrument_json: &str,
     market: &Bound<'_, PyAny>,
     as_of: &str,
@@ -78,17 +90,25 @@ fn price_instrument_with_metrics(
     market_history: Option<&str>,
 ) -> PyResult<String> {
     let market = extract_market(market)?;
-    let result = finstack_valuations::pricer::price_instrument_json_with_metrics_and_history(
-        instrument_json,
-        &market,
-        as_of,
-        model,
-        &metrics,
-        pricing_options,
-        market_history,
-    )
-    .map_err(display_to_py)?;
-    serde_json::to_string(&result).map_err(display_to_py)
+    let instrument_json = instrument_json.to_owned();
+    let as_of = as_of.to_owned();
+    let model = model.to_owned();
+    let pricing_options = pricing_options.map(str::to_owned);
+    let market_history = market_history.map(str::to_owned);
+
+    py.detach(move || {
+        let result = finstack_valuations::pricer::price_instrument_json_with_metrics_and_history(
+            &instrument_json,
+            &market,
+            &as_of,
+            &model,
+            &metrics,
+            pricing_options.as_deref(),
+            market_history.as_deref(),
+        )
+        .map_err(display_to_py)?;
+        serde_json::to_string(&result).map_err(display_to_py)
+    })
 }
 
 /// List all metric IDs in the standard metric registry.
@@ -158,19 +178,26 @@ fn list_standard_metrics_grouped() -> std::collections::HashMap<String, Vec<Stri
 #[pyfunction]
 #[pyo3(signature = (instrument_json, market, as_of, model="discounting"))]
 fn instrument_cashflows_json(
+    py: Python<'_>,
     instrument_json: &str,
     market: &Bound<'_, PyAny>,
     as_of: &str,
     model: &str,
 ) -> PyResult<String> {
     let market = extract_market(market)?;
-    finstack_valuations::instruments::cashflow_export::instrument_cashflows_json(
-        instrument_json,
-        &market,
-        as_of,
-        model,
-    )
-    .map_err(display_to_py)
+    let instrument_json = instrument_json.to_owned();
+    let as_of = as_of.to_owned();
+    let model = model.to_owned();
+
+    py.detach(move || {
+        finstack_valuations::instruments::cashflow_export::instrument_cashflows_json(
+            &instrument_json,
+            &market,
+            &as_of,
+            &model,
+        )
+        .map_err(display_to_py)
+    })
 }
 
 /// Register pricing functions on the valuations submodule.

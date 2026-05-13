@@ -3,8 +3,8 @@
 //! Tests parallel and tenor point shocks on discount curves using
 //! the unified golden framework.
 
-use finstack_core::golden::{load_suite_from_path, Expectation, ExpectedValue, GoldenAssert};
-use finstack_core::golden_path;
+use finstack_test_utils::golden::{load_suite_from_path, Expectation, ExpectedValue, GoldenAssert};
+use finstack_test_utils::golden_path;
 use serde::Deserialize;
 
 /// Input curve specification.
@@ -104,7 +104,7 @@ fn test_curve_shock_golden() {
                 max: range.max,
                 notes: None,
             };
-            use finstack_core::golden::assert_expected_f64;
+            use finstack_test_utils::golden::assert_expected_f64;
             assert_expected_f64(
                 &suite.meta.suite_id,
                 &case.id,

@@ -142,7 +142,7 @@ pub use random::{box_muller_transform, Pcg64Rng, RandomNumberGenerator};
 pub use compounding::Compounding;
 pub use consecutive::count_consecutive;
 pub use solver::{BracketHint, BrentSolver, NewtonSolver, Solver};
-pub use solver_multi::{AnalyticalDerivatives, LevenbergMarquardtSolver, MultiSolver};
+pub use solver_multi::{AnalyticalDerivatives, LevenbergMarquardtSolver};
 pub use special_functions::{
     erf, ln_gamma, norm_cdf, norm_pdf, standard_normal_inv_cdf, student_t_cdf, student_t_inv_cdf,
 };

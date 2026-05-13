@@ -1,5 +1,9 @@
 // Type declarations for the finstack-wasm namespaced facade.
 // Shapes follow `wasm-bindgen` JS names in `src/api/**` (see Rust `js_name`).
+// The raw `pkg/finstack_wasm.d.ts` emitted by wasm-bindgen is intentionally
+// not the package root contract: it exposes a flat module, while `index.js`
+// publishes a namespaced facade. Keep this file as the facade declaration and
+// use generated `types/generated/*` files only for JSON envelope shapes.
 //
 // Building a MarketContext from quotes (canonical path):
 //
@@ -29,6 +33,11 @@
 //   - name: 'CalibrationEnvelopeError'
 //   - cause: structured EnvelopeError payload (object with `kind` etc.)
 // Standard try/catch exposes both via `e.name` and `e.cause`.
+//
+// WASM ownership: classes with a `free(): void` method own wasm heap memory.
+// Call `free()` when a long-lived handle is no longer needed, especially for
+// `Performance`, credit factor hierarchy handles, and `Portfolio`. Plain JSON
+// result objects, arrays, and namespace functions do not need manual disposal.
 
 export { default } from './pkg/finstack_wasm';
 
@@ -535,6 +544,7 @@ export declare class Performance {
     aggFreq?: string,
     fiscalYearStartMonth?: number
   ): PeriodStats;
+  /** Release the underlying wasm heap allocation. Do not use this handle after calling `free()`. */
   free(): void;
 }
 
@@ -567,6 +577,7 @@ export declare class CreditFactorModel {
   static fromJson(s: string): CreditFactorModel;
   /** Serialize to pretty-printed JSON. */
   toJson(): string;
+  /** Release the underlying wasm heap allocation. Do not use this handle after calling `free()`. */
   free(): void;
 }
 
@@ -580,6 +591,7 @@ export declare class CreditCalibrator {
   constructor(configJson: string);
   /** Run the calibration pipeline and return a `CreditFactorModel`. */
   calibrate(inputsJson: string): CreditFactorModel;
+  /** Release the underlying wasm heap allocation. Do not use this handle after calling `free()`. */
   free(): void;
 }
 
@@ -593,6 +605,7 @@ export declare class LevelsAtDate {
   private constructor();
   /** Serialize the snapshot to pretty-printed JSON. */
   toJson(): string;
+  /** Release the underlying wasm heap allocation. Do not use this handle after calling `free()`. */
   free(): void;
 }
 
@@ -605,6 +618,7 @@ export declare class PeriodDecomposition {
   private constructor();
   /** Serialize the decomposition to pretty-printed JSON. */
   toJson(): string;
+  /** Release the underlying wasm heap allocation. Do not use this handle after calling `free()`. */
   free(): void;
 }
 
@@ -633,6 +647,7 @@ export declare class FactorCovarianceForecast {
    * risk measure.
    */
   factorModelAt(horizonJson: string, riskMeasureJson: string): string;
+  /** Release the underlying wasm heap allocation. Do not use this handle after calling `free()`. */
   free(): void;
 }
 
@@ -1609,6 +1624,7 @@ export declare class Portfolio {
   readonly baseCcy: string;
   numPositions(): number;
   toSpecJson(): string;
+  /** Release the underlying wasm heap allocation. Do not use this handle after calling `free()`. */
   free(): void;
 }
 

@@ -1,6 +1,7 @@
 //! Additional tests for rate types and conversions
 
 use finstack_core::types::{Bps, Percentage, Rate};
+use proptest::prelude::*;
 use std::panic::catch_unwind;
 
 #[test]
@@ -34,8 +35,8 @@ fn rate_arithmetic_operations() {
     let doubled = r1 * 2.0;
     assert!((doubled.as_percent() - 6.0).abs() < 1e-10);
 
-    // Division
-    let halved = r1 / 2.0;
+    // Fallible division rejects zero and non-finite results.
+    let halved = r1.checked_div(2.0).unwrap();
     assert!((halved.as_percent() - 1.5).abs() < 1e-10);
 
     // Negation
@@ -175,7 +176,7 @@ fn percentage_arithmetic_operations() {
     assert_eq!(p1 + p2, Percentage::new(15.0));
     assert_eq!(p1 - p2, Percentage::new(5.0));
     assert_eq!(p1 * 2.0, Percentage::new(20.0));
-    assert_eq!(p1 / 2.0, Percentage::new(5.0));
+    assert_eq!(p1.checked_div(2.0).unwrap(), Percentage::new(5.0));
     assert_eq!(-p1, Percentage::new(-10.0));
 }
 
@@ -260,10 +261,6 @@ fn non_finite_rate_constructors_panic() {
 fn non_finite_rate_arithmetic_panics() {
     let rate = Rate::from_percent(3.0);
 
-    assert!(catch_unwind(|| {
-        let _ = rate / 0.0;
-    })
-    .is_err());
     assert!(catch_unwind(|| {
         let _ = rate * f64::NAN;
     })
@@ -372,4 +369,45 @@ fn rate_ordering() {
     assert!(r1 < r2);
     assert!(r2 > r1);
     assert_eq!(r1, r3);
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(128))]
+
+    #[test]
+    fn checked_rate_division_matches_finite_scalar_division(
+        decimal in -1_000.0_f64..1_000.0,
+        divisor in prop_oneof![-1_000.0_f64..-1.0e-9, 1.0e-9_f64..1_000.0],
+    ) {
+        let rate = Rate::try_from_decimal(decimal).unwrap();
+        let divided = rate.checked_div(divisor).unwrap();
+
+        prop_assert!(divided.as_decimal().is_finite());
+        prop_assert!((divided.as_decimal() - decimal / divisor).abs() < 1e-10);
+    }
+
+    #[test]
+    fn checked_percentage_division_matches_finite_scalar_division(
+        percent in -100_000.0_f64..100_000.0,
+        divisor in prop_oneof![-1_000.0_f64..-1.0e-9, 1.0e-9_f64..1_000.0],
+    ) {
+        let percentage = Percentage::try_new(percent).unwrap();
+        let divided = percentage.checked_div(divisor).unwrap();
+
+        prop_assert!(divided.as_percent().is_finite());
+        prop_assert!((divided.as_percent() - percent / divisor).abs() < 1e-10);
+    }
+
+    #[test]
+    fn bps_checked_arithmetic_round_trips_without_overflow(
+        bps in -1_000_000_i32..1_000_000,
+        multiplier in -1_000_i32..1_000,
+        divisor in prop_oneof![-1_000_i32..-1, 1_i32..1_000],
+    ) {
+        let value = Bps::new(bps);
+        let scaled = value.checked_mul(multiplier).unwrap();
+        let divided = scaled.checked_div(divisor).unwrap();
+
+        prop_assert_eq!(divided.as_bps(), bps * multiplier / divisor);
+    }
 }

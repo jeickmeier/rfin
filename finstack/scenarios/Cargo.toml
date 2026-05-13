@@ -20,6 +20,7 @@ tracing = { version = "0.1", default-features = false }
 
 [dev-dependencies]
 criterion = { workspace = true }
+finstack-test-utils = { path = "../test-utils" }
 
 [[bench]]
 name = "scenarios"

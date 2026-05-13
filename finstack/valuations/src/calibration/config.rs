@@ -620,9 +620,7 @@ impl CalibrationConfig {
 
     /// Create a Levenberg-Marquardt solver with current config settings.
     ///
-    /// Returns a configured LevenbergMarquardtSolver for multi-dimensional optimization.
-    /// We return the concrete type instead of trait object since MultiSolver
-    /// is not object-safe due to generic parameters.
+    /// Returns the concrete solver for multi-dimensional optimization.
     pub fn create_lm_solver(&self) -> finstack_core::math::solver_multi::LevenbergMarquardtSolver {
         use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
 

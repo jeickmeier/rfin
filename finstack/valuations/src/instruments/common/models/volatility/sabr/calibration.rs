@@ -236,7 +236,7 @@ impl SABRCalibrator {
         }
 
         // Use Levenberg-Marquardt solver for robust calibration
-        use finstack_core::math::solver_multi::{LevenbergMarquardtSolver, MultiSolver};
+        use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
 
         let solver = LevenbergMarquardtSolver::new()
             .with_tolerance(self.tolerance)
@@ -502,7 +502,7 @@ impl SABRCalibrator {
         let atm_vol = self.find_atm_vol(forward, strikes, market_vols)?;
 
         // Use 2D solver for nu and rho only
-        use finstack_core::math::solver_multi::{LevenbergMarquardtSolver, MultiSolver};
+        use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
 
         let solver = LevenbergMarquardtSolver::new()
             .with_tolerance(self.tolerance)

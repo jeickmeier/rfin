@@ -8,8 +8,7 @@ use crate::types::CurveId;
 use crate::Result;
 use std::sync::Arc;
 
-use super::curve_storage::CurveStorage;
-use super::{ContextMutationInfo, ContextScratchBump, MarketContext};
+use super::{ContextMutationInfo, ContextScratchBump, CurveStorage, MarketContext};
 
 impl MarketContext {
     /// Apply a scalar price bump in place and return a token that restores the

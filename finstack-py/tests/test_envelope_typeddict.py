@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 
+from finstack.valuations.envelope import MarketDatum
+
 from finstack.valuations import (
     CalibrationEnvelope,
     CalibrationPlan,
@@ -24,6 +26,12 @@ from finstack.valuations import (
     dry_run,
     validate_calibration_json,
 )
+
+
+def _market_datum(quote: MarketQuote) -> MarketDatum:
+    payload = dict(quote)
+    payload.pop("class", None)
+    return {"kind": "rate_quote", **payload}
 
 
 def _usd_deposit_quote(quote_id: str, count: int, rate: float) -> RateDeposit:
@@ -69,12 +77,13 @@ def _typed_envelope() -> CalibrationEnvelope:
     ]
     plan: CalibrationPlan = {
         "id": "usd_curves",
-        "quote_sets": {"usd_quotes": quotes},
+        "quote_sets": {"usd_quotes": [quote["id"] for quote in quotes]},
         "steps": [_discount_step()],
     }
     return {
         "schema": "finstack.calibration",
         "plan": plan,
+        "market_data": [_market_datum(quote) for quote in quotes],
     }
 
 
@@ -128,11 +137,12 @@ def test_forward_step_typeddict_round_trips() -> None:
         "plan": {
             "id": "usd_with_forward",
             "quote_sets": {
-                "usd_quotes": [_usd_deposit_quote("USD-SOFR-DEP-1M", 1, 0.0525)],
+                "usd_quotes": ["USD-SOFR-DEP-1M"],
                 "sofr_3m_quotes": [],
             },
             "steps": [discount, forward],
         },
+        "market_data": [_market_datum(_usd_deposit_quote("USD-SOFR-DEP-1M", 1, 0.0525))],
     }
     canonical = json.loads(validate_calibration_json(json.dumps(envelope)))
     assert [s["kind"] for s in canonical["plan"]["steps"]] == ["discount", "forward"]
@@ -155,11 +165,12 @@ def test_hazard_step_typeddict_round_trips() -> None:
         "plan": {
             "id": "single_name_hazard",
             "quote_sets": {
-                "usd_quotes": [_usd_deposit_quote("USD-SOFR-DEP-1M", 1, 0.0525)],
+                "usd_quotes": ["USD-SOFR-DEP-1M"],
                 "cds_quotes": [],
             },
             "steps": [_discount_step(), hazard],
         },
+        "market_data": [_market_datum(_usd_deposit_quote("USD-SOFR-DEP-1M", 1, 0.0525))],
     }
     canonical = json.loads(validate_calibration_json(json.dumps(envelope)))
     assert canonical["plan"]["steps"][1]["kind"] == "hazard"

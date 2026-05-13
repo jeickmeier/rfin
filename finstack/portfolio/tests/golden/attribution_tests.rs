@@ -3,8 +3,8 @@
 //! These tests validate that attribution calculations produce results
 //! with the expected direction and magnitude using the unified golden framework.
 
-use finstack_core::golden::{assert_expected_f64, load_suite_from_path, Expectation};
-use finstack_core::golden_path;
+use finstack_test_utils::golden::{assert_expected_f64, load_suite_from_path, Expectation};
+use finstack_test_utils::golden_path;
 use serde::Deserialize;
 
 /// Range expectation from JSON.

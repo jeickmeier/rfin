@@ -26,6 +26,7 @@ strsim = "0.11.1"
 time = { workspace = true, features = ["macros"] }
 criterion = { workspace = true }
 proptest = "1.11.0"
+finstack-test-utils = { path = "../test-utils" }
 
 [[bench]]
 name = "statements_operations"
