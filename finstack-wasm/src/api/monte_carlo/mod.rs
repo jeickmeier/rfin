@@ -4,7 +4,7 @@
 //! Asian, and American option pricing, Black-Scholes helpers, and selected
 //! non-GBM process wrappers. Advanced Rust process, discretization, RNG,
 //! payoff, and Greeks types are not standalone WASM types yet. Results are
-//! returned as serialized JSON objects.
+//! returned as plain JavaScript objects.
 
 use std::str::FromStr;
 
@@ -78,6 +78,54 @@ impl McResultJs {
             relative_stderr: est.relative_stderr(),
         }
     }
+
+    #[cfg(target_arch = "wasm32")]
+    fn to_js_value(&self) -> Result<JsValue, JsValue> {
+        use js_sys::{Object, Reflect};
+
+        fn set(obj: &Object, key: &str, value: &JsValue) -> Result<(), JsValue> {
+            Reflect::set(obj, &JsValue::from_str(key), value).map(|_| ())
+        }
+
+        fn optional_f64(value: Option<f64>) -> JsValue {
+            value.map_or(JsValue::NULL, JsValue::from_f64)
+        }
+
+        let obj = Object::new();
+        set(&obj, "mean", &JsValue::from_f64(self.mean))?;
+        set(&obj, "currency", &JsValue::from_str(&self.currency))?;
+        set(&obj, "stderr", &JsValue::from_f64(self.stderr))?;
+        set(&obj, "std_dev", &optional_f64(self.std_dev))?;
+        set(&obj, "ci_lower", &JsValue::from_f64(self.ci_lower))?;
+        set(&obj, "ci_upper", &JsValue::from_f64(self.ci_upper))?;
+        set(&obj, "num_paths", &JsValue::from_f64(self.num_paths as f64))?;
+        set(
+            &obj,
+            "num_simulated_paths",
+            &JsValue::from_f64(self.num_simulated_paths as f64),
+        )?;
+        set(
+            &obj,
+            "num_skipped",
+            &JsValue::from_f64(self.num_skipped as f64),
+        )?;
+        set(&obj, "median", &optional_f64(self.median))?;
+        set(&obj, "percentile_25", &optional_f64(self.percentile_25))?;
+        set(&obj, "percentile_75", &optional_f64(self.percentile_75))?;
+        set(&obj, "min", &optional_f64(self.min))?;
+        set(&obj, "max", &optional_f64(self.max))?;
+        set(
+            &obj,
+            "relative_stderr",
+            &JsValue::from_f64(self.relative_stderr),
+        )?;
+        Ok(obj.into())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn to_js_value(&self) -> Result<JsValue, JsValue> {
+        serde_wasm_bindgen::to_value(self).map_err(to_js_err)
+    }
 }
 
 /// Price a European call option via Monte Carlo under GBM dynamics.
@@ -106,7 +154,7 @@ pub fn price_european_call(
         .price_gbm_call(spot, strike, rate, div_yield, vol, expiry, steps, ccy)
         .map_err(to_js_err)?;
     let result = McResultJs::from_estimate(&est);
-    serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
+    result.to_js_value()
 }
 
 /// Price a European put option via Monte Carlo under GBM dynamics.
@@ -135,7 +183,7 @@ pub fn price_european_put(
         .price_gbm_put(spot, strike, rate, div_yield, vol, expiry, steps, ccy)
         .map_err(to_js_err)?;
     let result = McResultJs::from_estimate(&est);
-    serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
+    result.to_js_value()
 }
 
 /// Price a European call under Heston stochastic volatility.
@@ -258,7 +306,7 @@ pub fn price_asian_call(
         .price(&process, spot, expiry, steps, &payoff, ccy, df)
         .map_err(to_js_err)?;
     let result = McResultJs::from_estimate(&est);
-    serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
+    result.to_js_value()
 }
 
 /// Price an Asian put via Monte Carlo under GBM dynamics.
@@ -293,7 +341,7 @@ pub fn price_asian_put(
         .price(&process, spot, expiry, steps, &payoff, ccy, df)
         .map_err(to_js_err)?;
     let result = McResultJs::from_estimate(&est);
-    serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
+    result.to_js_value()
 }
 
 /// Price an American put via LSMC under GBM dynamics.
@@ -514,7 +562,7 @@ where
         .price(&process, spot, expiry, steps, exercise, &basis, ccy, rate)
         .map_err(to_js_err)?;
     let result = McResultJs::from_estimate(&est);
-    serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
+    result.to_js_value()
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -577,7 +625,7 @@ where
         )
         .map_err(to_js_err)?;
     let result = McResultJs::from_estimate(&est);
-    serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
+    result.to_js_value()
 }
 
 // ---------------------------------------------------------------------------
@@ -644,7 +692,7 @@ fn price_heston(
     }
     .map_err(to_js_err)?;
     let result = McResultJs::from_estimate(&est);
-    serde_wasm_bindgen::to_value(&result).map_err(to_js_err)
+    result.to_js_value()
 }
 
 /// Resolve an optional currency string, defaulting to USD.

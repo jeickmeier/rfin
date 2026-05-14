@@ -116,7 +116,7 @@ pub enum VolInterpolationMode {
 
 /// Volatility surface defined on expiry × strike grid.
 ///
-/// Internally stores volatilities in row-major order as `Vec<f64>`.
+/// Internally stores volatilities in row-major order as a boxed slice.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(try_from = "RawVolSurface", into = "RawVolSurface")]
 pub struct VolSurface {
@@ -126,7 +126,7 @@ pub struct VolSurface {
     secondary_axis: VolSurfaceAxis,
     interpolation_mode: VolInterpolationMode,
     /// Row-major storage: vols[expiry_idx * n_strikes + strike_idx]
-    vols: Vec<f64>,
+    vols: Box<[f64]>,
 }
 
 /// Raw serializable state of a VolSurface
@@ -157,7 +157,7 @@ impl From<VolSurface> for RawVolSurface {
             strikes: surface.strikes.to_vec(),
             secondary_axis: surface.secondary_axis,
             interpolation_mode: surface.interpolation_mode,
-            vols_row_major: surface.vols,
+            vols_row_major: surface.vols.into_vec(),
         }
     }
 }
@@ -539,7 +539,7 @@ impl VolSurface {
         }
 
         // Scale all vols
-        let scaled_vols: Vec<f64> = self.vols.iter().map(|&v| v * scale).collect();
+        let scaled_vols = self.vols.iter().map(|&v| v * scale).collect::<Box<[f64]>>();
 
         Self {
             id: self.id.clone(),
@@ -576,7 +576,7 @@ impl Bumpable for VolSurface {
             }
         })?;
 
-        let bumped_vols: Vec<f64> = if is_multiplicative {
+        let bumped_vols = if is_multiplicative {
             // Factor bump: new_vol = vol * factor
             self.vols.iter().map(|&v| (v * raw_val).max(0.0)).collect()
         } else {
@@ -882,7 +882,7 @@ impl VolSurfaceBuilder {
             strikes: self.strikes.into_boxed_slice(),
             secondary_axis: self.secondary_axis,
             interpolation_mode: self.interpolation_mode,
-            vols: flat,
+            vols: flat.into_boxed_slice(),
         })
     }
 }
@@ -944,7 +944,7 @@ impl VolSurface {
             strikes: strikes.to_vec().into_boxed_slice(),
             secondary_axis: opts.secondary_axis,
             interpolation_mode: opts.interpolation_mode,
-            vols: vols_row_major.to_vec(),
+            vols: vols_row_major.to_vec().into_boxed_slice(),
         })
     }
 

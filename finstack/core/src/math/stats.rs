@@ -159,20 +159,24 @@ pub fn quantile_linear_or_nan(xs: &[f64], q: f64) -> f64 {
 
 /// Minimum finite value, ignoring NaN / infinite entries. Returns [`f64::NAN`] if none are finite.
 pub fn finite_min_or_nan(xs: &[f64]) -> f64 {
-    xs.iter()
-        .copied()
-        .filter(|x| x.is_finite())
-        .min_by(|a, b| a.total_cmp(b))
-        .unwrap_or(f64::NAN)
+    let mut min = f64::NAN;
+    for &x in xs {
+        if x.is_finite() && (min.is_nan() || x < min) {
+            min = x;
+        }
+    }
+    min
 }
 
 /// Maximum finite value, ignoring NaN / infinite entries. Returns [`f64::NAN`] if none are finite.
 pub fn finite_max_or_nan(xs: &[f64]) -> f64 {
-    xs.iter()
-        .copied()
-        .filter(|x| x.is_finite())
-        .max_by(|a, b| a.total_cmp(b))
-        .unwrap_or(f64::NAN)
+    let mut max = f64::NAN;
+    for &x in xs {
+        if x.is_finite() && (max.is_nan() || x > max) {
+            max = x;
+        }
+    }
+    max
 }
 
 /// Count finite observations, excluding NaN / infinite entries.

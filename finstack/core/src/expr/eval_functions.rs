@@ -39,11 +39,6 @@ impl CompiledExpr {
     }
 
     #[inline]
-    pub(super) fn nan_output(len: usize) -> Vec<f64> {
-        vec![f64::NAN; len]
-    }
-
-    #[inline]
     pub(super) fn rolling_apply_into(
         base: &[f64],
         win: usize,
@@ -69,78 +64,114 @@ impl CompiledExpr {
 
     pub(super) fn eval_lag(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = vec![0.0; len];
+        self.eval_lag_into(arg_results, &mut out);
+        out
+    }
+
+    pub(super) fn eval_lag_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
         if arg_results.is_empty() {
-            return Vec::with_capacity(len);
+            out.fill(f64::NAN);
+            return;
         }
         let n = match Self::window_arg(arg_results, None) {
             Ok(n) => n,
-            Err(_) => return Self::nan_output(len),
+            Err(_) => {
+                out.fill(f64::NAN);
+                return;
+            }
         };
-        let base = &arg_results[0];
-        (0..len)
-            .map(|i| if i < n { f64::NAN } else { base[i - n] })
-            .collect()
+        let base = arg_results[0];
+        for (i, slot) in out.iter_mut().enumerate() {
+            *slot = if i < n {
+                f64::NAN
+            } else {
+                base.get(i - n).copied().unwrap_or(f64::NAN)
+            };
+        }
     }
 
     pub(super) fn eval_lead(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = vec![0.0; len];
+        self.eval_lead_into(arg_results, &mut out);
+        out
+    }
+
+    pub(super) fn eval_lead_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
         if arg_results.is_empty() {
-            return Vec::with_capacity(len);
+            out.fill(f64::NAN);
+            return;
         }
         let n = match Self::window_arg(arg_results, None) {
             Ok(n) => n,
-            Err(_) => return Self::nan_output(len),
+            Err(_) => {
+                out.fill(f64::NAN);
+                return;
+            }
         };
-        let base = &arg_results[0];
-        (0..len)
-            .map(|i| if i + n >= len { f64::NAN } else { base[i + n] })
-            .collect()
+        let base = arg_results[0];
+        for (i, slot) in out.iter_mut().enumerate() {
+            *slot = base.get(i + n).copied().unwrap_or(f64::NAN);
+        }
     }
 
     pub(super) fn eval_diff(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if !arg_results.is_empty() {
-            let base = &arg_results[0];
-            let n = match Self::window_arg(arg_results, Some(1)) {
-                Ok(n) => n,
-                Err(_) => return Self::nan_output(len),
-            };
-            out.extend((0..len).map(|i| {
-                if i < n {
-                    f64::NAN
-                } else {
-                    base[i] - base[i - n]
-                }
-            }));
-        }
+        let mut out = vec![0.0; len];
+        self.eval_diff_into(arg_results, &mut out);
         out
+    }
+
+    pub(super) fn eval_diff_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
+        if arg_results.is_empty() {
+            out.fill(f64::NAN);
+            return;
+        }
+        let base = arg_results[0];
+        let n = match Self::window_arg(arg_results, Some(1)) {
+            Ok(n) => n,
+            Err(_) => {
+                out.fill(f64::NAN);
+                return;
+            }
+        };
+        for (i, slot) in out.iter_mut().enumerate() {
+            *slot = match (base.get(i), i.checked_sub(n).and_then(|j| base.get(j))) {
+                (Some(&cur), Some(&prev)) => cur - prev,
+                _ => f64::NAN,
+            };
+        }
     }
 
     pub(super) fn eval_pct_change(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if !arg_results.is_empty() {
-            let base = &arg_results[0];
-            let n = match Self::window_arg(arg_results, Some(1)) {
-                Ok(n) => n,
-                Err(_) => return Self::nan_output(len),
-            };
-            out.extend((0..len).map(|i| {
-                if i < n {
-                    f64::NAN
-                } else if base[i - n] == 0.0 {
-                    if base[i] == 0.0 {
-                        0.0
-                    } else {
-                        base[i].signum() * f64::INFINITY
-                    }
-                } else {
-                    (base[i] / base[i - n]) - 1.0
-                }
-            }));
-        }
+        let mut out = vec![0.0; len];
+        self.eval_pct_change_into(arg_results, &mut out);
         out
+    }
+
+    pub(super) fn eval_pct_change_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
+        if arg_results.is_empty() {
+            out.fill(f64::NAN);
+            return;
+        }
+        let base = arg_results[0];
+        let n = match Self::window_arg(arg_results, Some(1)) {
+            Ok(n) => n,
+            Err(_) => {
+                out.fill(f64::NAN);
+                return;
+            }
+        };
+        for (i, slot) in out.iter_mut().enumerate() {
+            *slot = match (base.get(i), i.checked_sub(n).and_then(|j| base.get(j))) {
+                (Some(&0.0), Some(&0.0)) => 0.0,
+                (Some(&cur), Some(&0.0)) => cur.signum() * f64::INFINITY,
+                (Some(&cur), Some(&prev)) => (cur / prev) - 1.0,
+                _ => f64::NAN,
+            };
+        }
     }
 
     pub(super) fn eval_cum_sum(&self, arg_results: &[&[f64]]) -> Vec<f64> {
@@ -209,21 +240,34 @@ impl CompiledExpr {
 
     pub(super) fn eval_rolling_mean(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
+        let mut out = vec![0.0; len];
+        self.eval_rolling_mean_into(arg_results, &mut out);
+        out
+    }
+
+    pub(super) fn eval_rolling_mean_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
+        let len = out.len();
+        if len == 0 {
+            return;
         }
-        let base = &arg_results[0];
+        if arg_results.is_empty() {
+            out.fill(f64::NAN);
+            return;
+        }
+        let base = arg_results[0];
         let win = match Self::window_arg(arg_results, None) {
             Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
+            Err(_) => {
+                out.fill(f64::NAN);
+                return;
+            }
         };
-        let mut out = vec![0.0; len];
         if base.iter().any(|v| v.is_nan()) {
-            Self::rolling_apply_into(base, win, &mut out, &mut |w| {
+            Self::rolling_apply_into(base, win, out, &mut |w| {
                 w.iter().copied().sum::<f64>() / w.len() as f64
             });
         } else {
-            Self::rolling_sum_incremental(base, win, &mut out);
+            Self::rolling_sum_incremental(base, win, out);
             let w = win as f64;
             for v in out.iter_mut() {
                 if !v.is_nan() {
@@ -231,26 +275,37 @@ impl CompiledExpr {
                 }
             }
         }
-        out
     }
 
     pub(super) fn eval_rolling_sum(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
+        let mut out = vec![0.0; len];
+        self.eval_rolling_sum_into(arg_results, &mut out);
+        out
+    }
+
+    pub(super) fn eval_rolling_sum_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
+        let len = out.len();
+        if len == 0 {
+            return;
         }
-        let base = &arg_results[0];
+        if arg_results.is_empty() {
+            out.fill(f64::NAN);
+            return;
+        }
+        let base = arg_results[0];
         let win = match Self::window_arg(arg_results, None) {
             Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
+            Err(_) => {
+                out.fill(f64::NAN);
+                return;
+            }
         };
-        let mut out = vec![0.0; len];
         if base.iter().any(|v| v.is_nan()) {
-            Self::rolling_apply_into(base, win, &mut out, &mut |w| w.iter().copied().sum());
+            Self::rolling_apply_into(base, win, out, &mut |w| w.iter().copied().sum());
         } else {
-            Self::rolling_sum_incremental(base, win, &mut out);
+            Self::rolling_sum_incremental(base, win, out);
         }
-        out
     }
 
     /// O(n) incremental rolling sum (shared by rolling_sum and rolling_mean).
@@ -426,17 +481,30 @@ impl CompiledExpr {
 
     pub(super) fn eval_rolling_std(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
+        let mut out = vec![0.0; len];
+        self.eval_rolling_std_into(arg_results, &mut out);
+        out
+    }
+
+    pub(super) fn eval_rolling_std_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
+        let len = out.len();
+        if len == 0 {
+            return;
         }
-        let base = &arg_results[0];
+        if arg_results.is_empty() {
+            out.fill(f64::NAN);
+            return;
+        }
+        let base = arg_results[0];
         let win = match Self::window_arg(arg_results, None) {
             Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
+            Err(_) => {
+                out.fill(f64::NAN);
+                return;
+            }
         };
-        let mut out = vec![0.0; len];
         if base.iter().any(|v| v.is_nan()) {
-            Self::rolling_apply_into(base, win, &mut out, &mut |w| {
+            Self::rolling_apply_into(base, win, out, &mut |w| {
                 let m = w.iter().copied().sum::<f64>() / (w.len() as f64);
                 let var = w
                     .iter()
@@ -449,29 +517,41 @@ impl CompiledExpr {
                 var.sqrt()
             });
         } else {
-            Self::rolling_var_incremental(base, win, &mut out);
+            Self::rolling_var_incremental(base, win, out);
             for v in out.iter_mut() {
                 if !v.is_nan() {
                     *v = v.sqrt();
                 }
             }
         }
-        out
     }
 
     pub(super) fn eval_rolling_var(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
+        let mut out = vec![0.0; len];
+        self.eval_rolling_var_into(arg_results, &mut out);
+        out
+    }
+
+    pub(super) fn eval_rolling_var_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
+        let len = out.len();
+        if len == 0 {
+            return;
         }
-        let base = &arg_results[0];
+        if arg_results.is_empty() {
+            out.fill(f64::NAN);
+            return;
+        }
+        let base = arg_results[0];
         let win = match Self::window_arg(arg_results, None) {
             Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
+            Err(_) => {
+                out.fill(f64::NAN);
+                return;
+            }
         };
-        let mut out = vec![0.0; len];
         if base.iter().any(|v| v.is_nan()) {
-            Self::rolling_apply_into(base, win, &mut out, &mut |w| {
+            Self::rolling_apply_into(base, win, out, &mut |w| {
                 let m = w.iter().copied().sum::<f64>() / (w.len() as f64);
                 w.iter()
                     .map(|v| {
@@ -482,9 +562,8 @@ impl CompiledExpr {
                     / (w.len() as f64)
             });
         } else {
-            Self::rolling_var_incremental(base, win, &mut out);
+            Self::rolling_var_incremental(base, win, out);
         }
-        out
     }
 
     /// O(n) incremental rolling population variance via running sum and sum-of-squares.
@@ -515,15 +594,28 @@ impl CompiledExpr {
 
     pub(super) fn eval_rolling_median(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
+        let mut out = vec![0.0; len];
+        self.eval_rolling_median_into(arg_results, &mut out);
+        out
+    }
+
+    pub(super) fn eval_rolling_median_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
+        let len = out.len();
+        if len == 0 {
+            return;
         }
-        let base = &arg_results[0];
+        if arg_results.is_empty() {
+            out.fill(f64::NAN);
+            return;
+        }
+        let base = arg_results[0];
         let win = match Self::window_arg(arg_results, None) {
             Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
+            Err(_) => {
+                out.fill(f64::NAN);
+                return;
+            }
         };
-        let mut out = vec![0.0; len];
         let mut guard = self
             .scratch
             .lock()
@@ -546,32 +638,37 @@ impl CompiledExpr {
                 };
             }
         }
-        out
     }
 
     pub(super) fn eval_shift(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = vec![0.0; len];
+        self.eval_shift_into(arg_results, &mut out);
+        out
+    }
+
+    pub(super) fn eval_shift_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
         if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-            let base = &arg_results[0];
+            let base = arg_results[0];
             let raw = arg_results[1][0];
             #[allow(clippy::as_conversions)]
             let n = if raw.is_finite() && raw >= f64::from(i32::MIN) && raw <= f64::from(i32::MAX) {
                 raw as i32
             } else {
-                return vec![f64::NAN; len];
+                out.fill(f64::NAN);
+                return;
             };
-            let mut out = vec![0.0; len];
-            for (i, slot) in out.iter_mut().enumerate().take(len) {
+            for (i, slot) in out.iter_mut().enumerate() {
                 let shifted_idx = i as i32 - n;
-                *slot = if shifted_idx >= 0 && shifted_idx < len as i32 {
+                *slot = if shifted_idx >= 0 && shifted_idx < base.len() as i32 {
                     base[shifted_idx as usize]
                 } else {
                     f64::NAN
                 };
             }
-            return out;
+            return;
         }
-        Vec::with_capacity(len)
+        out.fill(f64::NAN);
     }
 
     pub(super) fn eval_abs(&self, arg_results: &[&[f64]]) -> Vec<f64> {
@@ -658,47 +755,83 @@ impl CompiledExpr {
 
     pub(super) fn eval_rolling_min(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
+        let mut out = vec![0.0; len];
+        self.eval_rolling_min_into(arg_results, &mut out);
+        out
+    }
+
+    pub(super) fn eval_rolling_min_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
+        let len = out.len();
+        if len == 0 {
+            return;
         }
-        let base = &arg_results[0];
+        if arg_results.is_empty() {
+            out.fill(f64::NAN);
+            return;
+        }
+        let base = arg_results[0];
         let win = match Self::window_arg(arg_results, None) {
             Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
+            Err(_) => {
+                out.fill(f64::NAN);
+                return;
+            }
         };
-        let mut out = vec![0.0; len];
-        Self::rolling_apply_into(base, win, &mut out, &mut finite_min_or_nan);
-        out
+        Self::rolling_apply_into(base, win, out, &mut finite_min_or_nan);
     }
 
     pub(super) fn eval_rolling_max(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
+        let mut out = vec![0.0; len];
+        self.eval_rolling_max_into(arg_results, &mut out);
+        out
+    }
+
+    pub(super) fn eval_rolling_max_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
+        let len = out.len();
+        if len == 0 {
+            return;
         }
-        let base = &arg_results[0];
+        if arg_results.is_empty() {
+            out.fill(f64::NAN);
+            return;
+        }
+        let base = arg_results[0];
         let win = match Self::window_arg(arg_results, None) {
             Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
+            Err(_) => {
+                out.fill(f64::NAN);
+                return;
+            }
         };
-        let mut out = vec![0.0; len];
-        Self::rolling_apply_into(base, win, &mut out, &mut finite_max_or_nan);
-        out
+        Self::rolling_apply_into(base, win, out, &mut finite_max_or_nan);
     }
 
     pub(super) fn eval_rolling_count(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
+        let mut out = vec![0.0; len];
+        self.eval_rolling_count_into(arg_results, &mut out);
+        out
+    }
+
+    pub(super) fn eval_rolling_count_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
+        let len = out.len();
+        if len == 0 {
+            return;
         }
-        let base = &arg_results[0];
+        if arg_results.is_empty() {
+            out.fill(f64::NAN);
+            return;
+        }
+        let base = arg_results[0];
         let win = match Self::window_arg(arg_results, None) {
             Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
+            Err(_) => {
+                out.fill(f64::NAN);
+                return;
+            }
         };
-        let mut out = vec![0.0; len];
-        Self::rolling_apply_into(base, win, &mut out, &mut |w| finite_count(w) as f64);
-        out
+        Self::rolling_apply_into(base, win, out, &mut |w| finite_count(w) as f64);
     }
 
     pub(super) fn eval_ewm_std(&self, arg_results: &[&[f64]]) -> Vec<f64> {

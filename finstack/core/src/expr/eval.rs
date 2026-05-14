@@ -331,8 +331,7 @@ impl CompiledExpr {
                 // Cache store
                 if let Some(ref cache) = eval_cache {
                     if plan_to_use.cache_strategy.cache_nodes.contains(&node.id) {
-                        let arc: std::sync::Arc<[f64]> =
-                            std::sync::Arc::from(arena[start..end].to_vec().into_boxed_slice());
+                        let arc = std::sync::Arc::<[f64]>::from(&arena[start..end]);
                         cache.put(node.id, CachedResult::Scalar(arc));
                     }
                 }
@@ -643,11 +642,28 @@ impl CompiledExpr {
         _cols: &[&[f64]],
         out: &mut [f64],
     ) -> crate::Result<()> {
-        let result = self.eval_function_core(fun, arg_slices, _ctx, _cols)?;
-        let copy_len = out.len().min(result.len());
-        out[..copy_len].copy_from_slice(&result[..copy_len]);
-        if copy_len < out.len() {
-            out[copy_len..].fill(f64::NAN);
+        match fun {
+            Function::Lag => self.eval_lag_into(arg_slices, out),
+            Function::Lead => self.eval_lead_into(arg_slices, out),
+            Function::Diff => self.eval_diff_into(arg_slices, out),
+            Function::PctChange => self.eval_pct_change_into(arg_slices, out),
+            Function::RollingMean => self.eval_rolling_mean_into(arg_slices, out),
+            Function::RollingSum => self.eval_rolling_sum_into(arg_slices, out),
+            Function::RollingStd => self.eval_rolling_std_into(arg_slices, out),
+            Function::RollingVar => self.eval_rolling_var_into(arg_slices, out),
+            Function::RollingMedian => self.eval_rolling_median_into(arg_slices, out),
+            Function::Shift => self.eval_shift_into(arg_slices, out),
+            Function::RollingMin => self.eval_rolling_min_into(arg_slices, out),
+            Function::RollingMax => self.eval_rolling_max_into(arg_slices, out),
+            Function::RollingCount => self.eval_rolling_count_into(arg_slices, out),
+            _ => {
+                let result = self.eval_function_core(fun, arg_slices, _ctx, _cols)?;
+                let copy_len = out.len().min(result.len());
+                out[..copy_len].copy_from_slice(&result[..copy_len]);
+                if copy_len < out.len() {
+                    out[copy_len..].fill(f64::NAN);
+                }
+            }
         }
         Ok(())
     }

@@ -56,6 +56,40 @@ pub fn validate_correlation_matrix(matrix: JsValue) -> Result<(), JsValue> {
     linalg::validate_correlation_matrix(&flat, n).map_err(to_js_err)
 }
 
+/// Cholesky decomposition for a flat row-major matrix.
+///
+/// Accepts a `Float64Array`/`number[]` containing `n * n` row-major entries
+/// and returns a flat lower-triangular factor.
+#[wasm_bindgen(js_name = choleskyDecompositionFlat)]
+pub fn cholesky_decomposition_flat(matrix: &[f64], n: usize) -> Result<Box<[f64]>, JsValue> {
+    validate_flat_matrix_len(matrix, n)?;
+    linalg::cholesky_decomposition(matrix, n)
+        .map(Vec::into_boxed_slice)
+        .map_err(to_js_err)
+}
+
+/// Solve a symmetric positive-definite linear system from a flat Cholesky factor.
+#[wasm_bindgen(js_name = choleskySolveFlat)]
+pub fn cholesky_solve_flat(chol: &[f64], b: &[f64], n: usize) -> Result<Box<[f64]>, JsValue> {
+    validate_flat_matrix_len(chol, n)?;
+    if b.len() != n {
+        return Err(to_js_err(format!(
+            "Right-hand side has length {} but Cholesky factor is {n}x{n}",
+            b.len()
+        )));
+    }
+    let mut x = vec![0.0; n];
+    linalg::cholesky_solve(chol, b, &mut x).map_err(to_js_err)?;
+    Ok(x.into_boxed_slice())
+}
+
+/// Validate a flat row-major correlation matrix.
+#[wasm_bindgen(js_name = validateCorrelationMatrixFlat)]
+pub fn validate_correlation_matrix_flat(matrix: &[f64], n: usize) -> Result<(), JsValue> {
+    validate_flat_matrix_len(matrix, n)?;
+    linalg::validate_correlation_matrix(matrix, n).map_err(to_js_err)
+}
+
 // ---------------------------------------------------------------------------
 // Statistics
 // ---------------------------------------------------------------------------
@@ -102,6 +136,43 @@ pub fn covariance(x: JsValue, y: JsValue) -> Result<f64, JsValue> {
 pub fn quantile(data: JsValue, q: f64) -> Result<f64, JsValue> {
     let mut v: Vec<f64> = serde_wasm_bindgen::from_value(data).map_err(to_js_err)?;
     Ok(stats::quantile(&mut v, q))
+}
+
+/// Arithmetic mean over a typed numeric array.
+#[wasm_bindgen(js_name = meanArray)]
+pub fn mean_array(data: &[f64]) -> f64 {
+    stats::mean(data)
+}
+
+/// Sample variance over a typed numeric array.
+#[wasm_bindgen(js_name = varianceArray)]
+pub fn variance_array(data: &[f64]) -> f64 {
+    stats::variance(data)
+}
+
+/// Population variance over a typed numeric array.
+#[wasm_bindgen(js_name = populationVarianceArray)]
+pub fn population_variance_array(data: &[f64]) -> f64 {
+    stats::population_variance(data)
+}
+
+/// Pearson correlation over typed numeric arrays.
+#[wasm_bindgen(js_name = correlationArray)]
+pub fn correlation_array(x: &[f64], y: &[f64]) -> f64 {
+    stats::correlation(x, y)
+}
+
+/// Sample covariance over typed numeric arrays.
+#[wasm_bindgen(js_name = covarianceArray)]
+pub fn covariance_array(x: &[f64], y: &[f64]) -> f64 {
+    stats::covariance(x, y)
+}
+
+/// Empirical quantile over a typed numeric array.
+#[wasm_bindgen(js_name = quantileArray)]
+pub fn quantile_array(data: &[f64], q: f64) -> f64 {
+    let mut v = data.to_vec();
+    stats::quantile(&mut v, q)
 }
 
 // ---------------------------------------------------------------------------
@@ -163,9 +234,40 @@ pub fn count_consecutive(values: JsValue) -> Result<usize, JsValue> {
     Ok(math::count_consecutive(&v, |x| x > 0.0))
 }
 
+/// Kahan compensated summation over a typed numeric array.
+#[wasm_bindgen(js_name = kahanSumArray)]
+pub fn kahan_sum_array(values: &[f64]) -> f64 {
+    summation::kahan_sum(values.iter().copied())
+}
+
+/// Neumaier compensated summation over a typed numeric array.
+#[wasm_bindgen(js_name = neumaierSumArray)]
+pub fn neumaier_sum_array(values: &[f64]) -> f64 {
+    summation::neumaier_sum(values.iter().copied())
+}
+
+/// Count the longest consecutive run of strictly positive values in a typed array.
+#[wasm_bindgen(js_name = countConsecutiveArray)]
+pub fn count_consecutive_array(values: &[f64]) -> usize {
+    math::count_consecutive(values, |x| x > 0.0)
+}
+
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+fn validate_flat_matrix_len(matrix: &[f64], n: usize) -> Result<(), JsValue> {
+    let expected = n
+        .checked_mul(n)
+        .ok_or_else(|| to_js_err("Matrix dimension is too large"))?;
+    if matrix.len() != expected {
+        return Err(to_js_err(format!(
+            "Flat matrix has length {} but expected {expected} for {n}x{n}",
+            matrix.len()
+        )));
+    }
+    Ok(())
+}
 
 /// Flatten nested rows into a row-major `Vec<f64>`, validating squareness.
 fn flatten_matrix(rows: &[Vec<f64>], n: usize) -> Result<Vec<f64>, JsValue> {

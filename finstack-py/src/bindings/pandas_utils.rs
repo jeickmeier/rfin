@@ -5,7 +5,18 @@ use finstack_core::table::{TableColumn, TableColumnData, TableEnvelope};
 use numpy::PyArray1;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use pyo3::sync::PyOnceLock;
 use pyo3::types::{PyDict, PyList};
+
+static PANDAS_DATAFRAME: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+
+fn pandas_dataframe<'py>(py: Python<'py>) -> PyResult<&'py Bound<'py, PyAny>> {
+    PANDAS_DATAFRAME
+        .get_or_try_init(py, || {
+            Ok(py.import("pandas")?.getattr("DataFrame")?.unbind())
+        })
+        .map(|ctor| ctor.bind(py))
+}
 
 /// Build a `pd.DataFrame` from a dict of column data with an optional index.
 ///
@@ -16,12 +27,11 @@ pub fn dict_to_dataframe<'py>(
     columns: &Bound<'py, PyDict>,
     index: Option<Bound<'py, PyAny>>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let pd = py.import("pandas")?;
     let kwargs = PyDict::new(py);
     if let Some(idx) = index {
         kwargs.set_item("index", idx)?;
     }
-    pd.call_method("DataFrame", (columns,), Some(&kwargs))
+    pandas_dataframe(py)?.call((columns,), Some(&kwargs))
 }
 
 /// Convert a slice of `time::Date` into a Python list suitable for a DataFrame index.

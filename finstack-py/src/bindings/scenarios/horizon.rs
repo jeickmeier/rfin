@@ -2,7 +2,7 @@
 
 //! Python bindings for horizon total return analysis.
 
-use crate::bindings::extract::extract_market;
+use crate::bindings::extract::extract_market_ref;
 use crate::bindings::valuations::attribution::PyPnlAttribution;
 use crate::errors::display_to_py;
 use pyo3::exceptions::PyValueError;
@@ -53,7 +53,7 @@ pub(crate) fn compute_horizon_return<'py>(
     let instrument: Arc<dyn finstack_valuations::instruments::Instrument> = Arc::from(boxed);
 
     // Parse market
-    let market_ctx = extract_market(market)?;
+    let market_ctx = extract_market_ref(market)?;
 
     // Parse date
     let date = super::parse_date(as_of)?;

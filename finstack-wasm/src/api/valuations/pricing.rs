@@ -179,6 +179,23 @@ pub fn price_instrument_with_metrics_and_market(
     serde_json::to_string(&result).map_err(to_js_err)
 }
 
+/// Per-flow cashflow envelope using a pre-parsed [`WasmMarket`].
+#[wasm_bindgen(js_name = instrumentCashflowsWithMarket)]
+pub fn instrument_cashflows_with_market(
+    instrument_json: &str,
+    market: &WasmMarket,
+    as_of: &str,
+    model: &str,
+) -> Result<String, JsValue> {
+    finstack_valuations::instruments::cashflow_export::instrument_cashflows_json(
+        instrument_json,
+        market.inner(),
+        as_of,
+        model,
+    )
+    .map_err(|e| to_js_error(&e))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -555,6 +572,24 @@ mod tests {
         let result = price_instrument(&inst, &mkt, "2024-01-01", "discounting").expect("price");
         let parsed: serde_json::Value = serde_json::from_str(&result).expect("json");
         assert!(parsed.is_object());
+    }
+
+    #[test]
+    fn wasm_market_reuses_parsed_market_for_pricing_and_cashflows() {
+        let inst = bond_instrument_json();
+        let market = WasmMarket::from_json(&market_context_json()).expect("market handle");
+
+        let priced = price_instrument_with_market(&inst, &market, "2024-01-01", "discounting")
+            .expect("price");
+        let parsed: serde_json::Value = serde_json::from_str(&priced).expect("price json");
+        assert!(parsed.is_object());
+
+        let cashflows =
+            instrument_cashflows_with_market(&inst, &market, "2024-01-01", "discounting")
+                .expect("cashflows");
+        let parsed_cashflows: serde_json::Value =
+            serde_json::from_str(&cashflows).expect("cashflow json");
+        assert!(parsed_cashflows.is_object());
     }
 
     #[test]

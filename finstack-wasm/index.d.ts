@@ -295,20 +295,35 @@ export interface CoreNamespace {
   choleskySolve(chol: number[][], b: number[]): number[];
   /** Validates a square correlation matrix passed as nested rows (core/math). */
   validateCorrelationMatrix(matrix: number[][]): void;
+  /** Fast flat row-major Cholesky decomposition for typed numeric arrays. */
+  choleskyDecompositionFlat(matrix: NumericArray, n: number): Float64Array;
+  /** Fast flat row-major Cholesky solve for typed numeric arrays. */
+  choleskySolveFlat(chol: NumericArray, b: NumericArray, n: number): Float64Array;
+  /** Validates a square correlation matrix passed as flat row-major values. */
+  validateCorrelationMatrixFlat(matrix: NumericArray, n: number): void;
   mean(data: number[]): number;
+  meanArray(data: NumericArray): number;
   variance(data: number[]): number;
+  varianceArray(data: NumericArray): number;
   populationVariance(data: number[]): number;
+  populationVarianceArray(data: NumericArray): number;
   correlation(x: number[], y: number[]): number;
+  correlationArray(x: NumericArray, y: NumericArray): number;
   covariance(x: number[], y: number[]): number;
+  covarianceArray(x: NumericArray, y: NumericArray): number;
   quantile(data: number[], q: number): number;
+  quantileArray(data: NumericArray, q: number): number;
   normCdf(x: number): number;
   normPdf(x: number): number;
   standardNormalInvCdf(p: number): number;
   erf(x: number): number;
   lnGamma(x: number): number;
   kahanSum(values: number[]): number;
+  kahanSumArray(values: NumericArray): number;
   neumaierSum(values: number[]): number;
+  neumaierSumArray(values: NumericArray): number;
   countConsecutive(values: number[]): number;
+  countConsecutiveArray(values: NumericArray): number;
 }
 
 export declare const core: CoreNamespace;
@@ -1066,6 +1081,12 @@ export interface ValuationInstrumentsNamespace {
     pricingOptions?: string | null,
     marketHistory?: string | null
   ): string;
+  instrumentCashflowsWithMarket(
+    instrumentJson: string,
+    market: WasmMarket,
+    asOf: string,
+    model: string
+  ): string;
   listStandardMetrics(): string[];
   listStandardMetricsGrouped(): Record<string, string[]>;
 }
@@ -1256,6 +1277,12 @@ export interface CreditDerivativesNamespace {
     pricingOptions?: string | null,
     marketHistory?: string | null
   ): string;
+  instrumentCashflowsWithMarket(
+    instrumentJson: string,
+    market: WasmMarket,
+    asOf: string,
+    model: string
+  ): string;
 }
 
 export interface ValuationsNamespace {
@@ -1357,6 +1384,12 @@ export interface ValuationsNamespace {
   instrumentCashflowsJson(
     instrumentJson: string,
     marketJson: string,
+    asOf: string,
+    model: string
+  ): string;
+  instrumentCashflowsWithMarket(
+    instrumentJson: string,
+    market: WasmMarket,
     asOf: string,
     model: string
   ): string;

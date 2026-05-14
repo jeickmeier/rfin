@@ -5,6 +5,7 @@
 
 use crate::utils::to_js_err;
 use finstack_core::market_data::context::MarketContext;
+use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 
 /// Opaque handle wrapping a parsed [`MarketContext`].
@@ -22,7 +23,7 @@ use wasm_bindgen::prelude::*;
 /// ```
 #[wasm_bindgen(js_name = WasmMarket)]
 pub struct WasmMarket {
-    inner: MarketContext,
+    inner: Arc<MarketContext>,
 }
 
 #[wasm_bindgen(js_class = WasmMarket)]
@@ -35,7 +36,9 @@ impl WasmMarket {
     #[wasm_bindgen(constructor)]
     pub fn new(json: &str) -> Result<WasmMarket, JsValue> {
         let inner: MarketContext = serde_json::from_str(json).map_err(to_js_err)?;
-        Ok(WasmMarket { inner })
+        Ok(WasmMarket {
+            inner: Arc::new(inner),
+        })
     }
 
     /// Parse a MarketContext from its JSON representation (static factory).
@@ -52,6 +55,6 @@ impl WasmMarket {
 
     /// Access the inner MarketContext (crate-internal).
     pub(crate) fn inner(&self) -> &MarketContext {
-        &self.inner
+        self.inner.as_ref()
     }
 }

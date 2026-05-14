@@ -1,6 +1,6 @@
 //! Direct Python wrappers for FX valuation instruments.
 
-use crate::bindings::extract::extract_market;
+use crate::bindings::extract::extract_market_ref;
 use crate::errors::display_to_py;
 use finstack_valuations::pricer::{
     canonical_instrument_json, canonical_instrument_json_from_str,
@@ -67,7 +67,7 @@ fn price_payload(
     as_of: &str,
     model: &str,
 ) -> PyResult<String> {
-    let market = extract_market(market)?;
+    let market = extract_market_ref(market)?;
     let result = price_instrument_json(json, &market, as_of, model).map_err(display_to_py)?;
     serde_json::to_string(&result).map_err(display_to_py)
 }
@@ -80,7 +80,7 @@ fn price_payload_with_metrics(
     metrics: Vec<String>,
     pricing_options: Option<&str>,
 ) -> PyResult<String> {
-    let market = extract_market(market)?;
+    let market = extract_market_ref(market)?;
     let result =
         price_instrument_json_with_metrics(json, &market, as_of, model, &metrics, pricing_options)
             .map_err(display_to_py)?;
@@ -94,7 +94,7 @@ fn metric_value(
     model: &str,
     metric: &str,
 ) -> PyResult<f64> {
-    let market = extract_market(market)?;
+    let market = extract_market_ref(market)?;
     metric_value_from_instrument_json(json, &market, as_of, model, metric).map_err(display_to_py)
 }
 
@@ -227,7 +227,7 @@ macro_rules! fx_option_class {
                 model: &str,
             ) -> PyResult<Bound<'py, PyDict>> {
                 let out = PyDict::new(py);
-                let market = extract_market(market)?;
+                let market = extract_market_ref(market)?;
                 let pairs = present_standard_option_greeks_from_instrument_json(
                     &self.json, &market, as_of, model,
                 )

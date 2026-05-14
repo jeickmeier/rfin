@@ -1,7 +1,7 @@
 //! Python wrappers for CDS-family instruments.
 
 use super::{parse_date, PyValuationResult};
-use crate::bindings::extract::extract_market;
+use crate::bindings::extract::extract_market_ref;
 use crate::errors::display_to_py;
 use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
@@ -52,7 +52,7 @@ macro_rules! credit_derivative_wrapper {
             }
 
             fn price(&self, market: &Bound<'_, PyAny>, as_of: &str) -> PyResult<PyValuationResult> {
-                let market = extract_market(market)?;
+                let market = extract_market_ref(market)?;
                 let result = finstack_valuations::pricer::standard_registry()
                     .price_with_metrics(
                         &self.inner,

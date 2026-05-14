@@ -44,6 +44,27 @@ fn validate_correlation_matrix_valid() {
 }
 
 #[wasm_bindgen_test]
+fn cholesky_decomposition_flat_returns_row_major_factor() {
+    let matrix = [4.0, 2.0, 2.0, 3.0];
+    let result = cholesky_decomposition_flat(&matrix, 2).unwrap();
+    assert_eq!(result.len(), 4);
+    assert!((result[0] - 2.0).abs() < 1e-10);
+}
+
+#[wasm_bindgen_test]
+fn cholesky_solve_flat_solves_system() {
+    let chol = cholesky_decomposition_flat(&[4.0, 2.0, 2.0, 3.0], 2).unwrap();
+    let x = cholesky_solve_flat(&chol, &[2.0, 1.0], 2).unwrap();
+    assert_eq!(x.len(), 2);
+    assert!((x[0] - 0.5).abs() < 1e-10);
+}
+
+#[wasm_bindgen_test]
+fn validate_correlation_matrix_flat_valid() {
+    validate_correlation_matrix_flat(&[1.0, 0.5, 0.5, 1.0], 2).unwrap();
+}
+
+#[wasm_bindgen_test]
 fn validate_correlation_matrix_invalid_diagonal() {
     let matrix = serde_wasm_bindgen::to_value(&vec![vec![0.9, 0.5], vec![0.5, 1.0]]).unwrap();
     assert!(validate_correlation_matrix(matrix).is_err());
@@ -95,6 +116,17 @@ fn quantile_median() {
     assert!((v - 3.0).abs() < 1e-10);
 }
 
+#[wasm_bindgen_test]
+fn typed_array_statistics_match_jsvalue_variants() {
+    let data = [1.0, 2.0, 3.0, 4.0, 5.0];
+    assert!((mean_array(&data) - 3.0).abs() < 1e-10);
+    assert!(variance_array(&data) > 0.0);
+    assert!(population_variance_array(&data) > 0.0);
+    assert!((quantile_array(&data, 0.5) - 3.0).abs() < 1e-10);
+    assert!((correlation_array(&data, &[2.0, 4.0, 6.0, 8.0, 10.0]) - 1.0).abs() < 1e-10);
+    assert!(covariance_array(&data, &[1.0, 2.0, 3.0, 4.0, 5.0]) > 0.0);
+}
+
 // ---- Summation ----
 
 #[wasm_bindgen_test]
@@ -116,4 +148,11 @@ fn count_consecutive_counts_positive_run() {
     let data = serde_wasm_bindgen::to_value(&vec![1.0, 2.0, 3.0, -1.0, 2.0]).unwrap();
     let v = count_consecutive(data).unwrap();
     assert_eq!(v, 3);
+}
+
+#[wasm_bindgen_test]
+fn typed_array_summation_and_count_work() {
+    assert!((kahan_sum_array(&[1.0, 2.0, 3.0, 4.0]) - 10.0).abs() < 1e-10);
+    assert!((neumaier_sum_array(&[1e16, 1.0, -1e16, 1.0]) - 2.0).abs() < 1e-10);
+    assert_eq!(count_consecutive_array(&[1.0, 2.0, 3.0, -1.0, 2.0]), 3);
 }
