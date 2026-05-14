@@ -166,12 +166,11 @@ pub(in crate::builder) fn emit_fees_on(
         if let Some(period) = pf.prev.get(&d) {
             // Use proper DayCountContext with calendar and frequency so that
             // conventions like Bus/252 and Act/Act ISMA compute correctly.
-            let calendar = crate::builder::calendar::resolve_calendar_strict(&pf.calendar_id)?;
             let yf = pf.dc.year_fraction(
                 period.accrual_start,
                 period.accrual_end,
                 finstack_core::dates::DayCountContext {
-                    calendar: Some(calendar),
+                    calendar: Some(pf.calendar),
                     frequency: Some(pf.freq),
                     bus_basis: None,
                     coupon_period: None,
@@ -342,7 +341,8 @@ mod tests {
             bps,
             dc: DayCount::Act360,
             freq: Tenor::quarterly(),
-            calendar_id: "weekends_only".to_string(),
+            calendar: crate::builder::calendar::resolve_calendar_strict("weekends_only")
+                .expect("weekends_only calendar should resolve"),
             dates: vec![accrual_start, accrual_end],
             prev,
             accrual_basis,

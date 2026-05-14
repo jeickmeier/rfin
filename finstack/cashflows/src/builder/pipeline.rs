@@ -80,6 +80,7 @@ impl<'a> DateProcessor<'a> {
             linear_delta: self.amort_setup.linear_delta,
             percent_per: self.amort_setup.percent_per,
             step_remaining_map: &self.amort_setup.step_remaining_map,
+            custom_principal_map: &self.amort_setup.custom_principal_map,
         };
         let before = decimal_to_f64(state.outstanding)?;
         let mut outstanding_f64 = before;

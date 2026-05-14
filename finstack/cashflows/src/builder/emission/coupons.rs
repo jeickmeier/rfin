@@ -22,7 +22,7 @@ use finstack_core::InputError;
 use rust_decimal::Decimal;
 use tracing::{info, warn};
 
-use crate::builder::rate_helpers::{ResolvedFloatingRateFallback, ResolvedFloatingRateSpec};
+use crate::builder::rate_helpers::ResolvedFloatingRateFallback;
 use crate::builder::specs::OvernightCompoundingMethod;
 
 use super::super::compiler::{FixedSchedule, FloatSchedule};
@@ -525,19 +525,12 @@ pub(crate) fn emit_float_coupons_on(
                 },
             )?;
 
-            // Resolve fixing calendar for reset date (default to accrual calendar if None)
-            let fixing_cal_id = spec
-                .rate_spec
-                .fixing_calendar_id
-                .as_deref()
-                .unwrap_or(&spec.rate_spec.calendar_id);
-
             // Compute reset date (fixing date) from accrual start.
             let reset_date = compute_reset_date(
                 accrual_start,
                 spec.rate_spec.reset_lag_days,
                 spec.rate_spec.bdc,
-                fixing_cal_id,
+                schedule.fixing_calendar,
             )?;
 
             // Compute index maturity based on the index tenor.
@@ -546,7 +539,7 @@ pub(crate) fn emit_float_coupons_on(
             // regardless of when the payment actually occurs.
             let index_maturity = compute_index_maturity(reset_date, spec.rate_spec.reset_freq)?;
 
-            let runtime_spec = ResolvedFloatingRateSpec::try_from(&spec.rate_spec)?;
+            let runtime_spec = &schedule.runtime_spec;
             let params = &runtime_spec.params;
             let spread_bp = params.spread_bp;
 

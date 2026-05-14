@@ -30,6 +30,7 @@ use rust_decimal::Decimal;
 
 use super::calendar::resolve_calendar_strict;
 use super::date_generation::{build_dates, index_period_schedule, SchedulePeriod};
+use super::rate_helpers::ResolvedFloatingRateSpec;
 use super::specs::{
     CouponType, FeeAccrualBasis, FeeBase, FeeSpec, FixedCouponSpec, FloatingCouponSpec,
     FloatingRateSpec, ScheduleParams,
@@ -85,6 +86,8 @@ pub(crate) struct FixedSchedule {
 pub(crate) struct FloatSchedule {
     pub(crate) spec: FloatingCouponSpec,
     pub(crate) calendar: &'static dyn HolidayCalendar,
+    pub(crate) fixing_calendar: &'static dyn HolidayCalendar,
+    pub(crate) runtime_spec: ResolvedFloatingRateSpec,
     pub(crate) dates: Vec<Date>,
     pub(crate) prev: finstack_core::HashMap<Date, SchedulePeriod>,
 }
@@ -99,16 +102,16 @@ pub(crate) struct FloatSchedule {
 /// - `bps` (`Decimal`): Annualized basis points applied to the base. Uses Decimal for exact representation.
 /// - `dc` (`DayCount`): Day‑count convention for accrual.
 /// - `freq` (`Tenor`): Payment frequency (needed for Act/Act ISMA day count context).
-/// - `calendar_id` (`String`): Calendar identifier (needed for Bus/252 day count context).
+/// - `calendar` (`HolidayCalendar`): Resolved calendar used for Bus/252 and Act/Act ISMA contexts.
 /// - `dates` (`Vec<Date>`): Inclusive/exclusive boundary dates for accrual periods.
 /// - `prev` (`HashMap<Date, SchedulePeriod>`): Period details keyed by payment date.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(super) struct PeriodicFee {
     pub(super) base: FeeBase,
     pub(super) bps: Decimal,
     pub(super) dc: DayCount,
     pub(super) freq: Tenor,
-    pub(super) calendar_id: String,
+    pub(super) calendar: &'static dyn HolidayCalendar,
     pub(super) dates: Vec<Date>,
     pub(super) prev: finstack_core::HashMap<Date, SchedulePeriod>,
     pub(super) accrual_basis: FeeAccrualBasis,
@@ -195,12 +198,13 @@ pub(super) fn build_fee_schedules(
                 if dates.is_empty() {
                     return Err(InputError::TooFewPoints.into());
                 }
+                let calendar = resolve_calendar_strict(calendar_id)?;
                 periodic_fees.push(PeriodicFee {
                     base: base.clone(),
                     bps: *bps,
                     dc: *dc,
                     freq: *freq,
-                    calendar_id: calendar_id.clone(),
+                    calendar,
                     dates,
                     prev,
                     accrual_basis: accrual_basis.clone(),
@@ -577,11 +581,19 @@ pub(super) fn compute_coupon_schedules(
                     freq: chosen_coupon.schedule.freq,
                     stub: chosen_coupon.schedule.stub,
                 };
-                spec.rate_spec.validate()?;
+                let runtime_spec = ResolvedFloatingRateSpec::try_from(&spec.rate_spec)?;
                 let calendar = resolve_calendar_strict(&spec.rate_spec.calendar_id)?;
+                let fixing_calendar_id = spec
+                    .rate_spec
+                    .fixing_calendar_id
+                    .as_deref()
+                    .unwrap_or(&spec.rate_spec.calendar_id);
+                let fixing_calendar = resolve_calendar_strict(fixing_calendar_id)?;
                 float_schedules.push(FloatSchedule {
                     spec,
                     calendar,
+                    fixing_calendar,
+                    runtime_spec,
                     dates,
                     prev,
                 });

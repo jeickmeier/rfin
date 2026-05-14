@@ -655,6 +655,37 @@ mod computation {
         );
     }
 
+    #[test]
+    fn custom_principal_same_date_negative_item_does_not_offset_repayment() {
+        let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let pay_date = Date::from_calendar_date(2025, Month::July, 15).unwrap();
+        let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+        let init = Money::new(1_000_000.0, Currency::USD);
+
+        let mut builder = CashFlowSchedule::builder();
+        let _ = builder.principal(init, issue, maturity).amortization(
+            AmortizationSpec::CustomPrincipal {
+                items: vec![
+                    (pay_date, Money::new(100_000.0, Currency::USD)),
+                    (pay_date, Money::new(-100_000.0, Currency::USD)),
+                ],
+            },
+        );
+
+        let schedule = builder.build_with_curves(None).unwrap();
+        let amortization_amount: f64 = schedule
+            .flows
+            .iter()
+            .filter(|cf| cf.date == pay_date && cf.kind == CFKind::Amortization)
+            .map(|cf| cf.amount.amount())
+            .sum();
+
+        assert!(
+            (amortization_amount - 100_000.0).abs() < 1e-9,
+            "negative custom principal entries should not offset positive repayments"
+        );
+    }
+
     /// Test step-remaining amortization produces correct outstanding path
     #[test]
     fn step_remaining_amortization_golden_values() {

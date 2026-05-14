@@ -2,10 +2,9 @@
 
 use crate::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{adjust, Date, DateExt};
+use finstack_core::dates::{adjust, Date, DateExt, HolidayCalendar};
 use finstack_core::money::Money;
 
-use crate::builder::calendar::resolve_calendar_strict;
 /// Add a PIK cashflow if the amount is nonzero.
 ///
 /// Returns the PIK amount for outstanding balance tracking.
@@ -43,9 +42,8 @@ pub(in crate::builder) fn compute_reset_date(
     accrual_start: Date,
     reset_lag_days: i32,
     bdc: finstack_core::dates::BusinessDayConvention,
-    calendar_id: &str,
+    cal: &dyn HolidayCalendar,
 ) -> finstack_core::Result<Date> {
-    let cal = resolve_calendar_strict(calendar_id)?;
     if reset_lag_days == 0 {
         return adjust(accrual_start, bdc, cal);
     }
