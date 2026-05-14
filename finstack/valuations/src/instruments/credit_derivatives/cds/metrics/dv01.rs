@@ -11,13 +11,12 @@ use crate::calibration::bumps::rates::bump_discount_curve_from_rate_calibration;
 use crate::calibration::bumps::BumpRequest;
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use crate::metrics::sensitivities::config as sens_config;
+use crate::metrics::sensitivities::cs01::sensitivity_central_diff;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
 use std::sync::Arc;
-
-const MIN_BUMP_BP: f64 = 1e-10;
 
 /// CDS DV01 calculator with par-spread hazard re-bootstrap when possible.
 pub(crate) struct CdsDv01Calculator;
@@ -73,7 +72,7 @@ impl MetricCalculator for CdsDv01Calculator {
         let defaults =
             sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?;
         let bump_bp = defaults.rate_bump_bp;
-        if bump_bp.abs() <= MIN_BUMP_BP {
+        if bump_bp.abs() <= 1e-10 {
             return Ok(0.0);
         }
 
@@ -92,7 +91,7 @@ impl MetricCalculator for CdsDv01Calculator {
             let pv_up = Self::price_at_rate_bump(&cds, context, bump_bp, rebootstrap_hazard)?;
             let pv_down = Self::price_at_rate_bump(&cds, context, -bump_bp, rebootstrap_hazard)?;
 
-            Ok((pv_up - pv_down) / (2.0 * bump_bp))
+            Ok(sensitivity_central_diff(pv_up, pv_down, bump_bp))
         })();
         context.curves = original_curves;
         result

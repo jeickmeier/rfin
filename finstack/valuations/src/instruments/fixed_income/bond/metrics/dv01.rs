@@ -4,6 +4,7 @@ use crate::instruments::fixed_income::bond::metrics::effective::{
 };
 use crate::instruments::Bond;
 use crate::instruments::BondRiskBasis;
+use crate::metrics::sensitivities::cs01::sensitivity_central_diff;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::MarketBump;
 use finstack_core::market_data::context::BumpSpec;
@@ -93,5 +94,5 @@ fn curve_bump_dv01(
 
     let pv_up = bond.value_raw(&market_up, context.as_of)?;
     let pv_down = bond.value_raw(&market_down, context.as_of)?;
-    Ok((pv_up - pv_down) / (2.0 * bump_bp))
+    Ok(sensitivity_central_diff(pv_up, pv_down, bump_bp))
 }

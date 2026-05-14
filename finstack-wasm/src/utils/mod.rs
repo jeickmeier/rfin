@@ -16,7 +16,15 @@ use wasm_bindgen::JsValue;
 /// errors let JS clients pattern-match on `err.name` and reliably read
 /// `err.message` rather than parsing ad-hoc strings.
 pub fn to_js_err(e: impl std::fmt::Display) -> JsValue {
-    let msg = e.to_string();
+    js_value_from_message(display_error_message(e))
+}
+
+/// Convert an error with a `source()` chain into a structured `JsValue` error.
+pub fn to_js_error(e: &dyn std::error::Error) -> JsValue {
+    js_value_from_message(js_error_message(e))
+}
+
+fn js_value_from_message(msg: String) -> JsValue {
     #[cfg(target_arch = "wasm32")]
     {
         let err = js_sys::Error::new(&msg);
@@ -30,6 +38,83 @@ pub fn to_js_err(e: impl std::fmt::Display) -> JsValue {
     }
 }
 
+fn display_error_message(e: impl std::fmt::Display) -> String {
+    e.to_string()
+}
+
+fn js_error_message(e: &dyn std::error::Error) -> String {
+    format_error_chain(e)
+}
+
+fn format_error_chain(err: &dyn std::error::Error) -> String {
+    let mut out = err.to_string();
+    let mut src = err.source();
+    while let Some(cause) = src {
+        let msg = cause.to_string();
+        if !out.ends_with(&msg) {
+            out.push_str(": ");
+            out.push_str(&msg);
+        }
+        src = cause.source();
+    }
+    out
+}
+
 // Native unit tests for `to_js_err` are limited because `js_sys::Error` only
 // behaves normally under wasm32. The function is exercised indirectly by
 // error-path wasm-bindgen tests.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::error::Error;
+    use std::fmt;
+
+    #[derive(Debug)]
+    struct Wrapper(Box<dyn Error + Send + Sync>);
+
+    impl fmt::Display for Wrapper {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "calibration failed")
+        }
+    }
+
+    impl Error for Wrapper {
+        fn source(&self) -> Option<&(dyn Error + 'static)> {
+            Some(&*self.0)
+        }
+    }
+
+    #[derive(Debug)]
+    struct Leaf;
+
+    impl fmt::Display for Leaf {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "solver diverged after 1000 iterations")
+        }
+    }
+
+    impl Error for Leaf {}
+
+    #[test]
+    fn js_error_message_flattens_error_sources() {
+        let err = Wrapper(Box::new(Leaf));
+
+        assert_eq!(
+            js_error_message(&err),
+            "calibration failed: solver diverged after 1000 iterations"
+        );
+    }
+
+    #[test]
+    fn js_error_message_keeps_plain_string_callers_compatible() {
+        assert_eq!(
+            display_error_message("plain validation error"),
+            "plain validation error"
+        );
+        assert_eq!(
+            display_error_message(String::from("owned validation error")),
+            "owned validation error"
+        );
+    }
+}

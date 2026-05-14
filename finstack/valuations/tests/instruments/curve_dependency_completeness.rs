@@ -14,8 +14,9 @@ use finstack_core::dates::{DateExt, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
+use finstack_valuations::instruments::equity::variance_swap::VarianceSwap;
 use finstack_valuations::instruments::fixed_income::bond::{Bond, CashflowSpec};
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::{Instrument, InstrumentJson, MarketDependencies};
 use time::macros::date;
 
 /// Build a discount curve with the given ID and flat rate.
@@ -245,5 +246,26 @@ fn test_dependency_count_reasonable() {
         cds_deps.credit_curves.len(),
         1,
         "CDS should declare exactly 1 credit curve"
+    );
+}
+
+#[test]
+fn test_variance_swap_direct_dependencies_match_json_dependencies() {
+    let swap = VarianceSwap::example().expect("variance swap example");
+
+    let json_deps =
+        MarketDependencies::from_instrument_json(&InstrumentJson::VarianceSwap(swap.clone()))
+            .expect("from_instrument_json");
+    let direct_deps = swap
+        .market_dependencies()
+        .expect("direct market_dependencies");
+
+    assert_eq!(
+        direct_deps.curves.discount_curves, json_deps.curves.discount_curves,
+        "direct dependencies should declare the same discount curves as JSON dependencies"
+    );
+    assert_eq!(
+        direct_deps.series_ids, json_deps.series_ids,
+        "direct dependencies should declare the realized variance series IDs"
     );
 }

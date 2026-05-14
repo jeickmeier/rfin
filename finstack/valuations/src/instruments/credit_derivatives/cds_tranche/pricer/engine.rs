@@ -18,10 +18,10 @@ use finstack_core::Result;
 
 impl CDSTranchePricer {
     #[inline]
-    pub(super) fn select_quadrature(&self) -> Result<GaussHermiteQuadrature> {
-        Ok(crate::correlation::copula::select_quadrature(
-            self.params.quadrature_order,
-        ))
+    pub(super) fn select_quadrature(&self) -> Result<&GaussHermiteQuadrature> {
+        Ok(self.quadrature_cache.get_or_init(|| {
+            crate::correlation::copula::select_quadrature(self.params.quadrature_order)
+        }))
     }
 
     /// Return the cached copula instance, building it on first call.
@@ -81,6 +81,7 @@ impl CDSTranchePricer {
         Self {
             params: CDSTranchePricerConfig::default(),
             copula_cache: std::sync::OnceLock::new(),
+            quadrature_cache: std::sync::OnceLock::new(),
         }
     }
 
@@ -89,6 +90,7 @@ impl CDSTranchePricer {
         Self {
             params,
             copula_cache: std::sync::OnceLock::new(),
+            quadrature_cache: std::sync::OnceLock::new(),
         }
     }
 

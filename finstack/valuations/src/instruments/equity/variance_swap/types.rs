@@ -12,7 +12,10 @@ use time::macros::date;
 
 use super::pricer;
 use crate::impl_instrument_base;
-use crate::{cashflow::traits::CashflowProvider, instruments::common_impl::traits::Attributes};
+use crate::{
+    cashflow::traits::CashflowProvider,
+    instruments::{common_impl::traits::Attributes, MarketDependencies},
+};
 
 pub use crate::instruments::common_impl::parameters::PayReceive;
 
@@ -348,6 +351,28 @@ impl crate::instruments::common_impl::traits::Instrument for VarianceSwap {
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
+    }
+
+    fn market_dependencies(&self) -> finstack_core::Result<MarketDependencies> {
+        let mut deps = MarketDependencies::from_curve_dependencies(self)?;
+        if self.realized_var_method.requires_ohlc() {
+            for series_id in [
+                self.open_series_id.as_deref(),
+                self.high_series_id.as_deref(),
+                self.low_series_id.as_deref(),
+                self.close_series_id.as_deref(),
+            ]
+            .iter()
+            .filter_map(|&s| s)
+            {
+                deps.add_series_id(series_id);
+            }
+        } else if let Some(close_id) = self.close_series_id.as_deref() {
+            deps.add_series_id(close_id);
+        } else {
+            deps.add_series_id(self.underlying_ticker.as_str());
+        }
+        Ok(deps)
     }
 }
 

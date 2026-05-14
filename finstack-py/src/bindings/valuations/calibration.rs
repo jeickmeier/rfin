@@ -66,12 +66,42 @@ fn execute_error_to_py(py: Python<'_>, err: ExecuteError) -> PyErr {
     module = "finstack.valuations",
     skip_from_py_object
 )]
-#[derive(Clone)]
 pub struct PyCalibrationResult {
     inner: CalibrationResultEnvelope,
+    cached_json: OnceLock<String>,
     cached_market_json: OnceLock<String>,
     cached_report_json: OnceLock<String>,
-    cached_step_reports: OnceLock<HashMap<String, OnceLock<String>>>,
+    cached_step_reports: OnceLock<HashMap<String, String>>,
+}
+
+impl Clone for PyCalibrationResult {
+    fn clone(&self) -> Self {
+        Self::new(self.inner.clone())
+    }
+}
+
+impl PyCalibrationResult {
+    fn new(inner: CalibrationResultEnvelope) -> Self {
+        Self {
+            inner,
+            cached_json: OnceLock::new(),
+            cached_market_json: OnceLock::new(),
+            cached_report_json: OnceLock::new(),
+            cached_step_reports: OnceLock::new(),
+        }
+    }
+}
+
+fn cached_json<F>(cache: &OnceLock<String>, serialize: F) -> PyResult<String>
+where
+    F: FnOnce() -> serde_json::Result<String>,
+{
+    if let Some(value) = cache.get() {
+        return Ok(value.clone());
+    }
+    let value = serialize().map_err(display_to_py)?;
+    let _ = cache.set(value.clone());
+    Ok(value)
 }
 
 #[pymethods]
@@ -80,17 +110,14 @@ impl PyCalibrationResult {
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
         let inner: CalibrationResultEnvelope = serde_json::from_str(json).map_err(display_to_py)?;
-        Ok(Self {
-            inner,
-            cached_market_json: OnceLock::new(),
-            cached_report_json: OnceLock::new(),
-            cached_step_reports: OnceLock::new(),
-        })
+        Ok(Self::new(inner))
     }
 
     /// Serialize to a pretty-printed JSON string.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
+        cached_json(&self.cached_json, || {
+            serde_json::to_string_pretty(&self.inner)
+        })
     }
 
     /// Whether the overall calibration succeeded (all steps passed fitting and validation).
@@ -110,13 +137,9 @@ impl PyCalibrationResult {
     /// The calibrated market serialized as a JSON string.
     #[getter]
     fn market_json(&self) -> PyResult<String> {
-        Ok(self
-            .cached_market_json
-            .get_or_init(|| {
-                serde_json::to_string_pretty(&self.inner.result.final_market)
-                    .expect("MarketContext serialization should not fail")
-            })
-            .clone())
+        cached_json(&self.cached_market_json, || {
+            serde_json::to_string_pretty(&self.inner.result.final_market)
+        })
     }
 
     fn _market_json_uncached(&self) -> PyResult<String> {
@@ -126,13 +149,9 @@ impl PyCalibrationResult {
     /// The aggregated calibration report as a JSON string.
     #[getter]
     fn report_json(&self) -> PyResult<String> {
-        Ok(self
-            .cached_report_json
-            .get_or_init(|| {
-                serde_json::to_string_pretty(&self.inner.result.report)
-                    .expect("CalibrationReport serialization should not fail")
-            })
-            .clone())
+        cached_json(&self.cached_report_json, || {
+            serde_json::to_string_pretty(&self.inner.result.report)
+        })
     }
 
     fn _report_json_uncached(&self) -> PyResult<String> {
@@ -180,18 +199,22 @@ impl PyCalibrationResult {
     /// ValueError
     ///     If no step with the given *step_id* exists.
     fn step_report_json(&self, step_id: &str) -> PyResult<String> {
-        let _reports = self.cached_step_reports.get_or_init(HashMap::new);
-        // We can't easily do get_or_init on a nested OnceLock in a shared ref,
-        // so we serialize on first access and cache.
-        let report = self
-            .inner
-            .result
-            .step_reports
-            .get(step_id)
-            .ok_or_else(|| PyValueError::new_err(format!("No step report for '{step_id}'")))?;
-        // Serialize fresh each time — step reports are typically accessed once each.
-        // The HashMap of OnceLocks would need interior mutability to populate lazily.
-        serde_json::to_string_pretty(report).map_err(display_to_py)
+        if self.cached_step_reports.get().is_none() {
+            let mut reports = HashMap::with_capacity(self.inner.result.step_reports.len());
+            for (id, report) in &self.inner.result.step_reports {
+                reports.insert(
+                    id.clone(),
+                    serde_json::to_string_pretty(report).map_err(display_to_py)?,
+                );
+            }
+            let _ = self.cached_step_reports.set(reports);
+        }
+
+        self.cached_step_reports
+            .get()
+            .and_then(|reports| reports.get(step_id))
+            .cloned()
+            .ok_or_else(|| PyValueError::new_err(format!("No step report for '{step_id}'")))
     }
 
     /// Per-step summary as a pandas ``DataFrame``.
@@ -349,12 +372,7 @@ fn calibrate(py: Python<'_>, json: &str) -> PyResult<PyCalibrationResult> {
     let result = py
         .detach(|| engine::execute_with_diagnostics(&envelope))
         .map_err(|e| execute_error_to_py(py, e))?;
-    Ok(PyCalibrationResult {
-        inner: result,
-        cached_market_json: OnceLock::new(),
-        cached_report_json: OnceLock::new(),
-        cached_step_reports: OnceLock::new(),
-    })
+    Ok(PyCalibrationResult::new(result))
 }
 
 // ---------------------------------------------------------------------------

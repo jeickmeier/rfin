@@ -1033,12 +1033,33 @@ export declare const cashflows: CashflowsNamespace;
 
 // --- valuations ------------------------------------------------------------
 
+export declare class WasmMarket {
+  constructor(json: string);
+  static fromJson(json: string): WasmMarket;
+  toJson(): string;
+}
+
 export interface ValuationInstrumentsNamespace {
   validateInstrumentJson(json: string): string;
   priceInstrument(instrumentJson: string, marketJson: string, asOf: string, model: string): string;
   priceInstrumentWithMetrics(
     instrumentJson: string,
     marketJson: string,
+    asOf: string,
+    model: string,
+    metrics: string[],
+    pricingOptions?: string | null,
+    marketHistory?: string | null
+  ): string;
+  priceInstrumentWithMarket(
+    instrumentJson: string,
+    market: WasmMarket,
+    asOf: string,
+    model: string
+  ): string;
+  priceInstrumentWithMetricsAndMarket(
+    instrumentJson: string,
+    market: WasmMarket,
     asOf: string,
     model: string,
     metrics: string[],
@@ -1220,6 +1241,21 @@ export interface CreditDerivativesNamespace {
     pricingOptions?: string | null,
     marketHistory?: string | null
   ): string;
+  priceInstrumentWithMarket(
+    instrumentJson: string,
+    market: WasmMarket,
+    asOf: string,
+    model: string
+  ): string;
+  priceInstrumentWithMetricsAndMarket(
+    instrumentJson: string,
+    market: WasmMarket,
+    asOf: string,
+    model: string,
+    metrics: string[],
+    pricingOptions?: string | null,
+    marketHistory?: string | null
+  ): string;
 }
 
 export interface ValuationsNamespace {
@@ -1287,10 +1323,26 @@ export interface ValuationsNamespace {
    */
   dependencyGraphJson(envelope: CalibrationEnvelope | string): string;
   validateInstrumentJson(json: string): string;
+  WasmMarket: typeof WasmMarket;
   priceInstrument(instrumentJson: string, marketJson: string, asOf: string, model: string): string;
   priceInstrumentWithMetrics(
     instrumentJson: string,
     marketJson: string,
+    asOf: string,
+    model: string,
+    metrics: string[],
+    pricingOptions?: string | null,
+    marketHistory?: string | null
+  ): string;
+  priceInstrumentWithMarket(
+    instrumentJson: string,
+    market: WasmMarket,
+    asOf: string,
+    model: string
+  ): string;
+  priceInstrumentWithMetricsAndMarket(
+    instrumentJson: string,
+    market: WasmMarket,
     asOf: string,
     model: string,
     metrics: string[],

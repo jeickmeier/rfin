@@ -382,6 +382,14 @@ impl InstrumentJson {
     ) -> Option<Self> {
         with_instrument_json_registry!(instrument_json_from_dyn_match, instrument)
     }
+
+    /// Return the market-data dependencies declared by the wrapped instrument.
+    ///
+    /// This keeps JSON-loaded instruments on the same dependency path as
+    /// trait-object pricing and attribution.
+    pub fn market_dependencies(&self) -> Result<MarketDependencies> {
+        self.clone().into_boxed()?.market_dependencies()
+    }
 }
 
 #[derive(Deserialize)]

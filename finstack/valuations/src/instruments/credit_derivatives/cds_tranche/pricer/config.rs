@@ -3,6 +3,7 @@ use crate::correlation::copula::{Copula, CopulaSpec};
 use crate::correlation::recovery::RecoverySpec;
 use finstack_core::dates::{Date, StubKind};
 use finstack_core::market_data::term_structures::CreditIndexData;
+use finstack_core::math::GaussHermiteQuadrature;
 use finstack_core::types::Percentage;
 use std::sync::OnceLock;
 
@@ -383,19 +384,19 @@ pub enum HeteroMethod {
 /// Supports multiple copula models (Gaussian, Student-t, RFL, Multi-factor)
 /// and optional stochastic recovery for market-standard tranche pricing.
 ///
-/// The copula instance is constructed lazily on first use and cached for the
-/// pricer's lifetime — heterogeneous EL evaluation calls into copula dispatch
-/// from within Gauss-Hermite integrands and previously paid a fresh `Box`
-/// allocation per call.
+/// The copula instance and quadrature table are constructed lazily on first use
+/// and cached for the pricer's lifetime. Heterogeneous EL evaluation calls into
+/// copula dispatch and quadrature selection from hot integration loops.
 ///
 /// **Cache invariant:** `params.copula_spec` and `params.quadrature_order` must
-/// not be mutated after the first call to [`Self::copula`]. To change the
-/// copula, construct a new pricer via [`Self::with_params`]. Other config
-/// fields (`grid_step`, `hetero_method`, `use_issuer_curves`, etc.) are *not*
-/// cached and may be mutated freely.
+/// not be mutated after the first call to [`Self::copula`] or quadrature
+/// selection. To change either, construct a new pricer via [`Self::with_params`].
+/// Other config fields (`grid_step`, `hetero_method`, `use_issuer_curves`, etc.)
+/// are *not* cached and may be mutated freely.
 pub struct CDSTranchePricer {
     pub(super) params: CDSTranchePricerConfig,
     pub(super) copula_cache: OnceLock<Box<dyn Copula + Send + Sync>>,
+    pub(super) quadrature_cache: OnceLock<GaussHermiteQuadrature>,
 }
 
 pub(super) type ProjectionInputs = (

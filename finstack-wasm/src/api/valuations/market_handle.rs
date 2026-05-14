@@ -44,6 +44,12 @@ impl WasmMarket {
         WasmMarket::new(json)
     }
 
+    /// Serialize the wrapped MarketContext back to JSON.
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string(&self.inner).map_err(to_js_err)
+    }
+
     /// Access the inner MarketContext (crate-internal).
     pub(crate) fn inner(&self) -> &MarketContext {
         &self.inner

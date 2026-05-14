@@ -95,7 +95,13 @@ impl HazardCurveTarget {
                 params.doc_clause.as_deref(),
             )?;
 
-        let reuse_context = Some(RefCell::new(base_context.clone()));
+        let reuse_context = if matches!(config.calibration_method, CalibrationMethod::Bootstrap)
+            || !config.use_parallel
+        {
+            Some(RefCell::new(base_context.clone()))
+        } else {
+            None
+        };
 
         Ok(Self {
             params,
@@ -301,24 +307,22 @@ impl HazardCurveTarget {
     {
         if let Some(ctx_cell) = &self.reuse_context {
             let mut ctx = ctx_cell.borrow_mut();
-            *ctx = std::mem::take(&mut *ctx).insert(curve.clone());
+            ctx.insert_mut(curve.clone());
             // Sync CreditIndex if it exists (so pricer sees trial curve)
             if let Ok(idx) = ctx.get_credit_index(self.params.curve_id.as_str()) {
                 let mut updated = idx.as_ref().clone();
                 updated.index_credit_curve = std::sync::Arc::new(curve.clone());
-                *ctx = std::mem::take(&mut *ctx)
-                    .insert_credit_index(self.params.curve_id.as_str(), updated);
+                ctx.insert_credit_index_mut(self.params.curve_id.as_str(), updated);
             }
             op(&ctx)
         } else {
             let mut temp_context = self.base_context.clone();
-            temp_context = temp_context.insert(curve.clone());
+            temp_context.insert_mut(curve.clone());
             // Sync CreditIndex if it exists
             if let Ok(idx) = temp_context.get_credit_index(self.params.curve_id.as_str()) {
                 let mut updated = idx.as_ref().clone();
                 updated.index_credit_curve = std::sync::Arc::new(curve.clone());
-                temp_context =
-                    temp_context.insert_credit_index(self.params.curve_id.as_str(), updated);
+                temp_context.insert_credit_index_mut(self.params.curve_id.as_str(), updated);
             }
             op(&temp_context)
         }

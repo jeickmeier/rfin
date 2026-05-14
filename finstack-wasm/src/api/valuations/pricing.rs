@@ -6,7 +6,7 @@
 //! Python binding layout; the exported JS surface is unchanged.
 
 use super::market_handle::WasmMarket;
-use crate::utils::to_js_err;
+use crate::utils::{to_js_err, to_js_error};
 use wasm_bindgen::prelude::*;
 
 /// Deserialize a `ValuationResult` from JSON and return the canonical JSON.
@@ -25,7 +25,7 @@ pub fn validate_valuation_result_json(json: &str) -> Result<String, JsValue> {
 /// returns the canonical (re-serialized) JSON.
 #[wasm_bindgen(js_name = validateInstrumentJson)]
 pub fn validate_instrument_json(json: &str) -> Result<String, JsValue> {
-    finstack_valuations::pricer::validate_instrument_json(json).map_err(to_js_err)
+    finstack_valuations::pricer::validate_instrument_json(json).map_err(|e| to_js_error(&e))
 }
 
 /// Price an instrument from its tagged JSON and return a ValuationResult JSON.
@@ -42,7 +42,7 @@ pub fn price_instrument(
         serde_json::from_str(market_json).map_err(to_js_err)?;
     let result =
         finstack_valuations::pricer::price_instrument_json(instrument_json, &market, as_of, model)
-            .map_err(to_js_err)?;
+            .map_err(|e| to_js_error(&e))?;
     serde_json::to_string(&result).map_err(to_js_err)
 }
 
@@ -71,7 +71,7 @@ pub fn price_instrument_with_metrics(
         pricing_options.as_deref(),
         market_history.as_deref(),
     )
-    .map_err(to_js_err)?;
+    .map_err(|e| to_js_error(&e))?;
     serde_json::to_string(&result).map_err(to_js_err)
 }
 
@@ -95,7 +95,7 @@ pub fn instrument_cashflows_json(
         as_of,
         model,
     )
-    .map_err(to_js_err)
+    .map_err(|e| to_js_error(&e))
 }
 
 /// List all metric IDs in the standard metric registry.
@@ -150,7 +150,7 @@ pub fn price_instrument_with_market(
         as_of,
         model,
     )
-    .map_err(to_js_err)?;
+    .map_err(|e| to_js_error(&e))?;
     serde_json::to_string(&result).map_err(to_js_err)
 }
 
@@ -175,7 +175,7 @@ pub fn price_instrument_with_metrics_and_market(
         pricing_options.as_deref(),
         market_history.as_deref(),
     )
-    .map_err(to_js_err)?;
+    .map_err(|e| to_js_error(&e))?;
     serde_json::to_string(&result).map_err(to_js_err)
 }
 
