@@ -35,8 +35,9 @@
 //! - Gaussian copula reference:
 //!   `docs/REFERENCES.md#li-2000-gaussian-copula`
 
-use super::{select_quadrature, Copula, DEFAULT_QUADRATURE_ORDER};
+use super::{get_cached_quadrature, Copula, DEFAULT_QUADRATURE_ORDER};
 use finstack_core::math::{norm_cdf, GaussHermiteQuadrature};
+use std::sync::Arc;
 
 /// Minimum correlation for numerical stability.
 const MIN_CORRELATION: f64 = 0.01;
@@ -62,15 +63,15 @@ const CDF_CLIP: f64 = 10.0;
 pub struct GaussianCopula {
     /// Quadrature order for integration
     quadrature_order: u8,
-    /// Cached quadrature for performance
-    quadrature: GaussHermiteQuadrature,
+    /// Cached quadrature for performance (Arc for cheap clone)
+    quadrature: Arc<GaussHermiteQuadrature>,
 }
 
 impl Clone for GaussianCopula {
     fn clone(&self) -> Self {
         Self {
             quadrature_order: self.quadrature_order,
-            quadrature: select_quadrature(self.quadrature_order),
+            quadrature: Arc::clone(&self.quadrature),
         }
     }
 }
@@ -116,7 +117,7 @@ impl GaussianCopula {
         let order = DEFAULT_QUADRATURE_ORDER;
         Self {
             quadrature_order: order,
-            quadrature: select_quadrature(order),
+            quadrature: get_cached_quadrature(order),
         }
     }
 
@@ -133,7 +134,7 @@ impl GaussianCopula {
     pub fn with_quadrature_order(order: u8) -> Self {
         Self {
             quadrature_order: order,
-            quadrature: select_quadrature(order),
+            quadrature: get_cached_quadrature(order),
         }
     }
 

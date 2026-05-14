@@ -2,7 +2,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_valuations::calibration::{
-    CalibrationConfig, RateBounds, RateBoundsPolicy, ValidationConfig,
+    CalibrationConfig, RateBounds, RateBoundsPolicy, SolverConfig, ValidationConfig,
 };
 
 #[test]
@@ -43,4 +43,25 @@ fn validation_config_rejects_invalid_forward_limits() {
         .validate()
         .expect_err("min_forward_rate > 0 should fail");
     assert!(err.to_string().contains("min_forward_rate"));
+}
+
+#[test]
+fn validation_config_carries_recovery_defaults() {
+    let cfg = ValidationConfig::default();
+    assert_eq!(cfg.recovery_rate_abs_tolerance, 1e-12);
+    assert_eq!(cfg.minimum_lgd_for_hazard_guess, 1e-6);
+    cfg.validate().expect("default validation config is valid");
+}
+
+#[test]
+fn calibration_config_rejects_solver_tolerance_looser_than_fit_tolerance() {
+    let cfg = CalibrationConfig {
+        solver: SolverConfig::brent_default().with_tolerance(1e-4),
+        ..Default::default()
+    };
+
+    let err = cfg
+        .validate()
+        .expect_err("solver tolerance looser than validation tolerance should fail");
+    assert!(err.to_string().contains("solver tolerance"));
 }

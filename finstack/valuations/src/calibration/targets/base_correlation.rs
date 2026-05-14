@@ -506,7 +506,7 @@ impl BootstrapTarget for BaseCorrelationTarget {
         pts.push(hi);
 
         // Linear grid across the feasible region [low, hi].
-        const N: usize = 48;
+        const N: usize = 6;
         for i in 0..=N {
             let x = low + (i as f64) / (N as f64) * (hi - low);
             pts.push(x);

@@ -408,7 +408,25 @@ impl CopulaSpec {
 /// Industry standard (QuantLib, Bloomberg) uses 20-50 points for tranche pricing.
 pub(crate) const DEFAULT_QUADRATURE_ORDER: u8 = 20;
 
-/// Select quadrature based on order.
+/// Global cache of Gauss-Hermite quadrature instances keyed by order.
+/// Wrapped in `Arc` so copula clones are cheap (refcount bump instead of O(n²) recomputation).
+static QUADRATURE_CACHE: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::HashMap<u8, std::sync::Arc<GaussHermiteQuadrature>>>,
+> = std::sync::OnceLock::new();
+
+fn get_cached_quadrature(order: u8) -> std::sync::Arc<GaussHermiteQuadrature> {
+    let cache =
+        QUADRATURE_CACHE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+    let mut map = match cache.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    map.entry(order)
+        .or_insert_with(|| std::sync::Arc::new(select_quadrature(order)))
+        .clone()
+}
+
+/// Select quadrature based on order (uncached — used to populate the cache).
 pub(crate) fn select_quadrature(order: u8) -> GaussHermiteQuadrature {
     GaussHermiteQuadrature::new(order as usize).unwrap_or_else(|_| {
         GaussHermiteQuadrature::new(DEFAULT_QUADRATURE_ORDER as usize).unwrap_or_else(|_| {

@@ -1,11 +1,11 @@
 use super::engine::{AodInputs, CDSPricer, CouponPeriod};
 use super::helpers::{df_asof_to, sp_cond_to};
-use crate::constants::{numerical, BASIS_POINTS_PER_UNIT, ONE_BASIS_POINT};
+use crate::constants::{credit, numerical, BASIS_POINTS_PER_UNIT, ONE_BASIS_POINT};
 use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::credit_derivatives::cds::{
     CdsValuationConvention, CreditDefaultSwap, PayReceive,
 };
-use finstack_core::dates::{adjust, next_cds_date, Date};
+use finstack_core::dates::{adjust, next_cds_date, Date, DayCountContext};
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::{Error, Result};
 use rust_decimal::prelude::ToPrimitive;
@@ -410,6 +410,23 @@ impl CDSPricer {
             .calendar_id
             .as_deref()
             .and_then(finstack_core::dates::calendar::calendar_by_id);
+
+        // Pre-compute year fractions once to avoid repeated day-count calls.
+        let disc_dc = disc.day_count();
+        let disc_base = disc.base_date();
+        let haz_dc = surv.day_count();
+        let haz_base = surv.base_date();
+        let t_asof_disc = disc_dc.year_fraction(disc_base, as_of, DayCountContext::default())?;
+        let t_asof_haz = haz_dc.year_fraction(haz_base, as_of, DayCountContext::default())?;
+        let df_asof = disc.df(t_asof_disc);
+        let sp_asof = surv.sp(t_asof_haz);
+        let sp_floor = credit::SURVIVAL_PROBABILITY_FLOOR;
+        let sp_cond_denom = if sp_asof > sp_floor {
+            sp_asof
+        } else {
+            return Ok(0.0);
+        };
+
         let mut per_bp_pv = 0.0;
         for period in periods {
             let start_date = period.accrual_start;
@@ -424,11 +441,14 @@ impl CDSPricer {
             // Accrual uses instrument day-count
             let accrual = self.coupon_accrual(cds, &period)?;
 
-            // Discounting uses discount curve's day-count and relative DF from as_of
-            let df = df_asof_to(disc, as_of, payment_date)?;
+            // Discount factor: df(payment) / df(as_of)
+            let t_pay =
+                disc_dc.year_fraction(disc_base, payment_date, DayCountContext::default())?;
+            let df = disc.df(t_pay) / df_asof;
 
-            // Survival uses hazard curve's day-count and conditional probability
-            let sp = sp_cond_to(surv, as_of, end_date)?;
+            // Conditional survival: sp(end) / sp(as_of)
+            let t_end = haz_dc.year_fraction(haz_base, end_date, DayCountContext::default())?;
+            let sp = surv.sp(t_end) / sp_cond_denom;
 
             per_bp_pv += ONE_BASIS_POINT * accrual * sp * df;
 
@@ -472,6 +492,23 @@ impl CDSPricer {
         as_of: Date,
     ) -> Result<f64> {
         let periods = self.coupon_periods(cds, as_of)?;
+
+        // Pre-compute year fractions once to avoid repeated day-count calls.
+        let disc_dc = disc.day_count();
+        let disc_base = disc.base_date();
+        let haz_dc = surv.day_count();
+        let haz_base = surv.base_date();
+        let t_asof_disc = disc_dc.year_fraction(disc_base, as_of, DayCountContext::default())?;
+        let t_asof_haz = haz_dc.year_fraction(haz_base, as_of, DayCountContext::default())?;
+        let df_asof = disc.df(t_asof_disc);
+        let sp_asof = surv.sp(t_asof_haz);
+        let sp_floor = credit::SURVIVAL_PROBABILITY_FLOOR;
+        let sp_cond_denom = if sp_asof > sp_floor {
+            sp_asof
+        } else {
+            return Ok(0.0);
+        };
+
         let mut annuity = 0.0;
         for period in periods {
             let end_date = period.accrual_end;
@@ -485,11 +522,14 @@ impl CDSPricer {
             // Accrual uses instrument day-count
             let accrual = self.coupon_accrual(cds, &period)?;
 
-            // Discounting uses discount curve's day-count and relative DF from as_of
-            let df = df_asof_to(disc, as_of, payment_date)?;
+            // Discount factor: df(payment) / df(as_of)
+            let t_pay =
+                disc_dc.year_fraction(disc_base, payment_date, DayCountContext::default())?;
+            let df = disc.df(t_pay) / df_asof;
 
-            // Survival uses hazard curve's day-count and conditional probability
-            let sp = sp_cond_to(surv, as_of, end_date)?;
+            // Conditional survival: sp(end) / sp(as_of)
+            let t_end = haz_dc.year_fraction(haz_base, end_date, DayCountContext::default())?;
+            let sp = surv.sp(t_end) / sp_cond_denom;
 
             annuity += accrual * sp * df;
         }

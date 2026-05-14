@@ -5,6 +5,7 @@
 //! example payloads live in [`super::credit_derivatives`]. Both mirror the
 //! Python binding layout; the exported JS surface is unchanged.
 
+use super::market_handle::WasmMarket;
 use crate::utils::to_js_err;
 use wasm_bindgen::prelude::*;
 
@@ -127,6 +128,55 @@ pub fn list_standard_metrics_grouped() -> Result<JsValue, JsValue> {
         .collect();
     let map: std::collections::BTreeMap<String, Vec<String>> = grouped.into_iter().collect();
     serde_wasm_bindgen::to_value(&map).map_err(to_js_err)
+}
+
+// ---------------------------------------------------------------------------
+// WasmMarket overloads — parse market once, reuse across pricing calls
+// ---------------------------------------------------------------------------
+
+/// Price an instrument using a pre-parsed [`WasmMarket`].
+///
+/// Avoids the per-call market-parse overhead of [`priceInstrument`].
+#[wasm_bindgen(js_name = priceInstrumentWithMarket)]
+pub fn price_instrument_with_market(
+    instrument_json: &str,
+    market: &WasmMarket,
+    as_of: &str,
+    model: &str,
+) -> Result<String, JsValue> {
+    let result = finstack_valuations::pricer::price_instrument_json(
+        instrument_json,
+        market.inner(),
+        as_of,
+        model,
+    )
+    .map_err(to_js_err)?;
+    serde_json::to_string(&result).map_err(to_js_err)
+}
+
+/// Price an instrument with explicit metric requests using a pre-parsed [`WasmMarket`].
+#[wasm_bindgen(js_name = priceInstrumentWithMetricsAndMarket)]
+pub fn price_instrument_with_metrics_and_market(
+    instrument_json: &str,
+    market: &WasmMarket,
+    as_of: &str,
+    model: &str,
+    metrics: JsValue,
+    pricing_options: Option<String>,
+    market_history: Option<String>,
+) -> Result<String, JsValue> {
+    let metric_strs: Vec<String> = serde_wasm_bindgen::from_value(metrics).map_err(to_js_err)?;
+    let result = finstack_valuations::pricer::price_instrument_json_with_metrics_and_history(
+        instrument_json,
+        market.inner(),
+        as_of,
+        model,
+        &metric_strs,
+        pricing_options.as_deref(),
+        market_history.as_deref(),
+    )
+    .map_err(to_js_err)?;
+    serde_json::to_string(&result).map_err(to_js_err)
 }
 
 #[cfg(test)]

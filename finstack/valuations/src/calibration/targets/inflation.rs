@@ -65,11 +65,7 @@ impl InflationCurveTarget {
         base_context: MarketContext,
         config: CalibrationConfig,
     ) -> Self {
-        let reuse_context = if config.use_parallel {
-            None
-        } else {
-            Some(RefCell::new(base_context.clone()))
-        };
+        let reuse_context = Some(RefCell::new(base_context.clone()));
         Self {
             params,
             base_context,

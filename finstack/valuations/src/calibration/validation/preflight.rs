@@ -28,7 +28,7 @@ use finstack_core::Result;
 /// * `step` - The calibration step to validate
 /// * `quotes` - Available market quotes for this step
 /// * `context` - Current market context with existing curves
-/// * `_global_config` - Global calibration configuration (reserved for future use)
+/// * `global_config` - Global calibration configuration used for validation tolerances
 ///
 /// # Errors
 /// Returns an error if validation fails, with a descriptive message.
@@ -45,16 +45,18 @@ pub(crate) fn preflight_step(
     step: &CalibrationStep,
     quotes: &[MarketQuote],
     context: &MarketContext,
-    _global_config: &CalibrationConfig,
+    global_config: &CalibrationConfig,
 ) -> Result<()> {
     match &step.params {
         StepParams::Discount(_p) => validate_discount_step(quotes),
         StepParams::Forward(p) => validate_forward_step(p, quotes, context),
-        StepParams::Hazard(p) => validate_hazard_step(p, quotes, context),
+        StepParams::Hazard(p) => validate_hazard_step(p, quotes, context, global_config),
         StepParams::Inflation(p) => validate_inflation_step(p, quotes, context),
         StepParams::VolSurface(p) => validate_vol_surface_step(p, context),
         StepParams::SwaptionVol(p) => validate_swaption_vol_step(p, context),
-        StepParams::BaseCorrelation(p) => validate_base_correlation_step(p, quotes, context),
+        StepParams::BaseCorrelation(p) => {
+            validate_base_correlation_step(p, quotes, context, global_config)
+        }
         StepParams::StudentT(p) => validate_student_t_step(p, quotes, context),
         StepParams::HullWhite(_) | StepParams::CapFloorHullWhite(_) => Ok(()), // HW1F calibration validates quotes at execution time
         StepParams::SviSurface(p) => validate_svi_surface_step(p, context),
@@ -216,10 +218,9 @@ fn validate_hazard_step(
     p: &crate::calibration::api::schema::HazardCurveParams,
     quotes: &[MarketQuote],
     context: &MarketContext,
+    global_config: &CalibrationConfig,
 ) -> Result<()> {
-    let recovery_rate_abs_tolerance = crate::calibration::defaults::embedded_defaults()?
-        .validation
-        .recovery_rate_abs_tolerance;
+    let recovery_rate_abs_tolerance = global_config.validation.recovery_rate_abs_tolerance;
     // Ensure referenced discount curve exists.
     let _ = context.get_discount(&p.discount_curve_id)?;
 
@@ -463,10 +464,9 @@ fn validate_base_correlation_step(
     p: &crate::calibration::api::schema::BaseCorrelationParams,
     quotes: &[MarketQuote],
     context: &MarketContext,
+    global_config: &CalibrationConfig,
 ) -> Result<()> {
-    let recovery_rate_abs_tolerance = crate::calibration::defaults::embedded_defaults()?
-        .validation
-        .recovery_rate_abs_tolerance;
+    let recovery_rate_abs_tolerance = global_config.validation.recovery_rate_abs_tolerance;
     if !p.notional.is_finite() || p.notional <= 0.0 {
         return Err(finstack_core::Error::Validation(format!(
             "BaseCorrelation calibration notional must be positive; got {}",

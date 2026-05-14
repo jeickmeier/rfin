@@ -51,12 +51,13 @@
 //! - Correlation-dependent credit valuation:
 //!   `docs/REFERENCES.md#hull-predescu-white-2005`
 
-use super::{select_quadrature, Copula, DEFAULT_QUADRATURE_ORDER};
+use super::{get_cached_quadrature, Copula, DEFAULT_QUADRATURE_ORDER};
 #[cfg(test)]
 use finstack_core::math::student_t_inv_cdf;
 use finstack_core::math::{
     ln_gamma, student_t_cdf, GaussHermiteQuadrature, GaussLaguerreQuadrature,
 };
+use std::sync::Arc;
 
 /// Minimum correlation for numerical stability.
 const MIN_CORRELATION: f64 = 0.01;
@@ -85,8 +86,8 @@ pub struct StudentTCopula {
     degrees_of_freedom: f64,
     /// Quadrature order for integration
     quadrature_order: u8,
-    /// Cached inner quadrature for Gaussian integration given W
-    inner_quadrature: GaussHermiteQuadrature,
+    /// Cached inner quadrature for Gaussian integration given W (Arc for cheap clone)
+    inner_quadrature: Arc<GaussHermiteQuadrature>,
     /// Cached Gauss-Laguerre quadrature nodes and weights for Gamma(ν/2, ν/2)
     gamma_quadrature: Vec<(f64, f64)>,
 }
@@ -96,7 +97,7 @@ impl Clone for StudentTCopula {
         Self {
             degrees_of_freedom: self.degrees_of_freedom,
             quadrature_order: self.quadrature_order,
-            inner_quadrature: select_quadrature(self.quadrature_order),
+            inner_quadrature: Arc::clone(&self.inner_quadrature),
             gamma_quadrature: self.gamma_quadrature.clone(),
         }
     }
@@ -142,7 +143,7 @@ impl StudentTCopula {
         Self {
             degrees_of_freedom: df,
             quadrature_order: order,
-            inner_quadrature: select_quadrature(order),
+            inner_quadrature: get_cached_quadrature(order),
             gamma_quadrature: Self::compute_gamma_quadrature(df, order as usize),
         }
     }
@@ -162,7 +163,7 @@ impl StudentTCopula {
         Self {
             degrees_of_freedom: df,
             quadrature_order: order,
-            inner_quadrature: select_quadrature(order),
+            inner_quadrature: get_cached_quadrature(order),
             gamma_quadrature: Self::compute_gamma_quadrature(df, order as usize),
         }
     }

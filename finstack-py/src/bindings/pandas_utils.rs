@@ -2,6 +2,7 @@
 
 use crate::bindings::core::dates::utils::date_to_py;
 use finstack_core::table::{TableColumn, TableColumnData, TableEnvelope};
+use numpy::PyArray1;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
@@ -36,18 +37,25 @@ pub fn table_column_to_pylist<'py>(
     py: Python<'py>,
     column: &TableColumn,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let list = match &column.data {
-        TableColumnData::String(values) => PyList::new(py, values.iter().cloned())?,
-        TableColumnData::NullableString(values) => PyList::new(py, values.iter().cloned())?,
-        TableColumnData::Float64(values) => PyList::new(py, values.iter().copied())?,
-        TableColumnData::NullableFloat64(values) => PyList::new(py, values.iter().copied())?,
-        TableColumnData::UInt32(values) => PyList::new(py, values.iter().copied())?,
-        TableColumnData::NullableUInt32(values) => PyList::new(py, values.iter().copied())?,
-        TableColumnData::Int64(values) => PyList::new(py, values.iter().copied())?,
-        TableColumnData::NullableInt64(values) => PyList::new(py, values.iter().copied())?,
+    let obj: Bound<'py, PyAny> = match &column.data {
+        TableColumnData::String(values) => PyList::new(py, values.iter().cloned())?.into_any(),
+        TableColumnData::NullableString(values) => {
+            PyList::new(py, values.iter().cloned())?.into_any()
+        }
+        TableColumnData::Float64(values) => PyArray1::from_vec(py, values.clone()).into_any(),
+        TableColumnData::NullableFloat64(values) => {
+            PyList::new(py, values.iter().copied())?.into_any()
+        }
+        TableColumnData::UInt32(values) => PyArray1::from_vec(py, values.clone()).into_any(),
+        TableColumnData::NullableUInt32(values) => {
+            PyList::new(py, values.iter().copied())?.into_any()
+        }
+        TableColumnData::Int64(values) => PyArray1::from_vec(py, values.clone()).into_any(),
+        TableColumnData::NullableInt64(values) => {
+            PyList::new(py, values.iter().copied())?.into_any()
+        }
     };
-
-    Ok(list.into_any())
+    Ok(obj)
 }
 
 /// Build a pandas DataFrame from every column in a table envelope.

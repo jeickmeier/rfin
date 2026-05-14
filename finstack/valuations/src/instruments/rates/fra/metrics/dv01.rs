@@ -165,7 +165,7 @@ fn rebootstrap_market(
         forward_cal,
     )?;
 
-    let split: MarketContextSplit = MarketContextState::from(&initial_market).into();
+    let split = MarketContextSplit::try_from(MarketContextState::from(&initial_market))?;
     let MarketContextSplit { prior, data } = split;
     let mut market_data = data;
     market_data.extend(discount_data);

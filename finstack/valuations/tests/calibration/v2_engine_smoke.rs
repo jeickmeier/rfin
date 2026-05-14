@@ -83,6 +83,7 @@ fn test_v2_simple_usd_calibration() {
         description: None,
         quote_sets,
         settings: CalibrationConfig {
+            use_parallel: true,
             solver: finstack_valuations::calibration::SolverConfig::brent_default()
                 .with_tolerance(1e-12)
                 .with_max_iterations(250),

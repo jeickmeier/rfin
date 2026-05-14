@@ -142,24 +142,20 @@ pub(crate) fn discount_and_forward_curve_ids(
 
 /// Reusable scratch context for sequential bootstrap targets.
 ///
-/// Holds an optional `RefCell<MarketContext>` that gets mutated in place with the candidate
+/// Holds a `RefCell<MarketContext>` that gets mutated in place with the candidate
 /// curve before each residual evaluation, avoiding a full `MarketContext::clone()` per call.
-/// When `use_parallel` is true the scratch is `None` and each call clones the base context;
-/// the `RefCell` itself is `!Sync`, which prevents accidental cross-thread reuse.
+/// Bootstrap is inherently sequential per-pillar; the `RefCell` itself is `!Sync`,
+/// which prevents accidental cross-thread reuse.
 pub(crate) struct ContextScratch {
     base_context: MarketContext,
     reuse: Option<RefCell<MarketContext>>,
 }
 
 impl ContextScratch {
-    /// Create a new scratch. When `use_parallel = true`, `with_curve` will clone fresh contexts
-    /// per call (safe across threads). Otherwise it reuses a single `RefCell<MarketContext>`.
-    pub(crate) fn new(base_context: MarketContext, use_parallel: bool) -> Self {
-        let reuse = if use_parallel {
-            None
-        } else {
-            Some(RefCell::new(base_context.clone()))
-        };
+    /// Create a new scratch. Always reuses a single `RefCell<MarketContext>` via `insert_mut`
+    /// to avoid `MarketContext::clone()` per residual evaluation.
+    pub(crate) fn new(base_context: MarketContext, _use_parallel: bool) -> Self {
+        let reuse = Some(RefCell::new(base_context.clone()));
         Self {
             base_context,
             reuse,

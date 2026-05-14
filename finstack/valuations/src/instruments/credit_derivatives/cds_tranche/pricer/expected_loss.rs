@@ -6,6 +6,17 @@ use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::math::standard_normal_inv_cdf;
 use finstack_core::Result;
 
+/// Pre-computed invariants for EL fraction evaluation (hoisted out of the date loop).
+struct ElInvariants {
+    eff_attach: f64,
+    eff_detach: f64,
+    survival_factor: f64,
+    corr_attach: f64,
+    corr_detach: f64,
+    orig_width: f64,
+    prior_loss: f64,
+}
+
 impl CDSTranchePricer {
     /// Calculate expected tranche loss using the base correlation approach.
     ///
@@ -74,57 +85,74 @@ impl CDSTranchePricer {
         Ok(loss_amount)
     }
 
-    /// Calculate expected tranche loss fraction at a specific date.
-    ///
-    /// Returns the expected loss as a fraction of the ORIGINAL tranche notional [0, 1].
-    pub(super) fn expected_tranche_loss_fraction_at(
+    /// Compute the date-independent invariants needed for EL fraction evaluation.
+    fn el_invariants(
         &self,
         tranche: &CDSTranche,
         index_data: &CreditIndexData,
+    ) -> Result<ElInvariants> {
+        let (eff_attach, eff_detach, survival_factor) = self.calculate_effective_structure(tranche);
+        if eff_detach <= eff_attach {
+            return Ok(ElInvariants {
+                eff_attach: 0.0,
+                eff_detach: 0.0,
+                survival_factor: 0.0,
+                corr_attach: 0.0,
+                corr_detach: 0.0,
+                orig_width: 0.0,
+                prior_loss: 0.0,
+            });
+        }
+        let corr_attach = self.smooth_correlation_boundary(
+            index_data
+                .base_correlation_curve
+                .correlation(tranche.attach_pct),
+        );
+        let corr_detach = self.smooth_correlation_boundary(
+            index_data
+                .base_correlation_curve
+                .correlation(tranche.detach_pct),
+        );
+        let orig_width = (tranche.detach_pct - tranche.attach_pct) / 100.0;
+        let prior_loss = self.calculate_prior_tranche_loss(tranche);
+        Ok(ElInvariants {
+            eff_attach,
+            eff_detach,
+            survival_factor,
+            corr_attach,
+            corr_detach,
+            orig_width,
+            prior_loss,
+        })
+    }
+
+    /// EL fraction at a date using pre-computed invariants (avoids redundant
+    /// effective-structure and base-correlation lookups per date).
+    fn el_fraction_at_date(
+        &self,
+        inv: &ElInvariants,
+        index_data: &CreditIndexData,
         date: Date,
     ) -> Result<f64> {
-        let (eff_attach, eff_detach, survival_factor) = self.calculate_effective_structure(tranche);
-
-        if eff_detach <= eff_attach {
+        if inv.eff_detach <= inv.eff_attach || inv.orig_width <= 1e-9 {
             return Ok(0.0);
         }
-
-        // Get correlations for ORIGINAL points
-        let corr_attach = index_data
-            .base_correlation_curve
-            .correlation(tranche.attach_pct);
-        let corr_detach = index_data
-            .base_correlation_curve
-            .correlation(tranche.detach_pct);
-
-        // Apply enhanced correlation boundary handling
-        let corr_attach = self.smooth_correlation_boundary(corr_attach);
-        let corr_detach = self.smooth_correlation_boundary(corr_detach);
-
-        // Calculate expected losses for equity tranches [0, A_eff] and [0, D_eff]
-        let el_to_attach =
-            self.calculate_equity_tranche_loss(eff_attach * 100.0, corr_attach, index_data, date)?;
-
-        let el_to_detach =
-            self.calculate_equity_tranche_loss(eff_detach * 100.0, corr_detach, index_data, date)?;
-
-        // Loss on current portfolio
+        let el_to_attach = self.calculate_equity_tranche_loss(
+            inv.eff_attach * 100.0,
+            inv.corr_attach,
+            index_data,
+            date,
+        )?;
+        let el_to_detach = self.calculate_equity_tranche_loss(
+            inv.eff_detach * 100.0,
+            inv.corr_detach,
+            index_data,
+            date,
+        )?;
         let current_portfolio_loss_fraction = (el_to_detach - el_to_attach).max(0.0);
-
-        // Scale to original tranche notional fraction
-        // Fraction = (CurrentLossFrac * (1-L)) / OrigWidth
-        let orig_width = (tranche.detach_pct - tranche.attach_pct) / 100.0;
-        if orig_width <= 1e-9 {
-            return Ok(0.0);
-        }
-
         let tranche_loss_fraction =
-            (current_portfolio_loss_fraction * survival_factor) / orig_width;
-
-        // Add prior realized loss to get Total Cumulative Loss
-        let prior_loss = self.calculate_prior_tranche_loss(tranche);
-
-        Ok((tranche_loss_fraction + prior_loss).clamp(0.0, 1.0))
+            (current_portfolio_loss_fraction * inv.survival_factor) / inv.orig_width;
+        Ok((tranche_loss_fraction + inv.prior_loss).clamp(0.0, 1.0))
     }
 
     /// Build the expected loss curve for all payment dates.
@@ -142,12 +170,12 @@ impl CDSTranchePricer {
         index_data: &CreditIndexData,
         dates: &[Date],
     ) -> Result<Vec<(Date, f64)>> {
+        let inv = self.el_invariants(tranche, index_data)?;
         let mut el_curve = Vec::with_capacity(dates.len());
         let mut prev_el = 0.0;
 
         for &date in dates {
-            let mut el_fraction =
-                self.expected_tranche_loss_fraction_at(tranche, index_data, date)?;
+            let mut el_fraction = self.el_fraction_at_date(&inv, index_data, date)?;
 
             // Check for non-monotonic EL (indicates numerical issue or model limitation)
             // This can happen due to base correlation model inconsistencies

@@ -22,9 +22,10 @@ use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::types::CurveId;
 use finstack_core::Result;
 use rayon::prelude::*;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// Internal error type that preserves structured [`EnvelopeError`] detail
 /// across the engine pipeline.
@@ -70,16 +71,27 @@ impl From<ExecuteError> for finstack_core::Error {
 // Helper Types
 // =============================================================================
 
-/// Resolve the [`MarketQuote`] list for a step by looking up its `quote_set` in
-/// the plan and then materializing each [`QuoteId`](crate::market::quotes::ids::QuoteId)
-/// out of the envelope's flat `market_data` list.
-///
-/// Returns an `ExecuteError::Other(NotFound)` for a missing quote set or any
-/// referenced quote id that is absent from `market_data`. Non-quote data
-/// (prices, surfaces, etc.) is filtered out via [`MarketDatum::as_quote`].
+/// Quote lookup table built once per plan execution.
+struct QuoteIndex<'a> {
+    by_id: HashMap<&'a str, MarketQuote>,
+}
+
+impl<'a> QuoteIndex<'a> {
+    fn new(market_data: &'a [MarketDatum]) -> Self {
+        Self {
+            by_id: market_data
+                .iter()
+                .filter_map(|d| d.as_quote().map(|q| (d.id(), q)))
+                .collect(),
+        }
+    }
+}
+
+/// Resolve the [`MarketQuote`] list for a step by looking up its `quote_set`
+/// and then materializing each quote from the execution-scoped quote index.
 fn resolve_step_quotes(
     plan: &CalibrationPlan,
-    market_data: &[MarketDatum],
+    quote_index: &QuoteIndex<'_>,
     step: &CalibrationStep,
 ) -> std::result::Result<Vec<MarketQuote>, ExecuteError> {
     let ids = plan.quote_sets.get(&step.quote_set).ok_or_else(|| {
@@ -89,13 +101,9 @@ fn resolve_step_quotes(
             },
         ))
     })?;
-    let by_id: std::collections::HashMap<&str, MarketQuote> = market_data
-        .iter()
-        .filter_map(|d| d.as_quote().map(|q| (d.id(), q)))
-        .collect();
     ids.iter()
         .map(|qid| {
-            by_id.get(qid.as_str()).cloned().ok_or_else(|| {
+            quote_index.by_id.get(qid.as_str()).cloned().ok_or_else(|| {
                 ExecuteError::Other(finstack_core::Error::Input(
                     finstack_core::InputError::NotFound {
                         id: format!(
@@ -132,18 +140,18 @@ enum BatchAddResult {
 /// Builder for accumulating steps that can execute in parallel.
 struct ParallelBatchBuilder<'a> {
     plan: &'a CalibrationPlan,
-    market_data: &'a [MarketDatum],
-    curve_outputs: HashSet<finstack_core::types::CurveId>,
-    surface_outputs: HashSet<finstack_core::types::CurveId>,
+    quote_index: &'a QuoteIndex<'a>,
+    curve_outputs: HashSet<CurveId>,
+    surface_outputs: HashSet<CurveId>,
     scalar_outputs: HashSet<String>,
     batch: Vec<StepBatchItem<'a>>,
 }
 
 impl<'a> ParallelBatchBuilder<'a> {
-    fn new(plan: &'a CalibrationPlan, market_data: &'a [MarketDatum]) -> Self {
+    fn new(plan: &'a CalibrationPlan, quote_index: &'a QuoteIndex<'a>) -> Self {
         Self {
             plan,
-            market_data,
+            quote_index,
             curve_outputs: HashSet::default(),
             surface_outputs: HashSet::default(),
             scalar_outputs: HashSet::default(),
@@ -153,7 +161,15 @@ impl<'a> ParallelBatchBuilder<'a> {
 
     /// Try to add a step to the batch.
     fn try_add(&mut self, step: &'a CalibrationStep, context: &MarketContext) -> BatchAddResult {
-        let quotes = match resolve_step_quotes(self.plan, self.market_data, step) {
+        if !self.batch.is_empty() && self.depends_on_batch_outputs(step) {
+            return BatchAddResult::Stop;
+        }
+
+        if self.would_conflict(step) {
+            return BatchAddResult::Stop;
+        }
+
+        let quotes = match resolve_step_quotes(self.plan, self.quote_index, step) {
             Ok(q) => q,
             Err(ExecuteError::Other(e)) => return BatchAddResult::Error(e),
             Err(ExecuteError::Envelope(e)) => return BatchAddResult::Error(e.into()),
@@ -168,22 +184,38 @@ impl<'a> ParallelBatchBuilder<'a> {
             };
         }
 
-        // Check for output conflicts
-        if self.has_output_conflict(step) {
-            return BatchAddResult::Stop;
-        }
-
+        self.record_output(step);
         self.batch.push(StepBatchItem { step, quotes });
         BatchAddResult::Added
     }
 
     /// Check if adding this step would create an output conflict.
-    fn has_output_conflict(&mut self, step: &CalibrationStep) -> bool {
+    fn would_conflict(&self, step: &CalibrationStep) -> bool {
         match step_runtime::output_key(step) {
-            OutputKey::Curve(id) => !self.curve_outputs.insert(id),
-            OutputKey::Surface(id) => !self.surface_outputs.insert(id),
-            OutputKey::Scalar(key) => !self.scalar_outputs.insert(key),
+            OutputKey::Curve(id) => self.curve_outputs.contains(&id),
+            OutputKey::Surface(id) => self.surface_outputs.contains(&id),
+            OutputKey::Scalar(key) => self.scalar_outputs.contains(&key),
         }
+    }
+
+    fn record_output(&mut self, step: &CalibrationStep) {
+        match step_runtime::output_key(step) {
+            OutputKey::Curve(id) => {
+                self.curve_outputs.insert(id);
+            }
+            OutputKey::Surface(id) => {
+                self.surface_outputs.insert(id);
+            }
+            OutputKey::Scalar(key) => {
+                self.scalar_outputs.insert(key);
+            }
+        }
+    }
+
+    fn depends_on_batch_outputs(&self, step: &CalibrationStep) -> bool {
+        input_curve_ids(step)
+            .iter()
+            .any(|id| self.curve_outputs.contains(id) || self.surface_outputs.contains(id))
     }
 
     /// Take the accumulated batch, resetting internal state for next batch.
@@ -197,6 +229,50 @@ impl<'a> ParallelBatchBuilder<'a> {
     /// Check if batch is empty.
     fn is_empty(&self) -> bool {
         self.batch.is_empty()
+    }
+}
+
+fn input_curve_ids(step: &CalibrationStep) -> Vec<CurveId> {
+    use crate::calibration::api::schema::StepParams;
+
+    match &step.params {
+        StepParams::Discount(_) => Vec::new(),
+        StepParams::Forward(p) => vec![p.discount_curve_id.clone()],
+        StepParams::Hazard(p) => vec![p.discount_curve_id.clone()],
+        StepParams::Inflation(p) => vec![p.discount_curve_id.clone()],
+        StepParams::VolSurface(p) => p
+            .discount_curve_id
+            .as_ref()
+            .map(|id| vec![id.clone()])
+            .unwrap_or_default(),
+        StepParams::SwaptionVol(p) => vec![p.discount_curve_id.clone()],
+        StepParams::BaseCorrelation(p) => vec![p.discount_curve_id.clone()],
+        StepParams::StudentT(p) => {
+            let mut inputs = vec![CurveId::from(p.base_correlation_curve_id.as_str())];
+            if let Some(discount_curve_id) = &p.discount_curve_id {
+                inputs.push(discount_curve_id.clone());
+            }
+            inputs
+        }
+        StepParams::HullWhite(p) => vec![p.curve_id.clone()],
+        StepParams::CapFloorHullWhite(p) => {
+            let mut inputs = vec![p.discount_curve_id.clone()];
+            if p.forward_curve_id != p.discount_curve_id {
+                inputs.push(p.forward_curve_id.clone());
+            }
+            inputs
+        }
+        StepParams::SviSurface(p) => p
+            .discount_curve_id
+            .as_ref()
+            .map(|id| vec![id.clone()])
+            .unwrap_or_default(),
+        StepParams::XccyBasis(p) => vec![p.domestic_discount_id.clone()],
+        StepParams::Parametric(p) => p
+            .discount_curve_id
+            .as_ref()
+            .map(|id| vec![id.clone()])
+            .unwrap_or_default(),
     }
 }
 
@@ -367,13 +443,13 @@ fn apply_batch_results(
 /// Execute steps in parallel mode.
 fn execute_parallel(
     plan: &CalibrationPlan,
-    market_data: &[MarketDatum],
+    quote_index: &QuoteIndex<'_>,
     context: &mut MarketContext,
     state: &mut ExecutionState,
 ) -> std::result::Result<(), ExecuteError> {
     let mut index = 0;
     while index < plan.steps.len() {
-        let mut builder = ParallelBatchBuilder::new(plan, market_data);
+        let mut builder = ParallelBatchBuilder::new(plan, quote_index);
 
         // Build batch of independent steps
         while index < plan.steps.len() {
@@ -409,12 +485,12 @@ fn execute_parallel(
 /// Execute steps in sequential mode.
 fn execute_sequential(
     plan: &CalibrationPlan,
-    market_data: &[MarketDatum],
+    quote_index: &QuoteIndex<'_>,
     context: &mut MarketContext,
     state: &mut ExecutionState,
 ) -> std::result::Result<(), ExecuteError> {
     for step in &plan.steps {
-        let quotes = resolve_step_quotes(plan, market_data, step)?;
+        let quotes = resolve_step_quotes(plan, quote_index, step)?;
 
         preflight_step(step, &quotes, context, &plan.settings)?;
 
@@ -491,18 +567,20 @@ pub fn execute_with_diagnostics(
     .entered();
 
     let plan = &envelope.plan;
+    plan.settings.validate().map_err(ExecuteError::Other)?;
     let mut context = context_builder::build_initial_context(
         &envelope.prior_market,
         &envelope.market_data,
         &plan.settings,
     )
     .map_err(ExecuteError::Other)?;
+    let quote_index = QuoteIndex::new(&envelope.market_data);
     let mut state = ExecutionState::new();
 
     if plan.settings.use_parallel {
-        execute_parallel(plan, &envelope.market_data, &mut context, &mut state)?;
+        execute_parallel(plan, &quote_index, &mut context, &mut state)?;
     } else {
-        execute_sequential(plan, &envelope.market_data, &mut context, &mut state)?;
+        execute_sequential(plan, &quote_index, &mut context, &mut state)?;
     }
 
     let step_reports = state.step_reports.clone();

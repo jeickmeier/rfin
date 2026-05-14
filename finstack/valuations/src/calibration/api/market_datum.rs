@@ -242,9 +242,9 @@ impl From<MarketQuote> for MarketDatum {
 /// Result of splitting a legacy [`MarketContextState`] into v3 envelope inputs.
 ///
 /// Wraps the `(prior, market_data)` pair produced by
-/// `MarketContextSplit::from(state)` (or `state.into()`). A local newtype is
-/// required because Rust's orphan rules forbid implementing `From` for a bare
-/// tuple of foreign `Vec<_>`.
+/// [`TryFrom<MarketContextState>`]. A local newtype is required because Rust's
+/// orphan rules forbid implementing `TryFrom` for a bare tuple of foreign
+/// `Vec<_>`.
 #[derive(Clone, Debug, Default)]
 pub struct MarketContextSplit {
     /// Pre-built calibrated objects extracted from the snapshot's curves /
@@ -267,8 +267,10 @@ impl From<MarketContextSplit> for (Vec<PriorMarketObject>, Vec<MarketDatum>) {
 /// Curves and surfaces become [`PriorMarketObject`]s; scalars, fixings, FX
 /// quotes, dividends, credit indices, FX-vol surfaces, vol cubes, and CSA
 /// collateral mappings become [`MarketDatum`] entries.
-impl From<MarketContextState> for MarketContextSplit {
-    fn from(state: MarketContextState) -> Self {
+impl TryFrom<MarketContextState> for MarketContextSplit {
+    type Error = finstack_core::Error;
+
+    fn try_from(state: MarketContextState) -> std::result::Result<Self, Self::Error> {
         let mut prior = Vec::new();
         for curve in state.curves {
             prior.push(match curve {
@@ -322,21 +324,24 @@ impl From<MarketContextState> for MarketContextSplit {
             data.push(MarketDatum::VolCube(c));
         }
         for (ccy, csa_ccy) in state.collateral {
-            // Snapshot states use String for the currency keys; if these fail
-            // to parse, the snapshot is malformed and we have no fallible
-            // path here (this is an infallible `From` impl). Restrict the
-            // lint locally rather than restructure the legacy shim.
-            #[allow(clippy::expect_used)]
-            let id = ccy.parse().expect("currency in collateral map");
-            #[allow(clippy::expect_used)]
-            let csa_currency = csa_ccy.parse().expect("CSA currency");
+            let id = parse_snapshot_currency(&ccy, "collateral currency")?;
+            let csa_currency = parse_snapshot_currency(&csa_ccy, "CSA currency")?;
             data.push(MarketDatum::Collateral(CollateralEntry {
                 id,
                 csa_currency,
             }));
         }
-        Self { prior, data }
+        Ok(Self { prior, data })
     }
+}
+
+fn parse_snapshot_currency(value: &str, field: &str) -> finstack_core::Result<Currency> {
+    value
+        .parse()
+        .map_err(|err| finstack_core::Error::Calibration {
+            message: format!("Invalid {field} in market context snapshot: '{value}' ({err})"),
+            category: "market_context_split".to_string(),
+        })
 }
 
 #[cfg(test)]
@@ -420,9 +425,24 @@ mod tests {
         use finstack_core::market_data::context::{MarketContext, MarketContextState};
 
         let state: MarketContextState = (&MarketContext::new()).into();
-        let split: MarketContextSplit = state.into();
+        let split = MarketContextSplit::try_from(state).expect("split market context");
         let (prior, data): (Vec<PriorMarketObject>, Vec<MarketDatum>) = split.into();
         assert!(prior.is_empty());
         assert!(data.is_empty());
+    }
+
+    #[test]
+    fn market_context_state_split_rejects_malformed_collateral_currency() {
+        use finstack_core::market_data::context::{MarketContext, MarketContextState};
+
+        let mut state: MarketContextState = (&MarketContext::new()).into();
+        state
+            .collateral
+            .insert("NOT_A_CURRENCY".to_string(), "USD".to_string());
+
+        let err = MarketContextSplit::try_from(state).expect_err("invalid currency should error");
+        let msg = err.to_string();
+        assert!(msg.contains("Invalid collateral currency"));
+        assert!(msg.contains("NOT_A_CURRENCY"));
     }
 }
