@@ -1161,10 +1161,6 @@ mod tests {
             Ok(SensitivityMatrix::zeros(
                 Vec::new(),
                 factors.iter().map(|factor| factor.id.clone()).collect(),
-                vec![
-                    finstack_core::factor_model::FactorBumpUnit::BasisPoint;
-                    factors.len()
-                ],
             ))
         }
     }
@@ -1198,12 +1194,7 @@ mod tests {
         ) -> finstack_core::Result<SensitivityMatrix> {
             let position_ids: Vec<String> = positions.iter().map(|(id, _, _)| id.clone()).collect();
             let factor_ids: Vec<_> = factors.iter().map(|f| f.id.clone()).collect();
-            let n = factor_ids.len();
-            let mut matrix = SensitivityMatrix::zeros(
-                position_ids,
-                factor_ids,
-                vec![finstack_core::factor_model::FactorBumpUnit::BasisPoint; n],
-            );
+            let mut matrix = SensitivityMatrix::zeros(position_ids, factor_ids);
             for (j, &delta) in self.deltas.iter().enumerate() {
                 matrix.set_delta(0, j, delta);
             }

@@ -62,7 +62,7 @@ pub(crate) fn date_from_hazard_time(surv: &HazardCurve, t: f64) -> Date {
     let mut date = base + Duration::days((t * 365.25).round() as i64);
     let ctx = finstack_core::dates::DayCountContext::default();
     for _ in 0..30 {
-        let yf = match dc.year_fraction(base, date, ctx.clone()) {
+        let yf = match dc.year_fraction(base, date, ctx) {
             Ok(v) => v,
             Err(_) => return date,
         };
@@ -70,7 +70,7 @@ pub(crate) fn date_from_hazard_time(surv: &HazardCurve, t: f64) -> Date {
         if err_days == 0 {
             break;
         }
-        date = date + Duration::days(err_days);
+        date += Duration::days(err_days);
     }
     date
 }

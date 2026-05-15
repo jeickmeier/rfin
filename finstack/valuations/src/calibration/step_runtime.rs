@@ -333,10 +333,9 @@ pub(crate) fn execute_params(
                 // applied here — leg-level conventions can be threaded later
                 // when the swaption schema carries them).
                 let n_periods = (t_ten * ppy as f64).round().max(1.0) as usize;
-                let period_days =
-                    finstack_core::dates::DayCount::calendar_days(*expiry, *maturity)
-                        .max(0)
-                        / n_periods.max(1) as i64;
+                let period_days = finstack_core::dates::DayCount::calendar_days(*expiry, *maturity)
+                    .max(0)
+                    / n_periods.max(1) as i64;
                 let mut accruals = Vec::with_capacity(n_periods);
                 let mut acc_start = *expiry;
                 for i in 0..n_periods {
@@ -345,8 +344,8 @@ pub(crate) fn execute_params(
                     } else {
                         acc_start + time::Duration::days(period_days)
                     };
-                    let tau = payment_dc
-                        .year_fraction(acc_start, acc_end, DayCountContext::default())?;
+                    let tau =
+                        payment_dc.year_fraction(acc_start, acc_end, DayCountContext::default())?;
                     accruals.push(tau);
                     acc_start = acc_end;
                 }

@@ -451,7 +451,7 @@ where
         // increasing; an unsorted slice produces zero-sum or inverted buckets
         // silently. Validate up-front rather than letting bad input through.
         for win in buckets.windows(2) {
-            if !(win[1] > win[0]) {
+            if win[1].partial_cmp(&win[0]) != Some(std::cmp::Ordering::Greater) {
                 return Err(finstack_core::Error::Validation(format!(
                     "key-rate buckets must be strictly increasing, got {:?} (offending pair: {} -> {})",
                     buckets, win[0], win[1]

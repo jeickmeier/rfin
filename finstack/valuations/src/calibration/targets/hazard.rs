@@ -334,12 +334,10 @@ impl HazardCurveTarget {
             curve_recovery
         } else {
             match pq.quote.as_ref() {
-                crate::market::quotes::cds::CdsQuote::CdsParSpread {
-                    recovery_rate, ..
+                crate::market::quotes::cds::CdsQuote::CdsParSpread { recovery_rate, .. }
+                | crate::market::quotes::cds::CdsQuote::CdsUpfront { recovery_rate, .. } => {
+                    *recovery_rate
                 }
-                | crate::market::quotes::cds::CdsQuote::CdsUpfront {
-                    recovery_rate, ..
-                } => *recovery_rate,
             }
         };
 

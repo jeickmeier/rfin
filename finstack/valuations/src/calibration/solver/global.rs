@@ -323,7 +323,9 @@ impl GlobalFitOptimizer {
                 max_abs_residual,
                 max_residual_tolerance,
             );
-        } else if weighted_l2_norm > validation_tolerance && max_abs_residual > max_residual_tolerance {
+        } else if weighted_l2_norm > validation_tolerance
+            && max_abs_residual > max_residual_tolerance
+        {
             report.convergence_reason = format!(
                 "global fit calibration failed: LM terminated with {:?}; weighted L2 norm ({:.2e}) exceeds \
                  tolerance ({:.2e}) and max residual ({:.2e}) exceeds per-quote tolerance ({:.2e})",

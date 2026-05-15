@@ -188,17 +188,15 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
             // Bootstrap a second `(x_prev, f_prev)` from the closest valid
             // scan point so the secant slope is meaningful from step 1.
             // valid_points is already sorted by x.
+            let Some(mut fx) = diag.best_value else {
+                return Ok((None, diag));
+            };
             let mut x = x0;
-            let mut fx = diag
-                .best_value
-                .expect("best_value is Some when best_point is Some");
             let (mut x_prev, mut f_prev) = {
                 let nearest = valid_points
                     .iter()
                     .filter(|(xp, _)| (xp - x).abs() > 1e-16)
-                    .min_by(|(xa, _), (xb, _)| {
-                        (xa - x).abs().total_cmp(&(xb - x).abs())
-                    });
+                    .min_by(|(xa, _), (xb, _)| (xa - x).abs().total_cmp(&(xb - x).abs()));
                 match nearest {
                     Some(&(xp, fp)) => (xp, fp),
                     None => {
@@ -453,11 +451,11 @@ mod tests {
         // We use exactly MIN_DEBUG_SCAN_GRID_LEN points so debug builds still
         // exercise the path under test.
         let f = |x: f64| x.powi(3) - 2.0 * x + 1.0; // roots at 1, ~0.618, ~-1.618
-        // Points that bracket the root at x=1 only via Newton-fallback secant.
+                                                    // Points that bracket the root at x=1 only via Newton-fallback secant.
         let scan: Vec<f64> = (0..8).map(|i| -2.0 + 0.5 * (i as f64)).collect();
         // = [-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5]
-        let (root, _diag) = bracket_solve_1d_with_diagnostics(&f, 0.95, &scan, 1e-9, 100)
-            .expect("solver error");
+        let (root, _diag) =
+            bracket_solve_1d_with_diagnostics(&f, 0.95, &scan, 1e-9, 100).expect("solver error");
         if let Some(r) = root {
             // Must be near a real root; never far from one.
             let d_to_real_roots = [1.0_f64, 0.6180339887, -1.6180339887]

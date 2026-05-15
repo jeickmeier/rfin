@@ -378,16 +378,16 @@ impl<'a> GlobalSolveTarget for HullWhiteSwaptionTarget<'a> {
     ) -> finstack_core::Result<()> {
         for (idx, q) in quotes.iter().enumerate() {
             let pre = &self.prepared[idx];
-            let model_price = hw1f_swaption_price_inner(
-                curve.kappa,
-                curve.sigma,
-                self.df,
-                q.expiry,
-                q.tenor,
-                pre.fwd_swap_rate,
-                self.ppy,
-                pre.accruals.as_deref(),
-            );
+            let model_price = hw1f_swaption_price_inner(Hw1fSwaptionPriceInput {
+                kappa: curve.kappa,
+                sigma: curve.sigma,
+                df: self.df,
+                t0: q.expiry,
+                tenor: q.tenor,
+                swap_rate: pre.fwd_swap_rate,
+                periods_per_year: self.ppy,
+                accruals: pre.accruals.as_deref(),
+            });
             residuals[idx] = if model_price.is_finite() {
                 // Vega-weighted price residual: algebraically the
                 // first-order approximation to (σ_model − σ_market),
@@ -709,13 +709,8 @@ pub fn calibrate_hull_white_to_swaptions_with_schedules(
     let mut fwd_swap_rates = Vec::with_capacity(n_quotes);
     for (q, sched) in quotes.iter().zip(schedules.iter()) {
         let accruals_slice: Option<&[f64]> = if !sched.is_empty() { Some(sched) } else { None };
-        let (annuity, fwd_rate) = compute_swap_annuity_and_rate_inner(
-            df,
-            q.expiry,
-            q.tenor,
-            ppy,
-            accruals_slice,
-        );
+        let (annuity, fwd_rate) =
+            compute_swap_annuity_and_rate_inner(df, q.expiry, q.tenor, ppy, accruals_slice);
         let market_price = compute_swaption_market_price(
             annuity,
             fwd_rate,
@@ -1405,15 +1400,12 @@ fn compute_swap_annuity_and_rate_inner(
 ) -> (f64, f64) {
     let n_periods = (tenor * periods_per_year as f64).round().max(1.0) as usize;
 
-    let use_real_accruals = accruals
-        .map(|a| a.len() == n_periods && a.iter().all(|x| x.is_finite() && *x > 0.0))
-        .unwrap_or(false);
+    let real_accruals = valid_swap_accruals(accruals, n_periods);
 
     let mut annuity = 0.0;
     let mut t_running = t0;
-    if use_real_accruals {
-        // SAFETY: validated above.
-        for &tau in accruals.expect("accruals checked above") {
+    if let Some(accruals) = real_accruals {
+        for &tau in accruals {
             t_running += tau;
             annuity += tau * df(t_running);
         }
@@ -1436,6 +1428,11 @@ fn compute_swap_annuity_and_rate_inner(
     };
 
     (annuity, fwd_rate)
+}
+
+#[inline]
+fn valid_swap_accruals(accruals: Option<&[f64]>, n_periods: usize) -> Option<&[f64]> {
+    accruals.filter(|a| a.len() == n_periods && a.iter().all(|x| x.is_finite() && *x > 0.0))
 }
 
 fn infer_hw_initial_guess(quotes: &[SwaptionQuote], fwd_swap_rates: &[f64]) -> (f64, f64) {
@@ -1500,32 +1497,51 @@ pub(crate) fn hw1f_swaption_price(
     swap_rate: f64,
     periods_per_year: usize,
 ) -> f64 {
-    hw1f_swaption_price_inner(kappa, sigma, df, t0, tenor, swap_rate, periods_per_year, None)
+    hw1f_swaption_price_inner(Hw1fSwaptionPriceInput {
+        kappa,
+        sigma,
+        df,
+        t0,
+        tenor,
+        swap_rate,
+        periods_per_year,
+        accruals: None,
+    })
 }
 
-fn hw1f_swaption_price_inner(
+struct Hw1fSwaptionPriceInput<'a> {
     kappa: f64,
     sigma: f64,
-    df: &dyn Fn(f64) -> f64,
+    df: &'a dyn Fn(f64) -> f64,
     t0: f64,
     tenor: f64,
     swap_rate: f64,
     periods_per_year: usize,
-    accruals: Option<&[f64]>,
+    accruals: Option<&'a [f64]>,
+}
+
+fn hw1f_swaption_price_inner(
+    Hw1fSwaptionPriceInput {
+        kappa,
+        sigma,
+        df,
+        t0,
+        tenor,
+        swap_rate,
+        periods_per_year,
+        accruals,
+    }: Hw1fSwaptionPriceInput<'_>,
 ) -> f64 {
     let n_periods = (tenor * periods_per_year as f64).round().max(1.0) as usize;
 
-    let use_real_accruals = accruals
-        .map(|a| a.len() == n_periods && a.iter().all(|x| x.is_finite() && *x > 0.0))
-        .unwrap_or(false);
+    let real_accruals = valid_swap_accruals(accruals, n_periods);
 
     // Payment dates and cashflows
     let mut payment_times = Vec::with_capacity(n_periods);
     let mut cashflows = Vec::with_capacity(n_periods);
-    if use_real_accruals {
-        let real = accruals.expect("accruals checked above");
+    if let Some(accruals) = real_accruals {
         let mut t_running = t0;
-        for (i, &tau) in real.iter().enumerate() {
+        for (i, &tau) in accruals.iter().enumerate() {
             t_running += tau;
             payment_times.push(t_running);
             let cf = if i + 1 < n_periods {

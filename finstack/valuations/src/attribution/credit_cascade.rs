@@ -440,9 +440,7 @@ pub(crate) fn build_credit_factor_attribution(
     let total_credit_abs = generic_pnl.amount().abs()
         + levels.iter().map(|l| l.total.amount().abs()).sum::<f64>()
         + adder_abs;
-    if total_credit_abs > 0.0
-        && adder_abs > ADDER_MAGNITUDE_WARN_RATIO * total_credit_abs
-    {
+    if total_credit_abs > 0.0 && adder_abs > ADDER_MAGNITUDE_WARN_RATIO * total_credit_abs {
         tracing::warn!(
             issuer_id = %cascade.issuer_id,
             adder_pnl = adder_pnl.amount(),
