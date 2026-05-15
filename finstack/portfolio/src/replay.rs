@@ -336,7 +336,14 @@ pub fn replay_portfolio(
             Some(
                 val_i
                     .total_base_ccy
-                    .checked_sub(prev_step.valuation.total_base_ccy)?,
+                    .checked_sub(prev_step.valuation.total_base_ccy)
+                    .map_err(|e| {
+                        Error::InvalidInput(format!(
+                            "daily P&L overflow computing {date} minus {} \
+                             (base {}): {e}",
+                            prev_step.date, val_i.total_base_ccy.currency()
+                        ))
+                    })?,
             )
         } else {
             None
@@ -346,7 +353,14 @@ pub fn replay_portfolio(
             Some(
                 val_i
                     .total_base_ccy
-                    .checked_sub(steps[0].valuation.total_base_ccy)?,
+                    .checked_sub(steps[0].valuation.total_base_ccy)
+                    .map_err(|e| {
+                        Error::InvalidInput(format!(
+                            "cumulative P&L overflow computing {date} minus {} \
+                             (base {}): {e}",
+                            steps[0].date, val_i.total_base_ccy.currency()
+                        ))
+                    })?,
             )
         } else {
             None

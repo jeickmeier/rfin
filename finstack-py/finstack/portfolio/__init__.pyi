@@ -16,6 +16,7 @@ __all__ = [
     "aggregate_full_cashflows",
     "aggregate_metrics",
     "almgren_chriss_impact",
+    "amihud_illiquidity",
     "apply_scenario_and_revalue",
     "build_portfolio_from_spec",
     "days_to_liquidate",
@@ -32,7 +33,6 @@ __all__ = [
     "portfolio_result_total_value",
     "replay_portfolio",
     "roll_effective_spread",
-    "amihud_illiquidity",
     "value_portfolio",
 ]
 
@@ -251,8 +251,8 @@ def evaluate_risk_budget(
     portfolio_var: float,
     utilization_threshold: float = 1.20,
 ) -> dict[str, object]: ...
-def roll_effective_spread(returns: list[float]) -> float: ...
-def amihud_illiquidity(returns: list[float], volumes: list[float]) -> float: ...
+def roll_effective_spread(returns: list[float]) -> float | None: ...
+def amihud_illiquidity(returns: list[float], volumes: list[float]) -> float | None: ...
 def days_to_liquidate(
     position_value: float,
     avg_daily_volume: float,
@@ -275,4 +275,4 @@ def almgren_chriss_impact(
     temporary_impact_coef: float,
     reference_price: float | None = None,
 ) -> dict[str, float]: ...
-def kyle_lambda(volumes: list[float], returns: list[float]) -> float: ...
+def kyle_lambda(volumes: list[float], returns: list[float]) -> float | None: ...

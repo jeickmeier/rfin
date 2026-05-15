@@ -374,6 +374,8 @@ impl PortfolioBuilder {
             positions: self.positions,
             position_index: finstack_core::HashMap::default(),
             dependency_index: crate::dependencies::DependencyIndex::default(),
+            entity_index: finstack_core::HashMap::default(),
+            attribute_key_index: finstack_core::HashMap::default(),
             books: self.books,
             tags: self.tags,
             meta: self.meta,

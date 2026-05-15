@@ -34,13 +34,15 @@ use pyo3::types::PyDict;
 ///
 /// Returns
 /// -------
-/// float
-///     Effective spread in the same units as the returns, or ``NaN`` when
+/// float | None
+///     Effective spread in the same units as the returns, or ``None`` when
 ///     the serial covariance is non-negative (violates the Roll assumption)
-///     or when ``len(returns) < 2``.
+///     or when ``len(returns) < 2``. ``None`` (rather than ``NaN``) forces
+///     callers to handle the unestimable case explicitly instead of letting
+///     it propagate silently through downstream arithmetic.
 #[pyfunction]
-fn roll_effective_spread(returns: Vec<f64>) -> f64 {
-    liquidity::roll_effective_spread(&returns).unwrap_or(f64::NAN)
+fn roll_effective_spread(returns: Vec<f64>) -> Option<f64> {
+    liquidity::roll_effective_spread(&returns)
 }
 
 /// Compute the Amihud (2002) illiquidity ratio from returns and volumes.
@@ -58,12 +60,12 @@ fn roll_effective_spread(returns: Vec<f64>) -> f64 {
 ///
 /// Returns
 /// -------
-/// float
-///     Average daily illiquidity ratio. Returns ``NaN`` if inputs are empty,
+/// float | None
+///     Average daily illiquidity ratio, or ``None`` if inputs are empty,
 ///     mismatched in length, non-finite, or contain a zero/negative volume.
 #[pyfunction]
-fn amihud_illiquidity(returns: Vec<f64>, volumes: Vec<f64>) -> f64 {
-    liquidity::amihud_illiquidity(&returns, &volumes).unwrap_or(f64::NAN)
+fn amihud_illiquidity(returns: Vec<f64>, volumes: Vec<f64>) -> Option<f64> {
+    liquidity::amihud_illiquidity(&returns, &volumes)
 }
 
 // ---------------------------------------------------------------------------
@@ -301,12 +303,12 @@ fn almgren_chriss_impact<'py>(
 ///
 /// Returns
 /// -------
-/// float
-///     Estimated Kyle lambda. Returns ``NaN`` if inputs are invalid (empty,
+/// float | None
+///     Estimated Kyle lambda, or ``None`` if inputs are invalid (empty,
 ///     mismatched length, non-finite, or contain zero volumes).
 #[pyfunction]
-fn kyle_lambda(volumes: Vec<f64>, returns: Vec<f64>) -> f64 {
-    KyleLambdaModel::lambda_from_series(&volumes, &returns).unwrap_or(f64::NAN)
+fn kyle_lambda(volumes: Vec<f64>, returns: Vec<f64>) -> Option<f64> {
+    KyleLambdaModel::lambda_from_series(&volumes, &returns)
 }
 
 // ---------------------------------------------------------------------------

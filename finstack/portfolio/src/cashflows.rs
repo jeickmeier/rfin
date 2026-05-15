@@ -255,16 +255,23 @@ impl PortfolioCashflows {
     }
 }
 
+/// Portfolios below this position count run cashflow scheduling serially:
+/// Rayon's fan-out overhead exceeds the per-position scheduling cost for
+/// small books. Mirrors `VALUE_PORTFOLIO_PARALLEL_MIN_POSITIONS` in
+/// `valuation.rs` so the crate uses one consistent parallel cutover.
+const AGGREGATE_CASHFLOWS_PARALLEL_MIN_POSITIONS: usize = 64;
+
 /// Aggregate full portfolio cashflows while preserving `CFKind` classification.
 pub fn aggregate_full_cashflows(
     portfolio: &Portfolio,
     market: &MarketContext,
 ) -> Result<PortfolioCashflows> {
-    // Phase A (parallel): build per-position cashflow schedules. Each call to
+    // Phase A: build per-position cashflow schedules. Each call to
     // `instrument_cashflow_schedule` is an independent, read-only function of
     // the shared `MarketContext` and the per-position instrument, so scheduling
     // it in parallel yields near-linear speedup for portfolios with many
-    // instruments. Results are collected in positional order to preserve the
+    // instruments. Small books stay serial to dodge Rayon overhead. Results
+    // are collected in positional order either way, preserving the
     // deterministic event/merge ordering that the existing tests encode.
     struct PositionCashflowResult {
         position_id: PositionId,
@@ -275,41 +282,40 @@ pub fn aggregate_full_cashflows(
     }
 
     use rayon::prelude::*;
-    let per_position: Vec<PositionCashflowResult> = portfolio
-        .positions
-        .par_iter()
-        .map(|position| {
-            let instrument_id = position.instrument.id().to_string();
-            let instrument_type = format!("{:?}", position.instrument.key());
-            match instrument_cashflow_schedule(
-                position.instrument.as_ref(),
-                market,
-                portfolio.as_of,
-            ) {
-                Ok(schedule) => {
-                    let scaled_flows: Vec<_> = schedule
-                        .flows
-                        .iter()
-                        .map(|flow| (*flow, position.scale_value(flow.amount)))
-                        .collect();
-                    PositionCashflowResult {
-                        position_id: position.position_id.clone(),
-                        instrument_id,
-                        instrument_type,
-                        schedule: Ok(schedule),
-                        scaled_flows,
-                    }
-                }
-                Err(err) => PositionCashflowResult {
+    let schedule_position = |position: &crate::position::Position| -> PositionCashflowResult {
+        let instrument_id = position.instrument.id().to_string();
+        let instrument_type = format!("{:?}", position.instrument.key());
+        match instrument_cashflow_schedule(position.instrument.as_ref(), market, portfolio.as_of) {
+            Ok(schedule) => {
+                let scaled_flows: Vec<_> = schedule
+                    .flows
+                    .iter()
+                    .map(|flow| (*flow, position.scale_value(flow.amount)))
+                    .collect();
+                PositionCashflowResult {
                     position_id: position.position_id.clone(),
                     instrument_id,
                     instrument_type,
-                    schedule: Err(err),
-                    scaled_flows: Vec::new(),
-                },
+                    schedule: Ok(schedule),
+                    scaled_flows,
+                }
             }
-        })
-        .collect();
+            Err(err) => PositionCashflowResult {
+                position_id: position.position_id.clone(),
+                instrument_id,
+                instrument_type,
+                schedule: Err(err),
+                scaled_flows: Vec::new(),
+            },
+        }
+    };
+
+    let per_position: Vec<PositionCashflowResult> =
+        if portfolio.positions.len() >= AGGREGATE_CASHFLOWS_PARALLEL_MIN_POSITIONS {
+            portfolio.positions.par_iter().map(schedule_position).collect()
+        } else {
+            portfolio.positions.iter().map(schedule_position).collect()
+        };
 
     // Phase B (serial): merge per-position results into the aggregated
     // structures. Serial keeps `events` / `by_position` / `by_date` ordering
@@ -422,7 +428,15 @@ fn convert_money_to_base_on_date(
         );
     }
 
-    crate::fx::convert_to_base(money, payment_date, market, base_ccy)
+    crate::fx::convert_to_base(money, payment_date, market, base_ccy).map_err(|e| match e {
+        // Pin the offending payment date onto the FX failure: the bare
+        // `FxConversionFailed` only names the currency pair, which is not
+        // enough to find the missing rate when a collapse spans many dates.
+        Error::FxConversionFailed { from, to } => Error::MissingMarketData(format!(
+            "no FX rate for {from}/{to} at cashflow payment date {payment_date}"
+        )),
+        other => other,
+    })
 }
 
 #[cfg(test)]

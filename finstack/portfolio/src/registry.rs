@@ -31,6 +31,12 @@ struct LiquidityDefaultsFile {
 }
 
 /// Return the embedded liquidity defaults registry.
+///
+/// The defaults are parsed once and cached in a process-wide `OnceLock`. If
+/// the first caller's parse fails, that error is cached: every subsequent
+/// call returns a clone of the *same* error rather than re-parsing. The parse
+/// is therefore deterministic — embedded JSON is a compile-time asset — so a
+/// failure indicates a build-time defect, not a transient condition.
 pub fn embedded_liquidity_defaults() -> Result<&'static LiquidityDefaults> {
     match EMBEDDED_LIQUIDITY_DEFAULTS.get_or_init(parse_liquidity_defaults) {
         Ok(defaults) => Ok(defaults),
@@ -39,6 +45,11 @@ pub fn embedded_liquidity_defaults() -> Result<&'static LiquidityDefaults> {
 }
 
 /// Panic-on-failure access for `Default` implementations backed by embedded data.
+///
+/// Panics only if the embedded liquidity defaults fail to parse. Because the
+/// parse result is cached in a `OnceLock`, this is deterministic: it panics
+/// on the first call or never. The embedded JSON is a compile-time asset, so
+/// a panic here means the binary itself is malformed.
 #[must_use]
 #[allow(clippy::expect_used)]
 pub fn embedded_liquidity_defaults_or_panic() -> &'static LiquidityDefaults {

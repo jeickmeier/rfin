@@ -83,13 +83,32 @@ impl ParametricDecomposer {
         // so risk teams can diagnose whether they need shrinkage / ridge
         // regularization without re-running an external tool.
         if n > 0 {
+            let min_diag = (0..n)
+                .map(|i| data[i * n + i])
+                .fold(f64::INFINITY, f64::min);
+            let max_diag = (0..n)
+                .map(|i| data[i * n + i])
+                .fold(f64::NEG_INFINITY, f64::max);
+
+            // Cheap ill-conditioning proxy: a covariance whose variances span
+            // many orders of magnitude can produce numerically unstable Euler
+            // allocations even when Cholesky succeeds (a near-zero pivot still
+            // factorizes). Warn rather than reject — the matrix may be
+            // legitimately PSD — and never auto-regularize, which would
+            // silently alter the risk estimate.
+            const CONDITION_WARN_RATIO: f64 = 1e12;
+            if min_diag > 0.0 && max_diag / min_diag > CONDITION_WARN_RATIO {
+                tracing::warn!(
+                    n,
+                    min_diag,
+                    max_diag,
+                    "factor covariance diagonal spans >1e12; Euler risk \
+                     allocations may be numerically unstable — consider \
+                     Ledoit-Wolf shrinkage or ridge regularization"
+                );
+            }
+
             cholesky(data, n).map_err(|e| {
-                let min_diag = (0..n)
-                    .map(|i| data[i * n + i])
-                    .fold(f64::INFINITY, f64::min);
-                let max_diag = (0..n)
-                    .map(|i| data[i * n + i])
-                    .fold(f64::NEG_INFINITY, f64::max);
                 finstack_core::Error::Validation(format!(
                     "Covariance matrix is not positive semi-definite \
                      (n = {n}, min diagonal = {min_diag:.6e}, max diagonal = {max_diag:.6e}): \

@@ -154,6 +154,10 @@ pub struct DependencyIndex {
     /// These are always included in any affected-position query as a
     /// conservative fallback.
     unresolved: Vec<usize>,
+    /// Number of positions this index was built/extended for. Lets callers
+    /// detect a stale index (positions mutated without a matching index
+    /// update) before trusting a selective-repricing query.
+    indexed_positions: usize,
 }
 
 impl DependencyIndex {
@@ -186,16 +190,32 @@ impl DependencyIndex {
         }
 
         let inner = finalize_dependency_map(staged);
-        Self { inner, unresolved }
+        Self {
+            inner,
+            unresolved,
+            indexed_positions: positions.len(),
+        }
     }
 
-    /// Incrementally index a single position (avoids full rebuild on append).
+    /// Incrementally index a single appended position (avoids full rebuild).
+    ///
+    /// `idx` must equal the current [`indexed_position_count`](Self::indexed_position_count)
+    /// — the index only supports appends, never in-place replacement, because
+    /// replacing a position would leave its old dependency keys behind.
     ///
     /// # Arguments
     ///
     /// * `idx` - Positional index in the portfolio's position vector.
     /// * `position` - The position to index.
     pub fn add_position(&mut self, idx: usize, position: &crate::position::Position) {
+        debug_assert_eq!(
+            idx, self.indexed_positions,
+            "DependencyIndex only supports appends; idx must equal the indexed \
+             position count (got {idx}, expected {})",
+            self.indexed_positions
+        );
+        self.indexed_positions = self.indexed_positions.max(idx + 1);
+
         let deps = match position.instrument.market_dependencies() {
             Ok(d) => d,
             Err(_) => {
@@ -210,6 +230,19 @@ impl DependencyIndex {
                 entry.push(idx);
             }
         }
+    }
+
+    /// Number of positions this index currently covers.
+    ///
+    /// Selective-repricing callers should check this equals
+    /// `portfolio.positions().len()` before trusting an affected-position
+    /// query; a mismatch means the index is stale.
+    ///
+    /// # Returns
+    ///
+    /// Count of positions reflected in the index.
+    pub fn indexed_position_count(&self) -> usize {
+        self.indexed_positions
     }
 
     /// Look up position indices affected by a single market factor key.

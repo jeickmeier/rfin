@@ -269,8 +269,16 @@ impl MarketImpactModel for AlmgrenChrissModel {
         for j in 0..num_buckets {
             let trade_rate = quantities[j] / dt;
 
-            // Permanent impact cost contribution
-            expected_cost += self.gamma * quantities[j].abs() * remaining[j].abs();
+            // Permanent impact cost contribution. Each trade `n_j` is filled
+            // against the price already depressed by prior fills plus half of
+            // its own impact, i.e. the average inventory across the bucket
+            // `(x_j + x_{j+1}) / 2`. This midpoint rule telescopes to the
+            // trajectory-independent `0.5 * gamma * Q^2`, matching the
+            // closed-form permanent cost used by `estimate_cost`. Using the
+            // pre-trade inventory `x_j` alone would over-count by
+            // `0.5 * gamma * sum(n_j^2)` (an O(1/num_buckets) bias).
+            let avg_inventory = (remaining[j].abs() + remaining[j + 1].abs()) / 2.0;
+            expected_cost += self.gamma * quantities[j].abs() * avg_inventory;
 
             // Temporary impact cost contribution
             expected_cost += self.eta * trade_rate.abs().powf(self.delta) * quantities[j].abs();
@@ -428,6 +436,35 @@ mod tests {
                 "expected uniform {expected_per_bucket}, got {q}"
             );
         }
+        Ok(())
+    }
+
+    /// For the zero-risk-aversion (uniform) trajectory with linear impact
+    /// (`delta = 1`), the expected cost has a closed form:
+    ///   permanent = 0.5 * gamma * Q^2   (trajectory-independent)
+    ///   temporary = eta * Q^2 / T       (uniform rate Q/T over the horizon)
+    /// This pins the midpoint discretization of the permanent component.
+    #[test]
+    fn trajectory_cost_matches_closed_form_uniform(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let gamma = 0.001;
+        let eta = 0.01;
+        let model = AlmgrenChrissModel::new(gamma, eta, 1.0)?;
+        let mut params = test_params(10_000.0)?;
+        params.risk_aversion = Some(0.0);
+        let q = params.quantity;
+        let t = params.horizon_days;
+
+        let traj = model.optimal_trajectory(&params, 5)?;
+
+        let expected_permanent = 0.5 * gamma * q * q;
+        let expected_temporary = eta * q * q / t;
+        let expected_total = expected_permanent + expected_temporary;
+        assert!(
+            (traj.expected_cost - expected_total).abs() < 1e-6,
+            "expected closed-form cost {expected_total}, got {}",
+            traj.expected_cost
+        );
         Ok(())
     }
 

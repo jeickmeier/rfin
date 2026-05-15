@@ -52,9 +52,19 @@ mod helpers;
 mod lp_solver;
 mod problem;
 mod result;
-pub mod tolerances;
 mod types;
 mod universe;
+
+/// Centralized numerical tolerances used across the optimization stack.
+///
+/// The constants themselves now live in [`types`]; this module is a thin
+/// re-export shim that preserves the historical
+/// `optimization::tolerances::*` public path.
+pub mod tolerances {
+    pub use super::types::{
+        GROSS_BASE_TOL, MIN_WEIGHT_TOL, PV_PER_UNIT_TOL, SLACK_TOL, WEIGHT_TOL,
+    };
+}
 
 pub use constraints::{Constraint, ConstraintValidationError, Inequality};
 pub use helpers::{

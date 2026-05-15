@@ -61,6 +61,18 @@ pub struct Portfolio {
     #[serde(skip)]
     pub(crate) dependency_index: DependencyIndex,
 
+    /// Index mapping entity ID → owned position indices, so `positions_for_entity`
+    /// avoids a full O(N) scan. Rebuilt via [`rebuild_index`].
+    #[serde(skip)]
+    pub(crate) entity_index: HashMap<EntityId, Vec<usize>>,
+
+    /// Index mapping attribute key → position indices carrying that key. Narrows
+    /// `positions_with_attribute` to the positions that actually have the key;
+    /// the value comparison still runs over that reduced set. Rebuilt via
+    /// [`rebuild_index`].
+    #[serde(skip)]
+    pub(crate) attribute_key_index: HashMap<String, Vec<usize>>,
+
     /// Optional hierarchical book organization
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub books: IndexMap<BookId, Book>,
@@ -127,6 +139,20 @@ impl Portfolio {
             .map(|(i, p)| (p.position_id.clone(), i))
             .collect();
         self.dependency_index = DependencyIndex::build(&self.positions);
+
+        let mut entity_index: HashMap<EntityId, Vec<usize>> = HashMap::default();
+        let mut attribute_key_index: HashMap<String, Vec<usize>> = HashMap::default();
+        for (i, position) in self.positions.iter().enumerate() {
+            entity_index
+                .entry(position.entity_id.clone())
+                .or_default()
+                .push(i);
+            for key in position.attributes.keys() {
+                attribute_key_index.entry(key.clone()).or_default().push(i);
+            }
+        }
+        self.entity_index = entity_index;
+        self.attribute_key_index = attribute_key_index;
     }
 
     /// Borrow all positions as an immutable slice.
@@ -165,6 +191,16 @@ impl Portfolio {
         self.position_index
             .insert(position.position_id.clone(), idx);
         self.dependency_index.add_position(idx, &position);
+        self.entity_index
+            .entry(position.entity_id.clone())
+            .or_default()
+            .push(idx);
+        for key in position.attributes.keys() {
+            self.attribute_key_index
+                .entry(key.clone())
+                .or_default()
+                .push(idx);
+        }
         self.positions.push(position);
         Ok(())
     }
@@ -222,10 +258,15 @@ impl Portfolio {
     ///
     /// All positions owned by the requested entity.
     pub fn positions_for_entity(&self, entity_id: &str) -> Vec<&Position> {
-        self.positions
-            .iter()
-            .filter(|p| p.entity_id == entity_id)
-            .collect()
+        self.entity_index
+            .get(entity_id)
+            .map(|indices| {
+                indices
+                    .iter()
+                    .filter_map(|&i| self.positions.get(i))
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     /// Filter positions whose attribute matches the supplied key/value.
@@ -241,10 +282,16 @@ impl Portfolio {
     ///
     /// All positions whose attribute matches the supplied key/value pair.
     pub fn positions_with_attribute(&self, key: &str, value: &AttributeValue) -> Vec<&Position> {
-        self.positions
-            .iter()
-            .filter(|p| p.attributes.get(key) == Some(value))
-            .collect()
+        self.attribute_key_index
+            .get(key)
+            .map(|indices| {
+                indices
+                    .iter()
+                    .filter_map(|&i| self.positions.get(i))
+                    .filter(|p| p.attributes.get(key) == Some(value))
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     /// Read-only access to the dependency index for inspection and testing.
@@ -416,6 +463,8 @@ impl Portfolio {
             positions,
             position_index: HashMap::default(),
             dependency_index: DependencyIndex::default(),
+            entity_index: HashMap::default(),
+            attribute_key_index: HashMap::default(),
             books: spec.books,
             tags: spec.tags,
             meta: spec.meta,

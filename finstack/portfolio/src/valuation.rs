@@ -464,7 +464,15 @@ fn value_single_position(
                 let value = position.instrument.value(market, portfolio.as_of).map_err(
                     |e: finstack_core::Error| Error::ValuationError {
                         position_id: position.position_id.clone(),
-                        message: e.to_string(),
+                        // Both pricing paths failed: metrics first, then the
+                        // PV-only fallback. Surface both so the operator knows
+                        // the position is fully un-priceable, not just missing
+                        // risk metrics.
+                        message: format!(
+                            "instrument '{}' failed PV-only fallback ({e}) after \
+                             metric pricing also failed ({metric_error})",
+                            position.instrument.id()
+                        ),
                     },
                 )?;
                 (
@@ -563,6 +571,12 @@ pub fn revalue_affected(
     prior: &PortfolioValuation,
     changed: &[crate::dependencies::MarketFactorKey],
 ) -> Result<PortfolioValuation> {
+    debug_assert_eq!(
+        portfolio.dependency_index().indexed_position_count(),
+        portfolio.positions.len(),
+        "dependency index is stale: positions were mutated without updating \
+         the index — call Portfolio::rebuild_index after direct mutation"
+    );
     let affected_indices = portfolio.dependency_index().affected_positions(changed);
 
     if affected_indices.is_empty() {

@@ -59,6 +59,7 @@
 mod aggregator;
 mod netting_set;
 mod results;
+mod wire;
 
 pub use aggregator::PortfolioMarginAggregator;
 pub use netting_set::{NettingSet, NettingSetManager};

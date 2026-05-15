@@ -647,6 +647,24 @@ fn apply_residual_contributions(
     decomposition
         .position_residual_contributions
         .extend(residual_contributions);
+
+    // Invariant: the rescale above is chosen so the decomposition stays
+    // Euler-additive after the residual term is folded in, i.e. the factor
+    // contributions plus the residual still exhaust `total_risk`. This holds
+    // for every risk measure because `factor_rescale` is exactly the ratio of
+    // combined-to-systematic component scales.
+    debug_assert!(
+        {
+            let factor_sum: f64 = decomposition
+                .factor_contributions
+                .iter()
+                .map(|c| c.absolute_risk)
+                .sum();
+            (factor_sum + decomposition.residual_risk - decomposition.total_risk).abs()
+                <= 1e-6 * decomposition.total_risk.abs().max(1.0)
+        },
+        "residual overlay broke Euler additivity of the risk decomposition"
+    );
 }
 
 fn variance_from_measure(measure: RiskMeasure, total_risk: f64) -> f64 {
