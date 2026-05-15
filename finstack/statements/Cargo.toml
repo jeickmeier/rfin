@@ -17,10 +17,14 @@ indexmap = { workspace = true, features = ["serde"] }
 thiserror = { workspace = true }
 nom = "8.0"
 tracing = { version = "0.1", default-features = false }
-rayon = "1.11"
 time = { workspace = true }
 rust_decimal = { workspace = true }
 strsim = "0.11.1"
+
+# rayon has no working thread pool on single-threaded wasm32; parallel
+# code paths are cfg-gated to native targets, so the dependency is too.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = "1.11"
 
 [dev-dependencies]
 time = { workspace = true, features = ["macros"] }

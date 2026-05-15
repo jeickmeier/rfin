@@ -386,6 +386,14 @@ pub(crate) fn interp_linear(knots: &[(f64, f64)], t: f64) -> f64 {
     }
     let (t0, y0) = knots[idx - 1];
     let (t1, y1) = knots[idx];
+    // Guard against a zero-width interval. `RawPdCurve::new` rejects
+    // duplicate knot times, but the struct has public fields and derives
+    // `Deserialize`, so a curve built by struct literal or from JSON can
+    // still carry `t1 == t0`. Without this guard the interpolation weight
+    // would be `0.0 / 0.0 = NaN` and poison every downstream ECL figure.
+    if t1 <= t0 {
+        return y1;
+    }
     let w = (t - t0) / (t1 - t0);
     y0 + w * (y1 - y0)
 }

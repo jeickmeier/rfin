@@ -104,6 +104,7 @@ pub fn three_statement_checks(mapping: ThreeStatementMapping) -> CheckSuite {
 /// Build a check suite for credit underwriting analysis.
 ///
 /// Includes:
+/// - **NonFiniteCheck** over the credit ratio inputs (always)
 /// - **LeverageRangeCheck** (always)
 /// - **CoverageFloorCheck** (always)
 /// - **FcfSignCheck** (if `fcf_node` is provided)
@@ -115,6 +116,21 @@ pub fn credit_underwriting_checks(mapping: CreditMapping) -> CheckSuite {
 
     let mut builder = CheckSuite::builder("Credit Underwriting Checks")
         .description("Leverage, coverage, cash-flow, and trend checks for credit analysis");
+
+    // Data quality: NaN/Inf detection on credit ratio inputs. A divide-by-zero
+    // in a covenant ratio (e.g. EBITDA / 0 interest) yields NaN that would
+    // otherwise pass silently through leverage and coverage checks.
+    let mut credit_nodes = vec![
+        mapping.debt_node.clone(),
+        mapping.ebitda_node.clone(),
+        mapping.interest_expense_node.clone(),
+    ];
+    if let Some(ref fcf_node) = mapping.fcf_node {
+        credit_nodes.push(fcf_node.clone());
+    }
+    builder = builder.add_check(NonFiniteCheck {
+        nodes: credit_nodes,
+    });
 
     builder = builder.add_check(LeverageRangeCheck {
         debt_node: mapping.debt_node.clone(),

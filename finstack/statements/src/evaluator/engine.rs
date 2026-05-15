@@ -498,7 +498,9 @@ impl Evaluator {
 
         let prepared = self.init_eval_plan(model)?;
 
-        // Run paths — parallel when the `parallel` feature is enabled.
+        // Run paths — parallel via rayon on native targets, serial on wasm32
+        // (rayon's thread pool is unavailable in single-threaded wasm).
+        // Both paths are deterministic for a given seed.
         let run_single_path = |path_idx: usize| -> Result<PathResult> {
             let mut path_eval = self.clone();
             path_eval.forecast_cache.clear();
@@ -539,22 +541,37 @@ impl Evaluator {
             Ok((node_map, all_warnings))
         };
 
-        use rayon::prelude::*;
         let accumulator_seed = MonteCarloAccumulator::new(model, config)?;
-        let accumulator = (0..config.n_paths)
-            .into_par_iter()
-            .try_fold(
-                || accumulator_seed.empty_like(),
-                |mut acc, path_idx| {
-                    let (path_results, warnings) = run_single_path(path_idx)?;
-                    acc.push_path(path_idx, path_results, warnings)?;
-                    Ok(acc)
-                },
-            )
-            .try_reduce(
-                || accumulator_seed.empty_like(),
-                |left, right| left.merge(right),
-            )?;
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let accumulator = {
+            use rayon::prelude::*;
+            (0..config.n_paths)
+                .into_par_iter()
+                .try_fold(
+                    || accumulator_seed.empty_like(),
+                    |mut acc, path_idx| {
+                        let (path_results, warnings) = run_single_path(path_idx)?;
+                        acc.push_path(path_idx, path_results, warnings)?;
+                        Ok(acc)
+                    },
+                )
+                .try_reduce(
+                    || accumulator_seed.empty_like(),
+                    |left, right| left.merge(right),
+                )?
+        };
+
+        #[cfg(target_arch = "wasm32")]
+        let accumulator = {
+            let mut acc = accumulator_seed.empty_like();
+            for path_idx in 0..config.n_paths {
+                let (path_results, warnings) = run_single_path(path_idx)?;
+                acc.push_path(path_idx, path_results, warnings)?;
+            }
+            acc
+        };
+
         accumulator.finish()
     }
 
