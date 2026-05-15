@@ -17,15 +17,12 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "Numerical helpers: linear algebra, statistics, special functions, summation.",
     )?;
 
-    let pkg: String = match parent.getattr("__package__") {
-        Ok(attr) => match attr.extract::<String>() {
-            Ok(s) => s,
-            Err(_) => "finstack.core".to_string(),
-        },
-        Err(_) => "finstack.core".to_string(),
-    };
-    let qual = format!("{pkg}.math");
-    m.setattr("__package__", &qual)?;
+    let qual = crate::bindings::module_utils::set_submodule_package_by_package(
+        parent,
+        &m,
+        "math",
+        "finstack.core",
+    )?;
 
     consecutive::register(py, &m)?;
     linalg::register(py, &m)?;
@@ -45,11 +42,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         ],
     )?;
     m.setattr("__all__", all)?;
-    parent.add_submodule(&m)?;
-
-    let sys = PyModule::import(py, "sys")?;
-    let modules = sys.getattr("modules")?;
-    modules.set_item(&qual, &m)?;
+    crate::bindings::module_utils::register_submodule_at(py, parent, &m, &qual)?;
 
     Ok(())
 }

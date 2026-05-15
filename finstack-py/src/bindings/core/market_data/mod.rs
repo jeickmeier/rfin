@@ -33,15 +33,12 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
         "Bindings for finstack-core market data: curves, vol surfaces, FX, and market context.",
     )?;
 
-    let pkg: String = match parent.getattr("__package__") {
-        Ok(attr) => match attr.extract::<String>() {
-            Ok(s) => s,
-            Err(_) => "finstack.core".to_string(),
-        },
-        Err(_) => "finstack.core".to_string(),
-    };
-    let qual = format!("{pkg}.market_data");
-    m.setattr("__package__", &qual)?;
+    let qual = crate::bindings::module_utils::set_submodule_package_by_package(
+        parent,
+        &m,
+        "market_data",
+        "finstack.core",
+    )?;
 
     curves::register(py, &m)?;
     fx::register(py, &m)?;
@@ -61,11 +58,7 @@ pub fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let all = PyList::new(py, &all_names)?;
     m.setattr("__all__", all)?;
 
-    parent.add_submodule(&m)?;
-
-    let sys = PyModule::import(py, "sys")?;
-    let modules = sys.getattr("modules")?;
-    modules.set_item(&qual, &m)?;
+    crate::bindings::module_utils::register_submodule_at(py, parent, &m, &qual)?;
 
     Ok(())
 }

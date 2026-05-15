@@ -28,13 +28,26 @@ pub(crate) fn register_submodule_by_package(
     submod_name: &str,
     parent_default_pkg: &str,
 ) -> PyResult<()> {
-    let pkg: String = parent
-        .getattr("__package__")
-        .ok()
-        .and_then(|v| v.extract::<String>().ok())
-        .unwrap_or_else(|| parent_default_pkg.to_string());
-    let qual = format!("{pkg}.{submod_name}");
-    register_at(py, parent, submodule, &qual)
+    let qual =
+        set_submodule_package_by_package(parent, submodule, submod_name, parent_default_pkg)?;
+    register_submodule_at(py, parent, submodule, &qual)
+}
+
+/// Set `submodule.__package__` before registering its children, returning the
+/// qualified module path that should later be used for `sys.modules`.
+///
+/// Some modules need their qualified package name before they can call nested
+/// `register` functions, because those children derive their own paths from
+/// the parent's `__package__`.
+pub(crate) fn set_submodule_package_by_package(
+    parent: &Bound<'_, PyModule>,
+    submodule: &Bound<'_, PyModule>,
+    submod_name: &str,
+    parent_default_pkg: &str,
+) -> PyResult<String> {
+    let qual = submodule_name_by_package(parent, submod_name, parent_default_pkg);
+    submodule.setattr("__package__", &qual)?;
+    Ok(qual)
 }
 
 /// Register `submodule` under `parent`, deriving the qualified path from the
@@ -56,10 +69,11 @@ pub(crate) fn register_submodule_by_parent_name(
         .and_then(|v| v.extract::<String>().ok())
         .unwrap_or_else(|| parent_default_name.to_string());
     let qual = format!("{parent_name}.{submod_name}");
-    register_at(py, parent, submodule, &qual)
+    register_submodule_at(py, parent, submodule, &qual)
 }
 
-fn register_at(
+/// Attach `submodule` to `parent` and register it in `sys.modules` at `qual`.
+pub(crate) fn register_submodule_at(
     py: Python<'_>,
     parent: &Bound<'_, PyModule>,
     submodule: &Bound<'_, PyModule>,
@@ -70,4 +84,17 @@ fn register_at(
     let sys = PyModule::import(py, "sys")?;
     sys.getattr("modules")?.set_item(qual, submodule)?;
     Ok(())
+}
+
+fn submodule_name_by_package(
+    parent: &Bound<'_, PyModule>,
+    submod_name: &str,
+    parent_default_pkg: &str,
+) -> String {
+    let pkg: String = parent
+        .getattr("__package__")
+        .ok()
+        .and_then(|v| v.extract::<String>().ok())
+        .unwrap_or_else(|| parent_default_pkg.to_string());
+    format!("{pkg}.{submod_name}")
 }
