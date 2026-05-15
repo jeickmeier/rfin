@@ -39,7 +39,12 @@ fn make_curve(id: &str, knots: &[(f64, f64)]) -> DiscountCurve {
         .base_date(base_date())
         .knots(knots.to_vec())
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build()
         .unwrap()
 }

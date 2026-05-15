@@ -123,7 +123,12 @@ mod replay_tests {
                 (5.0, (-rate * 5.0_f64).exp()),
             ])
             .interp(InterpStyle::Linear)
-            .allow_non_monotonic()
+            .validation(
+                finstack_core::market_data::term_structures::ValidationMode::Raw {
+                    allow_non_monotonic: true,
+                    forward_floor: None,
+                },
+            )
             .build()
             .unwrap();
         MarketContext::new().insert(curve)

@@ -429,7 +429,12 @@ mod tests {
             ]);
 
         if rate.abs() < 1e-10 || rate < 0.0 {
-            builder = builder.interp(InterpStyle::Linear).allow_non_monotonic();
+            builder = builder.interp(InterpStyle::Linear).validation(
+                finstack_core::market_data::term_structures::ValidationMode::Raw {
+                    allow_non_monotonic: true,
+                    forward_floor: None,
+                },
+            );
         }
 
         builder.build().expect("valid flat discount curve")

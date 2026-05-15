@@ -38,7 +38,12 @@ pub fn flat_discount(id: &str, base: Date, rate: f64) -> finstack_core::Result<D
     // Use Linear interpolation since MonotoneConvex expects decreasing values
     if rate.abs() < 1e-10 || rate < 0.0 {
         builder = builder
-            .allow_non_monotonic()
+            .validation(
+                finstack_core::market_data::term_structures::ValidationMode::Raw {
+                    allow_non_monotonic: true,
+                    forward_floor: None,
+                },
+            )
             .interp(finstack_core::math::interp::InterpStyle::Linear);
     }
 

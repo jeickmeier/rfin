@@ -39,7 +39,12 @@ fn test_discount_curve_validation() {
                 (5.0, 0.90),
             ])
             .interp(InterpStyle::Linear)
-            .allow_non_monotonic() // Allow construction of invalid curve for testing validation
+            .validation(
+                finstack_core::market_data::term_structures::ValidationMode::Raw {
+                    allow_non_monotonic: true,
+                    forward_floor: None,
+                },
+            ) // Allow construction of invalid curve for testing validation
             .build()
             .expect("should build invalid curve for testing");
 
@@ -159,7 +164,12 @@ fn test_non_monotone_positive_rate_curve_rejected() {
             (5.0, 0.90),
         ])
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build()
         .expect("should build non-monotone curve for testing");
 
@@ -194,7 +204,12 @@ fn test_negative_rate_environment_opt_in() {
             (5.0, 0.99),
         ])
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build()
         .expect("should build negative rate curve for testing");
 
@@ -328,7 +343,12 @@ fn test_discount_curve_bounds_rejects_excessive_df() {
         .base_date(base_date)
         .knots(vec![(0.0, 1.0), (0.25, 1.10), (1.0, 0.95)])
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build()
         .expect("curve should build");
 

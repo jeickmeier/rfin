@@ -859,7 +859,11 @@ mod curve_storage_tests {
             .interp(InterpStyle::Linear)
             .extrapolation(ExtrapolationPolicy::FlatForward)
             .knots([(0.5, 1.0), (1.0, 1.001), (2.0, 1.002)])
-            .allow_non_monotonic_with_floor()
+            .validation(
+                crate::market_data::term_structures::ValidationMode::NegativeRateFriendly {
+                    forward_floor: -0.05,
+                },
+            )
             .min_forward_tenor(1e-8)
             .build()
             .expect("curve builds");

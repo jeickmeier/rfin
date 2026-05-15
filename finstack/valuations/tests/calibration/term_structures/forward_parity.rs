@@ -29,7 +29,14 @@ fn create_discount_curve_for_parity(base_date: Date, rate: f64, curve_id: &str) 
 
     // Allow non-monotonic for zero/negative rates
     if rate.abs() < 1e-10 || rate < 0.0 {
-        builder = builder.allow_non_monotonic().interp(InterpStyle::Linear);
+        builder = builder
+            .validation(
+                finstack_core::market_data::term_structures::ValidationMode::Raw {
+                    allow_non_monotonic: true,
+                    forward_floor: None,
+                },
+            )
+            .interp(InterpStyle::Linear);
     }
 
     builder.build().unwrap()

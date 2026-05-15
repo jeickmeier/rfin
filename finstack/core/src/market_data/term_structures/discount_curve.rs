@@ -255,25 +255,19 @@ impl TryFrom<RawDiscountCurve> for DiscountCurve {
     type Error = crate::Error;
 
     fn try_from(state: RawDiscountCurve) -> crate::Result<Self> {
-        let mut builder = DiscountCurve::builder(state.common_id.id)
+        DiscountCurve::builder(state.common_id.id)
             .base_date(state.base)
             .day_count(state.day_count)
             .knots(state.points.knot_points)
             .interp(state.interp.interp_style)
             .extrapolation(state.interp.extrapolation)
             .min_forward_tenor(state.min_forward_tenor)
-            .rate_calibration_opt(state.rate_calibration);
-
-        if state.allow_non_monotonic {
-            builder = builder.allow_non_monotonic();
-        }
-
-        // Apply forward rate floor if specified
-        if let Some(min_rate) = state.min_forward_rate {
-            builder = builder.min_forward_rate(min_rate);
-        }
-
-        builder.build()
+            .rate_calibration_opt(state.rate_calibration)
+            .validation(ValidationMode::Raw {
+                allow_non_monotonic: state.allow_non_monotonic,
+                forward_floor: state.min_forward_rate,
+            })
+            .build()
     }
 }
 
@@ -1029,8 +1023,9 @@ impl DiscountCurve {
     /// rationale.
     ///
     /// **Note:** Monotonic discount factor validation is enabled by default to ensure
-    /// no-arbitrage conditions. Use `.allow_non_monotonic()` if you need to disable this
-    /// validation (not recommended for production use).
+    /// no-arbitrage conditions. Use [`DiscountCurveBuilder::validation`] with
+    /// [`ValidationMode::Raw`] if you need to disable this validation (not
+    /// recommended for production use).
     ///
     /// **Defaults:** The builder infers a market day-count from the curve ID when
     /// possible (for example `USD-OIS -> Act360`, `GBP-SONIA -> Act365F`). Synthetic
@@ -1204,23 +1199,14 @@ impl TermStructure for DiscountCurve {
 // Builder
 // -----------------------------------------------------------------------------
 
-/// Canonical validation preset for [`DiscountCurveBuilder::validation`].
-///
-/// Consolidates the booleans and knobs previously exposed as
-/// [`DiscountCurveBuilder::enforce_no_arbitrage`],
-/// [`DiscountCurveBuilder::allow_non_monotonic`],
-/// [`DiscountCurveBuilder::allow_non_monotonic_with_floor`], and
-/// [`DiscountCurveBuilder::min_forward_rate`] into a single, labelled choice.
+/// Validation preset for [`DiscountCurveBuilder::validation`].
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ValidationMode {
     /// Enforce monotonic (non-increasing) discount factors and a -50bp
-    /// forward-rate floor. Matches the long-standing
-    /// `enforce_no_arbitrage` preset and is the recommended default for
-    /// production curves.
+    /// forward-rate floor. This is the recommended mode for production curves.
     MarketStandard,
     /// Relax monotonicity to support negative-rate regimes while keeping a
-    /// safety floor on implied forwards. Equivalent to
-    /// `allow_non_monotonic_with_floor`.
+    /// safety floor on implied forwards.
     NegativeRateFriendly {
         /// Minimum allowed implied forward rate (in decimal).
         forward_floor: f64,
@@ -1303,13 +1289,7 @@ impl DiscountCurveBuilder {
         self
     }
 
-    /// Canonical validation selector. Prefer this over
-    /// [`enforce_no_arbitrage`](Self::enforce_no_arbitrage),
-    /// [`allow_non_monotonic`](Self::allow_non_monotonic),
-    /// [`allow_non_monotonic_with_floor`](Self::allow_non_monotonic_with_floor),
-    /// and [`min_forward_rate`](Self::min_forward_rate), which now each map to
-    /// a specific [`ValidationMode`] variant and are retained only for
-    /// backward compatibility.
+    /// Select the validation policy for the curve.
     pub fn validation(mut self, mode: ValidationMode) -> Self {
         match mode {
             ValidationMode::MarketStandard => {
@@ -1327,107 +1307,6 @@ impl DiscountCurveBuilder {
                 self.allow_non_monotonic = allow_non_monotonic;
                 self.min_forward_rate = forward_floor;
             }
-        }
-        self
-    }
-
-    /// Enforce comprehensive no-arbitrage checks on the discount curve.
-    ///
-    /// This enables:
-    /// - Monotonic (non-increasing) discount factors
-    /// - Forward rate floor at -50bp to prevent unrealistic negative rates
-    ///
-    /// # Example
-    /// ```
-    /// use finstack_core::market_data::term_structures::DiscountCurve;
-    /// use finstack_core::dates::Date;
-    /// use time::Month;
-    ///
-    /// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
-    /// let curve = DiscountCurve::builder("USD-OIS")
-    ///     .base_date(base)
-    ///     .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
-    ///     .enforce_no_arbitrage()
-    ///     .build()
-    ///     .expect("DiscountCurve builder should succeed");
-    /// ```
-    pub fn enforce_no_arbitrage(mut self) -> Self {
-        self.min_forward_rate = Some(-0.005); // -50bp floor
-        self
-    }
-
-    /// Set a custom minimum forward rate (in decimal).
-    ///
-    /// Forward rates below this threshold will trigger a validation error.
-    /// This prevents unrealistic negative rate scenarios that could indicate
-    /// data errors or create arbitrage opportunities.
-    ///
-    /// # Example
-    /// ```
-    /// use finstack_core::market_data::term_structures::DiscountCurve;
-    /// use finstack_core::dates::Date;
-    /// use time::Month;
-    ///
-    /// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
-    /// let curve = DiscountCurve::builder("USD-OIS")
-    ///     .base_date(base)
-    ///     .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.85)])
-    ///     .min_forward_rate(-0.01)  // Floor at -100bp
-    ///     .build()
-    ///     .expect("DiscountCurve builder should succeed");
-    /// ```
-    pub fn min_forward_rate(mut self, min_rate: f64) -> Self {
-        self.min_forward_rate = Some(min_rate);
-        self
-    }
-
-    /// Allow non-monotonic discount factors (use with extreme caution).
-    ///
-    /// This disables the default monotonicity validation and should only be used
-    /// in exceptional circumstances where you need to work with malformed market data.
-    ///
-    /// **Warning:** Non-monotonic discount factors create arbitrage opportunities
-    /// and will produce incorrect pricing results. Only use this override if you
-    /// understand the implications.
-    ///
-    /// For negative rate environments, prefer [`allow_non_monotonic_with_floor`](Self::allow_non_monotonic_with_floor)
-    /// which adds a -5% safety floor on implied forward rates.
-    pub fn allow_non_monotonic(mut self) -> Self {
-        self.allow_non_monotonic = true;
-        self
-    }
-
-    /// Allow non-monotonic discount factors with a safety floor on forward rates.
-    ///
-    /// This is the recommended way to handle negative rate environments.
-    /// Disables monotonicity validation but sets a -5% floor on implied forward
-    /// rates to catch data errors.
-    ///
-    /// The -5% floor is a conservative bound that accommodates historical negative
-    /// rate regimes (e.g., ECB deposit facility at -0.50%) while catching obviously
-    /// erroneous data.
-    ///
-    /// For full override without any floor, use [`allow_non_monotonic`](Self::allow_non_monotonic)
-    /// or chain with `.min_forward_rate(f64::NEG_INFINITY)`.
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// use finstack_core::market_data::term_structures::DiscountCurve;
-    /// # use time::macros::date;
-    /// # fn main() -> finstack_core::Result<()> {
-    /// let curve = DiscountCurve::builder("EUR-OIS")
-    ///     .base_date(date!(2025-01-01))
-    ///     .knots([(0.0, 1.0), (1.0, 1.002), (5.0, 0.99)])
-    ///     .allow_non_monotonic_with_floor()
-    ///     .build()?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn allow_non_monotonic_with_floor(mut self) -> Self {
-        self.allow_non_monotonic = true;
-        if self.min_forward_rate.is_none() {
-            self.min_forward_rate = Some(-0.05);
         }
         self
     }

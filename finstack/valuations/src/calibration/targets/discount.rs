@@ -611,9 +611,16 @@ impl BootstrapTarget for DiscountCurveTarget {
             .extrapolation(self.extrapolation);
 
         builder = if allow_non_monotonic {
-            builder.allow_non_monotonic()
+            builder.validation(
+                finstack_core::market_data::term_structures::ValidationMode::Raw {
+                    allow_non_monotonic: true,
+                    forward_floor: None,
+                },
+            )
         } else {
-            builder.enforce_no_arbitrage()
+            builder.validation(
+                finstack_core::market_data::term_structures::ValidationMode::MarketStandard,
+            )
         };
 
         builder
@@ -651,9 +658,16 @@ Disable allow_non_monotonic_final or choose a compatible interpolation style."
             .extrapolation(self.extrapolation);
 
         if allow_non_monotonic {
-            builder = builder.allow_non_monotonic();
+            builder = builder.validation(
+                finstack_core::market_data::term_structures::ValidationMode::Raw {
+                    allow_non_monotonic: true,
+                    forward_floor: None,
+                },
+            );
         } else {
-            builder = builder.enforce_no_arbitrage();
+            builder = builder.validation(
+                finstack_core::market_data::term_structures::ValidationMode::MarketStandard,
+            );
         }
 
         builder

@@ -19,7 +19,12 @@ fn build_flat_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve
 
     // For zero or negative rates, the curve may be flat or increasing
     if rate.abs() < 1e-10 || rate < 0.0 {
-        builder = builder.allow_non_monotonic();
+        builder = builder.validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        );
     }
 
     builder.build().expect("Failed to build discount curve")

@@ -50,7 +50,11 @@ pub fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> 
         ])
         .interp(InterpStyle::Linear);
     let builder = if rate < 0.0 {
-        builder.allow_non_monotonic_with_floor()
+        builder.validation(
+            finstack_core::market_data::term_structures::ValidationMode::NegativeRateFriendly {
+                forward_floor: -0.05,
+            },
+        )
     } else {
         builder
     };

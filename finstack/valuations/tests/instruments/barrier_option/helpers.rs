@@ -42,7 +42,12 @@ pub fn build_discount_curve_with_dc(
 
     // For zero or negative rates, the curve may be flat or increasing
     if rate.abs() < 1e-10 || rate < 0.0 {
-        builder = builder.allow_non_monotonic();
+        builder = builder.validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        );
     }
 
     builder.build().unwrap()

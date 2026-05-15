@@ -248,7 +248,12 @@ fn flat_curves_zero_rates() {
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 1.0), (1.0, 1.0), (2.0, 1.0)])
         .interp(InterpStyle::LogLinear)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build()
         .unwrap();
     let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
@@ -284,7 +289,12 @@ fn negative_rates() {
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 1.0), (1.0, 1.005), (2.0, 1.01)])
         .interp(InterpStyle::LogLinear)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build()
         .unwrap();
     let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)

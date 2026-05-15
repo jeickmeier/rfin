@@ -570,7 +570,12 @@ fn defaulted_notional_is_not_counted_as_positive_npv_cashflow() {
         .base_date(base)
         .knots([(0.0, 1.0), (5.0, 1.0)])
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build()
         .unwrap();
 
@@ -633,7 +638,12 @@ fn credit_adjusted_period_pv_respects_explicit_default_and_recovery_flows() {
         .base_date(base)
         .knots([(0.0, 1.0), (5.0, 1.0)])
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build()
         .unwrap();
 

@@ -38,7 +38,12 @@ fn build_market(as_of: Date) -> MarketContext {
         .base_date(as_of)
         .knots(vec![(0.0, 1.0), (1.0, 0.99), (3.0, 0.96), (5.0, 0.93)])
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build()
         .expect("example discount curve should build");
 

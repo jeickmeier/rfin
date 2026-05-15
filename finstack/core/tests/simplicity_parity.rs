@@ -4,10 +4,10 @@
 //! These tests prove that:
 //! 1. `Money::format_with` + defaults == `format_with_separators`, and that
 //!    `format(decimals, show_currency)` matches the corresponding `FormatOpts`.
-//! 2. `DiscountCurveBuilder::validation(ValidationMode::*)` produces a curve
-//!    equivalent to the legacy chain of toggle methods.
-//! 3. `VolSurface::from_grid_opts` matches the three historic `from_grid*`
-//!    helpers for identical inputs.
+//! 2. `DiscountCurveBuilder::validation(ValidationMode::*)` covers the
+//!    market-standard, negative-rate-friendly, and raw validation policies.
+//! 3. `VolSurface::from_grid_opts` preserves the explicit axis and
+//!    interpolation contract.
 //! 4. `VolSurface::value_checked` and `value_in_bounds` agree on interior
 //!    evaluation points (the shared bilinear kernel regression test).
 //! 5. `Rate::try_from(f64)` / `Percentage::try_from(f64)` / `Bps::try_from(f64)`
@@ -15,8 +15,7 @@
 //! 6. `[(Date, f64)]::irr(None)` equals
 //!    `xirr_with_daycount_ctx(.., Act365F, DayCountContext::default(), None)`.
 //!
-//! These tests are the "behavior-locking" PR recommended by the simplicity
-//! audit; future deprecations can be verified against them.
+//! These tests lock the canonical APIs produced by the simplicity audit.
 
 use finstack_core::cashflow::{xirr, xirr_with_daycount_ctx};
 use finstack_core::currency::Currency;
@@ -79,40 +78,27 @@ fn format_with_handles_negative_amounts() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn validation_market_standard_matches_enforce_no_arbitrage() {
+fn validation_market_standard_builds_monotonic_curve() {
     let base = d(2025, 1, 1);
     let knots = [(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)];
 
-    let via_enum = DiscountCurve::builder("USD-OIS")
+    let curve = DiscountCurve::builder("USD-OIS")
         .base_date(base)
         .knots(knots)
         .validation(ValidationMode::MarketStandard)
         .build()
-        .expect("enum validation build");
+        .expect("market-standard validation build");
 
-    let legacy = DiscountCurve::builder("USD-OIS")
-        .base_date(base)
-        .knots(knots)
-        .enforce_no_arbitrage()
-        .build()
-        .expect("legacy validation build");
-
-    for t in [0.25_f64, 1.5, 3.0, 4.5] {
-        assert!(
-            (via_enum.df(t) - legacy.df(t)).abs() < 1e-15,
-            "DF mismatch at t={t}: enum={}, legacy={}",
-            via_enum.df(t),
-            legacy.df(t),
-        );
-    }
+    assert!(curve.df(0.25) < 1.0);
+    assert!(curve.df(4.5) < curve.df(0.25));
 }
 
 #[test]
-fn validation_negative_rate_friendly_matches_allow_non_monotonic_with_floor() {
+fn validation_negative_rate_friendly_builds_increasing_discount_factors() {
     let base = d(2025, 1, 1);
     let knots = [(0.0, 1.0), (1.0, 1.002), (5.0, 0.99)];
 
-    let via_enum = DiscountCurve::builder("EUR-OIS")
+    let curve = DiscountCurve::builder("EUR-OIS")
         .base_date(base)
         .knots(knots)
         .interp(InterpStyle::LogLinear)
@@ -120,30 +106,18 @@ fn validation_negative_rate_friendly_matches_allow_non_monotonic_with_floor() {
             forward_floor: -0.05,
         })
         .build()
-        .expect("enum negative-rate build");
+        .expect("negative-rate validation build");
 
-    let legacy = DiscountCurve::builder("EUR-OIS")
-        .base_date(base)
-        .knots(knots)
-        .interp(InterpStyle::LogLinear)
-        .allow_non_monotonic_with_floor()
-        .build()
-        .expect("legacy negative-rate build");
-
-    for t in [0.25_f64, 1.5, 3.0, 4.5] {
-        assert!(
-            (via_enum.df(t) - legacy.df(t)).abs() < 1e-15,
-            "DF mismatch at t={t}",
-        );
-    }
+    assert!(curve.df(0.5) > 1.0);
+    assert!(curve.df(4.5) < curve.df(1.0));
 }
 
 #[test]
-fn validation_raw_matches_allow_non_monotonic() {
+fn validation_raw_allows_non_monotonic_without_forward_floor() {
     let base = d(2025, 1, 1);
     let knots = [(0.0, 1.0), (1.0, 1.001), (5.0, 0.98)];
 
-    let via_enum = DiscountCurve::builder("RAW")
+    let curve = DiscountCurve::builder("RAW")
         .base_date(base)
         .knots(knots)
         .interp(InterpStyle::LogLinear)
@@ -152,19 +126,10 @@ fn validation_raw_matches_allow_non_monotonic() {
             forward_floor: None,
         })
         .build()
-        .expect("enum raw build");
+        .expect("raw validation build");
 
-    let legacy = DiscountCurve::builder("RAW")
-        .base_date(base)
-        .knots(knots)
-        .interp(InterpStyle::LogLinear)
-        .allow_non_monotonic()
-        .build()
-        .expect("legacy raw build");
-
-    for t in [0.25_f64, 1.5, 3.0, 4.5] {
-        assert!((via_enum.df(t) - legacy.df(t)).abs() < 1e-15);
-    }
+    assert!(curve.df(0.5) > 1.0);
+    assert!(curve.df(4.5) < curve.df(1.0));
 }
 
 // ---------------------------------------------------------------------------
@@ -195,18 +160,9 @@ fn from_grid_opts_default_matches_from_grid() {
 }
 
 #[test]
-fn from_grid_with_axis_and_mode_matches_from_grid_opts() {
+fn from_grid_opts_preserves_axis_and_interpolation_mode() {
     let (exp, strikes, vols) = sample_grid();
-    let legacy = VolSurface::from_grid_with_axis_and_mode(
-        "S",
-        &exp,
-        &strikes,
-        &vols,
-        VolSurfaceAxis::Tenor,
-        VolInterpolationMode::TotalVariance,
-    )
-    .unwrap();
-    let canonical = VolSurface::from_grid_opts(
+    let surface = VolSurface::from_grid_opts(
         "S",
         &exp,
         &strikes,
@@ -218,13 +174,14 @@ fn from_grid_with_axis_and_mode_matches_from_grid_opts() {
     )
     .unwrap();
 
+    assert_eq!(surface.secondary_axis(), VolSurfaceAxis::Tenor);
+    assert_eq!(
+        surface.interpolation_mode(),
+        VolInterpolationMode::TotalVariance
+    );
     for &e in &exp {
         for &k in &strikes {
-            assert!(
-                (legacy.value_checked(e, k).unwrap() - canonical.value_checked(e, k).unwrap())
-                    .abs()
-                    < 1e-15
-            );
+            assert!(surface.value_checked(e, k).unwrap().is_finite());
         }
     }
 }

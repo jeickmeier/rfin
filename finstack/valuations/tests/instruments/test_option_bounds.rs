@@ -43,7 +43,12 @@ fn create_option_market(
 
     // Allow non-monotonic for zero or negative rates (flat/increasing DFs).
     if rate.abs() < 1e-10 || rate < 0.0 {
-        builder = builder.allow_non_monotonic();
+        builder = builder.validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        );
     }
 
     let disc = builder.build().unwrap();

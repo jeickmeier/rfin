@@ -31,7 +31,12 @@ fn build_negative_rate_discount_curve(rate: f64, base_date: Date, curve_id: &str
     DiscountCurve::builder(curve_id)
         .base_date(base_date)
         .day_count(DayCount::Act360)
-        .allow_non_monotonic() // Required for negative rates (DFs > 1)
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        ) // Required for negative rates (DFs > 1)
         .interp(InterpStyle::Linear) // Linear supports non-monotonic DFs
         .knots([
             (0.0, 1.0),

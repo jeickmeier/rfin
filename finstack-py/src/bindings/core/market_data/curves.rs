@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::surfaces::{
-    VolCube, VolInterpolationMode, VolSurface, VolSurfaceAxis,
+    VolCube, VolGridOpts, VolInterpolationMode, VolSurface, VolSurfaceAxis,
 };
 use finstack_core::market_data::term_structures::{
     BaseCorrelationCurve, CreditIndexData, DiscountCurve, ForwardCurve, HazardCurve,
@@ -634,13 +634,15 @@ impl PyVolSurface {
     ) -> PyResult<Self> {
         let axis = parse_vol_surface_axis(secondary_axis)?;
         let mode = parse_vol_interpolation_mode(interpolation_mode)?;
-        let surface = VolSurface::from_grid_with_axis_and_mode(
+        let surface = VolSurface::from_grid_opts(
             id,
             &expiries,
             &strikes,
             &vols_row_major,
-            axis,
-            mode,
+            VolGridOpts {
+                secondary_axis: axis,
+                interpolation_mode: mode,
+            },
         )
         .map_err(core_to_py)?;
 

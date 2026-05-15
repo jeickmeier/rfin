@@ -446,7 +446,12 @@ fn test_compounded_swap_with_spread_near_zero_rates() {
         .base_date(base)
         .knots([(0.0, 1.0), (1.0, 0.999)])
         .interp(InterpStyle::LogLinear)
-        .allow_non_monotonic() // Allow for very flat curves
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        ) // Allow for very flat curves
         .build()
         .unwrap();
 
@@ -539,7 +544,12 @@ fn test_compounded_swap_with_spread_negative_rates() {
         .base_date(base)
         .knots([(0.0, 1.0), (1.0, 1.005)]) // exp(-(-0.005)*1) ≈ 1.005
         .interp(InterpStyle::LogLinear)
-        .allow_non_monotonic() // Negative rates cause DF > 1
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        ) // Negative rates cause DF > 1
         .build()
         .unwrap();
 

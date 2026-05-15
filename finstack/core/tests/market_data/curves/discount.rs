@@ -101,7 +101,12 @@ fn allow_non_monotonic_flag_overrides_validation() {
         .base_date(sample_base_date())
         .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.96)]) // Non-monotonic
         .interp(InterpStyle::Linear) // Required for non-monotonic DFs
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build();
 
     assert!(
@@ -139,11 +144,11 @@ fn non_monotonic_df_rejected_by_default() {
 }
 
 #[test]
-fn enforce_no_arbitrage_enables_all_checks() {
+fn market_standard_validation_enables_all_checks() {
     let result = DiscountCurve::builder("NO-ARB-CHECK")
         .base_date(sample_base_date())
         .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95), (5.0, 0.85)])
-        .enforce_no_arbitrage()
+        .validation(finstack_core::market_data::term_structures::ValidationMode::MarketStandard)
         .build();
 
     assert!(
@@ -158,7 +163,12 @@ fn custom_forward_rate_floor() {
     let curve = DiscountCurve::builder("CUSTOM-FLOOR")
         .base_date(sample_base_date())
         .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.85)])
-        .min_forward_rate(-0.01) // -100bp floor
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: false,
+                forward_floor: Some(-0.01),
+            },
+        ) // -100bp floor
         .build();
 
     assert!(
@@ -177,7 +187,7 @@ fn reasonable_negative_forward_accepted() {
             (1.0, 0.95),
             (2.0, 0.949), // Very small decrease
         ])
-        .enforce_no_arbitrage()
+        .validation(finstack_core::market_data::term_structures::ValidationMode::MarketStandard)
         .build();
 
     assert!(
@@ -744,7 +754,12 @@ fn negative_rate_environment() {
     let curve = DiscountCurve::builder("NEG-RATES")
         .base_date(sample_base_date())
         .knots([(0.0, 1.0), (1.0, 1.005), (2.0, 1.008)])
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .interp(InterpStyle::Linear)
         .build()
         .unwrap();

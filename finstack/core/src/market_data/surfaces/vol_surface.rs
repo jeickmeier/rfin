@@ -889,9 +889,8 @@ impl VolSurfaceBuilder {
 
 /// Options bundle for [`VolSurface::from_grid_opts`].
 ///
-/// This is the canonical entry for grid construction. The historical
-/// `from_grid`, `from_grid_with_axis`, and `from_grid_with_axis_and_mode`
-/// helpers now delegate here.
+/// Use this when grid construction needs a non-default secondary-axis or
+/// interpolation contract.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct VolGridOpts {
     /// Semantic meaning of the secondary axis (strike vs tenor).
@@ -911,9 +910,8 @@ impl VolGridOpts {
 }
 
 impl VolSurface {
-    /// Canonical grid constructor. Prefer this over [`VolSurface::from_grid`],
-    /// [`VolSurface::from_grid_with_axis`], and
-    /// [`VolSurface::from_grid_with_axis_and_mode`], which now delegate here.
+    /// Canonical grid constructor for callers that need explicit construction
+    /// options.
     pub fn from_grid_opts(
         id: impl AsRef<str>,
         expiries: &[f64],
@@ -1004,53 +1002,6 @@ impl VolSurface {
         }
 
         Self::from_grid(id, expiries, strikes, &flat)
-    }
-
-    /// Construct directly from axes and a row-major flat values array with an
-    /// explicit secondary-axis contract.
-    ///
-    /// New callers should prefer [`from_grid_opts`](Self::from_grid_opts).
-    pub fn from_grid_with_axis(
-        id: impl AsRef<str>,
-        expiries: &[f64],
-        strikes: &[f64],
-        vols_row_major: &[f64],
-        secondary_axis: VolSurfaceAxis,
-    ) -> crate::Result<Self> {
-        Self::from_grid_opts(
-            id,
-            expiries,
-            strikes,
-            vols_row_major,
-            VolGridOpts {
-                secondary_axis,
-                interpolation_mode: VolInterpolationMode::Vol,
-            },
-        )
-    }
-
-    /// Construct directly from axes and a row-major flat values array with an
-    /// explicit secondary-axis contract and interpolation mode.
-    ///
-    /// New callers should prefer [`from_grid_opts`](Self::from_grid_opts).
-    pub fn from_grid_with_axis_and_mode(
-        id: impl AsRef<str>,
-        expiries: &[f64],
-        strikes: &[f64],
-        vols_row_major: &[f64],
-        secondary_axis: VolSurfaceAxis,
-        interpolation_mode: VolInterpolationMode,
-    ) -> crate::Result<Self> {
-        Self::from_grid_opts(
-            id,
-            expiries,
-            strikes,
-            vols_row_major,
-            VolGridOpts {
-                secondary_axis,
-                interpolation_mode,
-            },
-        )
     }
 }
 

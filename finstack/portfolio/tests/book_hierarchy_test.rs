@@ -41,7 +41,12 @@ fn build_test_market() -> MarketContext {
         .base_date(date!(2024 - 01 - 01))
         .knots(vec![(0.0, 1.0), (1.0, 1.0), (5.0, 1.0)])
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build()
         .expect("USD curve should build");
 

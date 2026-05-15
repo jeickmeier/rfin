@@ -297,7 +297,12 @@ fn fixed_schedule_npv_equals_sum_cashflows() {
         .base_date(issue)
         .knots([(0.0, 1.0), (5.0, 1.0)])
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic() // Flat curve for testing NPV = sum of cashflows
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        ) // Flat curve for testing NPV = sum of cashflows
         .build()
         .unwrap();
 
@@ -778,7 +783,12 @@ fn npv_golden_value_with_realistic_discount_curve() {
         .base_date(issue)
         .knots([(0.0, 1.0), (2.0, 1.0)])
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build()
         .unwrap();
 

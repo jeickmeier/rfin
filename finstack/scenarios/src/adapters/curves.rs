@@ -611,7 +611,12 @@ pub(crate) fn curve_node_effects(
             .day_count(base_curve.day_count())
             .interp(base_curve.interp_style())
             .extrapolation(base_curve.extrapolation())
-            .allow_non_monotonic()
+            .validation(
+                finstack_core::market_data::term_structures::ValidationMode::Raw {
+                    allow_non_monotonic: true,
+                    forward_floor: None,
+                },
+            )
             .knots(bumped_points)
             .build()?;
 

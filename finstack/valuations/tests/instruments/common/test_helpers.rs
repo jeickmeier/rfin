@@ -367,7 +367,12 @@ pub fn flat_discount_curve_with_dc(
     // For negative or zero rates, DFs may be flat or increasing
     // Use linear interpolation and allow non-monotonic for robustness
     if rate.abs() < 1e-10 || rate < 0.0 {
-        builder = builder.interp(InterpStyle::Linear).allow_non_monotonic();
+        builder = builder.interp(InterpStyle::Linear).validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        );
     }
 
     builder.build().unwrap()

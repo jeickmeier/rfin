@@ -24,7 +24,12 @@ pub fn build_test_market() -> MarketContext {
         .base_date(base_date())
         .knots(vec![(0.0, 1.0), (1.0, 1.0), (5.0, 1.0)])
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build()
         .expect("test curve should build");
 
@@ -40,7 +45,12 @@ pub fn build_test_market_at(as_of: Date) -> MarketContext {
         .base_date(as_of)
         .knots(vec![(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build()
         .expect("test curve should build");
 

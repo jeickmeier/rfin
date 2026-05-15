@@ -155,7 +155,12 @@ pub fn setup_inverted_curve_market(as_of: Date) -> MarketContext {
         .base_date(as_of)
         .knots([(0.0, 1.0), (0.25, 0.99), (10.0, 1.05)])
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic() // DFs increase for negative rates
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        ) // DFs increase for negative rates
         .build()
         .unwrap();
 
@@ -163,7 +168,12 @@ pub fn setup_inverted_curve_market(as_of: Date) -> MarketContext {
         .base_date(as_of)
         .knots([(0.0, 1.0), (0.25, 0.995), (10.0, 1.02)])
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic() // DFs increase for negative rates
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        ) // DFs increase for negative rates
         .build()
         .unwrap();
 

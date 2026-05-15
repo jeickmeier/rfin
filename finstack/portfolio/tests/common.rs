@@ -31,7 +31,12 @@ fn usd_curve() -> DiscountCurve {
         .base_date(base_date())
         .knots(vec![(0.0, 1.0), (1.0, 1.0), (5.0, 1.0)])
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build()
         .expect("flat USD curve should build")
 }
@@ -42,7 +47,12 @@ fn eur_curve() -> DiscountCurve {
         .base_date(base_date())
         .knots(vec![(0.0, 1.0), (1.0, 1.0), (5.0, 1.0)])
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build()
         .expect("flat EUR curve should build")
 }
@@ -64,7 +74,12 @@ pub fn usd_curve_at_rate(rate_bp: f64) -> DiscountCurve {
 
     // For flat or near-zero rates, discount factors may be non-monotonic
     if rate_bp.abs() < 1.0 {
-        builder = builder.allow_non_monotonic();
+        builder = builder.validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        );
     }
 
     builder.build().expect("USD curve at rate should build")

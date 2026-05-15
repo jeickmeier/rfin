@@ -2,7 +2,9 @@
 
 use crate::swaption::common::*;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
-use finstack_core::market_data::surfaces::{VolSurface, VolSurfaceAxis};
+use finstack_core::market_data::surfaces::{
+    VolGridOpts, VolInterpolationMode, VolSurface, VolSurfaceAxis,
+};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::irs::{
     FixedLegSpec, FloatLegSpec, FloatingLegCompounding, InterestRateSwap, PayReceive,
@@ -110,12 +112,12 @@ fn test_forward_swap_rate_includes_first_multicurve_float_period() {
 #[test]
 fn test_normal_vol_surface_uses_underlying_tenor_axis() {
     let (as_of, expiry, swap_start, swap_end_5y) = standard_dates();
-    let tenor_surface = VolSurface::from_grid_with_axis(
+    let tenor_surface = VolSurface::from_grid_opts(
         "USD_SWAPTION_VOL",
         &[1.0],
         &[5.0, 10.0],
         &[0.01, 0.02],
-        VolSurfaceAxis::Tenor,
+        VolGridOpts::new(VolSurfaceAxis::Tenor, VolInterpolationMode::Vol),
     )
     .unwrap();
     let market = create_flat_market(as_of, 0.05, 0.30).insert_surface(tenor_surface);

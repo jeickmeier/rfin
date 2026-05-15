@@ -241,7 +241,12 @@ impl GlobalSolveTarget for ParametricCurveTarget {
         )
         .base_date(self.params.base_date)
         .knots(knots)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build_for_solver()?;
 
         self.scratch.with_curve(&disc_curve, |ctx| {

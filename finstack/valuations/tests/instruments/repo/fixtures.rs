@@ -53,7 +53,12 @@ pub fn create_flat_discount_curve() -> DiscountCurve {
         .base_date(base_date())
         .knots([(0.0, 1.0), (10.0, 1.0)])
         .interp(InterpStyle::Linear)
-        .allow_non_monotonic()
+        .validation(
+            finstack_core::market_data::term_structures::ValidationMode::Raw {
+                allow_non_monotonic: true,
+                forward_floor: None,
+            },
+        )
         .build()
         .unwrap()
 }

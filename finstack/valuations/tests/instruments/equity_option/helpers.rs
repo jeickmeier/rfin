@@ -42,7 +42,12 @@ pub fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> 
     // (MonotoneConvex enforces non-increasing DFs).
     if rate.abs() < 1e-10 || rate < 0.0 {
         builder = builder
-            .allow_non_monotonic()
+            .validation(
+                finstack_core::market_data::term_structures::ValidationMode::Raw {
+                    allow_non_monotonic: true,
+                    forward_floor: None,
+                },
+            )
             .interp(finstack_core::math::interp::InterpStyle::LogLinear);
     }
 

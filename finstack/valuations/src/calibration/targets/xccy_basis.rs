@@ -252,7 +252,12 @@ impl BootstrapTarget for XccyBasisTarget {
             .knots(knots.to_vec())
             .interp(self.params.solve_interp)
             .extrapolation(self.params.extrapolation)
-            .allow_non_monotonic()
+            .validation(
+                finstack_core::market_data::term_structures::ValidationMode::Raw {
+                    allow_non_monotonic: true,
+                    forward_floor: None,
+                },
+            )
             .build_for_solver()
     }
 
