@@ -495,40 +495,41 @@ impl CashFlowSchedule {
         let mut initial_funding_skipped = false;
         let initial_amount = self.notional.initial.amount();
 
-        let mut i = 0usize;
-        while i < self.flows.len() {
-            let d = self.flows[i].date;
-            // Process all flows on this date in their deterministic order
-            let mut j = i;
-            while j < self.flows.len() && self.flows[j].date == d {
-                // Skip the initial funding notional flow (negative, equal to -notional.initial)
-                // This is already accounted for in notional.initial
-                let is_initial_funding = !initial_funding_skipped
-                    && self.flows[j].kind == CFKind::Notional
-                    && self.flows[j].amount.amount() < 0.0
-                    && initial_amount != 0.0
-                    && self.flows[j].date == issue
-                    && amounts_approx_equal(self.flows[j].amount.amount().abs(), initial_amount);
+        for same_day_flows in self.flows.chunk_by(|left, right| left.date == right.date) {
+            let d = same_day_flows[0].date;
+            // Process all flows on this date in their deterministic order.
+            for cf in same_day_flows {
+                let is_initial_funding =
+                    is_initial_funding_flow(cf, issue, initial_amount, initial_funding_skipped);
                 if is_initial_funding {
                     initial_funding_skipped = true;
                 }
 
                 // `outstanding_by_date` is the canonical balance tracker, including
                 // subsequent notional draws/repays as well as Amortization and PIK.
-                apply_flow_to_outstanding(
-                    &mut outstanding,
-                    &self.flows[j],
-                    is_initial_funding,
-                    true,
-                )?;
-                j += 1;
+                apply_flow_to_outstanding(&mut outstanding, cf, is_initial_funding, true)?;
             }
             result.push((d, outstanding));
-            i = j;
         }
 
         Ok(result)
     }
+}
+
+fn merge_matching<T: Copy + PartialEq>(current: &mut Option<T>, value: T, fallback: T) {
+    *current = Some(match *current {
+        None => value,
+        Some(existing) if existing == value => existing,
+        Some(_) => fallback,
+    });
+}
+
+fn merge_matching_option<T: Copy + PartialEq>(current: &mut Option<Option<T>>, value: Option<T>) {
+    *current = Some(match *current {
+        None => value,
+        Some(existing) if existing == value => existing,
+        Some(_) => None,
+    });
 }
 
 /// Merge multiple schedules into one deterministic composite schedule.
@@ -588,23 +589,15 @@ where
                 });
             }
         }
-        representation = Some(match representation {
-            None => schedule.meta.representation,
-            Some(existing) if existing == schedule.meta.representation => existing,
-            Some(_) => CashflowRepresentation::default(),
-        });
+        merge_matching(
+            &mut representation,
+            schedule.meta.representation,
+            CashflowRepresentation::default(),
+        );
         flows.extend(schedule.flows);
         calendar_ids.extend(schedule.meta.calendar_ids);
-        facility_limit = Some(match facility_limit {
-            None => schedule.meta.facility_limit,
-            Some(existing) if existing == schedule.meta.facility_limit => existing,
-            Some(_) => None,
-        });
-        issue_date = Some(match issue_date {
-            None => schedule.meta.issue_date,
-            Some(existing) if existing == schedule.meta.issue_date => existing,
-            Some(_) => None,
-        });
+        merge_matching_option(&mut facility_limit, schedule.meta.facility_limit);
+        merge_matching_option(&mut issue_date, schedule.meta.issue_date);
     }
 
     calendar_ids.sort_unstable();
@@ -630,6 +623,20 @@ where
 pub(super) fn amounts_approx_equal(a: f64, b: f64) -> bool {
     let max_abs = a.abs().max(b.abs()).max(1.0);
     (a - b).abs() < max_abs * 1e-12
+}
+
+fn is_initial_funding_flow(
+    cf: &CashFlow,
+    issue: Date,
+    initial_amount: f64,
+    already_skipped: bool,
+) -> bool {
+    !already_skipped
+        && cf.kind == CFKind::Notional
+        && cf.amount.amount() < 0.0
+        && initial_amount != 0.0
+        && cf.date == issue
+        && amounts_approx_equal(cf.amount.amount().abs(), initial_amount)
 }
 
 fn apply_flow_to_outstanding(

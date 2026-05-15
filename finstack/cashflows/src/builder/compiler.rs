@@ -21,9 +21,9 @@
 //! least two dates.
 
 use crate::builder::{AmortizationSpec, Notional};
-use finstack_core::dates::{
-    BusinessDayConvention, Date, DayCount, HolidayCalendar, StubKind, Tenor,
-};
+use std::collections::BTreeSet;
+
+use finstack_core::dates::{Date, DayCount, HolidayCalendar, Tenor};
 use finstack_core::money::Money;
 use finstack_core::InputError;
 use rust_decimal::Decimal;
@@ -36,37 +36,53 @@ use super::specs::{
     FloatingRateSpec, ScheduleParams,
 };
 
+type PeriodMap = finstack_core::HashMap<Date, SchedulePeriod>;
+type DateSet = finstack_core::HashSet<Date>;
+
 /// Result type for schedule building with metadata.
-type ScheduleWithMeta = (
-    Vec<Date>,
-    finstack_core::HashMap<Date, SchedulePeriod>,
-    finstack_core::HashSet<Date>,
-);
+type ScheduleWithMeta = (Vec<Date>, PeriodMap, DateSet);
+
+#[derive(Debug, Clone, Copy)]
+pub(super) struct DateWindow {
+    pub(super) start: Date,
+    pub(super) end: Date, // exclusive
+}
+
+impl DateWindow {
+    fn new(start: Date, end: Date) -> Self {
+        Self { start, end }
+    }
+
+    fn is_within(self, issue: Date, maturity: Date) -> bool {
+        self.start >= issue && self.end <= maturity && self.start < self.end
+    }
+
+    fn covers_range(self, start: Date, end: Date) -> bool {
+        self.start <= start && end <= self.end
+    }
+
+    fn contains_window(self, other: DateWindow) -> bool {
+        self.start <= other.start && other.end <= self.end
+    }
+}
 
 /// Build dates and metadata using the date_generation module.
 ///
 /// This helper wraps `date_generation::build_dates` / `build_dates` and
 /// extracts the `prev` map and `first_or_last` set required by the cashflow compiler.
-#[allow(clippy::too_many_arguments)]
 fn build_dates_with_meta(
-    start: Date,
-    end: Date,
-    freq: Tenor,
-    stub: StubKind,
-    bdc: BusinessDayConvention,
-    end_of_month: bool,
-    payment_lag_days: i32,
-    calendar_id: &str,
+    window: DateWindow,
+    params: &ScheduleParams,
 ) -> finstack_core::Result<ScheduleWithMeta> {
     let schedule = build_dates(
-        start,
-        end,
-        freq,
-        stub,
-        bdc,
-        end_of_month,
-        payment_lag_days,
-        calendar_id,
+        window.start,
+        window.end,
+        params.freq,
+        params.stub,
+        params.bdc,
+        params.end_of_month,
+        params.payment_lag_days,
+        &params.calendar_id,
     )?;
     Ok(index_period_schedule(schedule))
 }
@@ -77,8 +93,8 @@ pub(crate) struct FixedSchedule {
     pub(crate) spec: FixedCouponSpec,
     pub(crate) calendar: &'static dyn HolidayCalendar,
     pub(crate) dates: Vec<Date>,
-    pub(crate) prev: finstack_core::HashMap<Date, SchedulePeriod>,
-    pub(crate) first_last: finstack_core::HashSet<Date>,
+    pub(crate) prev: PeriodMap,
+    pub(crate) first_last: DateSet,
 }
 
 /// Compiled floating-coupon schedule produced by [`compute_coupon_schedules`].
@@ -89,7 +105,7 @@ pub(crate) struct FloatSchedule {
     pub(crate) fixing_calendar: &'static dyn HolidayCalendar,
     pub(crate) runtime_spec: ResolvedFloatingRateSpec,
     pub(crate) dates: Vec<Date>,
-    pub(crate) prev: finstack_core::HashMap<Date, SchedulePeriod>,
+    pub(crate) prev: PeriodMap,
 }
 
 /// Periodic fee schedule prepared from fee specs.
@@ -113,7 +129,7 @@ pub(super) struct PeriodicFee {
     pub(super) freq: Tenor,
     pub(super) calendar: &'static dyn HolidayCalendar,
     pub(super) dates: Vec<Date>,
-    pub(super) prev: finstack_core::HashMap<Date, SchedulePeriod>,
+    pub(super) prev: PeriodMap,
     pub(super) accrual_basis: FeeAccrualBasis,
 }
 
@@ -185,16 +201,17 @@ pub(super) fn build_fee_schedules(
                 stub,
                 accrual_basis,
             } => {
-                let (dates, prev, _) = build_dates_with_meta(
-                    issue,
-                    maturity,
-                    *freq,
-                    *stub,
-                    *bdc,
-                    false,
-                    0,
-                    calendar_id,
-                )?;
+                let schedule = ScheduleParams {
+                    freq: *freq,
+                    dc: *dc,
+                    bdc: *bdc,
+                    calendar_id: calendar_id.clone(),
+                    stub: *stub,
+                    end_of_month: false,
+                    payment_lag_days: 0,
+                };
+                let (dates, prev, _) =
+                    build_dates_with_meta(DateWindow::new(issue, maturity), &schedule)?;
                 if dates.is_empty() {
                     return Err(InputError::TooFewPoints.into());
                 }
@@ -213,12 +230,6 @@ pub(super) fn build_fee_schedules(
         }
     }
     Ok((periodic_fees, fixed_fees))
-}
-
-#[derive(Debug, Clone, Copy)]
-pub(super) struct DateWindow {
-    pub(super) start: Date,
-    pub(super) end: Date, // exclusive
 }
 
 #[derive(Debug, Clone)]
@@ -263,43 +274,18 @@ pub(super) fn collect_dates(
     fixed_fees: &[(Date, Money)],
     notional: &Notional,
 ) -> Vec<Date> {
-    /// Collect a de‑duplicated, ordered set of all relevant dates.
-    ///
-    /// Aggregates `issue`, `maturity`, all coupon schedule dates (fixed and
-    /// floating), fee dates (periodic slices and fixed fee dates), and any
-    /// custom amortization dates from notional into a single ascending vector.
-    ///
-    /// Arguments:
-    /// - `issue` (`Date`): Start date (included).
-    /// - `maturity` (`Date`): End date (included in horizon; may or may not appear in schedules).
-    /// - `fixed_schedules` (`&[FixedSchedule]`): Compiled fixed coupon schedules.
-    /// - `float_schedules` (`&[FloatSchedule]`): Compiled floating coupon schedules.
-    /// - `periodic_fee_date_slices` (`&[&[Date]]`): Borrowed slices of periodic fee dates.
-    /// - `fixed_fees` (`&[(Date, Money)]`): Explicit fixed fees by date.
-    /// - `notional` (`&Notional`): Notional specification including custom amortization.
-    ///
-    /// Returns: `Vec<Date>` sorted and de‑duplicated.
-    use std::collections::BTreeSet;
     let mut set: BTreeSet<Date> = BTreeSet::new();
     set.insert(issue);
     set.insert(maturity);
 
     // Collect all fixed coupon dates (accrual boundaries + payment dates)
     for schedule in fixed_schedules {
-        for period in schedule.prev.values() {
-            set.insert(period.accrual_start);
-            set.insert(period.accrual_end);
-            set.insert(period.payment_date);
-        }
+        extend_period_dates(&mut set, schedule.prev.values());
     }
 
     // Collect all floating coupon dates (accrual boundaries + payment dates)
     for schedule in float_schedules {
-        for period in schedule.prev.values() {
-            set.insert(period.accrual_start);
-            set.insert(period.accrual_end);
-            set.insert(period.payment_date);
-        }
+        extend_period_dates(&mut set, schedule.prev.values());
     }
 
     // Collect all periodic fee dates (accrual boundaries + payment dates)
@@ -324,6 +310,17 @@ pub(super) fn collect_dates(
     set.into_iter().collect()
 }
 
+fn extend_period_dates<'a>(
+    set: &mut BTreeSet<Date>,
+    periods: impl IntoIterator<Item = &'a SchedulePeriod>,
+) {
+    for period in periods {
+        set.insert(period.accrual_start);
+        set.insert(period.accrual_end);
+        set.insert(period.payment_date);
+    }
+}
+
 struct StepUpCompileInput<'a> {
     split: CouponType,
     initial_rate: Decimal,
@@ -336,12 +333,54 @@ struct StepUpCompileInput<'a> {
 }
 
 fn compile_step_up_schedules(input: StepUpCompileInput<'_>) -> Vec<FixedSchedule> {
-    type RateGroup = (
-        Decimal,
-        Vec<Date>,
-        finstack_core::HashMap<Date, SchedulePeriod>,
-        finstack_core::HashSet<Date>,
-    );
+    struct RateGroup {
+        rate: Decimal,
+        dates: Vec<Date>,
+        prev: PeriodMap,
+        first_last: DateSet,
+    }
+
+    impl RateGroup {
+        fn new(
+            rate: Decimal,
+            payment_date: Date,
+            period: SchedulePeriod,
+            is_first_or_last: bool,
+        ) -> Self {
+            let mut prev = PeriodMap::default();
+            prev.insert(payment_date, period);
+
+            let mut first_last = DateSet::default();
+            if is_first_or_last {
+                first_last.insert(payment_date);
+            }
+
+            Self {
+                rate,
+                dates: vec![payment_date],
+                prev,
+                first_last,
+            }
+        }
+
+        fn push(&mut self, payment_date: Date, period: SchedulePeriod, is_first_or_last: bool) {
+            self.dates.push(payment_date);
+            self.prev.insert(payment_date, period);
+            if is_first_or_last {
+                self.first_last.insert(payment_date);
+            }
+        }
+
+        fn into_fixed_schedule(self, input: &StepUpCompileInput<'_>) -> FixedSchedule {
+            FixedSchedule {
+                spec: FixedCouponSpec::from_parts(input.split, self.rate, input.schedule.clone()),
+                calendar: input.calendar,
+                dates: self.dates,
+                prev: self.prev,
+                first_last: self.first_last,
+            }
+        }
+    }
 
     let rate_for = |period_start: Date| -> Decimal {
         let mut rate = input.initial_rate;
@@ -361,39 +400,71 @@ fn compile_step_up_schedules(input: StepUpCompileInput<'_>) -> Vec<FixedSchedule
             let period_rate = rate_for(period.accrual_start);
             let extend_last = rate_groups
                 .last()
-                .map(|(rate, _, _, _)| *rate == period_rate)
+                .map(|group| group.rate == period_rate)
                 .unwrap_or(false);
+            let is_first_or_last = input.first_last.contains(&payment_date);
 
             if extend_last {
                 if let Some(last) = rate_groups.last_mut() {
-                    last.1.push(payment_date);
-                    last.2.insert(payment_date, *period);
-                    if input.first_last.contains(&payment_date) {
-                        last.3.insert(payment_date);
-                    }
+                    last.push(payment_date, *period, is_first_or_last);
                 }
             } else {
-                let mut period_map = finstack_core::HashMap::default();
-                period_map.insert(payment_date, *period);
-                let mut first_last = finstack_core::HashSet::default();
-                if input.first_last.contains(&payment_date) {
-                    first_last.insert(payment_date);
-                }
-                rate_groups.push((period_rate, vec![payment_date], period_map, first_last));
+                rate_groups.push(RateGroup::new(
+                    period_rate,
+                    payment_date,
+                    *period,
+                    is_first_or_last,
+                ));
             }
         }
     }
 
     rate_groups
         .into_iter()
-        .map(|(rate, dates, prev, first_last)| FixedSchedule {
-            spec: FixedCouponSpec::from_parts(input.split, rate, input.schedule.clone()),
-            calendar: input.calendar,
-            dates,
-            prev,
-            first_last,
-        })
+        .map(|group| group.into_fixed_schedule(&input))
         .collect()
+}
+
+fn select_coupon_piece(
+    pieces: &[CouponProgramPiece],
+    start: Date,
+    end: Date,
+) -> finstack_core::Result<&CouponProgramPiece> {
+    let mut chosen = None;
+    for piece in pieces {
+        if piece.window.covers_range(start, end) {
+            if chosen.is_some() {
+                return Err(InputError::Invalid.into());
+            }
+            chosen = Some(piece);
+        }
+    }
+    chosen.ok_or_else(|| InputError::Invalid.into())
+}
+
+fn select_payment_split(
+    pieces: &[PaymentProgramPiece],
+    start: Date,
+    end: Date,
+) -> finstack_core::Result<CouponType> {
+    let mut chosen: Option<&PaymentProgramPiece> = None;
+
+    for piece in pieces {
+        if !piece.window.covers_range(start, end) {
+            continue;
+        }
+
+        match chosen {
+            None => chosen = Some(piece),
+            Some(current) if current.window.contains_window(piece.window) => {
+                chosen = Some(piece);
+            }
+            Some(current) if piece.window.contains_window(current.window) => {}
+            Some(_) => return Err(InputError::Invalid.into()),
+        }
+    }
+
+    Ok(chosen.map(|piece| piece.split).unwrap_or(CouponType::Cash))
 }
 
 pub(super) fn compute_coupon_schedules(
@@ -445,8 +516,6 @@ pub(super) fn compute_coupon_schedules(
     //! };
     //! // Note: compute_coupon_schedules would be called here
     //! ```
-    use std::collections::BTreeSet;
-
     let coupon_pieces: &[CouponProgramPiece] = &builder.coupon_program;
 
     // If there are no coupon pieces at all and no payment windows, return empty schedules
@@ -461,20 +530,18 @@ pub(super) fn compute_coupon_schedules(
     let payment_pieces: &[PaymentProgramPiece] = &builder.payment_program;
 
     // Validate windows are within [issue, maturity] and build boundary grid
-    let within =
-        |w: &DateWindow| -> bool { w.start >= issue && w.end <= maturity && w.start < w.end };
     let mut bounds: BTreeSet<Date> = BTreeSet::new();
     bounds.insert(issue);
     bounds.insert(maturity);
     for p in coupon_pieces {
-        if !within(&p.window) {
+        if !p.window.is_within(issue, maturity) {
             return Err(InputError::Invalid.into());
         }
         bounds.insert(p.window.start);
         bounds.insert(p.window.end);
     }
     for p in payment_pieces {
-        if !within(&p.window) {
+        if !p.window.is_within(issue, maturity) {
             return Err(InputError::Invalid.into());
         }
         bounds.insert(p.window.start);
@@ -495,53 +562,11 @@ pub(super) fn compute_coupon_schedules(
             continue;
         }
 
-        // Select single covering coupon piece
-        let mut chosen_coupon: Option<&CouponProgramPiece> = None;
-        for p in coupon_pieces {
-            if p.window.start <= s && e <= p.window.end {
-                if chosen_coupon.is_some() {
-                    return Err(InputError::Invalid.into());
-                }
-                chosen_coupon = Some(p);
-            }
-        }
-        let chosen_coupon = chosen_coupon.ok_or(InputError::Invalid)?;
+        let chosen_coupon = select_coupon_piece(coupon_pieces, s, e)?;
+        let split = select_payment_split(payment_pieces, s, e)?;
 
-        // Select payment split. Allow nested override windows: prefer most specific covering window.
-        // If two covering windows are neither nested (i.e., overlapping without containment), it's invalid.
-        let mut chosen: Option<(&DateWindow, CouponType)> = None;
-        for p in payment_pieces {
-            if p.window.start <= s && e <= p.window.end {
-                match chosen {
-                    None => chosen = Some((&p.window, p.split)),
-                    Some((win, _)) => {
-                        let p_within_chosen =
-                            p.window.start >= win.start && p.window.end <= win.end;
-                        let chosen_within_p =
-                            win.start >= p.window.start && win.end <= p.window.end;
-                        if p_within_chosen {
-                            chosen = Some((&p.window, p.split)); // prefer more specific
-                        } else if chosen_within_p {
-                            // keep current chosen
-                        } else {
-                            return Err(InputError::Invalid.into());
-                        }
-                    }
-                }
-            }
-        }
-        let split = chosen.map(|(_, sp)| sp).unwrap_or(CouponType::Cash);
-
-        let (dates, prev, first_or_last) = build_dates_with_meta(
-            s,
-            e,
-            chosen_coupon.schedule.freq,
-            chosen_coupon.schedule.stub,
-            chosen_coupon.schedule.bdc,
-            chosen_coupon.schedule.end_of_month,
-            chosen_coupon.schedule.payment_lag_days,
-            &chosen_coupon.schedule.calendar_id,
-        )?;
+        let (dates, prev, first_or_last) =
+            build_dates_with_meta(DateWindow::new(s, e), &chosen_coupon.schedule)?;
         if dates.is_empty() {
             return Err(InputError::TooFewPoints.into());
         }
@@ -554,9 +579,9 @@ pub(super) fn compute_coupon_schedules(
                 fixed_schedules.push(FixedSchedule {
                     spec,
                     calendar,
-                    dates: dates.clone(),
-                    prev: prev.clone(),
-                    first_last: first_or_last.clone(),
+                    dates,
+                    prev,
+                    first_last: first_or_last,
                 });
             }
             CouponSpec::StepUp {
