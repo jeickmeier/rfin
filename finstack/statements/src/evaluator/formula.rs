@@ -432,6 +432,14 @@ pub(crate) fn evaluate_expr(
                 BinOp::Sub => left_val - right_val,
                 BinOp::Mul => left_val * right_val,
                 BinOp::Div => {
+                    // Division by zero yields NaN rather than an error so a
+                    // single bad cell does not abort the whole evaluation.
+                    // NaN then propagates through every downstream formula
+                    // (NaN + x = NaN, comparisons are false). Callers that
+                    // need to surface this must run `NonFiniteCheck` — it is
+                    // included in the standard `three_statement_checks` and
+                    // `credit_underwriting_checks` suites — or inspect the
+                    // `DivisionByZero` warning pushed below.
                     if right_val == 0.0 {
                         tracing::warn!(
                             "Division by zero in formula evaluation (period: {:?})",

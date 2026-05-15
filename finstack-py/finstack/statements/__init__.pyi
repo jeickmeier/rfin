@@ -866,7 +866,9 @@ class StatementResult:
     def to_pandas_long(self) -> pd.DataFrame:
         """Export results as a pandas DataFrame in long (tidy) form.
 
-        Columns: ``node_id``, ``period``, ``value``.
+        Columns: ``node_id``, ``period``, ``value``, ``value_money``,
+        ``currency``, ``value_type``. The monetary columns are populated for
+        nodes carrying currency information and are otherwise null.
 
         Returns
         -------

@@ -186,6 +186,12 @@ pub fn goal_seek(
     };
     let eval_cell = RefCell::new((evaluator, model.clone()));
 
+    // Records the most recent objective-evaluation failure. The solver only
+    // sees `NaN` for a failed probe; capturing the cause here lets a
+    // non-convergence error explain *why* probes failed (DSL error, missing
+    // target node, etc.) instead of reporting an opaque "no solution".
+    let last_error: RefCell<Option<String>> = RefCell::new(None);
+
     let objective = |driver_value: f64| -> f64 {
         let mut borrow = eval_cell.borrow_mut();
         let (ref mut eval, ref mut temp_model) = *borrow;
@@ -199,14 +205,39 @@ pub fn goal_seek(
         match eval.evaluate_prepared(temp_model, &prepared) {
             Ok(results) => match results.get(target_node, &target_period) {
                 Some(actual_value) => actual_value - target_value,
-                None => f64::NAN,
+                None => {
+                    *last_error.borrow_mut() = Some(format!(
+                        "target node '{target_node}' produced no value for period \
+                         {target_period} at driver value {driver_value}"
+                    ));
+                    f64::NAN
+                }
             },
-            Err(_) => f64::NAN,
+            Err(e) => {
+                *last_error.borrow_mut() = Some(format!(
+                    "evaluation failed at driver value {driver_value}: {e}"
+                ));
+                f64::NAN
+            }
+        }
+    };
+
+    // Enrich a solver failure with the last captured objective error.
+    let describe_failure = |base: String| -> Error {
+        match last_error.borrow().as_ref() {
+            Some(cause) => Error::eval(format!("{base} Last objective failure: {cause}")),
+            None => Error::eval(base),
         }
     };
 
     if let Some((lower, upper)) = bounds {
-        let solution = solve_with_bounds(&objective, lower, upper)?;
+        let solution = solve_with_bounds(&objective, lower, upper).map_err(|e| {
+            describe_failure(format!(
+                "Goal seek failed to find solution within bounds [{lower}, {upper}]: \
+                 target_node='{target_node}', target_value={target_value}, \
+                 driver_node='{driver_node}'. {e}"
+            ))
+        })?;
         return apply_solution(model, driver_node, driver_period, update_model, solution);
     }
 
@@ -229,9 +260,9 @@ pub fn goal_seek(
     }
 
     let solution = solver.solve(objective, initial_guess).map_err(|e| {
-        Error::eval(format!(
-            "Goal seek failed to find solution: target_node='{}', target_value={}, driver_node='{}'. {}",
-            target_node, target_value, driver_node, e
+        describe_failure(format!(
+            "Goal seek failed to find solution: target_node='{target_node}', \
+             target_value={target_value}, driver_node='{driver_node}'. {e}"
         ))
     })?;
 

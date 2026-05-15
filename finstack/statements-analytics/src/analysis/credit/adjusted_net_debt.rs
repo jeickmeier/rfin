@@ -157,7 +157,12 @@ impl AdjustedNetDebtSpec {
     ///
     /// Returns `None` if the mandatory `total_debt_node` is missing at
     /// the requested period — the metric is undefined without a debt
-    /// anchor. All other missing nodes default to zero.
+    /// anchor. Returns `None` as well when a *configured* component node
+    /// (cash, leases, pension, explicit additions/subtractions) is absent
+    /// from the results: a configured-but-missing node signals an
+    /// unresolved identifier, and silently treating it as zero would
+    /// understate adjusted leverage. Components left unconfigured
+    /// (`None` / empty list) contribute zero, as intended.
     ///
     /// # Arguments
     ///
@@ -205,24 +210,27 @@ impl AdjustedNetDebtSpec {
     pub fn compute(&self, results: &StatementResult, period: &PeriodId) -> Option<f64> {
         let debt = results.get(self.total_debt_node.as_str(), period)?;
 
-        let pull = |node: &Option<NodeId>| -> f64 {
-            node.as_ref()
-                .and_then(|n| results.get(n.as_str(), period))
-                .unwrap_or(0.0)
+        // A configured component (`Some`) that the results cannot resolve
+        // yields `None` so the whole period is omitted; an unconfigured
+        // component (`None`) contributes zero.
+        let pull = |node: &Option<NodeId>| -> Option<f64> {
+            match node {
+                None => Some(0.0),
+                Some(n) => results.get(n.as_str(), period),
+            }
         };
-        let sum_optional = |nodes: &[NodeId]| -> f64 {
-            nodes
-                .iter()
-                .filter_map(|n| results.get(n.as_str(), period))
-                .sum()
+        // Every node in an explicit additions/subtractions list must resolve;
+        // a missing entry collapses the sum to `None`.
+        let sum_required = |nodes: &[NodeId]| -> Option<f64> {
+            nodes.iter().map(|n| results.get(n.as_str(), period)).sum()
         };
 
-        let cash = pull(&self.cash_node);
-        let marketable = pull(&self.marketable_securities_node);
-        let leases = pull(&self.operating_lease_debt_node);
-        let pension = pull(&self.pension_deficit_node);
-        let other_add = sum_optional(&self.other_additions);
-        let other_sub = sum_optional(&self.other_subtractions);
+        let cash = pull(&self.cash_node)?;
+        let marketable = pull(&self.marketable_securities_node)?;
+        let leases = pull(&self.operating_lease_debt_node)?;
+        let pension = pull(&self.pension_deficit_node)?;
+        let other_add = sum_required(&self.other_additions)?;
+        let other_sub = sum_required(&self.other_subtractions)?;
 
         Some(debt - cash - marketable + leases + pension + other_add - other_sub)
     }

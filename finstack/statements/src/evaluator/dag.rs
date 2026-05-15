@@ -151,21 +151,21 @@ impl DependencyGraph {
     /// Check for circular dependencies.
     ///
     /// Performs a depth-first search to surface a representative cycle when one
-    /// exists.
+    /// exists. The `visited` set is shared across every starting node so a
+    /// fully-explored subgraph is never re-walked, keeping the whole scan
+    /// `O(V + E)` rather than `O(V * (V + E))`.
     pub fn detect_cycles(&self) -> Result<()> {
-        for node_id in self.dependencies.keys() {
-            if let Some(cycle) = self.find_cycle_from(node_id.as_str()) {
-                return Err(Error::circular_dependency(cycle));
-            }
-        }
-        Ok(())
-    }
-
-    /// Find a cycle starting from a given node (DFS).
-    fn find_cycle_from(&self, start: &str) -> Option<Vec<String>> {
         let mut visited: IndexSet<NodeId> = IndexSet::new();
         let mut path: Vec<NodeId> = Vec::new();
-        self.dfs_cycle(start, &mut visited, &mut path)
+        for node_id in self.dependencies.keys() {
+            if let Some(cycle) = self.dfs_cycle(node_id.as_str(), &mut visited, &mut path) {
+                return Err(Error::circular_dependency(cycle));
+            }
+            // A cycle-free DFS leaves `path` balanced; assert the invariant
+            // so a future change to `dfs_cycle` cannot silently corrupt it.
+            debug_assert!(path.is_empty());
+        }
+        Ok(())
     }
 
     fn dfs_cycle(

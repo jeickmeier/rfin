@@ -252,19 +252,26 @@ impl CorkscrewExtension {
         }
 
         // Check for balance sheet articulation using actual balances
-        if let Some(articulation_result) =
-            self.check_articulation(model, results, &config, config.tolerance)
-        {
-            if !articulation_result.is_balanced {
-                let msg = format!(
-                    "Balance sheet not articulated. Total imbalance: {:.2}",
-                    articulation_result.total_imbalance
-                );
-                if config.fail_on_error {
-                    errors.push(msg);
-                } else {
-                    warnings.push(msg);
+        match self.check_articulation(model, results, &config, config.tolerance) {
+            Ok(Some(articulation_result)) => {
+                if !articulation_result.is_balanced {
+                    let msg = format!(
+                        "Balance sheet not articulated. Total imbalance: {:.2}",
+                        articulation_result.total_imbalance
+                    );
+                    if config.fail_on_error {
+                        errors.push(msg);
+                    } else {
+                        warnings.push(msg);
+                    }
                 }
+            }
+            Ok(None) => {}
+            Err(e) => {
+                if config.fail_on_error {
+                    return Err(e);
+                }
+                errors.push(format!("Articulation: {e}"));
             }
         }
 
@@ -341,28 +348,54 @@ impl CorkscrewExtension {
             let prev_period = &periods[i - 1].id;
             let curr_period = &periods[i].id;
 
-            // Get previous and current balance
-            let prev_balance = balance_values.get(prev_period).copied().unwrap_or(0.0);
-            let curr_balance = balance_values.get(curr_period).copied().unwrap_or(0.0);
+            // Get previous and current balance. A missing value means the
+            // balance node was not evaluated for that period — a genuine
+            // modeling error, not a zero balance. Treating it as zero would
+            // let an incomplete model pass roll-forward validation.
+            let prev_balance = balance_values.get(prev_period).copied().ok_or_else(|| {
+                finstack_statements::error::Error::registry(format!(
+                    "Balance account '{}' has no value for period '{prev_period}'",
+                    account.node_id
+                ))
+            })?;
+            let curr_balance = balance_values.get(curr_period).copied().ok_or_else(|| {
+                finstack_statements::error::Error::registry(format!(
+                    "Balance account '{}' has no value for period '{curr_period}'",
+                    account.node_id
+                ))
+            })?;
 
             // Calculate expected balance from changes
             let mut expected_balance = prev_balance;
 
-            // Add changes for this period
+            // Add changes for this period. A missing change node or value is a
+            // configuration error: silently skipping it understates the
+            // expected balance and can mask a real roll-forward break.
             for change_node_id in &account.changes {
-                if let Some(change_values) = results.nodes.get(change_node_id) {
-                    if let Some(change) = change_values.get(curr_period) {
-                        expected_balance += change;
-                    }
-                }
+                let change_values = results.nodes.get(change_node_id).ok_or_else(|| {
+                    finstack_statements::error::Error::registry(format!(
+                        "Change node '{change_node_id}' for account '{}' not found in results",
+                        account.node_id
+                    ))
+                })?;
+                let change = change_values.get(curr_period).ok_or_else(|| {
+                    finstack_statements::error::Error::registry(format!(
+                        "Change node '{change_node_id}' has no value for period '{curr_period}'"
+                    ))
+                })?;
+                expected_balance += change;
             }
 
             // Check if beginning balance override is used
             if let Some(beginning_node) = &account.beginning_balance_node {
-                if let Some(beginning_values) = results.nodes.get(beginning_node) {
-                    if let Some(beginning) = beginning_values.get(curr_period) {
-                        expected_balance = beginning + expected_balance - prev_balance;
-                    }
+                let beginning_values = results.nodes.get(beginning_node).ok_or_else(|| {
+                    finstack_statements::error::Error::registry(format!(
+                        "Beginning-balance node '{beginning_node}' for account '{}' not found in results",
+                        account.node_id
+                    ))
+                })?;
+                if let Some(beginning) = beginning_values.get(curr_period) {
+                    expected_balance = beginning + expected_balance - prev_balance;
                 }
             }
 
@@ -390,39 +423,47 @@ impl CorkscrewExtension {
         results: &StatementResult,
         config: &CorkscrewConfig,
         tolerance: f64,
-    ) -> Option<ArticulationResult> {
-        let last_period = model.periods.last()?;
+    ) -> Result<Option<ArticulationResult>> {
+        let Some(last_period) = model.periods.last() else {
+            return Ok(None);
+        };
         let period_id = &last_period.id;
 
         let mut assets = 0.0;
         let mut liabilities = 0.0;
         let mut equity = 0.0;
-        let mut has_balance_sheet = false;
 
         for account in &config.accounts {
-            if let Some(node_values) = results.nodes.get(&account.node_id) {
-                if let Some(balance) = node_values.get(period_id) {
-                    has_balance_sheet = true;
-                    match account.account_type {
-                        AccountType::Asset => assets += balance,
-                        AccountType::Liability => liabilities += balance,
-                        AccountType::Equity => equity += balance,
-                    }
-                }
+            let node_values = results.nodes.get(&account.node_id).ok_or_else(|| {
+                finstack_statements::error::Error::registry(format!(
+                    "Articulation account '{}' not found in results",
+                    account.node_id
+                ))
+            })?;
+            let balance = node_values.get(period_id).ok_or_else(|| {
+                finstack_statements::error::Error::registry(format!(
+                    "Articulation account '{}' has no value for period '{period_id}'",
+                    account.node_id
+                ))
+            })?;
+            match account.account_type {
+                AccountType::Asset => assets += balance,
+                AccountType::Liability => liabilities += balance,
+                AccountType::Equity => equity += balance,
             }
         }
 
-        if !has_balance_sheet {
-            return None;
+        if config.accounts.is_empty() {
+            return Ok(None);
         }
 
         let imbalance = assets - (liabilities + equity);
         let is_balanced = imbalance.abs() <= tolerance;
 
-        Some(ArticulationResult {
+        Ok(Some(ArticulationResult {
             total_imbalance: imbalance.abs(),
             is_balanced,
-        })
+        }))
     }
 }
 

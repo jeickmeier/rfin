@@ -110,8 +110,8 @@ fn partial_mapping_skips_optional_checks() {
 #[test]
 fn credit_suite_has_expected_checks() {
     let suite = credit_underwriting_checks(credit_mapping());
-    // Leverage, Coverage, FcfSign, TrendEbitda, TrendDebt = 5
-    assert_eq!(suite.len(), 5, "credit suite should produce 5 checks");
+    // NonFinite, Leverage, Coverage, FcfSign, TrendEbitda, TrendDebt = 6
+    assert_eq!(suite.len(), 6, "credit suite should produce 6 checks");
 }
 
 #[test]
@@ -119,11 +119,11 @@ fn credit_suite_without_fcf_has_fewer() {
     let mut cm = credit_mapping();
     cm.fcf_node = None;
     let suite = credit_underwriting_checks(cm);
-    // Leverage, Coverage, TrendEbitda, TrendDebt = 4
+    // NonFinite, Leverage, Coverage, TrendEbitda, TrendDebt = 5
     assert_eq!(
         suite.len(),
-        4,
-        "without fcf_node suite should have 4 checks"
+        5,
+        "without fcf_node suite should have 5 checks"
     );
 }
 
@@ -132,8 +132,8 @@ fn lbo_suite_merges_both() {
     let ts = full_ts_mapping();
     let cr = credit_mapping();
     let suite = lbo_model_checks(ts, cr);
-    // 6 (three-statement full) + 5 (credit) = 11
-    assert_eq!(suite.len(), 11, "LBO suite should merge both suites");
+    // 6 (three-statement full) + 6 (credit) = 12
+    assert_eq!(suite.len(), 12, "LBO suite should merge both suites");
 }
 
 // ============================================================================

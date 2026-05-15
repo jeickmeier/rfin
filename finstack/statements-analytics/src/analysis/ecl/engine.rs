@@ -108,6 +108,41 @@ impl Default for EclConfig {
     }
 }
 
+impl EclConfig {
+    /// Validate the configuration invariants: scenario weights sum to 1.0
+    /// (within 1e-6), bucket width is strictly positive, and at least one
+    /// scenario is present.
+    ///
+    /// `EclConfig` exposes public fields and can be constructed directly
+    /// (bypassing [`EclConfigBuilder`]), so every public entry point that
+    /// consumes a config — [`compute_ecl_single`] and the functions that
+    /// delegate to it — validates first. A zero `bucket_width_years` would
+    /// otherwise produce an unbounded bucket loop.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Validation`] when any invariant is violated.
+    pub fn validate(&self) -> Result<()> {
+        let total_weight: f64 = self.scenarios.iter().map(|s| s.weight).sum();
+        if (total_weight - 1.0).abs() > 1e-6 {
+            return Err(Error::Validation(format!(
+                "Scenario weights must sum to 1.0, got {total_weight:.6}"
+            )));
+        }
+        if self.bucket_width_years <= 0.0 {
+            return Err(Error::Validation(
+                "bucket_width_years must be positive".to_string(),
+            ));
+        }
+        if self.scenarios.is_empty() {
+            return Err(Error::Validation(
+                "At least one scenario is required".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Builder
 // ---------------------------------------------------------------------------
@@ -237,23 +272,7 @@ impl EclConfigBuilder {
     /// Returns an error when scenario weights do not sum to 1.0, when bucket
     /// width is not positive, or when no scenarios are configured.
     pub fn build(self) -> Result<EclConfig> {
-        let total_weight: f64 = self.config.scenarios.iter().map(|s| s.weight).sum();
-        if (total_weight - 1.0).abs() > 1e-6 {
-            return Err(Error::Validation(format!(
-                "Scenario weights must sum to 1.0, got {:.6}",
-                total_weight
-            )));
-        }
-        if self.config.bucket_width_years <= 0.0 {
-            return Err(Error::Validation(
-                "bucket_width_years must be positive".to_string(),
-            ));
-        }
-        if self.config.scenarios.is_empty() {
-            return Err(Error::Validation(
-                "At least one scenario is required".to_string(),
-            ));
-        }
+        self.config.validate()?;
         Ok(self.config)
     }
 }
@@ -395,6 +414,7 @@ pub fn compute_ecl_single(
     config: &EclConfig,
 ) -> Result<EclResult> {
     exposure.validate()?;
+    config.validate()?;
     let horizon = match stage {
         Stage::Stage1 => 1.0_f64.min(exposure.remaining_maturity_years),
         Stage::Stage2 | Stage::Stage3 => exposure.remaining_maturity_years,
