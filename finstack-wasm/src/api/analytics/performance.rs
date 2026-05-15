@@ -16,6 +16,16 @@ use super::support::{parse_f64_matrix, parse_f64_vec, parse_iso_date};
 const DEFAULT_FISCAL_START_MONTH: u8 = 1;
 const DEFAULT_FISCAL_START_DAY: u8 = 1;
 const DEFAULT_FISCAL_CALENDAR_ID: &str = "nyse";
+const DEFAULT_FREQ: &str = "daily";
+const DEFAULT_ROLLING_WINDOW: usize = 63;
+const DEFAULT_CONFIDENCE: f64 = 0.95;
+
+struct PanelInputs {
+    dates: Vec<time::Date>,
+    values: Vec<Vec<f64>>,
+    ticker_names: Vec<String>,
+    freq: PeriodKind,
+}
 
 fn parse_freq(freq: &str) -> Result<PeriodKind, JsValue> {
     freq.parse::<PeriodKind>().map_err(|_| {
@@ -45,6 +55,20 @@ fn parse_dates(dates: JsValue) -> Result<Vec<time::Date>, JsValue> {
     strs.iter().map(|s| parse_iso_date(s)).collect()
 }
 
+fn parse_panel_inputs(
+    dates: JsValue,
+    values: JsValue,
+    ticker_names: JsValue,
+    freq: Option<String>,
+) -> Result<PanelInputs, JsValue> {
+    Ok(PanelInputs {
+        dates: parse_dates(dates)?,
+        values: parse_f64_matrix(values)?,
+        ticker_names: serde_wasm_bindgen::from_value(ticker_names).map_err(to_js_err)?,
+        freq: parse_freq(freq.as_deref().unwrap_or(DEFAULT_FREQ))?,
+    })
+}
+
 fn to_js<T: serde::Serialize>(value: &T) -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(value).map_err(to_js_err)
 }
@@ -68,6 +92,18 @@ fn matrix_f64_to_js(values: &[Vec<f64>]) -> JsValue {
     outer.into()
 }
 
+fn result_vec_f64_to_js(result: finstack_core::Result<Vec<f64>>) -> Result<JsValue, JsValue> {
+    Ok(vec_f64_to_js(&result.map_err(to_js_err)?))
+}
+
+fn dates_to_js_array(dates: &[time::Date]) -> Array {
+    let date_array = Array::new_with_length(dates.len() as u32);
+    for (i, &d) in dates.iter().enumerate() {
+        date_array.set(i as u32, JsValue::from_str(&date_to_iso(d)));
+    }
+    date_array
+}
+
 /// Build a plain JS object `{ dates: string[], <numeric_field>: Float64Array, ... }`
 /// from a series of (key, JsValue) pairs.
 fn obj_from_pairs(pairs: &[(&str, JsValue)]) -> Result<JsValue, JsValue> {
@@ -85,23 +121,15 @@ fn dated_series_to_js(
     dates: &[time::Date],
     value_key: &str,
 ) -> Result<JsValue, JsValue> {
-    let date_array = Array::new_with_length(dates.len() as u32);
-    for (i, &d) in dates.iter().enumerate() {
-        date_array.set(i as u32, JsValue::from_str(&date_to_iso(d)));
-    }
     obj_from_pairs(&[
-        ("dates", date_array.into()),
+        ("dates", dates_to_js_array(dates).into()),
         (value_key, vec_f64_to_js(values)),
     ])
 }
 
 fn rolling_greeks_to_js(rg: &fa::RollingGreeks) -> Result<JsValue, JsValue> {
-    let date_array = Array::new_with_length(rg.dates.len() as u32);
-    for (i, &d) in rg.dates.iter().enumerate() {
-        date_array.set(i as u32, JsValue::from_str(&date_to_iso(d)));
-    }
     obj_from_pairs(&[
-        ("dates", date_array.into()),
+        ("dates", dates_to_js_array(&rg.dates).into()),
         ("alphas", vec_f64_to_js(&rg.alphas)),
         ("betas", vec_f64_to_js(&rg.betas)),
     ])
@@ -125,16 +153,13 @@ impl WasmPerformance {
         benchmark_ticker: Option<String>,
         freq: Option<String>,
     ) -> Result<WasmPerformance, JsValue> {
-        let date_vec = parse_dates(dates)?;
-        let price_matrix = parse_f64_matrix(prices)?;
-        let names: Vec<String> = serde_wasm_bindgen::from_value(ticker_names).map_err(to_js_err)?;
-        let freq = parse_freq(freq.as_deref().unwrap_or("daily"))?;
+        let panel = parse_panel_inputs(dates, prices, ticker_names, freq)?;
         let inner = fa::Performance::new(
-            date_vec,
-            price_matrix,
-            names,
+            panel.dates,
+            panel.values,
+            panel.ticker_names,
             benchmark_ticker.as_deref(),
-            freq,
+            panel.freq,
         )
         .map_err(to_js_err)?;
         Ok(WasmPerformance { inner })
@@ -149,16 +174,13 @@ impl WasmPerformance {
         benchmark_ticker: Option<String>,
         freq: Option<String>,
     ) -> Result<WasmPerformance, JsValue> {
-        let date_vec = parse_dates(dates)?;
-        let return_matrix = parse_f64_matrix(returns)?;
-        let names: Vec<String> = serde_wasm_bindgen::from_value(ticker_names).map_err(to_js_err)?;
-        let freq = parse_freq(freq.as_deref().unwrap_or("daily"))?;
+        let panel = parse_panel_inputs(dates, returns, ticker_names, freq)?;
         let inner = fa::Performance::from_returns(
-            date_vec,
-            return_matrix,
-            names,
+            panel.dates,
+            panel.values,
+            panel.ticker_names,
             benchmark_ticker.as_deref(),
-            freq,
+            panel.freq,
         )
         .map_err(to_js_err)?;
         Ok(WasmPerformance { inner })
@@ -213,7 +235,7 @@ impl WasmPerformance {
     // ── Scalar metrics ──
 
     pub fn cagr(&self) -> Result<JsValue, JsValue> {
-        Ok(vec_f64_to_js(&self.inner.cagr().map_err(to_js_err)?))
+        result_vec_f64_to_js(self.inner.cagr())
     }
 
     #[wasm_bindgen(js_name = meanReturn)]
@@ -234,7 +256,7 @@ impl WasmPerformance {
     }
 
     pub fn calmar(&self) -> Result<JsValue, JsValue> {
-        Ok(vec_f64_to_js(&self.inner.calmar().map_err(to_js_err)?))
+        result_vec_f64_to_js(self.inner.calmar())
     }
 
     #[wasm_bindgen(js_name = meanDrawdown)]
@@ -249,12 +271,20 @@ impl WasmPerformance {
 
     #[wasm_bindgen(js_name = valueAtRisk)]
     pub fn value_at_risk(&self, confidence: Option<f64>) -> JsValue {
-        vec_f64_to_js(&self.inner.value_at_risk(confidence.unwrap_or(0.95)))
+        vec_f64_to_js(
+            &self
+                .inner
+                .value_at_risk(confidence.unwrap_or(DEFAULT_CONFIDENCE)),
+        )
     }
 
     #[wasm_bindgen(js_name = expectedShortfall)]
     pub fn expected_shortfall(&self, confidence: Option<f64>) -> JsValue {
-        vec_f64_to_js(&self.inner.expected_shortfall(confidence.unwrap_or(0.95)))
+        vec_f64_to_js(
+            &self
+                .inner
+                .expected_shortfall(confidence.unwrap_or(DEFAULT_CONFIDENCE)),
+        )
     }
 
     #[wasm_bindgen(js_name = trackingError)]
@@ -327,9 +357,7 @@ impl WasmPerformance {
 
     #[wasm_bindgen(js_name = martinRatio)]
     pub fn martin_ratio(&self) -> Result<JsValue, JsValue> {
-        Ok(vec_f64_to_js(
-            &self.inner.martin_ratio().map_err(to_js_err)?,
-        ))
+        result_vec_f64_to_js(self.inner.martin_ratio())
     }
 
     #[wasm_bindgen(js_name = recoveryFactor)]
@@ -344,17 +372,16 @@ impl WasmPerformance {
 
     #[wasm_bindgen(js_name = painRatio)]
     pub fn pain_ratio(&self, risk_free_rate: Option<f64>) -> Result<JsValue, JsValue> {
-        Ok(vec_f64_to_js(
-            &self
-                .inner
-                .pain_ratio(risk_free_rate.unwrap_or(0.0))
-                .map_err(to_js_err)?,
-        ))
+        result_vec_f64_to_js(self.inner.pain_ratio(risk_free_rate.unwrap_or(0.0)))
     }
 
     #[wasm_bindgen(js_name = tailRatio)]
     pub fn tail_ratio(&self, confidence: Option<f64>) -> JsValue {
-        vec_f64_to_js(&self.inner.tail_ratio(confidence.unwrap_or(0.95)))
+        vec_f64_to_js(
+            &self
+                .inner
+                .tail_ratio(confidence.unwrap_or(DEFAULT_CONFIDENCE)),
+        )
     }
 
     #[wasm_bindgen(js_name = rSquared)]
@@ -369,16 +396,24 @@ impl WasmPerformance {
 
     #[wasm_bindgen(js_name = parametricVar)]
     pub fn parametric_var(&self, confidence: Option<f64>) -> JsValue {
-        vec_f64_to_js(&self.inner.parametric_var(confidence.unwrap_or(0.95)))
+        vec_f64_to_js(
+            &self
+                .inner
+                .parametric_var(confidence.unwrap_or(DEFAULT_CONFIDENCE)),
+        )
     }
 
     #[wasm_bindgen(js_name = cornishFisherVar)]
     pub fn cornish_fisher_var(&self, confidence: Option<f64>) -> JsValue {
-        vec_f64_to_js(&self.inner.cornish_fisher_var(confidence.unwrap_or(0.95)))
+        vec_f64_to_js(
+            &self
+                .inner
+                .cornish_fisher_var(confidence.unwrap_or(DEFAULT_CONFIDENCE)),
+        )
     }
 
     pub fn cdar(&self, confidence: Option<f64>) -> JsValue {
-        vec_f64_to_js(&self.inner.cdar(confidence.unwrap_or(0.95)))
+        vec_f64_to_js(&self.inner.cdar(confidence.unwrap_or(DEFAULT_CONFIDENCE)))
     }
 
     #[wasm_bindgen(js_name = mSquared)]
@@ -388,11 +423,10 @@ impl WasmPerformance {
 
     #[wasm_bindgen(js_name = modifiedSharpe)]
     pub fn modified_sharpe(&self, risk_free_rate: Option<f64>, confidence: Option<f64>) -> JsValue {
-        vec_f64_to_js(
-            &self
-                .inner
-                .modified_sharpe(risk_free_rate.unwrap_or(0.0), confidence.unwrap_or(0.95)),
-        )
+        vec_f64_to_js(&self.inner.modified_sharpe(
+            risk_free_rate.unwrap_or(0.0),
+            confidence.unwrap_or(DEFAULT_CONFIDENCE),
+        ))
     }
 
     #[wasm_bindgen(js_name = sterlingRatio)]
@@ -401,12 +435,10 @@ impl WasmPerformance {
         risk_free_rate: Option<f64>,
         n: Option<usize>,
     ) -> Result<JsValue, JsValue> {
-        Ok(vec_f64_to_js(
-            &self
-                .inner
-                .sterling_ratio(risk_free_rate.unwrap_or(0.0), n.unwrap_or(5))
-                .map_err(to_js_err)?,
-        ))
+        result_vec_f64_to_js(
+            self.inner
+                .sterling_ratio(risk_free_rate.unwrap_or(0.0), n.unwrap_or(5)),
+        )
     }
 
     #[wasm_bindgen(js_name = burkeRatio)]
@@ -415,12 +447,10 @@ impl WasmPerformance {
         risk_free_rate: Option<f64>,
         n: Option<usize>,
     ) -> Result<JsValue, JsValue> {
-        Ok(vec_f64_to_js(
-            &self
-                .inner
-                .burke_ratio(risk_free_rate.unwrap_or(0.0), n.unwrap_or(5))
-                .map_err(to_js_err)?,
-        ))
+        result_vec_f64_to_js(
+            self.inner
+                .burke_ratio(risk_free_rate.unwrap_or(0.0), n.unwrap_or(5)),
+        )
     }
 
     // ── Vector outputs ──
@@ -474,7 +504,7 @@ impl WasmPerformance {
     ) -> Result<JsValue, JsValue> {
         let rg = self
             .inner
-            .rolling_greeks(ticker_idx, window.unwrap_or(63))
+            .rolling_greeks(ticker_idx, window.unwrap_or(DEFAULT_ROLLING_WINDOW))
             .map_err(to_js_err)?;
         rolling_greeks_to_js(&rg)
     }
@@ -487,7 +517,7 @@ impl WasmPerformance {
     ) -> Result<JsValue, JsValue> {
         let series = self
             .inner
-            .rolling_volatility(ticker_idx, window.unwrap_or(63))
+            .rolling_volatility(ticker_idx, window.unwrap_or(DEFAULT_ROLLING_WINDOW))
             .map_err(to_js_err)?;
         dated_series_to_js(&series.values, &series.dates, "volatility")
     }
@@ -501,7 +531,11 @@ impl WasmPerformance {
     ) -> Result<JsValue, JsValue> {
         let series = self
             .inner
-            .rolling_sortino(ticker_idx, window.unwrap_or(63), mar.unwrap_or(0.0))
+            .rolling_sortino(
+                ticker_idx,
+                window.unwrap_or(DEFAULT_ROLLING_WINDOW),
+                mar.unwrap_or(0.0),
+            )
             .map_err(to_js_err)?;
         dated_series_to_js(&series.values, &series.dates, "sortino")
     }
@@ -517,7 +551,7 @@ impl WasmPerformance {
             .inner
             .rolling_sharpe(
                 ticker_idx,
-                window.unwrap_or(63),
+                window.unwrap_or(DEFAULT_ROLLING_WINDOW),
                 risk_free_rate.unwrap_or(0.0),
             )
             .map_err(to_js_err)?;

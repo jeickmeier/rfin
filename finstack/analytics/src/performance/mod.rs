@@ -74,6 +74,18 @@ pub struct Performance {
     end_idx: usize,
 }
 
+fn invalid_return_series(
+    ticker: impl Into<String>,
+    index: usize,
+    reason: impl Into<String>,
+) -> crate::error::InputError {
+    crate::error::InputError::InvalidReturnSeries {
+        ticker: ticker.into(),
+        index,
+        reason: reason.into(),
+    }
+}
+
 /// Reject empty, duplicate, or non-monotonic date inputs at construction.
 ///
 /// Several lookback and aggregation paths use [`slice::partition_point`] on
@@ -99,15 +111,59 @@ fn validate_strictly_ascending_dates(dates: &[Date]) -> crate::Result<()> {
                 reason = "non_monotonic_dates",
                 "rejecting Performance construction"
             );
-            return Err(crate::error::InputError::InvalidReturnSeries {
-                ticker: "<panel>".into(),
-                index: idx + 1,
-                reason,
-            }
-            .into());
+            return Err(invalid_return_series("<panel>", idx + 1, reason).into());
         }
     }
     Ok(())
+}
+
+fn clean_return_column(
+    mut col: Vec<f64>,
+    ticker: &str,
+    expected_len: usize,
+) -> crate::Result<Vec<f64>> {
+    if col.len() != expected_len {
+        return Err(invalid_return_series(
+            ticker,
+            col.len().min(expected_len),
+            format!(
+                "column length {} does not match return-date grid length {}",
+                col.len(),
+                expected_len
+            ),
+        )
+        .into());
+    }
+
+    clean_returns(&mut col, ticker);
+    if col.len() != expected_len {
+        return Err(invalid_return_series(
+            ticker,
+            col.len(),
+            format!(
+                "{} trailing NaN/non-finite rows stripped; series no longer aligned with date grid (length {} vs expected {})",
+                expected_len - col.len(),
+                col.len(),
+                expected_len
+            ),
+        )
+        .into());
+    }
+
+    if let Some((index, value)) = col
+        .iter()
+        .enumerate()
+        .find(|(_, &v)| !v.is_finite() || v <= -1.0)
+    {
+        let reason = if !value.is_finite() {
+            format!("non-finite return ({value})")
+        } else {
+            format!("return <= -1.0 ({value}); total wipeout makes downstream metrics meaningless")
+        };
+        return Err(invalid_return_series(ticker, index, reason).into());
+    }
+
+    Ok(col)
 }
 
 impl Performance {
@@ -177,12 +233,7 @@ impl Performance {
         freq: PeriodKind,
     ) -> crate::Result<Self> {
         if prices.is_empty() || dates.is_empty() {
-            return Err(crate::error::InputError::InvalidReturnSeries {
-                ticker: "<panel>".into(),
-                index: 0,
-                reason: "prices or dates is empty".into(),
-            }
-            .into());
+            return Err(invalid_return_series("<panel>", 0, "prices or dates is empty").into());
         }
         validate_strictly_ascending_dates(&dates)?;
         if let Some((col_idx, bad)) = prices
@@ -194,15 +245,15 @@ impl Performance {
                 .get(col_idx)
                 .cloned()
                 .unwrap_or_else(|| format!("col[{col_idx}]"));
-            return Err(crate::error::InputError::InvalidReturnSeries {
+            return Err(invalid_return_series(
                 ticker,
-                index: 0,
-                reason: format!(
+                0,
+                format!(
                     "price column length {} does not match dates length {}",
                     bad.len(),
                     dates.len()
                 ),
-            }
+            )
             .into());
         }
 
@@ -262,12 +313,7 @@ impl Performance {
         freq: PeriodKind,
     ) -> crate::Result<Self> {
         if returns.is_empty() || dates.is_empty() {
-            return Err(crate::error::InputError::InvalidReturnSeries {
-                ticker: "<panel>".into(),
-                index: 0,
-                reason: "returns or dates is empty".into(),
-            }
-            .into());
+            return Err(invalid_return_series("<panel>", 0, "returns or dates is empty").into());
         }
         validate_strictly_ascending_dates(&dates)?;
 
@@ -306,25 +352,25 @@ impl Performance {
         freq: PeriodKind,
     ) -> crate::Result<Self> {
         if ticker_names.len() != returns.len() {
-            return Err(crate::error::InputError::InvalidReturnSeries {
-                ticker: "<panel>".into(),
-                index: 0,
-                reason: format!(
+            return Err(invalid_return_series(
+                "<panel>",
+                0,
+                format!(
                     "ticker_names.len() = {} does not match returns.len() = {}",
                     ticker_names.len(),
                     returns.len()
                 ),
-            }
+            )
             .into());
         }
 
         let benchmark_idx = match benchmark_ticker {
             Some(name) => ticker_names.iter().position(|t| t == name).ok_or_else(|| {
-                crate::error::InputError::InvalidReturnSeries {
-                    ticker: name.to_string(),
-                    index: 0,
-                    reason: "benchmark ticker not found among supplied ticker_names".into(),
-                }
+                invalid_return_series(
+                    name,
+                    0,
+                    "benchmark ticker not found among supplied ticker_names",
+                )
             })?,
             None => 0,
         };
@@ -332,54 +378,8 @@ impl Performance {
         let expected_len = return_dates.len();
         let mut all_returns: Vec<Vec<f64>> = Vec::with_capacity(returns.len());
         let mut all_drawdowns: Vec<Vec<f64>> = Vec::with_capacity(returns.len());
-        for (col_idx, col) in returns.into_iter().enumerate() {
-            let ticker = ticker_names[col_idx].clone();
-            if col.len() != expected_len {
-                return Err(crate::error::InputError::InvalidReturnSeries {
-                    ticker,
-                    index: col.len().min(expected_len),
-                    reason: format!(
-                        "column length {} does not match return-date grid length {}",
-                        col.len(),
-                        expected_len
-                    ),
-                }
-                .into());
-            }
-            let mut clean = col;
-            clean_returns(&mut clean, &ticker);
-            if clean.len() != expected_len {
-                return Err(crate::error::InputError::InvalidReturnSeries {
-                    ticker,
-                    index: clean.len(),
-                    reason: format!(
-                        "{} trailing NaN/non-finite rows stripped; series no longer aligned with date grid (length {} vs expected {})",
-                        expected_len - clean.len(),
-                        clean.len(),
-                        expected_len
-                    ),
-                }
-                .into());
-            }
-            if let Some((index, value)) = clean
-                .iter()
-                .enumerate()
-                .find(|(_, &v)| !v.is_finite() || v <= -1.0)
-            {
-                let reason = if !value.is_finite() {
-                    format!("non-finite return ({value})")
-                } else {
-                    format!(
-                        "return <= -1.0 ({value}); total wipeout makes downstream metrics meaningless"
-                    )
-                };
-                return Err(crate::error::InputError::InvalidReturnSeries {
-                    ticker,
-                    index,
-                    reason,
-                }
-                .into());
-            }
+        for (ticker, col) in ticker_names.iter().zip(returns.into_iter()) {
+            let clean = clean_return_column(col, ticker, expected_len)?;
             let dd = to_drawdown_series(&clean);
             all_drawdowns.push(dd);
             all_returns.push(clean);
@@ -455,10 +455,8 @@ impl Performance {
             .ticker_names
             .iter()
             .position(|t| t == ticker)
-            .ok_or_else(|| crate::error::InputError::InvalidReturnSeries {
-                ticker: ticker.to_string(),
-                index: 0,
-                reason: "ticker not found among loaded ticker_names".into(),
+            .ok_or_else(|| {
+                invalid_return_series(ticker, 0, "ticker not found among loaded ticker_names")
             })?;
         self.benchmark_idx = idx;
         Ok(())
@@ -521,14 +519,14 @@ impl Performance {
                 reason = "ticker_idx_out_of_range",
                 "rejecting per-ticker analytics call"
             );
-            return Err(crate::error::InputError::InvalidReturnSeries {
-                ticker: format!("<idx={ticker_idx}>"),
-                index: ticker_idx,
-                reason: format!(
+            return Err(invalid_return_series(
+                format!("<idx={ticker_idx}>"),
+                ticker_idx,
+                format!(
                     "ticker_idx {ticker_idx} is out of range; loaded {} ticker(s)",
                     self.ticker_names.len()
                 ),
-            }
+            )
             .into());
         }
         Ok(())

@@ -44,6 +44,25 @@ pub struct PeriodStats {
     pub kelly_criterion: f64,
 }
 
+impl PeriodStats {
+    fn empty() -> Self {
+        Self {
+            best: 0.0,
+            worst: 0.0,
+            consecutive_wins: 0,
+            consecutive_losses: 0,
+            win_rate: 0.0,
+            avg_return: 0.0,
+            avg_win: 0.0,
+            avg_loss: 0.0,
+            payoff_ratio: 0.0,
+            profit_factor: 0.0,
+            cpc_ratio: 0.0,
+            kelly_criterion: 0.0,
+        }
+    }
+}
+
 /// Map a date to its `PeriodId` for the requested frequency.
 fn date_to_period_id(
     date: Date,
@@ -120,29 +139,27 @@ pub(crate) fn group_by_period(
     freq: PeriodKind,
     fiscal_config: Option<FiscalConfig>,
 ) -> Vec<(PeriodId, f64)> {
-    let n = dates.len().min(returns.len());
-    if n == 0 {
-        return vec![];
-    }
+    let mut observations = dates.iter().copied().zip(returns.iter().copied());
+    let Some((first_date, first_return)) = observations.next() else {
+        return Vec::new();
+    };
 
     let mut result: Vec<(PeriodId, f64)> = Vec::new();
-    let mut current_pid = date_to_period_id(dates[0], freq, fiscal_config);
-    let mut period_returns: Vec<f64> = Vec::new();
+    let mut current_pid = date_to_period_id(first_date, freq, fiscal_config);
+    let mut period_returns = vec![first_return];
 
-    for i in 0..n {
-        let pid = date_to_period_id(dates[i], freq, fiscal_config);
+    for (date, ret) in observations {
+        let pid = date_to_period_id(date, freq, fiscal_config);
         if pid != current_pid {
             let comp = comp_total(&period_returns);
             result.push((current_pid, comp));
             period_returns.clear();
             current_pid = pid;
         }
-        period_returns.push(returns[i]);
+        period_returns.push(ret);
     }
-    if !period_returns.is_empty() {
-        let comp = comp_total(&period_returns);
-        result.push((current_pid, comp));
-    }
+    let comp = comp_total(&period_returns);
+    result.push((current_pid, comp));
 
     result
 }
@@ -190,20 +207,7 @@ pub(crate) fn period_stats_from_grouped(grouped: &[(PeriodId, f64)]) -> PeriodSt
 
 fn period_stats_inner(returns: &[f64]) -> PeriodStats {
     if returns.is_empty() {
-        return PeriodStats {
-            best: 0.0,
-            worst: 0.0,
-            consecutive_wins: 0,
-            consecutive_losses: 0,
-            win_rate: 0.0,
-            avg_return: 0.0,
-            avg_win: 0.0,
-            avg_loss: 0.0,
-            payoff_ratio: 0.0,
-            profit_factor: 0.0,
-            cpc_ratio: 0.0,
-            kelly_criterion: 0.0,
-        };
+        return PeriodStats::empty();
     }
 
     // Single pass: compute all stats without intermediate allocations.

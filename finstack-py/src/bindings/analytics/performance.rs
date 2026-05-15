@@ -23,6 +23,10 @@ fn slice_to_pyarray<'py>(py: Python<'py>, values: &[f64]) -> Bound<'py, PyArray1
     PyArray1::from_slice(py, values)
 }
 
+fn py_dates_to_rust(dates: &[Bound<'_, PyAny>]) -> PyResult<Vec<time::Date>> {
+    dates.iter().map(py_to_date).collect()
+}
+
 /// Default fiscal-year start month (January) when callers do not override.
 const DEFAULT_FISCAL_START_MONTH: u8 = 1;
 /// Default fiscal-year start day-of-month.
@@ -60,17 +64,32 @@ fn parse_freq(freq: &str) -> PyResult<PeriodKind> {
     })
 }
 
-/// Decomposed DataFrame: dates, column-major prices, and ticker names.
+fn ensure_pandas_dataframe(value: &Bound<'_, PyAny>, error_message: &str) -> PyResult<()> {
+    let pd = value.py().import("pandas")?;
+    let df_type = pd.getattr("DataFrame")?;
+    if value.is_instance(&df_type)? {
+        Ok(())
+    } else {
+        Err(PyTypeError::new_err(error_message.to_owned()))
+    }
+}
+
+/// Decomposed DataFrame: dates, column-major numeric values, and ticker names.
 struct DataFramePanel {
     /// Chronological observation dates.
     dates: Vec<time::Date>,
-    /// `prices[ticker_idx][date_idx]`.
-    prices: Vec<Vec<f64>>,
+    /// `columns[ticker_idx][date_idx]`.
+    columns: Vec<Vec<f64>>,
     /// Column names from the DataFrame.
     ticker_names: Vec<String>,
 }
 
-/// Extract dates, prices matrix, and ticker names from a pandas DataFrame.
+fn extract_dataframe_panel(df: &Bound<'_, PyAny>, error_message: &str) -> PyResult<DataFramePanel> {
+    ensure_pandas_dataframe(df, error_message)?;
+    extract_dataframe(df)
+}
+
+/// Extract dates, numeric matrix, and ticker names from a pandas DataFrame.
 ///
 /// Expects a DataFrame with a date-like index and float64 columns. Numeric
 /// data flows through the NumPy buffer protocol rather than
@@ -80,22 +99,22 @@ fn extract_dataframe(df: &Bound<'_, PyAny>) -> PyResult<DataFramePanel> {
     let index = df.getattr("index")?;
     let dates_list = index.call_method0("tolist")?;
     let dates_py: Vec<Bound<'_, PyAny>> = dates_list.extract()?;
-    let dates: Vec<time::Date> = dates_py.iter().map(py_to_date).collect::<PyResult<_>>()?;
+    let dates = py_dates_to_rust(&dates_py)?;
 
     let columns = df.getattr("columns")?;
     let cols_list = columns.call_method0("tolist")?;
     let ticker_names: Vec<String> = cols_list.extract()?;
 
     let n_tickers = ticker_names.len();
-    let mut prices = Vec::with_capacity(n_tickers);
+    let mut columns = Vec::with_capacity(n_tickers);
     for col in &ticker_names {
         let series = df.get_item(col)?;
-        prices.push(extract_float64_column(&series, col)?);
+        columns.push(extract_float64_column(&series, col)?);
     }
 
     Ok(DataFramePanel {
         dates,
-        prices,
+        columns,
         ticker_names,
     })
 }
@@ -145,6 +164,41 @@ fn build_performance(
     Ok(PyPerformance { inner })
 }
 
+/// Build a `Performance` from pre-extracted return arrays.
+fn build_returns_performance(
+    dates: Vec<time::Date>,
+    returns: Vec<Vec<f64>>,
+    ticker_names: Vec<String>,
+    benchmark_ticker: Option<&str>,
+    freq: &str,
+) -> PyResult<PyPerformance> {
+    let period_kind = parse_freq(freq)?;
+    let inner =
+        fa::Performance::from_returns(dates, returns, ticker_names, benchmark_ticker, period_kind)
+            .map_err(core_to_py)?;
+    Ok(PyPerformance { inner })
+}
+
+fn ticker_index<'py>(py: Python<'py>, ticker_names: &[String]) -> PyResult<Bound<'py, PyAny>> {
+    let index: Vec<&str> = ticker_names.iter().map(String::as_str).collect();
+    Ok(index.into_pyobject(py)?.into_any())
+}
+
+fn panel_to_dataframe<'py>(
+    py: Python<'py>,
+    ticker_names: &[String],
+    dates: &[time::Date],
+    panel: Vec<Vec<f64>>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let data = PyDict::new(py);
+    for (name, series) in ticker_names.iter().zip(panel.into_iter()) {
+        data.set_item(name, vec_to_pyarray(py, series))?;
+    }
+    let dates = dates_to_pylist(py, dates)?;
+    let idx = dates.into_pyobject(py)?.into_any();
+    dict_to_dataframe(py, &data, Some(idx))
+}
+
 /// Stateful performance analytics engine over a panel of ticker price series.
 ///
 /// Accepts a pandas ``DataFrame`` where the index contains dates and each
@@ -152,6 +206,20 @@ fn build_performance(
 #[pyclass(name = "Performance", module = "finstack.analytics")]
 pub(super) struct PyPerformance {
     inner: fa::Performance,
+}
+
+impl PyPerformance {
+    fn lookback_returns_inner(
+        &self,
+        ref_date: time::Date,
+        fiscal_year_start_month: Option<u8>,
+    ) -> PyResult<fa::LookbackReturns> {
+        let fc = make_fiscal_config(fiscal_year_start_month)?;
+        let calendar = resolve_fiscal_calendar()?;
+        self.inner
+            .lookback_returns(ref_date, fc, calendar)
+            .map_err(core_to_py)
+    }
 }
 
 #[pymethods]
@@ -163,18 +231,13 @@ impl PyPerformance {
     #[new]
     #[pyo3(signature = (prices, benchmark_ticker=None, freq="daily"))]
     fn new(prices: Bound<'_, PyAny>, benchmark_ticker: Option<&str>, freq: &str) -> PyResult<Self> {
-        let py = prices.py();
-        let pd = py.import("pandas")?;
-        let df_type = pd.getattr("DataFrame")?;
-        if !prices.is_instance(&df_type)? {
-            return Err(PyTypeError::new_err(
-                "Expected a pandas DataFrame; use Performance.from_arrays() for raw lists",
-            ));
-        }
-        let panel = extract_dataframe(&prices)?;
+        let panel = extract_dataframe_panel(
+            &prices,
+            "Expected a pandas DataFrame; use Performance.from_arrays() for raw lists",
+        )?;
         build_performance(
             panel.dates,
-            panel.prices,
+            panel.columns,
             panel.ticker_names,
             benchmark_ticker,
             freq,
@@ -191,8 +254,7 @@ impl PyPerformance {
         benchmark_ticker: Option<&str>,
         freq: &str,
     ) -> PyResult<Self> {
-        let rust_dates: Vec<time::Date> =
-            dates.iter().map(py_to_date).collect::<PyResult<Vec<_>>>()?;
+        let rust_dates = py_dates_to_rust(&dates)?;
         build_performance(rust_dates, prices, ticker_names, benchmark_ticker, freq)
     }
 
@@ -208,25 +270,17 @@ impl PyPerformance {
         benchmark_ticker: Option<&str>,
         freq: &str,
     ) -> PyResult<Self> {
-        let py = returns.py();
-        let pd = py.import("pandas")?;
-        let df_type = pd.getattr("DataFrame")?;
-        if !returns.is_instance(&df_type)? {
-            return Err(PyTypeError::new_err(
-                "Expected a pandas DataFrame; use Performance.from_returns_arrays() for raw lists",
-            ));
-        }
-        let panel = extract_dataframe(&returns)?;
-        let period_kind = parse_freq(freq)?;
-        let inner = fa::Performance::from_returns(
+        let panel = extract_dataframe_panel(
+            &returns,
+            "Expected a pandas DataFrame; use Performance.from_returns_arrays() for raw lists",
+        )?;
+        build_returns_performance(
             panel.dates,
-            panel.prices,
+            panel.columns,
             panel.ticker_names,
             benchmark_ticker,
-            period_kind,
+            freq,
         )
-        .map_err(core_to_py)?;
-        Ok(Self { inner })
     }
 
     /// Construct from raw return arrays (dates, returns matrix, ticker names).
@@ -239,18 +293,8 @@ impl PyPerformance {
         benchmark_ticker: Option<&str>,
         freq: &str,
     ) -> PyResult<Self> {
-        let rust_dates: Vec<time::Date> =
-            dates.iter().map(py_to_date).collect::<PyResult<Vec<_>>>()?;
-        let period_kind = parse_freq(freq)?;
-        let inner = fa::Performance::from_returns(
-            rust_dates,
-            returns,
-            ticker_names,
-            benchmark_ticker,
-            period_kind,
-        )
-        .map_err(core_to_py)?;
-        Ok(Self { inner })
+        let rust_dates = py_dates_to_rust(&dates)?;
+        build_returns_performance(rust_dates, returns, ticker_names, benchmark_ticker, freq)
     }
 
     // -- Mutators --
@@ -674,13 +718,8 @@ impl PyPerformance {
         fiscal_year_start_month: Option<u8>,
     ) -> PyResult<PyLookbackReturns> {
         let d = py_to_date(&ref_date)?;
-        let fc = make_fiscal_config(fiscal_year_start_month)?;
-        let calendar = resolve_fiscal_calendar()?;
         Ok(PyLookbackReturns {
-            inner: self
-                .inner
-                .lookback_returns(d, fc, calendar)
-                .map_err(core_to_py)?,
+            inner: self.lookback_returns_inner(d, fiscal_year_start_month)?,
         })
     }
 
@@ -751,9 +790,7 @@ impl PyPerformance {
             data.set_item(name, vec_to_pyarray(py, values))?;
         }
 
-        let names = self.inner.ticker_names();
-        let index: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
-        let idx = index.into_pyobject(py)?.into_any();
+        let idx = ticker_index(py, self.inner.ticker_names())?;
         dict_to_dataframe(py, &data, Some(idx))
     }
 
@@ -761,30 +798,24 @@ impl PyPerformance {
     ///
     /// Returns a DataFrame with a date index and one column per ticker.
     fn cumulative_returns_to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let data = PyDict::new(py);
-        let names = self.inner.ticker_names();
-        let cum_rets = self.inner.cumulative_returns();
-        for (name, series) in names.iter().zip(cum_rets.into_iter()) {
-            data.set_item(name, vec_to_pyarray(py, series))?;
-        }
-        let dates = dates_to_pylist(py, self.inner.active_dates())?;
-        let idx = dates.into_pyobject(py)?.into_any();
-        dict_to_dataframe(py, &data, Some(idx))
+        panel_to_dataframe(
+            py,
+            self.inner.ticker_names(),
+            self.inner.active_dates(),
+            self.inner.cumulative_returns(),
+        )
     }
 
     /// Drawdown series for all tickers as a pandas ``DataFrame``.
     ///
     /// Returns a DataFrame with a date index and one column per ticker.
     fn drawdown_series_to_dataframe<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let data = PyDict::new(py);
-        let names = self.inner.ticker_names();
-        let dd = self.inner.drawdown_series();
-        for (name, series) in names.iter().zip(dd.into_iter()) {
-            data.set_item(name, vec_to_pyarray(py, series))?;
-        }
-        let dates = dates_to_pylist(py, self.inner.active_dates())?;
-        let idx = dates.into_pyobject(py)?.into_any();
-        dict_to_dataframe(py, &data, Some(idx))
+        panel_to_dataframe(
+            py,
+            self.inner.ticker_names(),
+            self.inner.active_dates(),
+            self.inner.drawdown_series(),
+        )
     }
 
     /// Correlation matrix as a pandas ``DataFrame``.
@@ -869,12 +900,7 @@ impl PyPerformance {
         fiscal_year_start_month: Option<u8>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let d = py_to_date(&ref_date)?;
-        let fc = make_fiscal_config(fiscal_year_start_month)?;
-        let calendar = resolve_fiscal_calendar()?;
-        let lb = self
-            .inner
-            .lookback_returns(d, fc, calendar)
-            .map_err(core_to_py)?;
+        let lb = self.lookback_returns_inner(d, fiscal_year_start_month)?;
 
         let data = PyDict::new(py);
         data.set_item("mtd", slice_to_pyarray(py, &lb.mtd))?;
@@ -884,9 +910,7 @@ impl PyPerformance {
             data.set_item("fytd", slice_to_pyarray(py, fytd))?;
         }
 
-        let names = self.inner.ticker_names();
-        let index: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
-        let idx = index.into_pyobject(py)?.into_any();
+        let idx = ticker_index(py, self.inner.ticker_names())?;
         dict_to_dataframe(py, &data, Some(idx))
     }
 }
