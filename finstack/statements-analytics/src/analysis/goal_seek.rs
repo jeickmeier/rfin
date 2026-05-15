@@ -214,8 +214,9 @@ pub fn goal_seek(
                 }
             },
             Err(e) => {
-                *last_error.borrow_mut() =
-                    Some(format!("evaluation failed at driver value {driver_value}: {e}"));
+                *last_error.borrow_mut() = Some(format!(
+                    "evaluation failed at driver value {driver_value}: {e}"
+                ));
                 f64::NAN
             }
         }
