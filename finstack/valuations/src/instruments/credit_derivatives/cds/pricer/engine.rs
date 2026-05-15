@@ -308,7 +308,13 @@ impl CDSPricer {
         // Linear scale from hazard-time position to instrument-day-count accrual.
         let tau_per_haz = tau_remaining / accrual_period_length_haz;
 
-        let boundaries = isda_standard_model_boundaries(t_start, t_end, inp.surv, inp.disc);
+        let boundaries = isda_standard_model_boundaries(
+            t_start,
+            t_end,
+            inp.surv,
+            inp.disc,
+            self.config.protection_leg_substeps_per_year,
+        );
         let mut accrual_pv = 0.0;
 
         for window in boundaries.windows(2) {

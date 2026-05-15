@@ -21,25 +21,58 @@ pub(super) fn haz_t(surv: &HazardCurve, date: Date) -> Result<f64> {
     )
 }
 
-/// Approximate inverse mapping from hazard-curve time (years) to a calendar date.
+/// Inverse mapping from hazard-curve time (years) to a calendar date.
 ///
-/// This is exact for ACT/365F and ACT/360 hazard curve day-counts (since the forward
-/// mapping uses actual day counts), and a reasonable approximation for other
-/// conventions. The resulting date is used only for discounting on actual dates.
+/// Walks calendar days from `surv.base_date()` until the hazard-curve
+/// day-count year-fraction matches `t` to within one calendar day. This is
+/// exact for `Act/360`/`Act/365F` (the existing fast path) and *correct* for
+/// `30/360`, `30E/360`, `Bus/252`, `ActAct*` — where the previous fixed
+/// `days_per_year` inverse drifted by tens of days at multi-year horizons.
+///
+/// Why it matters: the returned date is then used by `df_asof_to(disc, ...)`
+/// on the *discount* curve. When `surv.day_count() != disc.day_count()`, an
+/// off-by-N-days inverse mis-attributes the discount lookup, shifting CDS
+/// protection-leg PV by tens of dollars per million on cross-currency or
+/// mixed-convention setups. See C2 in the calibration code review.
+///
+/// Convergence: starts from a `365.25`-days-per-year estimate and refines
+/// using forward differences on the supplied day-count. Almost always
+/// terminates in 1-2 iterations; capped at 30 to bound worst-case cost on
+/// non-monotone day-counts (none of the supported conventions exhibit this).
 #[inline]
 pub(crate) fn date_from_hazard_time(surv: &HazardCurve, t: f64) -> Date {
     let t = t.max(0.0);
-    let days_per_year = match surv.day_count() {
-        DayCount::Act360 => 360.0,
-        DayCount::Act365F => 365.0,
-        DayCount::Act365L | DayCount::ActAct | DayCount::ActActIsma => 365.25,
-        DayCount::Thirty360 | DayCount::ThirtyE360 => 360.0,
-        DayCount::Bus252 => 252.0,
-        // Fallback for less common conventions; used only for discount-date mapping.
-        _ => 365.25,
-    };
-    let days = (t * days_per_year).round() as i64;
-    surv.base_date() + Duration::days(days)
+    if t == 0.0 {
+        return surv.base_date();
+    }
+    let dc = surv.day_count();
+    let base = surv.base_date();
+
+    // Fast paths: Act/360 and Act/365F have exact closed-form inverses.
+    match dc {
+        DayCount::Act360 => return base + Duration::days((t * 360.0).round() as i64),
+        DayCount::Act365F => return base + Duration::days((t * 365.0).round() as i64),
+        _ => {}
+    }
+
+    // Universal path: start from a generous 365.25 d/y estimate, then
+    // refine using forward differences. For 30/360 this typically
+    // converges in 1 step; for Bus/252 (which depends on the local holiday
+    // calendar via its DayCount impl) it converges in <5.
+    let mut date = base + Duration::days((t * 365.25).round() as i64);
+    let ctx = finstack_core::dates::DayCountContext::default();
+    for _ in 0..30 {
+        let yf = match dc.year_fraction(base, date, ctx.clone()) {
+            Ok(v) => v,
+            Err(_) => return date,
+        };
+        let err_days = ((t - yf) * 365.25).round() as i64;
+        if err_days == 0 {
+            break;
+        }
+        date = date + Duration::days(err_days);
+    }
+    date
 }
 
 /// Resolve settlement date for a default occurring on `default_date`.
@@ -71,19 +104,23 @@ pub(super) fn settlement_date(
 /// constant hazard rate on each segment (and in no case longer than any
 /// accrual period of the premium leg)."
 ///
-/// We use ~25 sub-steps per year (matching FinancePy's
+/// Default: `25` sub-steps per year (matching FinancePy's
 /// `GLOB_NUM_STEPS_PER_YEAR`), giving ~14-day resolution. This is finer
 /// than any coupon period (~91 days) and finer than typical
 /// discount-curve knot spacings, so within each segment both `r` and `λ`
 /// are effectively constant under any reasonable interpolation. Curve
 /// knots remain as boundaries so piecewise-constant hazard is honoured.
-const PROTECTION_LEG_SUB_STEPS_PER_YEAR: f64 = 25.0;
+///
+/// Configurable via `CDSPricerConfig::protection_leg_substeps_per_year`
+/// — see that field's docs for performance/precision tradeoffs.
+pub(crate) const PROTECTION_LEG_SUB_STEPS_PER_YEAR_DEFAULT: f64 = 25.0;
 
 pub(super) fn isda_standard_model_boundaries(
     t_start: f64,
     t_end: f64,
     surv: &HazardCurve,
     disc: &DiscountCurve,
+    sub_steps_per_year: f64,
 ) -> Vec<f64> {
     let mut boundaries = Vec::with_capacity(surv.len() + disc.knots().len() + 2);
     boundaries.push(t_start);
@@ -100,8 +137,13 @@ pub(super) fn isda_standard_model_boundaries(
             .filter(|&t| t > t_start && t < t_end),
     );
     // Sub-step subdivision per DOCS 2057273 §3.
-    let dt = 1.0 / PROTECTION_LEG_SUB_STEPS_PER_YEAR;
-    let n_steps = ((t_end - t_start) * PROTECTION_LEG_SUB_STEPS_PER_YEAR).ceil() as usize;
+    let density = if sub_steps_per_year.is_finite() && sub_steps_per_year > 0.0 {
+        sub_steps_per_year
+    } else {
+        PROTECTION_LEG_SUB_STEPS_PER_YEAR_DEFAULT
+    };
+    let dt = 1.0 / density;
+    let n_steps = ((t_end - t_start) * density).ceil() as usize;
     if n_steps > 0 {
         for i in 1..n_steps {
             let t = t_start + (i as f64) * dt;

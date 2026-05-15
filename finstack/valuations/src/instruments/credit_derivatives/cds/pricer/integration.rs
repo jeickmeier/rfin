@@ -62,7 +62,13 @@ impl CDSPricer {
         }
 
         let lgd = 1.0 - recovery;
-        let boundaries = isda_standard_model_boundaries(t_start, t_end, surv, disc);
+        let boundaries = isda_standard_model_boundaries(
+            t_start,
+            t_end,
+            surv,
+            disc,
+            self.config.protection_leg_substeps_per_year,
+        );
         let mut integral = 0.0;
 
         for window in boundaries.windows(2) {

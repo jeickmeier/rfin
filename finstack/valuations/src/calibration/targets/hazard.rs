@@ -227,18 +227,46 @@ impl HazardCurveTarget {
                         *spread_bp
                     }
                     crate::market::quotes::cds::CdsQuote::CdsUpfront { .. } => {
+                        // W7: dropped pillars must surface in observability,
+                        // not silently. Downstream CS01 quote-bump will refuse
+                        // to re-bootstrap from a missing par pillar, and the
+                        // operator needs to know the sidecar is incomplete.
                         let Some(cds) = pq.instrument.as_any().downcast_ref::<
                             crate::instruments::credit_derivatives::cds::CreditDefaultSwap,
                         >() else {
+                            tracing::warn!(
+                                pillar_time = pq.pillar_time,
+                                curve = %params.curve_id.as_str(),
+                                "CdsUpfront pillar dropped from par_points sidecar: \
+                                 instrument not downcastable to CreditDefaultSwap"
+                            );
                             continue;
                         };
-                        let Ok(disc) = bumped_ctx.get_discount(&cds.premium.discount_curve_id)
-                        else {
-                            continue;
+                        let disc = match bumped_ctx.get_discount(&cds.premium.discount_curve_id) {
+                            Ok(c) => c,
+                            Err(e) => {
+                                tracing::warn!(
+                                    pillar_time = pq.pillar_time,
+                                    curve = %params.curve_id.as_str(),
+                                    discount_curve = %cds.premium.discount_curve_id.as_ref(),
+                                    error = %e,
+                                    "CdsUpfront pillar dropped: discount curve lookup failed"
+                                );
+                                continue;
+                            }
                         };
-                        let Ok(surv) = bumped_ctx.get_hazard(&cds.protection.credit_curve_id)
-                        else {
-                            continue;
+                        let surv = match bumped_ctx.get_hazard(&cds.protection.credit_curve_id) {
+                            Ok(c) => c,
+                            Err(e) => {
+                                tracing::warn!(
+                                    pillar_time = pq.pillar_time,
+                                    curve = %params.curve_id.as_str(),
+                                    credit_curve = %cds.protection.credit_curve_id.as_ref(),
+                                    error = %e,
+                                    "CdsUpfront pillar dropped: hazard curve lookup failed"
+                                );
+                                continue;
+                            }
                         };
                         let pricer = crate::instruments::credit_derivatives::cds::pricer::CDSPricer::with_config(
                             crate::instruments::credit_derivatives::cds::pricer::CDSPricerConfig::from_cds(cds),
@@ -246,7 +274,17 @@ impl HazardCurveTarget {
                         match pricer.par_spread(cds, disc.as_ref(), surv.as_ref(), params.base_date)
                         {
                             Ok(s) => s,
-                            Err(_) => continue,
+                            Err(e) => {
+                                tracing::warn!(
+                                    pillar_time = pq.pillar_time,
+                                    curve = %params.curve_id.as_str(),
+                                    error = %e,
+                                    "CdsUpfront pillar dropped: par_spread back-out failed \
+                                     (likely zero risky annuity); downstream par-spread CS01 \
+                                     for this pillar will be unavailable"
+                                );
+                                continue;
+                            }
                         }
                     }
                 };
@@ -276,22 +314,38 @@ impl HazardCurveTarget {
             _ => return None,
         };
 
-        let (spread_bp, recovery) = match pq.quote.as_ref() {
-            crate::market::quotes::cds::CdsQuote::CdsParSpread {
-                spread_bp,
-                recovery_rate,
-                ..
-            } => (*spread_bp, *recovery_rate),
+        // W6: prefer the *curve's* recovery (`params.recovery_rate`) for the
+        // initial guess. The quote-level `recovery_rate` is the protection
+        // seller's assumption at quote time; the curve-level recovery is what
+        // actually drives the protection-leg PV during calibration. Using
+        // them inconsistently biases the spread-implied λ ≈ S/(1-R) guess
+        // when the two values disagree (e.g. quote has the desk's standard
+        // 0.4 but the curve was overridden to 0.25 for a stressed name).
+        // Fall back to the quote recovery if the curve recovery is missing
+        // or sentinel (NaN).
+        let curve_recovery = self.params.recovery_rate;
+        let quote_spread_bp = match pq.quote.as_ref() {
+            crate::market::quotes::cds::CdsQuote::CdsParSpread { spread_bp, .. } => *spread_bp,
             crate::market::quotes::cds::CdsQuote::CdsUpfront {
-                running_spread_bp,
-                recovery_rate,
-                ..
-            } => (*running_spread_bp, *recovery_rate),
+                running_spread_bp, ..
+            } => *running_spread_bp,
+        };
+        let recovery = if curve_recovery.is_finite() {
+            curve_recovery
+        } else {
+            match pq.quote.as_ref() {
+                crate::market::quotes::cds::CdsQuote::CdsParSpread {
+                    recovery_rate, ..
+                }
+                | crate::market::quotes::cds::CdsQuote::CdsUpfront {
+                    recovery_rate, ..
+                } => *recovery_rate,
+            }
         };
 
         let min_lgd = self.config.validation.minimum_lgd_for_hazard_guess;
         let loss_given_default = (1.0 - recovery).max(min_lgd);
-        let guess = (spread_bp / 10_000.0) / loss_given_default;
+        let guess = (quote_spread_bp / 10_000.0) / loss_given_default;
         let hazard_min = self.config.hazard_curve.hazard_hard_min;
         let hazard_max = self.config.hazard_curve.hazard_hard_max;
         if guess.is_finite() && guess >= 0.0 {
