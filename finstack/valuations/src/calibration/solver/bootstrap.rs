@@ -669,9 +669,17 @@ mod solver_tests {
         }
 
         fn scan_points(&self, quote: &Self::Quote, _initial_guess: f64) -> Result<Vec<f64>> {
-            let base = vec![-1.0, 0.0, 0.25, 0.75, 1.0];
+            // Dense grid so the bracket solver's debug_assert (>= 8 points) is
+            // satisfied. Real BootstrapTarget impls always build dense grids.
+            //
+            // Note: the grid deliberately excludes the test root (0.5) so the
+            // `scale: 1e9` "all evaluations penalised" path remains exercised
+            // by `bootstrap_rejects_when_all_objective_evals_are_penalized`.
+            let base = vec![-1.0, -0.6, -0.25, 0.0, 0.1, 0.25, 0.7, 0.85, 1.0];
             if quote.unsorted_scan {
-                Ok(vec![1.0, 0.0, 0.75, 0.25, -1.0])
+                // Same points, deliberately unsorted, to exercise the
+                // sorting/dedup path in `normalize_scan_points`.
+                Ok(vec![1.0, -0.25, 0.0, 0.7, 0.85, 0.1, 0.25, -0.6, -1.0])
             } else {
                 Ok(base)
             }
@@ -812,8 +820,19 @@ mod solver_tests {
             }
 
             fn scan_points(&self, quote: &Self::Quote, _initial_guess: f64) -> Result<Vec<f64>> {
-                // Deliberately asymmetric bracket so bisection midpoints don't immediately equal `root`.
-                Ok(vec![quote.root - 1.0, quote.root + 2.0])
+                // Deliberately asymmetric bracket so bisection midpoints don't
+                // immediately equal `root`. Padded with intermediate points so
+                // the solver's debug_assert (>= 8 points) is satisfied.
+                Ok(vec![
+                    quote.root - 1.0,
+                    quote.root - 0.7,
+                    quote.root - 0.4,
+                    quote.root - 0.1,
+                    quote.root + 0.1,
+                    quote.root + 0.4,
+                    quote.root + 1.0,
+                    quote.root + 2.0,
+                ])
             }
         }
 

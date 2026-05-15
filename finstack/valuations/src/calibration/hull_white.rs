@@ -1326,14 +1326,24 @@ pub(crate) fn hw1f_swaption_price(
         }
     }
 
-    // Brent fallback if Newton didn't converge
+    // Brent fallback if Newton didn't converge.
+    //
+    // Bracket width must scale with both rate level and HW1F vol-to-expiry to
+    // stay valid under negative-rate (EUR) and distressed-sovereign regimes.
+    // The previous fixed `±0.20` bracket was too narrow for f0 ≈ 15% sovereign
+    // yields and too narrow at long expiries where σ√t0 dominates.
+    //
+    // Heuristic: half-width = max(0.5, 5·σ√t0) — covers ±5σ of the short-rate
+    // distribution under HW1F (more than enough to bracket r*) plus a 50bp
+    // floor for short-expiry, low-vol cases.
     if !newton_converged {
         tracing::warn!(
             "HW1F r* Newton solver did not converge (kappa={kappa:.4}, sigma={sigma:.4}), \
              falling back to Brent"
         );
-        let bracket_lo = f0t0 - 0.20;
-        let bracket_hi = f0t0 + 0.20;
+        let half_width = (5.0 * sigma * t0.sqrt()).max(0.5);
+        let bracket_lo = f0t0 - half_width;
+        let bracket_hi = f0t0 + half_width;
         let brent = BrentSolver::new()
             .tolerance(1e-12)
             .bracket_bounds(bracket_lo, bracket_hi);

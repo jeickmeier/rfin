@@ -394,6 +394,21 @@ impl BootstrapTarget for HazardCurveTarget {
     fn scan_points(&self, _quote: &Self::Quote, initial_guess: f64) -> Result<Vec<f64>> {
         // Bounded, maturity-agnostic scan grid (log-spaced) on [0, hazard_hard_max].
         // This prevents the solver from spending effort in negative/absurd hazard regions.
+        //
+        // Window: `[log_center - 4, log_center + 2]` decades around the
+        // spread-implied initial guess, capped by the configured hazard bounds.
+        // The asymmetric +2 / -4 window favours resolution near the typical
+        // (low-hazard) regime while still covering up to ~100× the initial
+        // guess in case the recovery assumption is mildly off.
+        //
+        // The grid is *not* widened beyond ±2 decades upward. Doing so would
+        // change which point Brent picks as the bracket boundary and break
+        // bit-stable Bloomberg golden fixtures whose tolerances test
+        // 7-digit reproducibility. The C4 debug_assert in
+        // `bracket_solve_1d_with_diagnostics` and the explicit
+        // `hazard_hard_max` anchor below cover the catastrophic-mismatch
+        // case (`max_h` is always evaluated, so a far-out-of-window root is
+        // still bracketed against `hazard_hard_max`).
         let hazard_min = self.config.hazard_curve.hazard_hard_min;
         let max_h = self.config.hazard_curve.hazard_hard_max;
         let min_positive = 1e-10_f64;
