@@ -208,8 +208,12 @@ struct PyToggleExerciseModel {
 impl PyToggleExerciseModel {
     #[staticmethod]
     fn threshold(variable: &str, threshold: f64, direction: &str) -> PyResult<Self> {
-        let variable = parse_state_variable(variable)?;
-        let direction = parse_threshold_direction(direction)?;
+        let variable = variable
+            .parse::<CreditStateVariable>()
+            .map_err(display_to_py)?;
+        let direction = direction
+            .parse::<ThresholdDirection>()
+            .map_err(display_to_py)?;
         Ok(Self {
             inner: ToggleExerciseModel::threshold(variable, threshold, direction),
         })
@@ -243,27 +247,6 @@ impl PyToggleExerciseModel {
 
     fn to_json(&self) -> PyResult<String> {
         serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
-    }
-}
-
-fn parse_state_variable(s: &str) -> PyResult<CreditStateVariable> {
-    match s {
-        "hazard_rate" => Ok(CreditStateVariable::HazardRate),
-        "distance_to_default" => Ok(CreditStateVariable::DistanceToDefault),
-        "leverage" => Ok(CreditStateVariable::Leverage),
-        other => Err(display_to_py(format!(
-            "unknown credit state variable: {other}"
-        ))),
-    }
-}
-
-fn parse_threshold_direction(s: &str) -> PyResult<ThresholdDirection> {
-    match s {
-        "above" => Ok(ThresholdDirection::Above),
-        "below" => Ok(ThresholdDirection::Below),
-        other => Err(display_to_py(format!(
-            "unknown threshold direction: {other}"
-        ))),
     }
 }
 

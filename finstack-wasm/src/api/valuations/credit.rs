@@ -154,8 +154,8 @@ pub fn toggle_exercise_threshold_json(
     threshold: f64,
     direction: &str,
 ) -> Result<String, JsValue> {
-    let variable = parse_credit_state_variable(variable)?;
-    let direction = parse_threshold_direction(direction)?;
+    let variable = variable.parse::<CreditStateVariable>().map_err(to_js_err)?;
+    let direction = direction.parse::<ThresholdDirection>().map_err(to_js_err)?;
     let model = ToggleExerciseModel::threshold(variable, threshold, direction);
     serde_json::to_string(&model).map_err(to_js_err)
 }
@@ -177,27 +177,6 @@ pub fn toggle_exercise_optimal_json(
         horizon,
     });
     serde_json::to_string(&model).map_err(to_js_err)
-}
-
-fn parse_credit_state_variable(value: &str) -> Result<CreditStateVariable, JsValue> {
-    match value {
-        "hazard_rate" => Ok(CreditStateVariable::HazardRate),
-        "distance_to_default" => Ok(CreditStateVariable::DistanceToDefault),
-        "leverage" => Ok(CreditStateVariable::Leverage),
-        other => Err(JsValue::from_str(&format!(
-            "unknown credit state variable: {other}"
-        ))),
-    }
-}
-
-fn parse_threshold_direction(value: &str) -> Result<ThresholdDirection, JsValue> {
-    match value {
-        "above" => Ok(ThresholdDirection::Above),
-        "below" => Ok(ThresholdDirection::Below),
-        other => Err(JsValue::from_str(&format!(
-            "unknown threshold direction: {other}"
-        ))),
-    }
 }
 
 #[cfg(test)]

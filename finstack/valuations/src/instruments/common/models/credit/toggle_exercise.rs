@@ -29,6 +29,7 @@
 
 use finstack_core::math::random::{Pcg64Rng, RandomNumberGenerator};
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -63,6 +64,19 @@ pub enum CreditStateVariable {
     Leverage,
 }
 
+impl FromStr for CreditStateVariable {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "hazard_rate" => Ok(Self::HazardRate),
+            "distance_to_default" => Ok(Self::DistanceToDefault),
+            "leverage" => Ok(Self::Leverage),
+            other => Err(format!("unknown credit state variable: {other}")),
+        }
+    }
+}
+
 /// Direction for threshold comparison.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, schemars::JsonSchema)]
 pub enum ThresholdDirection {
@@ -70,6 +84,18 @@ pub enum ThresholdDirection {
     Above,
     /// PIK when state < threshold (e.g., distance-to-default below limit).
     Below,
+}
+
+impl FromStr for ThresholdDirection {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "above" => Ok(Self::Above),
+            "below" => Ok(Self::Below),
+            other => Err(format!("unknown threshold direction: {other}")),
+        }
+    }
 }
 
 /// Toggle exercise model for PIK/cash decision.
@@ -401,6 +427,42 @@ impl ToggleExerciseModel {
 mod tests {
     use super::*;
     use finstack_core::math::random::Pcg64Rng;
+
+    #[test]
+    fn parses_credit_state_variable_names() {
+        assert!(matches!(
+            "hazard_rate".parse::<CreditStateVariable>(),
+            Ok(CreditStateVariable::HazardRate)
+        ));
+        assert!(matches!(
+            "distance_to_default".parse::<CreditStateVariable>(),
+            Ok(CreditStateVariable::DistanceToDefault)
+        ));
+        assert!(matches!(
+            "leverage".parse::<CreditStateVariable>(),
+            Ok(CreditStateVariable::Leverage)
+        ));
+        assert_eq!(
+            "spread".parse::<CreditStateVariable>().unwrap_err(),
+            "unknown credit state variable: spread"
+        );
+    }
+
+    #[test]
+    fn parses_threshold_direction_names() {
+        assert!(matches!(
+            "above".parse::<ThresholdDirection>(),
+            Ok(ThresholdDirection::Above)
+        ));
+        assert!(matches!(
+            "below".parse::<ThresholdDirection>(),
+            Ok(ThresholdDirection::Below)
+        ));
+        assert_eq!(
+            "crossed".parse::<ThresholdDirection>().unwrap_err(),
+            "unknown threshold direction: crossed"
+        );
+    }
 
     #[test]
     fn threshold_piks_above_threshold() {
