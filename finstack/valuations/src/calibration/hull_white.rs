@@ -281,11 +281,23 @@ impl SwapFrequency {
     }
 }
 
-/// HW1F κ hard-bounds check. Mean-reversion must lie in [1e-3, 1.0]:
-/// below 0.001 the half-life exceeds 693y and tree/bond price calculations
-/// become numerically unstable; above 1.0 the model effectively collapses
-/// to the instantaneous-rate level and no longer has meaningful term
-/// structure.
+/// HW1F κ hard-bounds check. Mean-reversion must lie in [1e-3, 1.0].
+///
+/// **Lower bound (`1e-3`):** below this, the mean-reversion half-life
+/// `ln(2)/κ` exceeds 693y. More practically, `B(t,T) = (1 − e^{−κ(T−t)})/κ`
+/// grows nearly linearly with `(T−t)` — at κ=1e-3, `B(0, 30) ≈ 29.55` —
+/// and the bond-option vol `σ_P ∝ B(T,S) · σ · √variance_factor` blows up
+/// for long-dated, volatile calibrations. Concretely: at κ=1e-3, σ=0.01,
+/// T=20, B(20,21) ≈ 1.0, the variance factor `(1 − e^{−2κT})/(2κ) ≈ 19.6`,
+/// so `σ_P ≈ 1.0 × 0.01 × √19.6 ≈ 0.044` per unit notional, which Brent
+/// resolves robustly. Below κ=1e-3 the integrated-variance-time floor
+/// becomes O(T) rather than O(1/κ), and the Jamshidian d1/d2 lose
+/// numerical stability in the put-pricing formula.
+///
+/// **Upper bound (`1.0`):** above this, the half-life drops below 8 months
+/// and the short rate is essentially absorbed at its instantaneous level
+/// over typical (1Y+) swaption expiries — HW1F effectively collapses to
+/// a Vasicek with no meaningful term structure for bond options.
 const KAPPA_MIN: f64 = 0.001;
 const KAPPA_MAX: f64 = 1.0;
 

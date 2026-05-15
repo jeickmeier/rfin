@@ -9,6 +9,14 @@
 //!   (PV is in currency units; CALIBRATION_NOTIONAL is typically 1_000_000).
 //!   Example: tolerance `1e-8` ⇒ PV ≤ `0.01` per $1mm notional.
 //!
+//! - **Hazard adapter** (`HazardCurveTarget::calculate_residual`):
+//!   residual = NPV / params.notional. With the default
+//!   `HazardCurveSolveConfig::validation_tolerance = 1e-8` and
+//!   `params.notional = 1.0`, this means absolute NPV-fit tolerance of `1e-8`
+//!   per unit of synthetic-CDS notional. For a 5Y CDS at 100bp on a $1mm
+//!   notional (~$30k protection-leg PV), this is ~$0.01 absolute = 3.3e-7
+//!   relative — Bloomberg/Markit-grade tight.
+//!
 //! - **Base correlation adapter**: residual = upfront_fraction_model - upfront_fraction_market
 //!   (dimensionless, where upfront_fraction = upfront_pct / 100).
 //!
