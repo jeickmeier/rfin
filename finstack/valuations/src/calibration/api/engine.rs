@@ -37,8 +37,10 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 #[derive(Debug)]
 pub enum ExecuteError {
     /// Structured envelope-shaped failure (currently only solver
-    /// non-convergence; static-validator errors are surfaced via
-    /// [`super::validate::validate`] before `execute` runs).
+    /// non-convergence). Static envelope validation is a separate,
+    /// opt-in pass exposed via [`super::validate::validate`] and the
+    /// `dry_run` / `dependency_graph_json` bindings; `execute` does not
+    /// run it automatically.
     Envelope(EnvelopeError),
     /// Other (legacy, stringly-typed) errors from the engine pipeline:
     /// quote-set lookup, preflight validation, market-context construction,

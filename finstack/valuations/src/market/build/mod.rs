@@ -46,18 +46,12 @@
 //! - [`context::BuildCtx`](context::BuildCtx) for build context configuration
 //! - [`prepared::PreparedQuote`](prepared::PreparedQuote) for prepared quote envelopes
 
-/// Builders for bond instruments.
-#[cfg(test)]
-pub(crate) mod bond;
 /// Builders for credit instruments (CDS).
 pub(crate) mod cds;
 /// Builders for CDS Tranche instruments.
 pub(crate) mod cds_tranche;
 /// Context for building instruments.
 pub(crate) mod context;
-/// Builders for FX instruments.
-#[cfg(test)]
-pub(crate) mod fx;
 /// Shared helper functions for builders.
 pub(crate) mod helpers;
 /// Envelope for prepared quotes.

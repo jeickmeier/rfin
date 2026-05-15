@@ -52,8 +52,7 @@ pub use trees::{
     short_rate_keys, single_factor_equity_state, state_keys, two_factor_equity_rates_state,
     BarrierSpec, BarrierStyle, BinomialTree, EvolutionParams, HullWhiteTree, HullWhiteTreeConfig,
     NodeState, ShortRateModel, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeBranching,
-    TreeCompounding, TreeGreeks, TreeModel, TreeParameters, TreeType, TreeValuator, TrinomialTree,
-    TrinomialTreeType,
+    TreeCompounding, TreeGreeks, TreeModel, TreeParameters, TreeType, TreeValuator,
 };
 #[allow(unused_imports)]
 pub use volatility::{

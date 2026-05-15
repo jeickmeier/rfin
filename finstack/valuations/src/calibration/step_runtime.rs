@@ -2,7 +2,8 @@ use crate::calibration::api::schema::{CalibrationStep, StepParams};
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::hull_white::{
     calibrate_hull_white_to_cap_floors, calibrate_hull_white_to_swaptions_with_schedules,
-    CapFloorCalibrationConfig, CapFloorQuote, HullWhiteParams, SwapFrequency, SwaptionQuote,
+    capfloor_hw1f_scalar_keys, hw1f_scalar_keys, CapFloorCalibrationConfig, CapFloorQuote,
+    HullWhiteParams, SwapFrequency, SwaptionQuote,
 };
 use crate::calibration::targets::base_correlation::BaseCorrelationTarget;
 use crate::calibration::targets::discount::DiscountCurveTarget;
@@ -378,16 +379,11 @@ pub(crate) fn execute_params(
                 initial_guess,
             )?;
 
+            let (kappa_key, sigma_key) = hw1f_scalar_keys(p.curve_id.as_str());
             Ok(StepOutcome {
                 output: StepOutput::Scalars(vec![
-                    (
-                        format!("{}_HW1F_KAPPA", p.curve_id.as_str()),
-                        MarketScalar::Unitless(hw_params.kappa),
-                    ),
-                    (
-                        format!("{}_HW1F_SIGMA", p.curve_id.as_str()),
-                        MarketScalar::Unitless(hw_params.sigma),
-                    ),
+                    (kappa_key, MarketScalar::Unitless(hw_params.kappa)),
+                    (sigma_key, MarketScalar::Unitless(hw_params.sigma)),
                 ]),
                 credit_index_update: None,
                 report,
@@ -457,16 +453,11 @@ pub(crate) fn execute_params(
                 },
             )?;
 
+            let (kappa_key, sigma_key) = capfloor_hw1f_scalar_keys(p.discount_curve_id.as_str());
             Ok(StepOutcome {
                 output: StepOutput::Scalars(vec![
-                    (
-                        format!("{}_CAPFLOOR_HW1F_KAPPA", p.discount_curve_id.as_str()),
-                        MarketScalar::Unitless(hw_params.kappa),
-                    ),
-                    (
-                        format!("{}_CAPFLOOR_HW1F_SIGMA", p.discount_curve_id.as_str()),
-                        MarketScalar::Unitless(hw_params.sigma),
-                    ),
+                    (kappa_key, MarketScalar::Unitless(hw_params.kappa)),
+                    (sigma_key, MarketScalar::Unitless(hw_params.sigma)),
                 ]),
                 credit_index_update: None,
                 report,

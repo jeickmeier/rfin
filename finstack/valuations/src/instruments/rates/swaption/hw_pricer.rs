@@ -25,11 +25,13 @@
 //! - Brigo, D. & Mercurio, F. (2006). *Interest Rate Models - Theory and
 //!   Practice*, Chapter 4.
 
-use crate::calibration::hull_white::HullWhiteParams;
 use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::common_impl::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
 use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Instrument;
+use crate::instruments::rates::exotics_shared::{
+    resolve_hw1f_params, Hw1fCalibrationFlavor, Hw1fResolveRequest,
+};
 use crate::instruments::rates::swaption::types::Swaption;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
@@ -48,14 +50,12 @@ const DEFAULT_TREE_STEPS: usize = 100;
 /// Hull-White trinomial tree. The tree is calibrated to the initial
 /// discount curve and exercise is evaluated at the single expiry date.
 pub(crate) struct SwaptionHullWhitePricer {
-    hw_params: HullWhiteParams,
     tree_steps: usize,
 }
 
 impl Default for SwaptionHullWhitePricer {
     fn default() -> Self {
         Self {
-            hw_params: HullWhiteParams::default(),
             tree_steps: DEFAULT_TREE_STEPS,
         }
     }
@@ -148,24 +148,23 @@ impl SwaptionHullWhitePricer {
             ));
         }
 
-        // Warn loudly when pricing with uncalibrated default HW parameters.
-        // Real HW calibration from market data is not implemented for this
-        // pricer, so a PV produced from `HullWhiteParams::default()` is not
-        // market-consistent. Emit one diagnostic per price (not per tree node).
-        if self.hw_params.is_uncalibrated_default() {
-            tracing::warn!(
-                instrument_id = %swaption.id,
-                kappa = self.hw_params.kappa,
-                sigma = self.hw_params.sigma,
-                "Pricing European swaption with uncalibrated HullWhiteParams::default(); \
-                 PV is not market-consistent. Supply calibrated params via \
-                 `HullWhiteParams::new(κ, σ)` for production use"
-            );
-        }
+        // Resolve HW1F parameters following the documented precedence:
+        // explicit `pricing_overrides` κ/σ → calibrated MarketContext scalars
+        // → warned `HullWhiteParams::default()`.
+        let context_label = format!("Swaption {}", swaption.id);
+        let overrides = hw1f_overrides_json(swaption);
+        let req = Hw1fResolveRequest {
+            curve_id: swaption.discount_curve_id.as_str(),
+            flavor: Hw1fCalibrationFlavor::Swaption,
+            overrides: overrides.as_ref(),
+            context: context_label.as_str(),
+        };
+        let hw_params = resolve_hw1f_params(&req, market).map_err(|e| {
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+        })?;
 
         // Build and calibrate HW tree
-        let config =
-            HullWhiteTreeConfig::new(self.hw_params.kappa, self.hw_params.sigma, self.tree_steps);
+        let config = HullWhiteTreeConfig::new(hw_params.kappa, hw_params.sigma, self.tree_steps);
         let tree = HullWhiteTree::calibrate(config, disc.as_ref(), swap_end_time).map_err(|e| {
             PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
@@ -304,6 +303,21 @@ impl SwaptionHullWhitePricer {
     }
 }
 
+/// Build the HW1F override JSON blob from a swaption's typed pricing overrides.
+///
+/// Maps `model_config.mean_reversion` → `hw1f_kappa` and
+/// `market_quotes.implied_volatility` → `hw1f_sigma`. Returns `Some` only when
+/// **both** are present, so that a partial override falls through to the
+/// calibrated-market-scalar / default branches in [`resolve_hw1f_params`].
+fn hw1f_overrides_json(swaption: &Swaption) -> Option<serde_json::Value> {
+    let kappa = swaption.pricing_overrides.model_config.mean_reversion?;
+    let sigma = swaption
+        .pricing_overrides
+        .market_quotes
+        .implied_volatility?;
+    Some(serde_json::json!({ "hw1f_kappa": kappa, "hw1f_sigma": sigma }))
+}
+
 #[cfg(test)]
 mod tests {
     #[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
@@ -341,5 +355,87 @@ mod tests {
         let pv = result.value.amount();
         assert!(pv.is_finite(), "HW swaption PV must be finite, got {pv}");
         assert!(pv >= 0.0, "swaption PV must be non-negative, got {pv}");
+    }
+
+    /// Builds a single-curve swaption priced over a flat discount curve.
+    fn example_single_curve() -> (finstack_core::dates::Date, Swaption, MarketContext) {
+        let as_of = date(2025, 1, 1);
+        let mut swaption = Swaption::example();
+        swaption.forward_curve_id = swaption.discount_curve_id.clone();
+        let market = MarketContext::new().insert(flat_discount_with_tenor(
+            swaption.discount_curve_id.as_str(),
+            as_of,
+            0.03,
+            10.0,
+        ));
+        (as_of, swaption, market)
+    }
+
+    /// When the `MarketContext` carries calibrated `{curve}_HW1F_*` scalars, the
+    /// pricer must consume them: the PV differs from the default-params PV.
+    #[test]
+    fn hw_swaption_uses_calibrated_market_scalars() {
+        use crate::calibration::hull_white::hw1f_scalar_keys;
+        use finstack_core::market_data::scalars::MarketScalar;
+
+        let (as_of, swaption, default_market) = example_single_curve();
+        let default_pv = SwaptionHullWhitePricer::default()
+            .price_internal(&swaption, &default_market, as_of)
+            .expect("default-params pricing should succeed")
+            .value
+            .amount();
+
+        let (kappa_key, sigma_key) = hw1f_scalar_keys(swaption.discount_curve_id.as_str());
+        // Calibrated σ deliberately far from the default 0.01.
+        let calibrated_market = default_market
+            .insert_price(&kappa_key, MarketScalar::Unitless(0.10))
+            .insert_price(&sigma_key, MarketScalar::Unitless(0.025));
+
+        let calibrated_pv = SwaptionHullWhitePricer::default()
+            .price_internal(&swaption, &calibrated_market, as_of)
+            .expect("calibrated pricing should succeed")
+            .value
+            .amount();
+
+        assert!(calibrated_pv.is_finite());
+        assert!(
+            (calibrated_pv - default_pv).abs() > 1e-9,
+            "calibrated PV ({calibrated_pv}) must differ from default PV ({default_pv})"
+        );
+    }
+
+    /// Explicit `pricing_overrides` κ/σ win over calibrated market scalars.
+    #[test]
+    fn hw_swaption_overrides_win_over_market_scalars() {
+        use crate::calibration::hull_white::hw1f_scalar_keys;
+        use finstack_core::market_data::scalars::MarketScalar;
+
+        let (as_of, mut swaption, market) = example_single_curve();
+        let (kappa_key, sigma_key) = hw1f_scalar_keys(swaption.discount_curve_id.as_str());
+        let market = market
+            .insert_price(&kappa_key, MarketScalar::Unitless(0.10))
+            .insert_price(&sigma_key, MarketScalar::Unitless(0.025));
+
+        // PV with market scalars only.
+        let market_pv = SwaptionHullWhitePricer::default()
+            .price_internal(&swaption, &market, as_of)
+            .expect("market-scalar pricing should succeed")
+            .value
+            .amount();
+
+        // Add overrides matching the default params; PV should match default,
+        // not the market-scalar PV.
+        swaption.pricing_overrides.model_config.mean_reversion = Some(0.03);
+        swaption.pricing_overrides.market_quotes.implied_volatility = Some(0.01);
+        let override_pv = SwaptionHullWhitePricer::default()
+            .price_internal(&swaption, &market, as_of)
+            .expect("override pricing should succeed")
+            .value
+            .amount();
+
+        assert!(
+            (override_pv - market_pv).abs() > 1e-9,
+            "override PV ({override_pv}) must differ from market-scalar PV ({market_pv})"
+        );
     }
 }

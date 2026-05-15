@@ -69,6 +69,13 @@ pub trait Pricer: Send + Sync {
 #[derive(Clone, Default)]
 pub struct PricerRegistry {
     pricers: HashMap<PricerKey, Arc<dyn Pricer>>,
+    /// Keys that were registered more than once via [`PricerRegistry::register`].
+    ///
+    /// `register` legitimately overwrites for test setup and monkey-patching,
+    /// but in the standard-registry build a collision is a bug. Recording the
+    /// offending keys lets [`build_standard_registry`](super::build_standard_registry)
+    /// surface them without threading a `Result` through every shard.
+    duplicate_keys: Vec<PricerKey>,
 }
 
 #[derive(Clone, Default)]
@@ -106,32 +113,36 @@ impl PricerRegistry {
 
     /// Register a pricer for a specific (instrument type, model) combination.
     ///
-    /// If a pricer already exists for this key, it will be replaced and a warning
-    /// will be emitted so duplicate registration is visible in release builds.
-    /// Use [`PricerRegistry::try_register`] in production registries where a
-    /// duplicate registration indicates a bug.
+    /// If a pricer already exists for this key it is replaced, a warning is
+    /// emitted, and the colliding key is recorded in [`Self::duplicate_keys`]
+    /// so the standard-registry build can fail loudly. Overwriting is a
+    /// legitimate operation for test setup and monkey-patching; use
+    /// [`PricerRegistry::try_register`] when a duplicate must be rejected
+    /// outright rather than recorded.
     pub fn register(
         &mut self,
         inst: InstrumentType,
         model: ModelKey,
         pricer: impl Pricer + 'static,
     ) {
-        let key = PricerKey::new(inst, model);
-        if self.pricers.contains_key(&key) {
+        let pricer: Arc<dyn Pricer> = Arc::new(pricer);
+        if let Err(key) = self.try_register_arc(inst, model, Arc::clone(&pricer)) {
             tracing::warn!(
                 ?key,
                 "duplicate pricer registration overwrites the existing pricer"
             );
+            self.duplicate_keys.push(key);
+            self.pricers.insert(key, pricer);
         }
-        self.pricers.insert(key, Arc::new(pricer));
     }
 
     /// Register a pricer, returning an error if a pricer is already registered
     /// for the same `(instrument, model)` key.
     ///
-    /// Use this in production registry construction where duplicates are bugs.
-    /// The complementary [`PricerRegistry::register`] silently overwrites and
-    /// emits a warning — useful for test setup and monkey-patching.
+    /// Use this where a duplicate registration must be rejected as a hard
+    /// error. The complementary [`PricerRegistry::register`] overwrites and
+    /// records the collision instead — useful for test setup and
+    /// monkey-patching.
     ///
     /// # Errors
     ///
@@ -142,12 +153,33 @@ impl PricerRegistry {
         model: ModelKey,
         pricer: impl Pricer + 'static,
     ) -> std::result::Result<(), PricerKey> {
+        self.try_register_arc(inst, model, Arc::new(pricer))
+    }
+
+    /// Insert an already-boxed pricer, rejecting (without overwriting) a
+    /// duplicate `(instrument, model)` key.
+    ///
+    /// Shared insertion core for [`Self::register`] and [`Self::try_register`].
+    fn try_register_arc(
+        &mut self,
+        inst: InstrumentType,
+        model: ModelKey,
+        pricer: Arc<dyn Pricer>,
+    ) -> std::result::Result<(), PricerKey> {
         let key = PricerKey::new(inst, model);
         if self.pricers.contains_key(&key) {
             return Err(key);
         }
-        self.pricers.insert(key, Arc::new(pricer));
+        self.pricers.insert(key, pricer);
         Ok(())
+    }
+
+    /// Keys registered more than once via [`Self::register`].
+    ///
+    /// Empty for any correctly-built registry. The standard-registry build
+    /// checks this to detect shard registration bugs.
+    pub(super) fn duplicate_keys(&self) -> &[PricerKey] {
+        &self.duplicate_keys
     }
 
     /// Look up a pricer for a specific (instrument type, model) combination.

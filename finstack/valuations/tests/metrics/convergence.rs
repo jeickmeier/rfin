@@ -624,20 +624,33 @@ fn test_bucketed_vega_sums_to_total() {
 
     let total_vega = *results.get(&MetricId::Vega).unwrap();
 
-    // Get bucketed Vega from matrix
-    let bucketed_matrix = context.computed_matrix.get(&MetricId::BucketedVega);
+    // BucketedVega must be wired end-to-end: the KeyRateVega calculator is
+    // registered for EquityOption and must populate the 2D matrix store.
+    let matrix = context
+        .computed_matrix
+        .get(&MetricId::BucketedVega)
+        .expect("BucketedVega must be registered for EquityOption and store a 2D matrix");
 
-    if let Some(matrix) = bucketed_matrix {
-        let sum_bucketed: f64 = matrix.values.iter().flatten().sum();
+    // The matrix grid must be non-empty (expiry rows x strike cols).
+    assert!(
+        !matrix.values.is_empty() && matrix.values.iter().all(|row| !row.is_empty()),
+        "BucketedVega matrix must have a populated expiry/strike grid"
+    );
+    assert_eq!(
+        matrix.values.len(),
+        matrix.rows.len(),
+        "BucketedVega matrix row count must match row labels"
+    );
 
-        // Sum should approximately equal total (within 2% for vol surface interpolation)
-        let diff_pct = (sum_bucketed - total_vega).abs() / total_vega.abs().max(1e-10);
-        assert!(
-            diff_pct < 0.02,
-            "Bucketed Vega sum ({}) should be close to total Vega ({}), diff: {:.2}%",
-            sum_bucketed,
-            total_vega,
-            diff_pct * 100.0
-        );
-    }
+    let sum_bucketed: f64 = matrix.values.iter().flatten().sum();
+
+    // Sum should approximately equal total (within 2% for vol surface interpolation)
+    let diff_pct = (sum_bucketed - total_vega).abs() / total_vega.abs().max(1e-10);
+    assert!(
+        diff_pct < 0.02,
+        "Bucketed Vega sum ({}) should be close to total Vega ({}), diff: {:.2}%",
+        sum_bucketed,
+        total_vega,
+        diff_pct * 100.0
+    );
 }

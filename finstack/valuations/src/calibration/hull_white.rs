@@ -147,6 +147,57 @@ impl HullWhiteParams {
     }
 }
 
+/// `MarketContext` scalar-store keys for swaption-calibrated HW1F parameters.
+///
+/// Returns the `(kappa_key, sigma_key)` pair under which the swaption
+/// Hull-White calibration step writes its solved κ/σ into the
+/// [`MarketContext`](finstack_core::market_data::context::MarketContext)
+/// scalar store. The calibration writer and any downstream reader (e.g. the
+/// HW1F pricer parameter resolver) must obtain these keys here so the
+/// convention has a single source of truth and cannot drift.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::calibration::hull_white::hw1f_scalar_keys;
+///
+/// let (kappa, sigma) = hw1f_scalar_keys("USD-OIS");
+/// assert_eq!(kappa, "USD-OIS_HW1F_KAPPA");
+/// assert_eq!(sigma, "USD-OIS_HW1F_SIGMA");
+/// ```
+#[must_use]
+pub fn hw1f_scalar_keys(curve_id: &str) -> (String, String) {
+    (
+        format!("{curve_id}_HW1F_KAPPA"),
+        format!("{curve_id}_HW1F_SIGMA"),
+    )
+}
+
+/// `MarketContext` scalar-store keys for cap/floor-calibrated HW1F parameters.
+///
+/// Returns the `(kappa_key, sigma_key)` pair under which the cap/floor
+/// Hull-White calibration step writes its solved κ/σ into the
+/// [`MarketContext`](finstack_core::market_data::context::MarketContext)
+/// scalar store. As with [`hw1f_scalar_keys`], this is the single source of
+/// truth shared by the calibration writer and downstream readers.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::calibration::hull_white::capfloor_hw1f_scalar_keys;
+///
+/// let (kappa, sigma) = capfloor_hw1f_scalar_keys("USD-OIS");
+/// assert_eq!(kappa, "USD-OIS_CAPFLOOR_HW1F_KAPPA");
+/// assert_eq!(sigma, "USD-OIS_CAPFLOOR_HW1F_SIGMA");
+/// ```
+#[must_use]
+pub fn capfloor_hw1f_scalar_keys(curve_id: &str) -> (String, String) {
+    (
+        format!("{curve_id}_CAPFLOOR_HW1F_KAPPA"),
+        format!("{curve_id}_CAPFLOOR_HW1F_SIGMA"),
+    )
+}
+
 /// Market quote for a European swaption used in HW1F calibration.
 ///
 /// Represents an ATM (or off-ATM) European swaption with its market volatility.

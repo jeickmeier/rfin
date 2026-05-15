@@ -10,9 +10,9 @@ pub mod forward_swap_rate;
 pub mod mc_config;
 pub use mc_config::RateExoticMcConfig;
 
-/// HW1F parameter resolution with overrides/surface/default precedence.
+/// HW1F parameter resolution with overrides/market-scalar/default precedence.
 pub mod hw1f_calibration;
-pub use hw1f_calibration::{resolve_hw1f_params, Hw1fResolveRequest};
+pub use hw1f_calibration::{resolve_hw1f_params, Hw1fCalibrationFlavor, Hw1fResolveRequest};
 
 /// Exercise-boundary protocol and basis helpers for LSMC-priced rate exotics.
 pub mod exercise;

@@ -26,7 +26,6 @@
 //!   Chapter 3: One-factor Short-Rate Models, Section 3.3.2.
 
 use crate::calibration::hull_white::hw1f_caplet_forward_rate_normal_vol;
-use crate::calibration::hull_white::HullWhiteParams;
 use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::common_impl::pricing::time::{
     rate_period_on_dates, relative_df_discount_curve,
@@ -34,6 +33,9 @@ use crate::instruments::common_impl::pricing::time::{
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::cap_floor::pricing::payoff::CapletFloorletInputs;
 use crate::instruments::rates::cap_floor::types::{CapFloor, RateOptionType};
+use crate::instruments::rates::exotics_shared::{
+    resolve_hw1f_params, Hw1fCalibrationFlavor, Hw1fResolveRequest,
+};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };
@@ -56,10 +58,7 @@ pub(crate) const MAX_TREE_STEPS: usize = 300;
 /// Prices each caplet/floorlet by building a single Hull-White tree
 /// spanning the full cap maturity and evaluating each caplet's payoff
 /// via backward induction.
-#[derive(Default)]
-pub(crate) struct CapFloorHullWhitePricer {
-    hw_params: HullWhiteParams,
-}
+pub(crate) struct CapFloorHullWhitePricer;
 
 impl Pricer for CapFloorHullWhitePricer {
     fn key(&self) -> PricerKey {
@@ -155,33 +154,21 @@ impl CapFloorHullWhitePricer {
         );
 
         let model_config = &cap_floor.pricing_overrides.model_config;
-        let hw_params = HullWhiteParams::new(
-            model_config.mean_reversion.unwrap_or(self.hw_params.kappa),
-            cap_floor
-                .pricing_overrides
-                .market_quotes
-                .implied_volatility
-                .unwrap_or(self.hw_params.sigma),
-        )
-        .map_err(|e| {
+
+        // Resolve HW1F parameters following the documented precedence:
+        // explicit `pricing_overrides` κ/σ → calibrated MarketContext scalars
+        // → warned `HullWhiteParams::default()`.
+        let context_label = format!("CapFloor {}", cap_floor.id);
+        let overrides = hw1f_overrides_json(cap_floor);
+        let req = Hw1fResolveRequest {
+            curve_id: cap_floor.discount_curve_id.as_str(),
+            flavor: Hw1fCalibrationFlavor::CapFloor,
+            overrides: overrides.as_ref(),
+            context: context_label.as_str(),
+        };
+        let hw_params = resolve_hw1f_params(&req, market).map_err(|e| {
             PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
-
-        // Warn loudly when pricing with uncalibrated default HW parameters.
-        // Real HW calibration from market data is not implemented for this
-        // pricer; absent overrides on `pricing_overrides`, both κ and σ fall
-        // back to `HullWhiteParams::default()` and the resulting PV is not
-        // market-consistent. Emit one diagnostic per price (not per caplet).
-        if hw_params.is_uncalibrated_default() {
-            tracing::warn!(
-                instrument_id = %cap_floor.id,
-                kappa = hw_params.kappa,
-                sigma = hw_params.sigma,
-                "Pricing cap/floor with uncalibrated HullWhiteParams::default(); \
-                 PV is not market-consistent. Supply calibrated κ/σ via \
-                 `pricing_overrides` for production use"
-            );
-        }
 
         let tree_steps = model_config.tree_steps.unwrap_or_else(|| {
             (periods.len() * DEFAULT_STEPS_PER_PERIOD).clamp(MIN_TREE_STEPS, MAX_TREE_STEPS)
@@ -275,6 +262,21 @@ impl CapFloorHullWhitePricer {
     }
 }
 
+/// Build the HW1F override JSON blob from a cap/floor's typed pricing overrides.
+///
+/// Maps `model_config.mean_reversion` → `hw1f_kappa` and
+/// `market_quotes.implied_volatility` → `hw1f_sigma`. Returns `Some` only when
+/// **both** are present, so that a partial override falls through to the
+/// calibrated-market-scalar / default branches in [`resolve_hw1f_params`].
+fn hw1f_overrides_json(cap_floor: &CapFloor) -> Option<serde_json::Value> {
+    let kappa = cap_floor.pricing_overrides.model_config.mean_reversion?;
+    let sigma = cap_floor
+        .pricing_overrides
+        .market_quotes
+        .implied_volatility?;
+    Some(serde_json::json!({ "hw1f_kappa": kappa, "hw1f_sigma": sigma }))
+}
+
 #[cfg(test)]
 mod tests {
     #[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
@@ -310,7 +312,7 @@ mod tests {
                 10.0,
             ));
 
-        let pricer = CapFloorHullWhitePricer::default();
+        let pricer = CapFloorHullWhitePricer;
         let result = pricer
             .price_internal(&cap, &market, as_of)
             .expect("HW cap pricing should succeed");
@@ -318,5 +320,91 @@ mod tests {
         let pv = result.value.amount();
         assert!(pv.is_finite(), "HW cap PV must be finite, got {pv}");
         assert!(pv >= 0.0, "cap PV must be non-negative, got {pv}");
+    }
+
+    /// Builds a cap with flat discount/forward curves.
+    fn example_cap_market() -> (finstack_core::dates::Date, CapFloor, MarketContext) {
+        let as_of = date(2023, 12, 1);
+        let cap = CapFloor::example().expect("CapFloor example should build");
+        let market = MarketContext::new()
+            .insert(flat_discount_with_tenor(
+                cap.discount_curve_id.as_str(),
+                as_of,
+                0.03,
+                10.0,
+            ))
+            .insert(flat_forward_with_tenor(
+                cap.forward_curve_id.as_str(),
+                as_of,
+                0.03,
+                10.0,
+            ));
+        (as_of, cap, market)
+    }
+
+    /// When the `MarketContext` carries calibrated `{curve}_CAPFLOOR_HW1F_*`
+    /// scalars, the pricer must consume them: the PV differs from the
+    /// default-params PV.
+    #[test]
+    fn hw_cap_floor_uses_calibrated_market_scalars() {
+        use crate::calibration::hull_white::capfloor_hw1f_scalar_keys;
+        use finstack_core::market_data::scalars::MarketScalar;
+
+        let (as_of, cap, default_market) = example_cap_market();
+        let default_pv = CapFloorHullWhitePricer
+            .price_internal(&cap, &default_market, as_of)
+            .expect("default-params pricing should succeed")
+            .value
+            .amount();
+
+        let (kappa_key, sigma_key) = capfloor_hw1f_scalar_keys(cap.discount_curve_id.as_str());
+        let calibrated_market = default_market
+            .insert_price(&kappa_key, MarketScalar::Unitless(0.10))
+            .insert_price(&sigma_key, MarketScalar::Unitless(0.030));
+
+        let calibrated_pv = CapFloorHullWhitePricer
+            .price_internal(&cap, &calibrated_market, as_of)
+            .expect("calibrated pricing should succeed")
+            .value
+            .amount();
+
+        assert!(calibrated_pv.is_finite());
+        assert!(
+            (calibrated_pv - default_pv).abs() > 1e-9,
+            "calibrated PV ({calibrated_pv}) must differ from default PV ({default_pv})"
+        );
+    }
+
+    /// Explicit `pricing_overrides` κ/σ win over calibrated market scalars.
+    #[test]
+    fn hw_cap_floor_overrides_win_over_market_scalars() {
+        use crate::calibration::hull_white::capfloor_hw1f_scalar_keys;
+        use finstack_core::market_data::scalars::MarketScalar;
+
+        let (as_of, mut cap, market) = example_cap_market();
+        let (kappa_key, sigma_key) = capfloor_hw1f_scalar_keys(cap.discount_curve_id.as_str());
+        let market = market
+            .insert_price(&kappa_key, MarketScalar::Unitless(0.10))
+            .insert_price(&sigma_key, MarketScalar::Unitless(0.030));
+
+        let market_pv = CapFloorHullWhitePricer
+            .price_internal(&cap, &market, as_of)
+            .expect("market-scalar pricing should succeed")
+            .value
+            .amount();
+
+        // Overrides matching the default params; PV should match default.
+        cap.pricing_overrides.model_config.mean_reversion = Some(0.03);
+        cap.pricing_overrides.market_quotes.implied_volatility = Some(0.01);
+        let override_pv = CapFloorHullWhitePricer
+            .price_internal(&cap, &market, as_of)
+            .expect("override pricing should succeed")
+            .value
+            .amount();
+
+        assert!(
+            (override_pv - market_pv).abs() > 1e-9,
+            "override PV ({override_pv}) must differ from market-scalar PV ({market_pv})"
+        );
     }
 }

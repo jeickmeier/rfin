@@ -94,9 +94,23 @@ pub use rates::register_rates_pricers;
 ///
 /// All 40+ instrument pricers are registered in the `register_all_pricers` function.
 /// Note: All pricers now use standardized parameter ordering: (instrument, market, as_of).
+///
+/// A duplicate `(instrument, model)` registration in the standard registry is a
+/// bug: the second `register` call silently overwrites the first. Because this
+/// runs inside a `OnceLock` initializer it cannot return a `Result`, so any
+/// collision is surfaced as a hard `tracing::error!`. The
+/// `register_all_pricers_has_no_duplicate_keys` test fails CI on the same
+/// condition.
 fn build_standard_registry() -> PricerRegistry {
     let mut registry = PricerRegistry::new();
     register_all_pricers(&mut registry);
+    for key in registry.duplicate_keys() {
+        tracing::error!(
+            ?key,
+            "standard pricer registry built with a duplicate (instrument, model) \
+             registration; a shard overwrote a previously registered pricer"
+        );
+    }
     registry
 }
 
@@ -149,6 +163,45 @@ mod tests {
                 Money::new(0.0, Currency::USD),
             ))
         }
+    }
+
+    /// CI guard: the standard registry must not contain any duplicate
+    /// `(instrument, model)` registration.
+    ///
+    /// A duplicate means one shard's `register` call silently overwrote
+    /// another pricer. `build_standard_registry` records every such collision
+    /// in `duplicate_keys`; this test asserts that set is empty so the bug is
+    /// caught before it ships.
+    #[test]
+    fn register_all_pricers_has_no_duplicate_keys() {
+        let registry = build_standard_registry();
+        let duplicates = registry.duplicate_keys();
+        assert!(
+            duplicates.is_empty(),
+            "standard pricer registry has duplicate (instrument, model) registrations: \
+             {duplicates:?} — a shard's `register` call overwrote an existing pricer",
+        );
+    }
+
+    /// `try_register` rejects a colliding key instead of overwriting, and
+    /// leaves the originally registered pricer in place.
+    #[test]
+    fn try_register_rejects_duplicate_key() {
+        let mut registry = PricerRegistry::new();
+        let key = PricerKey::new(InstrumentType::Deposit, ModelKey::Tree);
+
+        assert!(registry
+            .try_register(InstrumentType::Deposit, ModelKey::Tree, DummyPricer)
+            .is_ok());
+        assert_eq!(
+            registry.try_register(InstrumentType::Deposit, ModelKey::Tree, DummyPricer),
+            Err(key),
+            "second try_register for the same key must return the conflicting key",
+        );
+        assert!(
+            registry.get_pricer(key).is_some(),
+            "rejected try_register must leave the first pricer registered",
+        );
     }
 
     #[test]

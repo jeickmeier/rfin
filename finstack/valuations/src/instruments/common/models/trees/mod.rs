@@ -15,7 +15,6 @@ pub mod binomial_tree;
 pub mod hull_white_tree;
 pub mod short_rate_tree;
 pub mod tree_framework;
-pub mod trinomial_tree;
 pub mod two_factor_rates_credit;
 
 pub use binomial_tree::{BinomialTree, TreeType};
@@ -29,4 +28,3 @@ pub use tree_framework::{
     BarrierStyle, EvolutionParams, GreeksBumpConfig, NodeState, StateVariables, TreeBranching,
     TreeGreeks, TreeModel, TreeParameters, TreeValuator,
 };
-pub use trinomial_tree::{TrinomialTree, TrinomialTreeType};

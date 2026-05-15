@@ -148,6 +148,6 @@ pub fn register_rates_pricers(registry: &mut PricerRegistry) {
     registry.register(
         InstrumentType::CapFloor,
         ModelKey::HullWhite1F,
-        crate::instruments::rates::cap_floor::hw_pricer::CapFloorHullWhitePricer::default(),
+        crate::instruments::rates::cap_floor::hw_pricer::CapFloorHullWhitePricer,
     );
 }
