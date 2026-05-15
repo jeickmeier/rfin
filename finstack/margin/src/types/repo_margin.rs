@@ -200,17 +200,7 @@ impl RepoMarginSpec {
         margin_ratio: Percentage,
         threshold: Percentage,
     ) -> finstack_core::Result<Self> {
-        Ok(Self {
-            margin_type: RepoMarginType::MarkToMarket,
-            margin_ratio: margin_ratio.as_decimal(),
-            margin_call_threshold: threshold.as_decimal(),
-            call_frequency: MarginTenor::Daily,
-            settlement_lag: 1,
-            pays_margin_interest: true,
-            margin_interest_rate: None,
-            substitution_allowed: true,
-            eligible_substitutes: Some(EligibleCollateralSchedule::us_treasuries()?),
-        })
+        Self::mark_to_market(margin_ratio.as_decimal(), threshold.as_decimal())
     }
 
     /// Create a tri-party repo margin spec.
@@ -238,17 +228,7 @@ impl RepoMarginSpec {
     ///
     /// Returns an error if the embedded margin registry cannot be loaded.
     pub fn triparty_pct(margin_ratio: Percentage) -> finstack_core::Result<Self> {
-        Ok(Self {
-            margin_type: RepoMarginType::Triparty,
-            margin_ratio: margin_ratio.as_decimal(),
-            margin_call_threshold: 0.005,
-            call_frequency: MarginTenor::Daily,
-            settlement_lag: 0,
-            pays_margin_interest: true,
-            margin_interest_rate: None,
-            substitution_allowed: true,
-            eligible_substitutes: Some(EligibleCollateralSchedule::bcbs_standard()?),
-        })
+        Self::triparty(margin_ratio.as_decimal())
     }
 
     /// Check if this spec has active margin management.

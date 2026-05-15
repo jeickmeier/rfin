@@ -128,10 +128,7 @@ impl PyFrtbSensitivities {
     /// Add a GIRR delta sensitivity (currency per 1bp).
     #[pyo3(signature = (tenor, amount, currency = None))]
     fn add_girr_delta(&mut self, tenor: &str, amount: f64, currency: Option<&str>) -> PyResult<()> {
-        let ccy = match currency {
-            Some(c) => parse_currency(c)?,
-            None => self.inner.base_currency,
-        };
+        let ccy = self.currency_or_base(currency)?;
         self.inner.add_girr_delta(ccy, tenor, amount);
         Ok(())
     }
@@ -173,10 +170,7 @@ impl PyFrtbSensitivities {
         amount: f64,
         currency: Option<&str>,
     ) -> PyResult<()> {
-        let ccy = match currency {
-            Some(c) => parse_currency(c)?,
-            None => self.inner.base_currency,
-        };
+        let ccy = self.currency_or_base(currency)?;
         self.inner
             .add_girr_vega(ccy, option_maturity, underlying_tenor, amount);
         Ok(())
@@ -206,10 +200,7 @@ impl PyFrtbSensitivities {
         cvr_down: f64,
         currency: Option<&str>,
     ) -> PyResult<()> {
-        let ccy = match currency {
-            Some(c) => parse_currency(c)?,
-            None => self.inner.base_currency,
-        };
+        let ccy = self.currency_or_base(currency)?;
         self.inner.add_girr_curvature(ccy, cvr_up, cvr_down);
         Ok(())
     }
@@ -264,6 +255,15 @@ impl PyFrtbSensitivities {
             self.inner.equity_delta.len(),
             self.inner.fx_delta.len(),
         )
+    }
+}
+
+impl PyFrtbSensitivities {
+    fn currency_or_base(&self, currency: Option<&str>) -> PyResult<Currency> {
+        match currency {
+            Some(c) => parse_currency(c),
+            None => Ok(self.inner.base_currency),
+        }
     }
 }
 

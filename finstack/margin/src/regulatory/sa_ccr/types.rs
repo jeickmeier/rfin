@@ -177,6 +177,15 @@ pub struct EadResult {
     pub maturity_factor: f64,
 }
 
+fn validate_finite_trade_value(id: &str, field: &str, value: f64) -> finstack_core::Result<()> {
+    if value.is_finite() {
+        return Ok(());
+    }
+    Err(finstack_core::Error::Validation(format!(
+        "SA-CCR trade {id}: {field} must be finite (got {value})"
+    )))
+}
+
 impl SaCcrTrade {
     /// Validate supervisory-delta / direction / option-type coherence.
     ///
@@ -211,30 +220,10 @@ impl SaCcrTrade {
     pub fn validate(&self) -> finstack_core::Result<()> {
         let id = self.trade_id.as_str();
 
-        if !self.notional.is_finite() {
-            return Err(finstack_core::Error::Validation(format!(
-                "SA-CCR trade {id}: notional must be finite (got {v})",
-                v = self.notional
-            )));
-        }
-        if !self.direction.is_finite() {
-            return Err(finstack_core::Error::Validation(format!(
-                "SA-CCR trade {id}: direction must be finite (got {v})",
-                v = self.direction
-            )));
-        }
-        if !self.supervisory_delta.is_finite() {
-            return Err(finstack_core::Error::Validation(format!(
-                "SA-CCR trade {id}: supervisory_delta must be finite (got {v})",
-                v = self.supervisory_delta
-            )));
-        }
-        if !self.mtm.is_finite() {
-            return Err(finstack_core::Error::Validation(format!(
-                "SA-CCR trade {id}: mtm must be finite (got {v})",
-                v = self.mtm
-            )));
-        }
+        validate_finite_trade_value(id, "notional", self.notional)?;
+        validate_finite_trade_value(id, "direction", self.direction)?;
+        validate_finite_trade_value(id, "supervisory_delta", self.supervisory_delta)?;
+        validate_finite_trade_value(id, "mtm", self.mtm)?;
 
         if self.direction == 0.0 {
             return Err(finstack_core::Error::Validation(format!(

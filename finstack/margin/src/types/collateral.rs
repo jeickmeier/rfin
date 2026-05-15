@@ -44,6 +44,21 @@ impl CollateralAssetClass {
         embedded_registry_or_panic().collateral_asset_class_defaults[self].clone()
     }
 
+    fn default_entry(&self, field_name: &str) -> finstack_core::Result<AssetClassDefault> {
+        let registry =
+            embedded_registry().map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
+        registry
+            .collateral_asset_class_defaults
+            .get(self)
+            .cloned()
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "No {field_name} configured for collateral asset class '{}'",
+                    self
+                ))
+            })
+    }
+
     fn normalize(raw: &str) -> String {
         raw.trim().to_ascii_lowercase().replace([' ', '-'], "_")
     }
@@ -136,18 +151,7 @@ impl CollateralAssetClass {
     ///
     /// Haircut as a decimal (e.g., 0.02 = 2%)
     pub fn standard_haircut(&self) -> finstack_core::Result<f64> {
-        let registry =
-            embedded_registry().map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
-        registry
-            .collateral_asset_class_defaults
-            .get(self)
-            .map(|d| d.standard_haircut)
-            .ok_or_else(|| {
-                finstack_core::Error::Validation(format!(
-                    "No standard haircut configured for collateral asset class '{}'",
-                    self
-                ))
-            })
+        Ok(self.default_entry("standard haircut")?.standard_haircut)
     }
 
     /// Get the FX haircut add-on for currency mismatch.
@@ -155,18 +159,7 @@ impl CollateralAssetClass {
     /// Per BCBS-IOSCO, an 8% add-on applies when collateral currency
     /// differs from the settlement currency of the derivative.
     pub fn fx_addon(&self) -> finstack_core::Result<f64> {
-        let registry =
-            embedded_registry().map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
-        registry
-            .collateral_asset_class_defaults
-            .get(self)
-            .map(|d| d.fx_addon)
-            .ok_or_else(|| {
-                finstack_core::Error::Validation(format!(
-                    "No FX addon configured for collateral asset class '{}'",
-                    self
-                ))
-            })
+        Ok(self.default_entry("FX addon")?.fx_addon)
     }
 }
 
@@ -355,22 +348,26 @@ impl Default for EligibleCollateralSchedule {
 }
 
 impl EligibleCollateralSchedule {
+    fn from_embedded_registry(schedule_id: &str) -> finstack_core::Result<Self> {
+        let registry = embedded_registry()?;
+        registry
+            .collateral_schedules
+            .get(schedule_id)
+            .cloned()
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "collateral schedule '{schedule_id}' not found in registry"
+                ))
+            })
+    }
+
     /// Create a schedule accepting only cash.
     ///
     /// # Errors
     ///
     /// Returns an error if the embedded margin registry cannot be loaded.
     pub fn cash_only() -> finstack_core::Result<Self> {
-        let registry = embedded_registry()?;
-        registry
-            .collateral_schedules
-            .get("cash_only")
-            .cloned()
-            .ok_or_else(|| {
-                finstack_core::Error::Validation(
-                    "collateral schedule 'cash_only' not found in registry".to_string(),
-                )
-            })
+        Self::from_embedded_registry("cash_only")
     }
 
     /// Create a standard BCBS-IOSCO compliant schedule.
@@ -381,16 +378,7 @@ impl EligibleCollateralSchedule {
     ///
     /// Returns an error if the embedded margin registry cannot be loaded.
     pub fn bcbs_standard() -> finstack_core::Result<Self> {
-        let registry = embedded_registry()?;
-        registry
-            .collateral_schedules
-            .get("bcbs_standard")
-            .cloned()
-            .ok_or_else(|| {
-                finstack_core::Error::Validation(
-                    "collateral schedule 'bcbs_standard' not found in registry".to_string(),
-                )
-            })
+        Self::from_embedded_registry("bcbs_standard")
     }
 
     /// Create a standard repo collateral schedule (US Treasuries).
@@ -399,16 +387,7 @@ impl EligibleCollateralSchedule {
     ///
     /// Returns an error if the embedded margin registry cannot be loaded.
     pub fn us_treasuries() -> finstack_core::Result<Self> {
-        let registry = embedded_registry()?;
-        registry
-            .collateral_schedules
-            .get("us_treasuries")
-            .cloned()
-            .ok_or_else(|| {
-                finstack_core::Error::Validation(
-                    "collateral schedule 'us_treasuries' not found in registry".to_string(),
-                )
-            })
+        Self::from_embedded_registry("us_treasuries")
     }
 
     /// Load a named schedule from a provided config (with overrides).

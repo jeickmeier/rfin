@@ -6,20 +6,24 @@
 use crate::utils::to_js_err;
 use wasm_bindgen::prelude::*;
 
+fn serialize_csa(csa: &finstack_margin::CsaSpec) -> Result<String, JsValue> {
+    serde_json::to_string(csa).map_err(to_js_err)
+}
+
 /// Create a standard USD regulatory CSA specification as JSON.
 ///
 /// Returns the canonical ISDA-compliant CSA for USD OTC derivatives.
 #[wasm_bindgen(js_name = csaUsdRegulatory)]
 pub fn csa_usd_regulatory() -> Result<String, JsValue> {
     let csa = finstack_margin::CsaSpec::usd_regulatory().map_err(to_js_err)?;
-    serde_json::to_string(&csa).map_err(to_js_err)
+    serialize_csa(&csa)
 }
 
 /// Create a standard EUR regulatory CSA specification as JSON.
 #[wasm_bindgen(js_name = csaEurRegulatory)]
 pub fn csa_eur_regulatory() -> Result<String, JsValue> {
     let csa = finstack_margin::CsaSpec::eur_regulatory().map_err(to_js_err)?;
-    serde_json::to_string(&csa).map_err(to_js_err)
+    serialize_csa(&csa)
 }
 
 /// Validate a CSA specification JSON string.
@@ -29,7 +33,7 @@ pub fn csa_eur_regulatory() -> Result<String, JsValue> {
 #[wasm_bindgen(js_name = validateCsaJson)]
 pub fn validate_csa_json(json: &str) -> Result<String, JsValue> {
     let csa: finstack_margin::CsaSpec = serde_json::from_str(json).map_err(to_js_err)?;
-    serde_json::to_string(&csa).map_err(to_js_err)
+    serialize_csa(&csa)
 }
 
 /// Calculate variation margin given exposure, posted collateral, and CSA JSON.
