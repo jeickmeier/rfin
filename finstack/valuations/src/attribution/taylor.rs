@@ -3,16 +3,25 @@
 //! Decomposes P&L into risk-factor contributions using first-order sensitivities
 //! computed via bump-and-reprice:
 //!
-//!   ΔP&L ≈ Σ DV01ᵢ × Δrateᵢ + Σ Fwd01ₖ × Δfwdₖ + Σ CS01ⱼ × Δspreadⱼ + vega × Δvol + FX01 × ΔFX + theta
+//!   ΔP&L ≈ Σ DV01ᵢ × Δrateᵢ + Σ Fwd01ₖ × Δfwdₖ + Σ CS01ⱼ × Δspreadⱼ + vega × Δvol + theta
 //!
 //! Optionally includes second-order (gamma/convexity) terms:
 //!
 //!   + ½ Σ Gammaᵢ × Δrateᵢ² + ½ CsGamma × Δspread² + ½ Volga × Δvol²
 //!
+//! The FX-exposure factor is the exception: rather than a sensitivity × move
+//! product it is isolated by repricing with the T₀ FX matrix restored (the same
+//! restore-and-reprice technique the parallel methodology uses), so cross-
+//! currency FX P&L is attributed instead of falling into the residual.
+//!
+//! Taylor does not compute market-scalar (spot/dividend/index) sensitivities;
+//! any P&L from those factors remains in the residual.
+//!
 //! This is complementary to the waterfall (full-reval) approach: it produces a
 //! factor-level explained/unexplained decomposition without sequential market
 //! state construction.
 
+use super::factors::{CurveRestoreFlags, MarketSnapshot};
 use super::helpers::*;
 use super::types::*;
 use crate::instruments::common_impl::traits::Instrument;
@@ -271,6 +280,26 @@ pub fn attribute_pnl_taylor(
         );
     }
 
+    // FX-exposure factor: pricing impact of FX-rate changes on cross-currency
+    // instruments. Only attempted when the T0 market actually carries an FX
+    // matrix; otherwise there is nothing to restore and the factor is omitted
+    // (single-currency instruments stay at zero FX P&L).
+    if market_t0.fx().is_some() {
+        match compute_fx_factor(instrument, market_t0, market_t1, as_of_t1, pv_t1) {
+            Ok(result) => {
+                total_explained += result.explained_pnl;
+                num_repricings += 1;
+                factors.push(result);
+            }
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    "Taylor attribution: FX factor computation failed"
+                );
+            }
+        }
+    }
+
     // Theta (time decay): reprice at T1 date with T0 market
     match compute_theta_factor(instrument, market_t0, as_of_t0, as_of_t1, pv_t0) {
         Ok(result) => {
@@ -309,6 +338,23 @@ pub fn attribute_pnl_taylor(
 ///
 /// This maps Taylor results into the standard `PnlAttribution` struct so that
 /// Taylor output can be used interchangeably with parallel/waterfall results.
+///
+/// # Factor coverage
+///
+/// Taylor attribution covers **rates, credit, vol, FX-exposure and theta**.
+/// [`attribute_pnl_taylor`] computes bump-and-reprice sensitivities for discount
+/// curves, forward curves, hazard curves and vol surfaces, an FX-exposure factor
+/// (T₀ FX matrix restored vs T₁ — mirroring the parallel methodology), and
+/// theta. Each factor maps into its dedicated `PnlAttribution` bucket here, so
+/// an FX-rate move on a cross-currency instrument lands in `fx_pnl` rather than
+/// silently inflating `residual`.
+///
+/// Taylor does **not** compute market-scalar (spot / dividend / index)
+/// sensitivities; for instruments whose pricing depends on those, the
+/// corresponding P&L remains in `residual` (use the parallel methodology in
+/// `attribution/parallel.rs` when scalar attribution is required). FX
+/// *translation* into a non-native reporting currency is likewise out of scope
+/// for this standalone path, which reports in the instrument's pricing currency.
 pub fn attribute_pnl_taylor_standard(
     instrument: &Arc<dyn Instrument>,
     market_t0: &MarketContext,
@@ -357,6 +403,14 @@ pub fn attribute_pnl_taylor_standard(
         } else if factor.factor_name.starts_with("Vol:") {
             attribution.vol_pnl =
                 Money::new(attribution.vol_pnl.amount() + factor_money.amount(), ccy);
+        } else if factor.factor_name == "Fx" {
+            attribution.fx_pnl =
+                Money::new(attribution.fx_pnl.amount() + factor_money.amount(), ccy);
+            stamp_fx_policy(
+                &mut attribution,
+                ccy,
+                "Taylor FX-exposure P&L (T0 FX matrix restored vs T1)",
+            );
         } else if factor.factor_name == "Theta" {
             // Taylor theta already includes cashflows from compute_theta_factor.
             // Compute the PV-only portion for carry_detail.theta by subtracting
@@ -386,12 +440,24 @@ pub fn attribute_pnl_taylor_standard(
         10.0,
         5.0,
     );
+    // Report the residual consistent with the `PnlAttribution` total-return
+    // total (coupon income + FX translation included), computed by
+    // `finalize_attribution` above. The standalone `TaylorAttributionResult`
+    // exposes a price-only `unexplained_pct` (PV₁−PV₀ basis); quoting that here
+    // would disagree with `attribution.residual`, so we use the residual stats
+    // that `compute_residual` just populated instead.
     attribution.meta.notes.push(format!(
-        "Taylor attribution: {:.2}% unexplained ({} factors, {} repricings)",
-        taylor.unexplained_pct,
+        "Taylor attribution: {:.2}% residual ({} factors, {} repricings)",
+        attribution.meta.residual_pct,
         taylor.factors.len(),
         taylor.num_repricings,
     ));
+    attribution.meta.notes.push(
+        "Taylor coverage: rates/credit/vol/FX-exposure/theta. Market-scalar \
+         (spot/dividend/index) sensitivities are not computed; their P&L (if \
+         any) remains in residual."
+            .to_string(),
+    );
 
     Ok(attribution)
 }
@@ -636,6 +702,42 @@ fn compute_vol_factor(
     })
 }
 
+/// Compute FX-exposure attribution by restoring the T0 FX matrix.
+///
+/// Unlike the curve/vol factors this is *not* a symmetric bump-and-reprice:
+/// FX exposure is isolated the same way the parallel methodology does it
+/// (see `attribution/parallel.rs`, Step 7) — reprice with the T1 market but the
+/// T0 FX matrix restored, and take the differential against the T1 value. This
+/// captures the pricing impact of FX-rate changes on cross-currency
+/// instruments. For a single-currency instrument whose pricing does not read
+/// the FX matrix this produces exactly zero.
+///
+/// `market_t1` is the full T1 market and `pv_t1` its repriced value.
+fn compute_fx_factor(
+    instrument: &Arc<dyn Instrument>,
+    market_t0: &MarketContext,
+    market_t1: &MarketContext,
+    as_of_t1: Date,
+    pv_t1: Money,
+) -> Result<TaylorFactorResult> {
+    let fx_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::FX);
+    let market_with_t0_fx =
+        MarketSnapshot::restore_market(market_t1, &fx_snapshot, CurveRestoreFlags::FX);
+    let pv_with_t0_fx = reprice_instrument(instrument, &market_with_t0_fx, as_of_t1)?;
+
+    // FX-exposure P&L: value with the actual T1 FX minus value with T0 FX
+    // restored — i.e. the pricing impact attributable to the FX-rate move.
+    let explained = pv_t1.amount() - pv_with_t0_fx.amount();
+
+    Ok(TaylorFactorResult {
+        factor_name: "Fx".to_string(),
+        sensitivity: explained,
+        market_move: 1.0,
+        explained_pnl: explained,
+        gamma_pnl: None,
+    })
+}
+
 /// Compute theta (time decay + realized cashflows) by repricing at T1 date
 /// with T0 market, then adding any coupon payments in the period.
 fn compute_theta_factor(
@@ -835,6 +937,175 @@ mod tests {
                 .any(|f| f.factor_name.starts_with("Forward:")),
             "expected forward curve factor, got {:?}",
             result.factors
+        );
+    }
+
+    /// Cross-currency test instrument whose USD price reads the EUR/USD FX rate
+    /// from the market's FX matrix. Used to verify Taylor buckets FX-exposure
+    /// P&L into `fx_pnl` rather than `residual`.
+    #[derive(Clone)]
+    struct FxLinkedInstrument {
+        id: String,
+        /// EUR notional revalued in USD via the market FX rate.
+        eur_notional: f64,
+    }
+
+    crate::impl_empty_cashflow_provider!(
+        FxLinkedInstrument,
+        crate::cashflow::builder::CashflowRepresentation::NoResidual
+    );
+
+    impl Instrument for FxLinkedInstrument {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> crate::pricer::InstrumentType {
+            crate::pricer::InstrumentType::Bond
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+
+        fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
+            use std::sync::OnceLock;
+            static ATTRS: OnceLock<crate::instruments::common_impl::traits::Attributes> =
+                OnceLock::new();
+            ATTRS.get_or_init(crate::instruments::common_impl::traits::Attributes::default)
+        }
+
+        fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
+            unreachable!("FxLinkedInstrument::attributes_mut should not be called")
+        }
+
+        fn clone_box(&self) -> Box<dyn Instrument> {
+            Box::new(self.clone())
+        }
+
+        fn market_dependencies(
+            &self,
+        ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+        {
+            Ok(crate::instruments::common_impl::dependencies::MarketDependencies::new())
+        }
+
+        fn base_value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
+            // Price in USD as the EUR notional converted at the market FX rate.
+            let usd = market.convert_money(
+                Money::new(self.eur_notional, Currency::EUR),
+                Currency::USD,
+                as_of,
+            )?;
+            Ok(usd)
+        }
+
+        fn price_with_metrics(
+            &self,
+            market: &MarketContext,
+            as_of: Date,
+            _metrics: &[crate::metrics::MetricId],
+            _options: crate::instruments::common_impl::traits::PricingOptions,
+        ) -> Result<crate::results::ValuationResult> {
+            Ok(crate::results::ValuationResult::stamped(
+                self.id(),
+                as_of,
+                self.value(market, as_of)?,
+            ))
+        }
+    }
+
+    #[test]
+    fn taylor_standard_buckets_fx_exposure_into_fx_pnl() {
+        use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
+        use finstack_core::Error;
+
+        // FX provider with a deterministic EUR/USD rate.
+        struct FixedFx(f64);
+        impl FxProvider for FixedFx {
+            fn rate(
+                &self,
+                from: Currency,
+                to: Currency,
+                _on: Date,
+                _policy: FxConversionPolicy,
+            ) -> Result<f64> {
+                if from == to {
+                    Ok(1.0)
+                } else if from == Currency::EUR && to == Currency::USD {
+                    Ok(self.0)
+                } else if from == Currency::USD && to == Currency::EUR {
+                    Ok(1.0 / self.0)
+                } else {
+                    Err(Error::Validation("FX rate not found".to_string()))
+                }
+            }
+        }
+
+        let as_of_t0 = date!(2025 - 01 - 15);
+        let as_of_t1 = date!(2025 - 01 - 16);
+
+        // USD-priced instrument whose value is a 1,000,000 EUR notional revalued
+        // at the market EUR/USD rate. Only the FX rate moves between T0 and T1.
+        let instrument: Arc<dyn Instrument> = Arc::new(FxLinkedInstrument {
+            id: "FX-LINKED-001".to_string(),
+            eur_notional: 1_000_000.0,
+        });
+
+        // T0: EUR/USD = 1.10, T1: EUR/USD = 1.20 (EUR appreciates).
+        let market_t0 = MarketContext::new().insert_fx(FxMatrix::new(Arc::new(FixedFx(1.10))));
+        let market_t1 = MarketContext::new().insert_fx(FxMatrix::new(Arc::new(FixedFx(1.20))));
+
+        let config = TaylorAttributionConfig::default();
+        let attribution = attribute_pnl_taylor_standard(
+            &instrument,
+            &market_t0,
+            &market_t1,
+            as_of_t0,
+            as_of_t1,
+            &config,
+        )
+        .expect("taylor standard attribution should succeed");
+
+        // USD P&L: 1_000_000 EUR * (1.20 - 1.10) = 100_000 USD, driven entirely
+        // by the FX-rate move.
+        assert_eq!(attribution.total_pnl.currency(), Currency::USD);
+        assert!(
+            (attribution.total_pnl.amount() - 100_000.0).abs() < 1e-6,
+            "total_pnl = {}",
+            attribution.total_pnl
+        );
+
+        // REGRESSION: the FX-driven P&L must land in `fx_pnl`, NOT `residual`.
+        assert!(
+            (attribution.fx_pnl.amount() - 100_000.0).abs() < 1e-6,
+            "fx_pnl should capture the FX-exposure P&L, got {}",
+            attribution.fx_pnl
+        );
+        assert!(
+            attribution.residual.amount().abs() < 1e-6,
+            "residual should be ~0 once FX P&L is bucketed, got {}",
+            attribution.residual
+        );
+
+        // The standalone Taylor result should also expose an "Fx" factor.
+        let taylor = attribute_pnl_taylor(
+            &instrument,
+            &market_t0,
+            &market_t1,
+            as_of_t0,
+            as_of_t1,
+            &config,
+        )
+        .expect("taylor attribution should succeed");
+        assert!(
+            taylor.factors.iter().any(|f| f.factor_name == "Fx"),
+            "expected an Fx factor, got {:?}",
+            taylor.factors
         );
     }
 }

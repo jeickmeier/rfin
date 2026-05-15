@@ -148,6 +148,21 @@ impl SwaptionHullWhitePricer {
             ));
         }
 
+        // Warn loudly when pricing with uncalibrated default HW parameters.
+        // Real HW calibration from market data is not implemented for this
+        // pricer, so a PV produced from `HullWhiteParams::default()` is not
+        // market-consistent. Emit one diagnostic per price (not per tree node).
+        if self.hw_params.is_uncalibrated_default() {
+            tracing::warn!(
+                instrument_id = %swaption.id,
+                kappa = self.hw_params.kappa,
+                sigma = self.hw_params.sigma,
+                "Pricing European swaption with uncalibrated HullWhiteParams::default(); \
+                 PV is not market-consistent. Supply calibrated params via \
+                 `HullWhiteParams::new(κ, σ)` for production use"
+            );
+        }
+
         // Build and calibrate HW tree
         let config =
             HullWhiteTreeConfig::new(self.hw_params.kappa, self.hw_params.sigma, self.tree_steps);
@@ -286,5 +301,45 @@ impl SwaptionHullWhitePricer {
             as_of,
             Money::new(pv, swaption.notional.currency()),
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
+    mod test_utils {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/test_utils.rs"
+        ));
+    }
+
+    use super::*;
+    use test_utils::{date, flat_discount_with_tenor};
+
+    /// Pricing a European swaption via the HW pricer (which uses uncalibrated
+    /// `HullWhiteParams::default()`) must still produce a finite PV. This locks
+    /// in that adding the uncalibrated-params diagnostic did not change numerics.
+    #[test]
+    fn hw_swaption_produces_finite_pv() {
+        let as_of = date(2025, 1, 1);
+        let mut swaption = Swaption::example();
+        // example() uses an OIS discount curve; HW tree pricing is single-curve.
+        swaption.forward_curve_id = swaption.discount_curve_id.clone();
+        let market = MarketContext::new().insert(flat_discount_with_tenor(
+            swaption.discount_curve_id.as_str(),
+            as_of,
+            0.03,
+            10.0,
+        ));
+
+        let pricer = SwaptionHullWhitePricer::default();
+        let result = pricer
+            .price_internal(&swaption, &market, as_of)
+            .expect("HW swaption pricing should succeed");
+
+        let pv = result.value.amount();
+        assert!(pv.is_finite(), "HW swaption PV must be finite, got {pv}");
+        assert!(pv >= 0.0, "swaption PV must be non-negative, got {pv}");
     }
 }

@@ -177,18 +177,23 @@ impl Payoff for AutocallablePayoff {
         // Check autocall at observation dates
         if self.autocalled_at.is_none() {
             const EPS: f64 = 1e-6;
-            for (idx, &obs_date) in self.observation_dates.iter().enumerate() {
-                if idx < self.next_obs_idx {
-                    continue;
-                }
+            // Consume every observation date now due. A single MC time step can
+            // jump past multiple observation dates (coarse grid, or final step);
+            // each must be evaluated in order so a barrier breach at any of them
+            // is not silently skipped.
+            while self.next_obs_idx < self.observation_dates.len() {
+                let idx = self.next_obs_idx;
+                let obs_date = self.observation_dates[idx];
                 // Forward-looking check: we're at or past this observation date
-                // (avoids missing dates when MC time steps don't align exactly)
-                if state.time >= obs_date - EPS {
-                    let barrier_level = self.initial_spot * self.autocall_barriers[idx];
-                    if spot >= barrier_level {
-                        self.autocalled_at = Some(idx);
-                    }
-                    self.next_obs_idx = idx + 1;
+                // (avoids missing dates when MC time steps don't align exactly).
+                if state.time < obs_date - EPS {
+                    break;
+                }
+                self.next_obs_idx = idx + 1;
+                let barrier_level = self.initial_spot * self.autocall_barriers[idx];
+                if spot >= barrier_level {
+                    // Autocall at the first date whose barrier is breached.
+                    self.autocalled_at = Some(idx);
                     break;
                 }
             }
@@ -452,6 +457,81 @@ mod tests {
             (value.amount() - expected).abs() < 1e-6,
             "A 60% final barrier should knock in when spot hits 55 on a 100 initial spot; got {}",
             value.amount()
+        );
+    }
+
+    #[test]
+    fn coarse_step_spanning_multiple_observation_dates_evaluates_all() {
+        // A single MC time step jumps past three observation dates. The barrier
+        // is breached only at the third date; the autocallable must still
+        // evaluate dates 0 and 1 (advancing next_obs_idx past them) and then
+        // autocall at index 2 rather than silently skipping the due dates.
+        let observation_dates = vec![0.25, 0.5, 0.75, 1.0];
+        let barriers = vec![2.0, 2.0, 1.05, 2.0];
+        let coupons = vec![0.05, 0.06, 0.07, 0.08];
+
+        let mut payoff = AutocallablePayoff::new(
+            observation_dates,
+            barriers,
+            coupons,
+            0.75,
+            FinalPayoffType::CapitalProtection { floor: 0.9 },
+            1.0,
+            1.2,
+            100_000.0,
+            Currency::USD,
+            100.0,
+            vec![1.0, 1.0, 1.0, 1.0],
+        )
+        .expect("test fixture is well-formed");
+
+        // One coarse step lands at t = 0.75, past observation dates 0, 1 and 2.
+        let mut state = PathState::new(1, 0.75);
+        state.set(state_keys::SPOT, 106.0); // Above 105 barrier (index 2 only)
+        payoff.on_event(&mut state);
+
+        assert_eq!(
+            payoff.autocalled_at,
+            Some(2),
+            "autocall must fire at the first breached due date even when a step spans several"
+        );
+        assert_eq!(
+            payoff.next_obs_idx, 3,
+            "skipped due dates 0 and 1 must be consumed before the breached date"
+        );
+    }
+
+    #[test]
+    fn final_step_consumes_all_remaining_observation_dates() {
+        // The final MC step lands at maturity, past every observation date.
+        // No barrier is breached, so all dates must be consumed without autocall.
+        let observation_dates = vec![0.25, 0.5, 0.75, 1.0];
+        let barriers = vec![2.0, 2.0, 2.0, 2.0];
+        let coupons = vec![0.05, 0.06, 0.07, 0.08];
+
+        let mut payoff = AutocallablePayoff::new(
+            observation_dates,
+            barriers,
+            coupons,
+            0.75,
+            FinalPayoffType::CapitalProtection { floor: 0.9 },
+            1.0,
+            1.2,
+            100_000.0,
+            Currency::USD,
+            100.0,
+            vec![1.0, 1.0, 1.0, 1.0],
+        )
+        .expect("test fixture is well-formed");
+
+        let mut state = PathState::new(1, 1.0);
+        state.set(state_keys::SPOT, 110.0); // Below every 200 barrier
+        payoff.on_event(&mut state);
+
+        assert_eq!(payoff.autocalled_at, None);
+        assert_eq!(
+            payoff.next_obs_idx, 4,
+            "every observation date due at the final step must be consumed"
         );
     }
 

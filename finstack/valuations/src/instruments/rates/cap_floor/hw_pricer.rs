@@ -167,6 +167,22 @@ impl CapFloorHullWhitePricer {
             PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
         })?;
 
+        // Warn loudly when pricing with uncalibrated default HW parameters.
+        // Real HW calibration from market data is not implemented for this
+        // pricer; absent overrides on `pricing_overrides`, both κ and σ fall
+        // back to `HullWhiteParams::default()` and the resulting PV is not
+        // market-consistent. Emit one diagnostic per price (not per caplet).
+        if hw_params.is_uncalibrated_default() {
+            tracing::warn!(
+                instrument_id = %cap_floor.id,
+                kappa = hw_params.kappa,
+                sigma = hw_params.sigma,
+                "Pricing cap/floor with uncalibrated HullWhiteParams::default(); \
+                 PV is not market-consistent. Supply calibrated κ/σ via \
+                 `pricing_overrides` for production use"
+            );
+        }
+
         let tree_steps = model_config.tree_steps.unwrap_or_else(|| {
             (periods.len() * DEFAULT_STEPS_PER_PERIOD).clamp(MIN_TREE_STEPS, MAX_TREE_STEPS)
         });
@@ -256,5 +272,51 @@ impl CapFloorHullWhitePricer {
             as_of,
             Money::new(total_pv, cap_floor.notional.currency()),
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
+    mod test_utils {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/test_utils.rs"
+        ));
+    }
+
+    use super::*;
+    use test_utils::{date, flat_discount_with_tenor, flat_forward_with_tenor};
+
+    /// Pricing a cap via the HW pricer (which falls back to uncalibrated
+    /// `HullWhiteParams::default()` absent overrides) must still produce a
+    /// finite PV. This locks in that adding the uncalibrated-params diagnostic
+    /// did not change numerics.
+    #[test]
+    fn hw_cap_floor_produces_finite_pv() {
+        let as_of = date(2023, 12, 1);
+        let cap = CapFloor::example().expect("CapFloor example should build");
+        let market = MarketContext::new()
+            .insert(flat_discount_with_tenor(
+                cap.discount_curve_id.as_str(),
+                as_of,
+                0.03,
+                10.0,
+            ))
+            .insert(flat_forward_with_tenor(
+                cap.forward_curve_id.as_str(),
+                as_of,
+                0.03,
+                10.0,
+            ));
+
+        let pricer = CapFloorHullWhitePricer::default();
+        let result = pricer
+            .price_internal(&cap, &market, as_of)
+            .expect("HW cap pricing should succeed");
+
+        let pv = result.value.amount();
+        assert!(pv.is_finite(), "HW cap PV must be finite, got {pv}");
+        assert!(pv >= 0.0, "cap PV must be non-negative, got {pv}");
     }
 }

@@ -388,15 +388,25 @@ impl<'a> GlobalSolveTarget for HullWhiteSwaptionTarget<'a> {
                 periods_per_year: self.ppy,
                 accruals: pre.accruals.as_deref(),
             });
-            residuals[idx] = if model_price.is_finite() {
-                // Vega-weighted price residual: algebraically the
-                // first-order approximation to (σ_model − σ_market),
-                // so all quotes enter the objective on an implied-
-                // vol scale. See Gilli–Maringer–Schumann §13.4.
-                (model_price - pre.market_price) / pre.vega
-            } else {
-                1e6
-            };
+            if !model_price.is_finite() {
+                // Signal infeasibility to the LM solver instead of injecting a
+                // magic sentinel as a real residual: a hard-coded literal here
+                // would flow into the Gauss-Newton step as `literal / vega` and
+                // can dominate or poison the objective. Returning `Err` lets the
+                // global solver substitute a properly bounded penalty pattern
+                // (see `solver::global::fill_penalty`).
+                return Err(finstack_core::Error::Validation(format!(
+                    "Hull-White swaption model produced a non-finite price \
+                     ({model_price:?}) for quote {}Yx{}Y (κ={:.6e}, σ={:.6e}); \
+                     residual is infeasible",
+                    q.expiry, q.tenor, curve.kappa, curve.sigma
+                )));
+            }
+            // Vega-weighted price residual: algebraically the
+            // first-order approximation to (σ_model − σ_market),
+            // so all quotes enter the objective on an implied-
+            // vol scale. See Gilli–Maringer–Schumann §13.4.
+            residuals[idx] = (model_price - pre.market_price) / pre.vega;
         }
         Ok(())
     }
@@ -461,11 +471,25 @@ impl<'a> GlobalSolveTarget for HullWhiteCapFloorTarget<'a> {
                 self.forward_df,
                 spec,
             );
-            residuals[idx] = if model_price.is_finite() {
-                (model_price - pre.market_price) / pre.vega
-            } else {
-                1e6
-            };
+            if !model_price.is_finite() {
+                // Signal infeasibility to the LM solver instead of injecting a
+                // magic sentinel as a real residual: a hard-coded literal here
+                // would flow into the Gauss-Newton step as `literal / vega` and
+                // can dominate or poison the objective. Returning `Err` lets the
+                // global solver substitute a properly bounded penalty pattern
+                // (see `solver::global::fill_penalty`).
+                return Err(finstack_core::Error::Validation(format!(
+                    "Hull-White {} model produced a non-finite price \
+                     ({model_price:?}) for quote {}Y strike {:.6} \
+                     (κ={:.6e}, σ={:.6e}); residual is infeasible",
+                    if quote.is_cap { "cap" } else { "floor" },
+                    quote.maturity,
+                    quote.strike,
+                    curve.kappa,
+                    curve.sigma
+                )));
+            }
+            residuals[idx] = (model_price - pre.market_price) / pre.vega;
         }
         Ok(())
     }
@@ -2139,6 +2163,95 @@ mod tests {
             (true_sigma * 0.8..=true_sigma * 1.2).contains(&params.sigma),
             "sigma {} should recover true sigma {true_sigma}",
             params.sigma
+        );
+    }
+
+    /// Regression: a non-finite model price for one quote must cause
+    /// `calculate_residuals` to return `Err` (which the global LM solver
+    /// converts into a bounded penalty via `fill_penalty`) rather than
+    /// injecting a magic `1e6` literal directly into the residual buffer.
+    ///
+    /// Pre-fix, a single bad quote contributed a hard-coded `1e6` as a
+    /// genuine residual; scaled by `1/vega` it dominated the Gauss-Newton
+    /// step. Post-fix the buffer is left untouched and the solver applies
+    /// proper infeasibility handling.
+    #[test]
+    fn hw1f_residuals_signal_err_on_non_finite_price_no_magic_literal() {
+        // A discount factor closure that returns NaN forces the swaption
+        // pricer to produce a non-finite price deterministically.
+        let nan_df = |_t: f64| f64::NAN;
+
+        let quotes = vec![
+            SwaptionQuote {
+                expiry: 1.0,
+                tenor: 5.0,
+                volatility: 0.005,
+                is_normal_vol: true,
+            },
+            SwaptionQuote {
+                expiry: 5.0,
+                tenor: 5.0,
+                volatility: 0.006,
+                is_normal_vol: true,
+            },
+        ];
+
+        let prepared: Vec<PreparedSwaption> = quotes
+            .iter()
+            .map(|_| PreparedSwaption {
+                market_price: 0.01,
+                fwd_swap_rate: 0.03,
+                vega: 0.5,
+                accruals: None,
+            })
+            .collect();
+
+        let target = HullWhiteSwaptionTarget {
+            df: &nan_df,
+            ppy: SwapFrequency::SemiAnnual.periods_per_year(),
+            initial_x0: [(-2.5_f64), (-4.0_f64)],
+            prepared,
+        };
+        let curve = HullWhiteParams {
+            kappa: 0.08,
+            sigma: 0.012,
+        };
+
+        // Sentinel buffer: if the bug regressed, the implementation would
+        // overwrite an entry with a `1e6`-style literal. We pre-fill with a
+        // recognisable marker and assert it is never replaced by a magic
+        // residual on the infeasible path.
+        let mut residuals = vec![-7.0_f64; quotes.len()];
+        let result = target.calculate_residuals(&curve, &quotes, &mut residuals);
+
+        let err = result.expect_err("non-finite price must yield Err, not a 1e6 residual");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("non-finite") && msg.contains("1Yx5Y"),
+            "error must name the offending quote and the failure mode: {msg}"
+        );
+        // No entry was overwritten with a magic penalty literal: the marker
+        // survives, proving `1e6` is no longer treated as a real residual.
+        assert!(
+            residuals.iter().all(|&r| r == -7.0),
+            "residual buffer must not contain an injected magic literal: {residuals:?}"
+        );
+
+        // End-to-end: the full calibration with the same NaN curve must
+        // fail cleanly rather than silently converge to a poisoned minimum.
+        let calib = calibrate_hull_white_to_swaptions(
+            &nan_df,
+            &quotes,
+            SwapFrequency::SemiAnnual,
+            None,
+        );
+        assert!(
+            calib.is_err()
+                || calib
+                    .as_ref()
+                    .is_ok_and(|(_, report)| !report.success),
+            "calibration on a degenerate (NaN-priced) curve must report \
+             non-convergence rather than accept a 1e6-dominated minimum"
         );
     }
 }

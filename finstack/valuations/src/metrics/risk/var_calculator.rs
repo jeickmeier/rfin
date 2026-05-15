@@ -658,10 +658,15 @@ fn calculate_var_taylor_approximation(
     for scenario in history.iter() {
         let pnl_local =
             taylor_pnl_for_scenario(&sensitivities, base_market, scenario, &mut spot_cache)?;
+        // Convert P&L using the scenario-shifted market's FX rates, not the
+        // base market's: when a scenario shocks FX, the reporting-currency
+        // value of the P&L must reflect the shifted rates. This mirrors the
+        // full-revaluation path (`calculate_var_full_revaluation`).
+        let scenario_market = scenario.apply(base_market)?;
         pnls.push(convert_money_to_reporting(
             Money::new(pnl_local, sensitivities.currency),
             reporting_currency,
-            base_market,
+            &scenario_market,
             as_of,
             "Historical VaR",
         )?);
@@ -769,6 +774,12 @@ fn compute_taylor_sensitivities(
     })
 }
 
+/// Tolerance (in basis points) for treating a set of rate-bucket shifts as a
+/// parallel curve move. If every bucket shift lies within this band of the
+/// first observed shift, the move is considered parallel and the second-order
+/// convexity term is applied; otherwise it is omitted (see `taylor_pnl_for_scenario`).
+const PARALLEL_SHIFT_TOLERANCE_BP: f64 = 1e-6;
+
 fn taylor_pnl_for_scenario(
     sensitivities: &TaylorSensitivities,
     base_market: &MarketContext,
@@ -776,8 +787,11 @@ fn taylor_pnl_for_scenario(
     spot_cache: &mut HashMap<String, f64>,
 ) -> Result<f64> {
     let mut pnl = 0.0;
-    let mut total_rate_shift_bp = 0.0;
     let mut rate_shift_count = 0u32;
+    // Track the first rate-bucket shift and whether all subsequent rate
+    // shifts match it (within tolerance), i.e. the move is a parallel shift.
+    let mut first_rate_shift_bp = 0.0;
+    let mut rate_shifts_parallel = true;
 
     for shift in &scenario.shifts {
         match &shift.factor {
@@ -798,7 +812,11 @@ fn taylor_pnl_for_scenario(
                     })?;
                 let shift_bp = shift.shift * 10_000.0;
                 pnl += dv01 * shift_bp;
-                total_rate_shift_bp += shift_bp;
+                if rate_shift_count == 0 {
+                    first_rate_shift_bp = shift_bp;
+                } else if (shift_bp - first_rate_shift_bp).abs() > PARALLEL_SHIFT_TOLERANCE_BP {
+                    rate_shifts_parallel = false;
+                }
                 rate_shift_count += 1;
             }
             crate::metrics::risk::RiskFactorType::CreditSpread {
@@ -853,12 +871,23 @@ fn taylor_pnl_for_scenario(
         }
     }
 
-    // Second-order rate term: 0.5 * convexity * (avg_shift_bp)^2
-    // Uses average shift across rate buckets as an approximation for the
-    // parallel equivalent shift, capturing non-linear P&L for options on rates.
-    if sensitivities.ir_convexity.abs() > 0.0 && rate_shift_count > 0 {
-        let avg_shift_bp = total_rate_shift_bp / rate_shift_count as f64;
-        pnl += 0.5 * sensitivities.ir_convexity * avg_shift_bp * avg_shift_bp;
+    // Second-order rate term: 0.5 * convexity * (shift_bp)^2.
+    //
+    // `ir_convexity` is an aggregate (parallel-shift) quantity: it is only
+    // meaningful when multiplied by a single parallel shift magnitude.
+    // Averaging signed per-bucket shifts is incorrect for non-parallel moves
+    // (e.g. a steepener of +10bp/-10bp averages to ~0, which would zero out
+    // the convexity P&L and badly understate risk for options on rates).
+    //
+    // We therefore only apply the convexity term when the scenario's rate
+    // shifts are a (near-)parallel move, using the common parallel shift.
+    // For non-parallel moves we omit the second-order term entirely rather
+    // than computing a wrong number; the first-order DV01 contribution is
+    // still captured per bucket above. Per-bucket convexity data is not
+    // available here (only an aggregate `ir_convexity`), so summing
+    // 0.5*convexity_bucket*shift_bucket^2 is not an option.
+    if sensitivities.ir_convexity.abs() > 0.0 && rate_shift_count > 0 && rate_shifts_parallel {
+        pnl += 0.5 * sensitivities.ir_convexity * first_rate_shift_bp * first_rate_shift_bp;
     }
 
     Ok(pnl)
@@ -974,13 +1003,17 @@ fn calculate_portfolio_var_taylor(
     let mut pnls = Vec::with_capacity(history.len());
 
     for scenario in history.iter() {
+        // Build the scenario-shifted market once per scenario so P&L is
+        // converted to the reporting currency at the scenario's FX rates,
+        // matching the full-revaluation path.
+        let scenario_market = scenario.apply(base_market)?;
         let mut acc = NeumaierAccumulator::new();
         for sens in &sensitivities {
             let pnl_local = taylor_pnl_for_scenario(sens, base_market, scenario, &mut spot_cache)?;
             let term = convert_money_to_reporting(
                 Money::new(pnl_local, sens.currency),
                 reporting_currency,
-                base_market,
+                &scenario_market,
                 as_of,
                 "Historical VaR",
             )?;
@@ -1548,6 +1581,180 @@ mod tests {
             "Taylor vol rejection should identify the vol surface, got: {msg}"
         );
 
+        Ok(())
+    }
+
+    /// BUG 1 regression: a non-parallel (steepener) rate scenario must still
+    /// produce a non-zero Taylor P&L driven by first-order DV01. The previous
+    /// implementation averaged signed bucket shifts; a +shift/-shift steepener
+    /// averaged to ~0 and (with the asymmetric DV01 weighting per bucket) the
+    /// first-order term is what carries the risk. We assert the steepener P&L
+    /// is non-trivial and reflects net first-order exposure.
+    #[test]
+    fn test_taylor_steepener_reflects_first_order_risk() {
+        let as_of = sample_as_of();
+        // Bond DV01 buckets supplied directly so the test is deterministic and
+        // independent of curve calibration.
+        let mut dv01_buckets = HashMap::default();
+        dv01_buckets.insert("2y".to_string(), -40.0);
+        dv01_buckets.insert("10y".to_string(), -120.0);
+        let mut dv01_by_curve = HashMap::default();
+        dv01_by_curve.insert("USD-OIS".to_string(), dv01_buckets);
+
+        // Non-zero aggregate convexity: must NOT contribute for a steepener.
+        let sensitivities = TaylorSensitivities {
+            currency: Currency::USD,
+            dv01: BucketedSeries {
+                per_curve: dv01_by_curve,
+                fallback: HashMap::default(),
+            },
+            ir_convexity: 5_000.0,
+            ..Default::default()
+        };
+
+        // Steepener: +10bp at 2y, -10bp at 10y. Signed average ~= 0.
+        let steepener = MarketScenario::new(
+            as_of,
+            vec![
+                RiskFactorShift {
+                    factor: RiskFactorType::DiscountRate {
+                        curve_id: CurveId::new("USD-OIS"),
+                        tenor_years: 2.0,
+                    },
+                    shift: 0.0010,
+                },
+                RiskFactorShift {
+                    factor: RiskFactorType::DiscountRate {
+                        curve_id: CurveId::new("USD-OIS"),
+                        tenor_years: 10.0,
+                    },
+                    shift: -0.0010,
+                },
+            ],
+        );
+
+        let pnl = taylor_pnl_for_scenario(
+            &sensitivities,
+            &MarketContext::new(),
+            &steepener,
+            &mut HashMap::default(),
+        )
+        .expect("steepener Taylor P&L should compute");
+
+        // First-order only: (-40 * 10bp) + (-120 * -10bp) = -400 + 1200 = 800.
+        // The convexity term must be omitted (non-parallel), so P&L == 800.
+        assert!(
+            (pnl - 800.0).abs() < 1e-9,
+            "steepener Taylor P&L should be pure first-order DV01 (800), got {pnl}"
+        );
+        assert!(
+            pnl.abs() > 1.0,
+            "steepener Taylor P&L must not silently zero out, got {pnl}"
+        );
+
+        // Sanity: a genuine parallel shift DOES apply the convexity term.
+        let parallel = MarketScenario::new(
+            as_of,
+            vec![
+                RiskFactorShift {
+                    factor: RiskFactorType::DiscountRate {
+                        curve_id: CurveId::new("USD-OIS"),
+                        tenor_years: 2.0,
+                    },
+                    shift: 0.0010,
+                },
+                RiskFactorShift {
+                    factor: RiskFactorType::DiscountRate {
+                        curve_id: CurveId::new("USD-OIS"),
+                        tenor_years: 10.0,
+                    },
+                    shift: 0.0010,
+                },
+            ],
+        );
+        let parallel_pnl = taylor_pnl_for_scenario(
+            &sensitivities,
+            &MarketContext::new(),
+            &parallel,
+            &mut HashMap::default(),
+        )
+        .expect("parallel Taylor P&L should compute");
+        // First-order: (-40 - 120) * 10bp = -1600.
+        // Convexity: 0.5 * 5000 * 10^2 = 250000.
+        assert!(
+            (parallel_pnl - (-1600.0 + 250_000.0)).abs() < 1e-6,
+            "parallel shift should include the convexity term, got {parallel_pnl}"
+        );
+    }
+
+    /// BUG 2 regression: the Taylor path must convert scenario P&L to the
+    /// reporting currency using the scenario-shifted FX rates, not the base
+    /// market's.
+    ///
+    /// The Taylor path (`calculate_var_taylor_approximation` /
+    /// `calculate_portfolio_var_taylor`) now builds `scenario.apply(base_market)`
+    /// per scenario and feeds that scenario-shifted market into
+    /// `convert_money_to_reporting`. This test verifies the load-bearing
+    /// behavior directly: converting a fixed local P&L through a market that
+    /// has had an FX shock applied yields the SCENARIO rate, not the base rate.
+    #[test]
+    fn test_taylor_var_converts_pnl_at_scenario_fx() -> Result<()> {
+        let as_of = sample_as_of();
+
+        let provider = finstack_core::money::fx::SimpleFxProvider::new();
+        // Base FX: EUR/USD = 2.0.
+        provider
+            .set_quote(Currency::EUR, Currency::USD, 2.0)
+            .expect("valid base rate");
+        let fx = finstack_core::money::fx::FxMatrix::new(Arc::new(provider));
+        let base_market = MarketContext::new().insert_fx(fx);
+
+        // Scenario: +50% EUR/USD shock (2.0 -> 3.0).
+        let scenario = MarketScenario::new(
+            as_of,
+            vec![RiskFactorShift {
+                factor: RiskFactorType::FxSpot {
+                    base: Currency::EUR,
+                    quote: Currency::USD,
+                },
+                shift: 0.50,
+            }],
+        );
+
+        // A local P&L of 10 EUR, as produced by `taylor_pnl_for_scenario`.
+        let local_pnl = Money::new(10.0, Currency::EUR);
+
+        // Base-market conversion (the OLD, buggy behavior) would give 20 USD.
+        let base_converted = convert_money_to_reporting(
+            local_pnl,
+            Currency::USD,
+            &base_market,
+            as_of,
+            "Historical VaR",
+        )?;
+        assert!(
+            (base_converted - 20.0).abs() < 1e-9,
+            "base-market conversion should use the base rate (2.0), got {base_converted}"
+        );
+
+        // Scenario-market conversion (the FIXED behavior used by the Taylor
+        // path) must use the shifted rate (3.0) -> 30 USD.
+        let scenario_market = scenario.apply(&base_market)?;
+        let scenario_converted = convert_money_to_reporting(
+            local_pnl,
+            Currency::USD,
+            &scenario_market,
+            as_of,
+            "Historical VaR",
+        )?;
+        assert!(
+            (scenario_converted - 30.0).abs() < 1e-9,
+            "Taylor P&L must be converted at scenario FX (expected 30 USD), got {scenario_converted}"
+        );
+        assert!(
+            (scenario_converted - base_converted).abs() > 1.0,
+            "scenario FX conversion must differ from base FX conversion"
+        );
         Ok(())
     }
 

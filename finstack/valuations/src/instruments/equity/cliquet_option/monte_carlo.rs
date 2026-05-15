@@ -172,16 +172,18 @@ impl CliquetCallPayoff {
 
 impl Payoff for CliquetCallPayoff {
     fn on_event(&mut self, state: &mut PathState) {
-        if self.next_reset_idx < self.reset_dates.len() {
-            let target_date = self.reset_dates[self.next_reset_idx];
-
-            // Check if we're at a reset date
-            if (state.time - target_date).abs() < 1e-6 || state.time >= target_date {
-                if let Some(spot) = state.spot() {
-                    self.reset_spots.push(spot);
-                    self.next_reset_idx += 1;
-                }
-            }
+        const EPS: f64 = 1e-6;
+        let Some(spot) = state.spot() else {
+            return;
+        };
+        // Capture every reset date now due. A single MC time step can span
+        // multiple reset dates (coarse grid); each due reset must record a spot
+        // so period returns are computed against the correct number of resets.
+        while self.next_reset_idx < self.reset_dates.len()
+            && state.time >= self.reset_dates[self.next_reset_idx] - EPS
+        {
+            self.reset_spots.push(spot);
+            self.next_reset_idx += 1;
         }
     }
 
@@ -301,6 +303,52 @@ mod tests {
         // Total uncapped: 0.10 + 0.10 + 0.10 + 0.10 = 0.40
         // But global cap: min(0.40, 0.30) = 0.30
         assert!((return_val - 0.30).abs() < 1e-10);
+    }
+
+    #[test]
+    fn coarse_step_spanning_multiple_reset_dates_captures_all() {
+        use finstack_monte_carlo::traits::state_keys;
+
+        // A coarse MC grid has steps that each span several reset dates. Every
+        // due reset must record a spot so reset_spots has one entry per reset.
+        let reset_dates = vec![0.25, 0.5, 0.75, 1.0];
+        let mut cliquet = CliquetCallPayoff::new(
+            reset_dates.clone(),
+            0.10,
+            0.0,
+            0.30,
+            0.0,
+            100_000.0,
+            Currency::USD,
+            100.0,
+            CliquetPayoffType::Additive,
+        )
+        .expect("test fixture is well-formed");
+
+        // First coarse step at t = 0.5 spans reset dates 0 (0.25) and 1 (0.5).
+        let mut state = PathState::new(1, 0.5);
+        state.set(state_keys::SPOT, 105.0);
+        cliquet.on_event(&mut state);
+        assert_eq!(
+            cliquet.next_reset_idx, 2,
+            "a step spanning two reset dates must consume both"
+        );
+
+        // Second coarse step at t = 1.0 spans reset dates 2 (0.75) and 3 (1.0).
+        let mut state = PathState::new(2, 1.0);
+        state.set(state_keys::SPOT, 110.0);
+        cliquet.on_event(&mut state);
+
+        assert_eq!(
+            cliquet.next_reset_idx, 4,
+            "all reset dates must be consumed after the coarse grid completes"
+        );
+        assert_eq!(
+            cliquet.reset_spots.len(),
+            reset_dates.len(),
+            "reset_spots must hold exactly one spot per reset date"
+        );
+        assert_eq!(cliquet.reset_spots, vec![105.0, 105.0, 110.0, 110.0]);
     }
 
     #[test]
