@@ -619,6 +619,9 @@ pub struct MetricPricingOverrides {
     /// Basis used for bond duration, convexity, and DV01-style risk metrics.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bond_risk_basis: Option<BondRiskBasis>,
+    /// Historical VaR / Expected Shortfall configuration override.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub var_config: Option<crate::metrics::risk::VarConfig>,
 }
 
 impl MetricPricingOverrides {
@@ -630,6 +633,7 @@ impl MetricPricingOverrides {
             theta_period: pricing_overrides.metrics.theta_period.clone(),
             breakeven_config: pricing_overrides.metrics.breakeven_config,
             bond_risk_basis: pricing_overrides.metrics.bond_risk_basis,
+            var_config: pricing_overrides.metrics.var_config.clone(),
         }
     }
 
@@ -644,6 +648,9 @@ impl MetricPricingOverrides {
             if !ok {
                 return Err(InputError::Invalid.into());
             }
+        }
+        if let Some(var_config) = &self.var_config {
+            var_config.validate()?;
         }
         Ok(())
     }
@@ -698,6 +705,12 @@ impl MetricPricingOverrides {
     /// Set bond risk basis for duration, convexity, and DV01-style metrics.
     pub fn with_bond_risk_basis(mut self, basis: BondRiskBasis) -> Self {
         self.bond_risk_basis = Some(basis);
+        self
+    }
+
+    /// Set Historical VaR / Expected Shortfall configuration.
+    pub fn with_var_config(mut self, config: crate::metrics::risk::VarConfig) -> Self {
+        self.var_config = Some(config);
         self
     }
 }
@@ -1053,6 +1066,12 @@ impl PricingOverrides {
         self
     }
 
+    /// Set Historical VaR / Expected Shortfall configuration.
+    pub fn with_var_config(mut self, config: crate::metrics::risk::VarConfig) -> Self {
+        self.metrics.var_config = Some(config);
+        self
+    }
+
     /// Apply a scenario price shock (as decimal percentage).
     ///
     /// The shock is applied as a multiplier: `price * (1 + shock_pct)`.
@@ -1094,6 +1113,7 @@ impl PricingOverrides {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use finstack_core::currency::Currency;
 
     #[test]
     fn validate_accepts_default_and_positive_values() {
@@ -1187,6 +1207,26 @@ mod tests {
     }
 
     #[test]
+    fn serde_deserializes_var_config_override() {
+        let json = r#"{
+            "var_config": {
+                "confidence_level": 0.99,
+                "method": "taylor_approximation",
+                "reporting_currency": "USD"
+            }
+        }"#;
+        let po: PricingOverrides = serde_json::from_str(json).expect("deserialize var config");
+        let var_config = po.metrics.var_config.expect("var config should be present");
+
+        assert_eq!(var_config.confidence_level, 0.99);
+        assert_eq!(
+            var_config.method,
+            crate::metrics::risk::VarMethod::TaylorApproximation
+        );
+        assert_eq!(var_config.reporting_currency, Some(Currency::USD));
+    }
+
+    #[test]
     fn serde_rejects_removed_tree_volatility_field() {
         let err = serde_json::from_str::<PricingOverrides>(r#"{"tree_volatility":0.15}"#)
             .expect_err("tree_volatility was removed; use implied_volatility");
@@ -1229,6 +1269,7 @@ mod tests {
             .with_mc_seed_scenario("theta_roll")
             .with_rate_bump(2.0)
             .with_spot_bump(0.01)
+            .with_var_config(crate::metrics::risk::VarConfig::var_99())
             .with_price_shock_pct(-0.10);
 
         let metric_overrides = MetricPricingOverrides::from_pricing_overrides(&po);
@@ -1240,6 +1281,13 @@ mod tests {
         );
         assert_eq!(metric_overrides.bump_config.rate_bump_bp, Some(2.0));
         assert_eq!(metric_overrides.bump_config.spot_bump_pct, Some(0.01));
+        assert_eq!(
+            metric_overrides
+                .var_config
+                .as_ref()
+                .map(|config| config.confidence_level),
+            Some(0.99)
+        );
     }
 
     #[test]

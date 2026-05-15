@@ -6,6 +6,7 @@
 
 use crate::instruments::common_impl::traits::{CurveDependencies, Instrument};
 use crate::metrics::sensitivities::config::STANDARD_BUCKETS_YEARS;
+use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
 use finstack_core::HashSet;
@@ -49,6 +50,14 @@ pub enum RiskFactorType {
         ticker: String,
     },
 
+    /// FX spot rate as quote currency per one unit of base currency.
+    FxSpot {
+        /// Base currency of the FX pair.
+        base: Currency,
+        /// Quote currency of the FX pair.
+        quote: Currency,
+    },
+
     /// Implied volatility at specific expiry and strike.
     ImpliedVol {
         /// Volatility surface identifier
@@ -77,6 +86,7 @@ impl RiskFactorType {
                 tenor_years,
             } => format!("{}::credit::{:.1}y", curve_id.as_str(), tenor_years),
             Self::EquitySpot { ticker } => format!("{}::spot", ticker),
+            Self::FxSpot { base, quote } => format!("{}{}::fx_spot", base, quote),
             Self::ImpliedVol {
                 surface_id,
                 expiry_years,
@@ -305,6 +315,13 @@ impl InstrumentRiskFactorProvider for crate::instruments::fx::fx_option::FxOptio
         factors: &mut Vec<RiskFactorType>,
         seen: &mut HashSet<String>,
     ) -> Result<()> {
+        append_fx_spot_factor(
+            market,
+            factors,
+            seen,
+            self.base_currency,
+            self.quote_currency,
+        );
         append_vol_surface_factor(
             market,
             factors,
@@ -314,6 +331,234 @@ impl InstrumentRiskFactorProvider for crate::instruments::fx::fx_option::FxOptio
             self.strike,
         );
         Ok(())
+    }
+}
+
+impl InstrumentRiskFactorProvider for crate::instruments::FxSpot {
+    fn append_risk_factors(
+        &self,
+        market: &MarketContext,
+        factors: &mut Vec<RiskFactorType>,
+        seen: &mut HashSet<String>,
+    ) -> Result<()> {
+        append_fx_spot_factor(
+            market,
+            factors,
+            seen,
+            self.base_currency,
+            self.quote_currency,
+        );
+        Ok(())
+    }
+}
+
+impl InstrumentRiskFactorProvider for crate::instruments::FxForward {
+    fn append_risk_factors(
+        &self,
+        market: &MarketContext,
+        factors: &mut Vec<RiskFactorType>,
+        seen: &mut HashSet<String>,
+    ) -> Result<()> {
+        if self.spot_rate_override.is_none() {
+            append_fx_spot_factor(
+                market,
+                factors,
+                seen,
+                self.base_currency,
+                self.quote_currency,
+            );
+        }
+        Ok(())
+    }
+}
+
+impl InstrumentRiskFactorProvider for crate::instruments::FxSwap {
+    fn append_risk_factors(
+        &self,
+        market: &MarketContext,
+        factors: &mut Vec<RiskFactorType>,
+        seen: &mut HashSet<String>,
+    ) -> Result<()> {
+        if self.near_rate.is_none() || self.far_rate.is_none() {
+            append_fx_spot_factor(
+                market,
+                factors,
+                seen,
+                self.base_currency,
+                self.quote_currency,
+            );
+        }
+        Ok(())
+    }
+}
+
+impl InstrumentRiskFactorProvider for crate::instruments::Ndf {
+    fn append_risk_factors(
+        &self,
+        market: &MarketContext,
+        factors: &mut Vec<RiskFactorType>,
+        seen: &mut HashSet<String>,
+    ) -> Result<()> {
+        if self.spot_rate_override.is_none() || self.forward_rate_override.is_none() {
+            append_fx_spot_factor(
+                market,
+                factors,
+                seen,
+                self.base_currency,
+                self.settlement_currency,
+            );
+        }
+        Ok(())
+    }
+}
+
+impl InstrumentRiskFactorProvider for crate::instruments::FxBarrierOption {
+    fn append_risk_factors(
+        &self,
+        market: &MarketContext,
+        factors: &mut Vec<RiskFactorType>,
+        seen: &mut HashSet<String>,
+    ) -> Result<()> {
+        if self.fx_spot_id.is_none() {
+            append_fx_spot_factor(
+                market,
+                factors,
+                seen,
+                self.base_currency,
+                self.quote_currency,
+            );
+        }
+        append_vol_surface_factor(
+            market,
+            factors,
+            seen,
+            &self.vol_surface_id,
+            0.0,
+            self.strike,
+        );
+        Ok(())
+    }
+}
+
+impl InstrumentRiskFactorProvider for crate::instruments::FxDigitalOption {
+    fn append_risk_factors(
+        &self,
+        market: &MarketContext,
+        factors: &mut Vec<RiskFactorType>,
+        seen: &mut HashSet<String>,
+    ) -> Result<()> {
+        append_fx_spot_factor(
+            market,
+            factors,
+            seen,
+            self.base_currency,
+            self.quote_currency,
+        );
+        append_vol_surface_factor(
+            market,
+            factors,
+            seen,
+            &self.vol_surface_id,
+            0.0,
+            self.strike,
+        );
+        Ok(())
+    }
+}
+
+impl InstrumentRiskFactorProvider for crate::instruments::FxTouchOption {
+    fn append_risk_factors(
+        &self,
+        market: &MarketContext,
+        factors: &mut Vec<RiskFactorType>,
+        seen: &mut HashSet<String>,
+    ) -> Result<()> {
+        append_fx_spot_factor(
+            market,
+            factors,
+            seen,
+            self.base_currency,
+            self.quote_currency,
+        );
+        append_vol_surface_factor(
+            market,
+            factors,
+            seen,
+            &self.vol_surface_id,
+            0.0,
+            self.barrier_level,
+        );
+        Ok(())
+    }
+}
+
+impl InstrumentRiskFactorProvider for crate::instruments::FxVarianceSwap {
+    fn append_risk_factors(
+        &self,
+        market: &MarketContext,
+        factors: &mut Vec<RiskFactorType>,
+        seen: &mut HashSet<String>,
+    ) -> Result<()> {
+        if self.spot_id.is_none() {
+            append_fx_spot_factor(
+                market,
+                factors,
+                seen,
+                self.base_currency,
+                self.quote_currency,
+            );
+        }
+        Ok(())
+    }
+}
+
+impl InstrumentRiskFactorProvider for crate::instruments::QuantoOption {
+    fn append_risk_factors(
+        &self,
+        market: &MarketContext,
+        factors: &mut Vec<RiskFactorType>,
+        seen: &mut HashSet<String>,
+    ) -> Result<()> {
+        if self.payoff_fx_rate.is_none() {
+            append_fx_spot_factor(
+                market,
+                factors,
+                seen,
+                self.base_currency,
+                self.quote_currency,
+            );
+        }
+        Ok(())
+    }
+}
+
+impl InstrumentRiskFactorProvider for crate::instruments::XccySwap {
+    fn append_risk_factors(
+        &self,
+        market: &MarketContext,
+        factors: &mut Vec<RiskFactorType>,
+        seen: &mut HashSet<String>,
+    ) -> Result<()> {
+        append_fx_spot_factor(
+            market,
+            factors,
+            seen,
+            self.leg1.currency,
+            self.leg2.currency,
+        );
+        Ok(())
+    }
+}
+
+fn append_fx_spot_factor(
+    market: &MarketContext,
+    factors: &mut Vec<RiskFactorType>,
+    seen: &mut HashSet<String>,
+    base: Currency,
+    quote: Currency,
+) {
+    if base != quote && market.fx().is_some() {
+        push_factor(factors, seen, RiskFactorType::FxSpot { base, quote });
     }
 }
 
@@ -374,6 +619,16 @@ where
     append_if_instrument::<crate::instruments::fx::fx_option::FxOption>(
         instrument, market, factors, seen,
     )?;
+    append_if_instrument::<crate::instruments::FxSpot>(instrument, market, factors, seen)?;
+    append_if_instrument::<crate::instruments::FxForward>(instrument, market, factors, seen)?;
+    append_if_instrument::<crate::instruments::FxSwap>(instrument, market, factors, seen)?;
+    append_if_instrument::<crate::instruments::Ndf>(instrument, market, factors, seen)?;
+    append_if_instrument::<crate::instruments::FxBarrierOption>(instrument, market, factors, seen)?;
+    append_if_instrument::<crate::instruments::FxDigitalOption>(instrument, market, factors, seen)?;
+    append_if_instrument::<crate::instruments::FxTouchOption>(instrument, market, factors, seen)?;
+    append_if_instrument::<crate::instruments::FxVarianceSwap>(instrument, market, factors, seen)?;
+    append_if_instrument::<crate::instruments::QuantoOption>(instrument, market, factors, seen)?;
+    append_if_instrument::<crate::instruments::XccySwap>(instrument, market, factors, seen)?;
 
     Ok(())
 }
@@ -407,6 +662,12 @@ mod tests {
             tenor_years: 2.0,
         };
         assert_eq!(factor.label(), "USD-LIBOR-3M::fwd::2.0y");
+
+        let factor = RiskFactorType::FxSpot {
+            base: Currency::EUR,
+            quote: Currency::USD,
+        };
+        assert_eq!(factor.label(), "EURUSD::fx_spot");
     }
 
     #[test]

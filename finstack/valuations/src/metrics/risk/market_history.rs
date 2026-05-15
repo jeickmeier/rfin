@@ -21,7 +21,7 @@ pub struct RiskFactorShift {
     pub factor: RiskFactorType,
     /// Absolute change in the factor
     /// - For rates/spreads: change in basis points as decimal (e.g., 0.0015 = 15bp)
-    /// - For equity spot: percentage change (e.g., -0.025 = -2.5%)
+    /// - For equity/FX spot: relative change (e.g., -0.025 = -2.5%)
     /// - For volatility: absolute vol change (e.g., 0.02 = +2 vol points)
     pub shift: f64,
 }
@@ -62,37 +62,50 @@ impl MarketScenario {
         let mut bumped_market = base_market.clone();
 
         for shift in &self.shifts {
-            let maybe_bump: Option<(CurveId, BumpSpec)> = match &shift.factor {
+            let bump = match &shift.factor {
                 RiskFactorType::DiscountRate {
                     curve_id,
                     tenor_years,
-                } => Some(key_rate_bp_bump(curve_id, *tenor_years, shift.shift)),
+                } => {
+                    let (id, spec) = key_rate_bp_bump(curve_id, *tenor_years, shift.shift);
+                    MarketBump::Curve { id, spec }
+                }
                 RiskFactorType::ForwardRate {
                     curve_id,
                     tenor_years,
-                } => Some(key_rate_bp_bump(curve_id, *tenor_years, shift.shift)),
+                } => {
+                    let (id, spec) = key_rate_bp_bump(curve_id, *tenor_years, shift.shift);
+                    MarketBump::Curve { id, spec }
+                }
                 RiskFactorType::CreditSpread {
                     curve_id,
                     tenor_years,
-                } => Some(key_rate_bp_bump(curve_id, *tenor_years, shift.shift)),
-                RiskFactorType::EquitySpot { ticker } => Some((
-                    CurveId::from(ticker.as_str()),
-                    BumpSpec::multiplier(1.0 + shift.shift),
-                )),
-                RiskFactorType::ImpliedVol { surface_id, .. } => Some((
-                    surface_id.clone(),
-                    BumpSpec {
+                } => {
+                    let (id, spec) = key_rate_bp_bump(curve_id, *tenor_years, shift.shift);
+                    MarketBump::Curve { id, spec }
+                }
+                RiskFactorType::EquitySpot { ticker } => MarketBump::Curve {
+                    id: CurveId::from(ticker.as_str()),
+                    spec: BumpSpec::multiplier(1.0 + shift.shift),
+                },
+                RiskFactorType::FxSpot { base, quote } => MarketBump::FxPct {
+                    base: *base,
+                    quote: *quote,
+                    pct: shift.shift * 100.0,
+                    as_of: self.date,
+                },
+                RiskFactorType::ImpliedVol { surface_id, .. } => MarketBump::Curve {
+                    id: surface_id.clone(),
+                    spec: BumpSpec {
                         mode: BumpMode::Additive,
                         units: BumpUnits::Fraction,
                         value: shift.shift,
                         bump_type: BumpType::Parallel,
                     },
-                )),
+                },
             };
 
-            if let Some((curve_id, spec)) = maybe_bump {
-                bumped_market = bumped_market.bump([MarketBump::Curve { id: curve_id, spec }])?;
-            }
+            bumped_market = bumped_market.bump([bump])?;
         }
 
         Ok(bumped_market)
@@ -187,9 +200,12 @@ impl MarketHistory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::money::fx::{FxMatrix, FxQuery, SimpleFxProvider};
+    use std::sync::Arc;
     use time::macros::date;
 
     #[test]
@@ -365,6 +381,39 @@ mod tests {
             MarketScalar::Unitless(v) => assert!((v - 110.0).abs() < 1e-9),
             other => panic!("unexpected scalar variant: {:?}", other),
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_fx_spot_shift_applied() -> Result<()> {
+        let provider = SimpleFxProvider::new();
+        provider.set_quote(Currency::EUR, Currency::USD, 1.20)?;
+        let base_market = MarketContext::new().insert_fx(FxMatrix::new(Arc::new(provider)));
+
+        let scenario = MarketScenario::new(
+            date!(2024 - 01 - 02),
+            vec![RiskFactorShift {
+                factor: RiskFactorType::FxSpot {
+                    base: Currency::EUR,
+                    quote: Currency::USD,
+                },
+                shift: 0.10,
+            }],
+        );
+
+        let bumped = scenario.apply(&base_market)?;
+        let rate = bumped
+            .fx()
+            .expect("FX matrix should be present")
+            .rate(FxQuery::new(
+                Currency::EUR,
+                Currency::USD,
+                date!(2024 - 01 - 02),
+            ))?
+            .rate;
+
+        assert!((rate - 1.32).abs() < 1e-12);
 
         Ok(())
     }

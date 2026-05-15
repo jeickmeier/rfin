@@ -54,13 +54,17 @@ impl MetricCalculator for GenericHVar {
             )
         })?;
 
+        let config = context
+            .get_metric_overrides()
+            .and_then(|overrides| overrides.var_config.clone())
+            .unwrap_or_else(|| self.config.clone());
         let (pricing_model, pricer_registry) = context.clone_pricer_dispatch();
         let result = calculate_var_with_pricing(
             &[context.instrument.as_ref()],
             &context.curves,
             history,
             context.as_of,
-            &self.config,
+            &config,
             pricing_model,
             pricer_registry,
         )?;
@@ -107,13 +111,17 @@ impl MetricCalculator for GenericExpectedShortfall {
             )
         })?;
 
+        let config = context
+            .get_metric_overrides()
+            .and_then(|overrides| overrides.var_config.clone())
+            .unwrap_or_else(|| self.config.clone());
         let (pricing_model, pricer_registry) = context.clone_pricer_dispatch();
         let result = calculate_var_with_pricing(
             &[context.instrument.as_ref()],
             &context.curves,
             history,
             context.as_of,
-            &self.config,
+            &config,
             pricing_model,
             pricer_registry,
         )?;

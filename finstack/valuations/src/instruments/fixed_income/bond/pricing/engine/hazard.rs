@@ -46,8 +46,8 @@ use super::super::super::types::Bond;
 /// Hazard-rate bond pricing engine using FRP and `HazardCurve`.
 ///
 /// This engine prices defaultable bonds using a reduced-form hazard-rate model
-/// with fractional recovery of par (FRP). It gracefully falls back to risk-free
-/// pricing if no hazard curve is available in the market context.
+/// with fractional recovery of par (FRP). It returns an error if no hazard
+/// curve is available in the market context.
 ///
 /// # Examples
 ///
@@ -117,8 +117,8 @@ impl HazardBondEngine {
     /// 2. Adding recovery value on default events (recovery leg)
     ///
     /// If no hazard curve can be resolved from the market context, this
-    /// gracefully falls back to the standard discounting engine so callers
-    /// can safely request hazard pricing even when credit data is absent.
+    /// returns a validation error. Use the discounting engine for risk-free
+    /// bond pricing.
     ///
     /// # Arguments
     ///
@@ -128,8 +128,7 @@ impl HazardBondEngine {
     ///
     /// # Returns
     ///
-    /// Present value of the bond accounting for credit risk, or risk-free PV
-    /// if no hazard curve is available.
+    /// Present value of the bond accounting for credit risk.
     ///
     /// # Errors
     ///
@@ -137,6 +136,7 @@ impl HazardBondEngine {
     /// - Discount curve is not found in market context
     /// - Bond has no future cashflows
     /// - Cashflow schedule building fails
+    /// - Hazard curve cannot be resolved from market context
     /// - Survival probability calculation fails
     ///
     /// # Examples
@@ -169,13 +169,28 @@ impl HazardBondEngine {
         // Resolve discount curve
         let disc = market.get_discount(&bond.discount_curve_id)?;
 
-        // Resolve hazard curve; if not found, fall back to discount-only pricing.
-        // We call BondEngine::price directly (not bond.value_raw()) to avoid
-        // recursion since Bond::value now routes here when credit_curve_id is set.
+        // Resolve hazard curve. Explicit hazard-rate pricing must fail loudly
+        // when credit market data is missing; risk-free pricing belongs on the
+        // discounting model path.
         let hazard = match Self::resolve_hazard_curve(bond, market) {
             Some(h) => h,
             None => {
-                return super::discount::BondEngine::price(bond, market, as_of).map(|m| m.amount());
+                let expected = bond
+                    .credit_curve_id
+                    .as_ref()
+                    .map(|id| id.as_str().to_string())
+                    .unwrap_or_else(|| {
+                        format!(
+                            "{} or {}-CREDIT",
+                            bond.discount_curve_id.as_str(),
+                            bond.discount_curve_id.as_str()
+                        )
+                    });
+                return Err(finstack_core::Error::Validation(format!(
+                    "hazard_rate pricing for bond '{}' requires a hazard curve; expected {}",
+                    bond.id.as_str(),
+                    expected
+                )));
             }
         };
         let recovery = hazard.recovery_rate().clamp(0.0, 1.0);
@@ -416,6 +431,23 @@ mod tests {
             diff < 1e-6,
             "Hazard price with zero intensity should match risk-free price; diff={}",
             diff
+        );
+    }
+
+    #[test]
+    fn hazard_pricing_requires_hazard_curve() {
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid test date");
+
+        let bond = build_test_bond(issue, maturity);
+        let market = MarketContext::new().insert(build_flat_discount(issue));
+
+        let err = HazardBondEngine::price(&bond, &market, issue)
+            .expect_err("hazard pricing should reject missing hazard curve");
+
+        assert!(
+            err.to_string().contains("requires a hazard curve"),
+            "unexpected error: {err}"
         );
     }
 

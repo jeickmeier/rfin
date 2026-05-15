@@ -427,7 +427,9 @@ def price_instrument_with_metrics(
         pricing_options: Optional JSON string of ``MetricPricingOverrides``
             merged into the instrument's ``pricing_overrides``. Supports
             ``"theta_period"`` (e.g. ``"6M"``) and ``"breakeven_config"``
-            (e.g. ``{"target": "z_spread", "mode": "linear"}``).
+            (e.g. ``{"target": "z_spread", "mode": "linear"}``), plus
+            ``"var_config"`` for ``hvar`` / ``expected_shortfall`` settings
+            (e.g. ``{"confidence_level": 0.99, "method": "full_revaluation"}``).
         market_history: Optional JSON string of ``MarketHistory`` scenarios
             required by ``hvar`` and ``expected_shortfall`` metrics.
 

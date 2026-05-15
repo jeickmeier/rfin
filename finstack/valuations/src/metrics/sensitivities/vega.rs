@@ -11,6 +11,8 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::math::{neumaier_sum, NeumaierAccumulator};
 use std::marker::PhantomData;
 
+const VOL_POINTS_PER_ABSOLUTE_VOL: f64 = 100.0;
+
 /// Standard expiry buckets in years for equity options.
 pub(crate) fn standard_equity_expiry_buckets() -> Vec<f64> {
     vec![
@@ -182,7 +184,7 @@ where
                 .apply_surface_bump_in_place(vol_surface_id.as_str(), vol_bump(-bump_pct))?;
             let pv_down = context.reprice_money(&scratch, as_of)?;
             scratch.revert_scratch_bump(token_down)?;
-            (pv_up.amount() - pv_down.amount()) / (2.0 * bump_pct)
+            (pv_up.amount() - pv_down.amount()) / (2.0 * bump_pct * VOL_POINTS_PER_ABSOLUTE_VOL)
         };
 
         let mut raw_matrix = Vec::new();
@@ -226,7 +228,8 @@ where
                 let pv_down = context.reprice_money(&scratch, as_of)?;
                 scratch.insert_surface_mut(std::sync::Arc::clone(&vol_surface));
 
-                let vega = (pv_up.amount() - pv_down.amount()) / (2.0 * bump_pct);
+                let vega = (pv_up.amount() - pv_down.amount())
+                    / (2.0 * bump_pct * VOL_POINTS_PER_ABSOLUTE_VOL);
                 row.push(vega);
                 raw_total.add(vega);
             }

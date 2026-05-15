@@ -22,13 +22,25 @@ use finstack_core::Result;
 use std::sync::Arc;
 
 /// VaR calculation method.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum VarMethod {
     /// Full revaluation of instrument under each historical scenario.
     ///
     /// Most accurate method - reprices the instrument under each historical
     /// market scenario. Captures all non-linearities and path dependencies.
+    #[default]
     FullRevaluation,
 
     /// Taylor approximation using sensitivities (Greeks).
@@ -43,7 +55,8 @@ pub enum VarMethod {
 ///
 /// Controls statistical properties such as confidence level and pricing method.
 /// The historical window/observation count is derived from [`MarketHistory`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(default)]
 pub struct VarConfig {
     /// Confidence level (e.g., 0.95 for 95% VaR, 0.99 for 99% VaR)
     pub confidence_level: f64,
@@ -56,6 +69,12 @@ pub struct VarConfig {
     /// When omitted, same-currency portfolios use their natural currency.
     /// Mixed-currency portfolios must set this explicitly.
     pub reporting_currency: Option<Currency>,
+}
+
+impl Default for VarConfig {
+    fn default() -> Self {
+        Self::var_95()
+    }
 }
 
 impl VarConfig {
@@ -93,6 +112,26 @@ impl VarConfig {
         self.reporting_currency = Some(currency);
         self
     }
+
+    /// Validate that this VaR configuration is numerically well-defined.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `confidence_level` is not finite or is outside
+    /// the open interval `(0, 1)`.
+    pub fn validate(&self) -> Result<()> {
+        validate_confidence_level(self.confidence_level)
+    }
+}
+
+fn validate_confidence_level(confidence_level: f64) -> Result<()> {
+    if confidence_level.is_finite() && confidence_level > 0.0 && confidence_level < 1.0 {
+        Ok(())
+    } else {
+        Err(finstack_core::Error::Validation(format!(
+            "VaR confidence level must be finite and strictly between 0 and 1, got {confidence_level}"
+        )))
+    }
 }
 
 /// VaR calculation results.
@@ -127,6 +166,8 @@ impl VarResult {
         mut pnl_distribution: Vec<f64>,
         confidence_level: f64,
     ) -> Result<Self> {
+        validate_confidence_level(confidence_level)?;
+
         if pnl_distribution.iter().any(|v| !v.is_finite()) {
             return Err(finstack_core::Error::Validation(
                 "VaR P&L distribution contains non-finite values (NaN or inf)".to_string(),
@@ -164,14 +205,19 @@ impl VarResult {
         // regulatory and risk management best practices.
         let var_index = ((1.0 - confidence_level) * num_scenarios as f64).ceil() as usize;
         let var_index = var_index.saturating_sub(1).min(num_scenarios - 1);
-        let var = -pnl_distribution[var_index]; // Negative because losses are negative P&Ls
+        let var = (-pnl_distribution[var_index]).max(0.0);
 
         // Calculate Expected Shortfall (CVaR) as the average of tail losses
         // ES is always >= VaR and captures the expected loss given that losses exceed VaR
         let tail_size = var_index + 1;
         let expected_shortfall = if tail_size > 0 {
-            let sum: f64 = neumaier_sum(pnl_distribution.iter().take(tail_size).copied());
-            -(sum / tail_size as f64) // Negative because losses are negative P&Ls
+            let sum: f64 = neumaier_sum(
+                pnl_distribution
+                    .iter()
+                    .take(tail_size)
+                    .map(|pnl| (-*pnl).max(0.0)),
+            );
+            sum / tail_size as f64
         } else {
             0.0
         };
@@ -279,6 +325,8 @@ pub fn calculate_var_with_pricing(
     pricing_model: Option<ModelKey>,
     pricer_registry: Option<Arc<PricerRegistry>>,
 ) -> Result<VarResult> {
+    config.validate()?;
+
     let _span = tracing::debug_span!(
         "historical_var.calculate",
         instrument_count = instruments.len(),
@@ -782,6 +830,11 @@ fn taylor_pnl_for_scenario(
                     pnl += sensitivities.equity_delta * d_spot
                         + 0.5 * sensitivities.equity_gamma * d_spot * d_spot;
                 }
+            }
+            crate::metrics::risk::RiskFactorType::FxSpot { base, quote } => {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Historical VaR Taylor approximation does not support FX spot shocks for {base}/{quote}. Use full revaluation or an FX-delta Taylor implementation."
+                )));
             }
             crate::metrics::risk::RiskFactorType::ImpliedVol {
                 surface_id,
@@ -1522,6 +1575,27 @@ mod tests {
 
         // ES should be average of tail (just the worst loss in this case)
         assert_eq!(result.expected_shortfall, 200.0);
+    }
+
+    #[test]
+    fn test_var_result_rejects_invalid_confidence() {
+        for confidence_level in [0.0, 1.0, f64::NAN, f64::INFINITY] {
+            let err = VarResult::from_distribution(vec![-10.0, 5.0], confidence_level)
+                .expect_err("invalid confidence should be rejected");
+            assert!(
+                err.to_string().contains("strictly between 0 and 1"),
+                "unexpected error for confidence={confidence_level}: {err}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_var_result_all_gain_distribution_has_zero_loss() {
+        let result = VarResult::from_distribution(vec![10.0, 20.0, 30.0], 0.95)
+            .expect("valid all-gain distribution");
+
+        assert_eq!(result.var, 0.0);
+        assert_eq!(result.expected_shortfall, 0.0);
     }
 
     #[test]

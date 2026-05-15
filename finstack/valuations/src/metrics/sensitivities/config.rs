@@ -259,6 +259,7 @@ mod tests {
             theta_period: None,
             breakeven_config: None,
             bond_risk_basis: None,
+            var_config: None,
         }
         .with_rate_bump(2.0)
         .with_credit_spread_bump(3.0)

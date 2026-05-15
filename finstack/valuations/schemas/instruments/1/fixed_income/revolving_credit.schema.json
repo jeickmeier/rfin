@@ -1313,7 +1313,7 @@
               "type": "object"
             },
             "FloatingRateFallback": {
-              "description": "Policy for handling floating rate projection failures.\n\nControls what happens when a forward curve lookup fails during\ncashflow emission. The default (`Error`) surfaces failures explicitly,\nreplacing the previous silent spread-only fallback behavior.\n\n# References\n\n- `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`\n- `docs/REFERENCES.md#hull-options-futures`",
+              "description": "Policy for handling floating rate projection failures.\n\nControls what happens when a forward curve lookup fails during\ncashflow emission. The default (`Error`) surfaces failures explicitly;\nthe other variants are explicit opt-in degradation modes for callers\nthat intentionally want a projected schedule without a forward curve.\n\n# References\n\n- `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`\n- `docs/REFERENCES.md#hull-options-futures`",
               "oneOf": [
                 {
                   "const": "Error",
@@ -1322,7 +1322,7 @@
                 },
                 {
                   "const": "SpreadOnly",
-                  "description": "Use spread as the total rate (legacy behavior). Emits `warn!`.",
+                  "description": "Treat the index component as zero, so the coupon rate is the spread\n(plus any floors/caps/gearing). An explicit opt-in for spread-only\nprojection when no forward curve is available; emits `warn!`.",
                   "type": "string"
                 },
                 {
@@ -1387,7 +1387,7 @@
                 },
                 "fallback": {
                   "$ref": "#/$defs/FloatingRateFallback",
-                  "description": "Policy when forward curve lookup fails during emission.\n\nDefaults to `Error`, which surfaces curve lookup failures.\nSet to `SpreadOnly` to preserve the legacy silent-fallback behavior,\nor `FixedRate(r)` to use a fixed index rate."
+                  "description": "Policy when forward curve lookup fails during emission.\n\nDefaults to `Error`, which surfaces curve lookup failures.\nSet to `SpreadOnly` for spread-only projection, or `FixedRate(r)`\nto use a fixed index rate."
                 },
                 "fixing_calendar_id": {
                   "default": null,
@@ -1654,7 +1654,7 @@
               "oneOf": [
                 {
                   "const": "SimpleAverage",
-                  "description": "Simple average of daily rates (non-standard, for reference only).",
+                  "description": "Arithmetic (non-compounded) average of daily overnight fixings,\nweighted by accrual days: `Rate = (Σ rᵢ·dᵢ) / D`.\n\nThis is a fully supported convention. It is the correct choice for\ninstruments that contractually specify a simple-average overnight\nindex (some bilateral loans and older FRNs) rather than the\ncompounded ISDA 2021 convention. Use [`Self::CompoundedInArrears`]\nfor standard SOFR/ESTR/TONA legs.",
                   "type": "string"
                 },
                 {
@@ -2031,6 +2031,17 @@
                   "description": "Use Gobet-Miri discrete monitoring correction for barrier options.\n\nWhen true, uses a Monte Carlo correction for discrete monitoring\n(requires `mc` feature). When false, uses analytical continuous\nmonitoring pricing.",
                   "type": "boolean"
                 },
+                "var_config": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/VarConfig"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Historical VaR / Expected Shortfall configuration override."
+                },
                 "vega_bump_decimal": {
                   "default": null,
                   "description": "Vega bump size in decimal (default 0.01 = 1%)",
@@ -2391,6 +2402,50 @@
                     "MeanReverting"
                   ],
                   "type": "object"
+                }
+              ]
+            },
+            "VarConfig": {
+              "description": "Configuration for VaR calculation.\n\nControls statistical properties such as confidence level and pricing method.\nThe historical window/observation count is derived from [`MarketHistory`].",
+              "properties": {
+                "confidence_level": {
+                  "default": 0.95,
+                  "description": "Confidence level (e.g., 0.95 for 95% VaR, 0.99 for 99% VaR)",
+                  "format": "double",
+                  "type": "number"
+                },
+                "method": {
+                  "$ref": "#/$defs/VarMethod",
+                  "default": "full_revaluation",
+                  "description": "VaR calculation method"
+                },
+                "reporting_currency": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/Currency"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Optional reporting currency for portfolio aggregation.\n\nWhen omitted, same-currency portfolios use their natural currency.\nMixed-currency portfolios must set this explicitly."
+                }
+              },
+              "type": "object"
+            },
+            "VarMethod": {
+              "description": "VaR calculation method.",
+              "oneOf": [
+                {
+                  "const": "full_revaluation",
+                  "description": "Full revaluation of instrument under each historical scenario.\n\nMost accurate method - reprices the instrument under each historical\nmarket scenario. Captures all non-linearities and path dependencies.",
+                  "type": "string"
+                },
+                {
+                  "const": "taylor_approximation",
+                  "description": "Taylor approximation using sensitivities (Greeks).\n\nFaster method - approximates P&L using pre-computed sensitivities.\nGood for linear instruments and large portfolios, but may be\ninaccurate for highly non-linear instruments (deep OTM options).",
+                  "type": "string"
                 }
               ]
             },

@@ -1385,6 +1385,17 @@
                   "description": "Use Gobet-Miri discrete monitoring correction for barrier options.\n\nWhen true, uses a Monte Carlo correction for discrete monitoring\n(requires `mc` feature). When false, uses analytical continuous\nmonitoring pricing.",
                   "type": "boolean"
                 },
+                "var_config": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/VarConfig"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Historical VaR / Expected Shortfall configuration override."
+                },
                 "vega_bump_decimal": {
                   "default": null,
                   "description": "Vega bump size in decimal (default 0.01 = 1%)",
@@ -1541,6 +1552,50 @@
                 "extra_cash_sweeps"
               ],
               "type": "object"
+            },
+            "VarConfig": {
+              "description": "Configuration for VaR calculation.\n\nControls statistical properties such as confidence level and pricing method.\nThe historical window/observation count is derived from [`MarketHistory`].",
+              "properties": {
+                "confidence_level": {
+                  "default": 0.95,
+                  "description": "Confidence level (e.g., 0.95 for 95% VaR, 0.99 for 99% VaR)",
+                  "format": "double",
+                  "type": "number"
+                },
+                "method": {
+                  "$ref": "#/$defs/VarMethod",
+                  "default": "full_revaluation",
+                  "description": "VaR calculation method"
+                },
+                "reporting_currency": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/Currency"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "Optional reporting currency for portfolio aggregation.\n\nWhen omitted, same-currency portfolios use their natural currency.\nMixed-currency portfolios must set this explicitly."
+                }
+              },
+              "type": "object"
+            },
+            "VarMethod": {
+              "description": "VaR calculation method.",
+              "oneOf": [
+                {
+                  "const": "full_revaluation",
+                  "description": "Full revaluation of instrument under each historical scenario.\n\nMost accurate method - reprices the instrument under each historical\nmarket scenario. Captures all non-linearities and path dependencies.",
+                  "type": "string"
+                },
+                {
+                  "const": "taylor_approximation",
+                  "description": "Taylor approximation using sensitivities (Greeks).\n\nFaster method - approximates P&L using pre-computed sensitivities.\nGood for linear instruments and large portfolios, but may be\ninaccurate for highly non-linear instruments (deep OTM options).",
+                  "type": "string"
+                }
+              ]
             },
             "VolSurfaceExtrapolation": {
               "description": "Policy for evaluating volatility surfaces outside their calibrated grid.\n\nMarket-standard production systems typically make this choice explicit because\nextrapolation can materially affect PV and greeks.\n\n# Market Standards\n\n- **Error**: Conservative approach for production systems; forces explicit handling.\n- **Clamp**: Simple flat extrapolation; common for quick prototyping.\n- **LinearInVariance**: Market-standard for equity/FX; preserves no-arbitrage conditions\n  better than linear-in-vol by extrapolating in total variance space (σ²T).",

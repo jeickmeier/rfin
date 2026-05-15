@@ -47,6 +47,8 @@ use finstack_core::Result;
 /// this floor.
 pub const MIN_ABSOLUTE_BUMP: f64 = 1e-8;
 
+const VOL_POINTS_PER_ABSOLUTE_VOL: f64 = 100.0;
+
 /// Common random number seed scenario for MC greek calculations.
 ///
 /// Using the same seed for all bump scenarios (up/down/base) ensures that
@@ -579,10 +581,8 @@ where
             Some((vol_surface_id.as_str(), -bump_abs)),
         )?;
 
-        // Vega is ∂V/∂σ (per absolute vol unit). With the default bump of 0.01, this is the
-        // market-standard “per 1 vol point” sensitivity.
-        // Central difference: vega = (PV_up - PV_down) / (2 * bump)
-        let vega = (pv_up - pv_down) / (2.0 * bump_abs);
+        // MetricId::Vega is reported per 1 vol point (0.01 absolute vol), not per 1.00 vol.
+        let vega = (pv_up - pv_down) / (2.0 * bump_abs * VOL_POINTS_PER_ABSOLUTE_VOL);
 
         ensure_finite(vega, "fd_vega")
     }
