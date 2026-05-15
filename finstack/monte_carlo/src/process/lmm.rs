@@ -186,14 +186,6 @@ impl LmmParams {
         let p = self.vol_period(t);
         &self.vol_values[p][i]
     }
-
-    /// Return scalar instantaneous vol for forward `i` at time `t`.
-    #[allow(dead_code)]
-    fn inst_vol(&self, i: usize, t: f64) -> f64 {
-        let lam = self.factor_loadings(i, t);
-        let sum: f64 = lam.iter().take(self.num_factors).map(|l| l * l).sum();
-        sum.sqrt()
-    }
 }
 
 /// LMM/BGM stochastic process with displaced diffusion.

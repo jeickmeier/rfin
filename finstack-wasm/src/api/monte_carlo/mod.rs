@@ -10,7 +10,9 @@ use std::str::FromStr;
 
 use crate::utils::to_js_err;
 use finstack_core::currency::Currency;
+use finstack_monte_carlo::pricer::basis::LsmcBasis;
 use finstack_monte_carlo::pricer::european::EuropeanPricer;
+use finstack_monte_carlo::pricer::lsmc::LsmcPricer;
 use finstack_monte_carlo::process::gbm::GbmProcess;
 use finstack_monte_carlo::results::MoneyEstimate;
 use wasm_bindgen::prelude::*;
@@ -128,6 +130,10 @@ impl McResultJs {
     }
 }
 
+fn estimate_to_js(est: &MoneyEstimate) -> Result<JsValue, JsValue> {
+    McResultJs::from_estimate(est).to_js_value()
+}
+
 /// Price a European call option via Monte Carlo under GBM dynamics.
 ///
 /// Returns a JSON object with `mean`, `currency`, `stderr`, `std_dev`,
@@ -153,8 +159,7 @@ pub fn price_european_call(
     let est = build_pricer(num_paths, seed)
         .price_gbm_call(spot, strike, rate, div_yield, vol, expiry, steps, ccy)
         .map_err(to_js_err)?;
-    let result = McResultJs::from_estimate(&est);
-    result.to_js_value()
+    estimate_to_js(&est)
 }
 
 /// Price a European put option via Monte Carlo under GBM dynamics.
@@ -182,8 +187,7 @@ pub fn price_european_put(
     let est = build_pricer(num_paths, seed)
         .price_gbm_put(spot, strike, rate, div_yield, vol, expiry, steps, ccy)
         .map_err(to_js_err)?;
-    let result = McResultJs::from_estimate(&est);
-    result.to_js_value()
+    estimate_to_js(&est)
 }
 
 /// Price a European call under Heston stochastic volatility.
@@ -305,8 +309,7 @@ pub fn price_asian_call(
     let est = pricer
         .price(&process, spot, expiry, steps, &payoff, ccy, df)
         .map_err(to_js_err)?;
-    let result = McResultJs::from_estimate(&est);
-    result.to_js_value()
+    estimate_to_js(&est)
 }
 
 /// Price an Asian put via Monte Carlo under GBM dynamics.
@@ -340,8 +343,7 @@ pub fn price_asian_put(
     let est = pricer
         .price(&process, spot, expiry, steps, &payoff, ccy, df)
         .map_err(to_js_err)?;
-    let result = McResultJs::from_estimate(&est);
-    result.to_js_value()
+    estimate_to_js(&est)
 }
 
 /// Price an American put via LSMC under GBM dynamics.
@@ -533,36 +535,34 @@ fn price_lsmc_gbm<E>(
 where
     E: finstack_monte_carlo::pricer::lsmc::ImmediateExercise,
 {
-    use finstack_monte_carlo::pricer::basis::build_lsmc_basis_from_name;
-    use finstack_monte_carlo::pricer::lsmc::{LsmcConfig, LsmcPricer};
+    let run = prepare_lsmc_gbm(
+        strike,
+        rate,
+        div_yield,
+        vol,
+        num_paths,
+        seed,
+        num_steps,
+        currency,
+        use_parallel,
+        basis,
+        basis_degree,
+    )?;
 
-    let defaults = finstack_monte_carlo::registry::embedded_defaults()
-        .map_err(|err| to_js_err(err.to_string()))?
-        .python_bindings
-        .lsmc
-        .clone();
-    let ccy = resolve_currency(currency.as_deref())?;
-    let steps = num_steps.unwrap_or(defaults.num_steps);
-    let exercise_dates: Vec<usize> = (1..=steps).collect();
-    let config = LsmcConfig::new(num_paths, exercise_dates, steps)
-        .map_err(to_js_err)?
-        .with_seed(seed)
-        .with_parallel(use_parallel.unwrap_or(false));
-    let pricer = LsmcPricer::new(config);
-    let process = GbmProcess::with_params(rate, div_yield, vol).map_err(to_js_err)?;
-
-    let degree = basis_degree.unwrap_or(defaults.basis_degree);
-    let basis_name = basis
-        .as_deref()
-        .unwrap_or(defaults.basis.as_str())
-        .to_ascii_lowercase();
-    let basis = build_lsmc_basis_from_name(&basis_name, degree, strike).map_err(to_js_err)?;
-
-    let est = pricer
-        .price(&process, spot, expiry, steps, exercise, &basis, ccy, rate)
+    let est = run
+        .pricer
+        .price(
+            &run.process,
+            spot,
+            expiry,
+            run.num_steps,
+            exercise,
+            &run.basis,
+            run.currency,
+            rate,
+        )
         .map_err(to_js_err)?;
-    let result = McResultJs::from_estimate(&est);
-    result.to_js_value()
+    estimate_to_js(&est)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -586,22 +586,78 @@ fn price_lsmc_gbm_unbiased<E>(
 where
     E: finstack_monte_carlo::pricer::lsmc::ImmediateExercise,
 {
+    let run = prepare_lsmc_gbm(
+        strike,
+        rate,
+        div_yield,
+        vol,
+        num_paths,
+        seed,
+        num_steps,
+        currency,
+        use_parallel,
+        basis,
+        basis_degree,
+    )?;
+
+    let est = run
+        .pricer
+        .price_unbiased(
+            &run.process,
+            spot,
+            expiry,
+            run.num_steps,
+            exercise,
+            &run.basis,
+            run.currency,
+            rate,
+            pricing_seed,
+        )
+        .map_err(to_js_err)?;
+    estimate_to_js(&est)
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+struct LsmcGbmRun {
+    pricer: LsmcPricer,
+    process: GbmProcess,
+    basis: LsmcBasis,
+    currency: Currency,
+    num_steps: usize,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn prepare_lsmc_gbm(
+    strike: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+    num_paths: usize,
+    seed: u64,
+    num_steps: Option<usize>,
+    currency: Option<String>,
+    use_parallel: Option<bool>,
+    basis: Option<String>,
+    basis_degree: Option<usize>,
+) -> Result<LsmcGbmRun, JsValue> {
     use finstack_monte_carlo::pricer::basis::build_lsmc_basis_from_name;
-    use finstack_monte_carlo::pricer::lsmc::{LsmcConfig, LsmcPricer};
+    use finstack_monte_carlo::pricer::lsmc::LsmcConfig;
 
     let defaults = finstack_monte_carlo::registry::embedded_defaults()
         .map_err(|err| to_js_err(err.to_string()))?
         .python_bindings
         .lsmc
         .clone();
-    let ccy = resolve_currency(currency.as_deref())?;
-    let steps = num_steps.unwrap_or(defaults.num_steps);
-    let exercise_dates: Vec<usize> = (1..=steps).collect();
-    let config = LsmcConfig::new(num_paths, exercise_dates, steps)
+    let currency = resolve_currency(currency.as_deref())?;
+    let num_steps = num_steps.unwrap_or(defaults.num_steps);
+    let exercise_dates: Vec<usize> = (1..=num_steps).collect();
+    let config = LsmcConfig::new(num_paths, exercise_dates, num_steps)
         .map_err(to_js_err)?
         .with_seed(seed)
         .with_parallel(use_parallel.unwrap_or(false));
-    let pricer = LsmcPricer::new(config);
     let process = GbmProcess::with_params(rate, div_yield, vol).map_err(to_js_err)?;
 
     let degree = basis_degree.unwrap_or(defaults.basis_degree);
@@ -611,26 +667,14 @@ where
         .to_ascii_lowercase();
     let basis = build_lsmc_basis_from_name(&basis_name, degree, strike).map_err(to_js_err)?;
 
-    let est = pricer
-        .price_unbiased(
-            &process,
-            spot,
-            expiry,
-            steps,
-            exercise,
-            &basis,
-            ccy,
-            rate,
-            pricing_seed,
-        )
-        .map_err(to_js_err)?;
-    let result = McResultJs::from_estimate(&est);
-    result.to_js_value()
+    Ok(LsmcGbmRun {
+        pricer: LsmcPricer::new(config),
+        process,
+        basis,
+        currency,
+        num_steps,
+    })
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 #[allow(clippy::too_many_arguments)]
 fn price_heston(
@@ -691,8 +735,7 @@ fn price_heston(
         )
     }
     .map_err(to_js_err)?;
-    let result = McResultJs::from_estimate(&est);
-    result.to_js_value()
+    estimate_to_js(&est)
 }
 
 /// Resolve an optional currency string, defaulting to USD.

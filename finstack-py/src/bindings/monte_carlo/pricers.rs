@@ -3,7 +3,10 @@
 use super::engine::resolve_currency;
 use super::results::PyMonteCarloResult;
 use crate::errors::core_to_py;
+use finstack_core::currency::Currency;
+use finstack_monte_carlo::pricer::basis::{build_lsmc_basis, BasisKind, LsmcBasis};
 use finstack_monte_carlo::pricer::european::EuropeanPricer;
+use finstack_monte_carlo::pricer::lsmc::{LsmcConfig, LsmcPricer};
 use finstack_monte_carlo::process::gbm::GbmProcess;
 use finstack_monte_carlo::registry::{embedded_defaults, PythonBindingDefaults};
 use pyo3::prelude::*;
@@ -280,16 +283,54 @@ pub struct PyLsmcPricer {
     num_paths: usize,
     seed: u64,
     use_parallel: bool,
-    basis: finstack_monte_carlo::pricer::basis::BasisKind,
+    basis: BasisKind,
     basis_degree: usize,
 }
 
-impl PyLsmcPricer {
-    fn build_basis(&self, strike: f64) -> PyResult<finstack_monte_carlo::pricer::basis::LsmcBasis> {
-        use finstack_monte_carlo::pricer::basis::build_lsmc_basis;
+struct PyLsmcRun {
+    pricer: LsmcPricer,
+    process: GbmProcess,
+    basis: LsmcBasis,
+    currency: Currency,
+    num_steps: usize,
+}
 
+impl PyLsmcPricer {
+    fn build_basis(&self, strike: f64) -> PyResult<LsmcBasis> {
         let to_py = |e: String| pyo3::exceptions::PyValueError::new_err(e);
         build_lsmc_basis(self.basis, self.basis_degree, strike).map_err(to_py)
+    }
+
+    fn build_config(&self, num_steps: usize) -> PyResult<LsmcConfig> {
+        let exercise_dates: Vec<usize> = (1..=num_steps).collect();
+        LsmcConfig::new(self.num_paths, exercise_dates, num_steps)
+            .map_err(core_to_py)
+            .map(|config| config.with_seed(self.seed).with_parallel(self.use_parallel))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn prepare_gbm_run(
+        &self,
+        rate: f64,
+        div_yield: f64,
+        vol: f64,
+        strike: f64,
+        num_steps: Option<usize>,
+        currency: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyLsmcRun> {
+        let currency = resolve_currency(currency)?;
+        let num_steps = num_steps.unwrap_or(py_mc_defaults()?.lsmc.num_steps);
+        let config = self.build_config(num_steps)?;
+        let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
+        let basis = self.build_basis(strike)?;
+
+        Ok(PyLsmcRun {
+            pricer: LsmcPricer::new(config),
+            process,
+            basis,
+            currency,
+            num_steps,
+        })
     }
 }
 
@@ -311,10 +352,8 @@ impl PyLsmcPricer {
         basis_degree: Option<usize>,
     ) -> PyResult<Self> {
         let defaults = &py_mc_defaults()?.lsmc;
-        let basis = finstack_monte_carlo::pricer::basis::BasisKind::parse(
-            basis.unwrap_or(defaults.basis.as_str()),
-        )
-        .map_err(pyo3::exceptions::PyValueError::new_err)?;
+        let basis = BasisKind::parse(basis.unwrap_or(defaults.basis.as_str()))
+            .map_err(pyo3::exceptions::PyValueError::new_err)?;
         let basis_degree = basis_degree.unwrap_or(defaults.basis_degree);
         if basis_degree == 0 {
             return Err(pyo3::exceptions::PyValueError::new_err(
@@ -368,23 +407,20 @@ impl PyLsmcPricer {
         num_steps: Option<usize>,
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
-        use finstack_monte_carlo::pricer::lsmc::{AmericanPut, LsmcConfig, LsmcPricer};
+        use finstack_monte_carlo::pricer::lsmc::AmericanPut;
 
-        let ccy = resolve_currency(currency)?;
-        let num_steps = num_steps.unwrap_or(py_mc_defaults()?.lsmc.num_steps);
         let exercise = AmericanPut::new(strike).map_err(core_to_py)?;
-        let exercise_dates: Vec<usize> = (1..=num_steps).collect();
-        let config = LsmcConfig::new(self.num_paths, exercise_dates, num_steps)
-            .map_err(core_to_py)?
-            .with_seed(self.seed)
-            .with_parallel(self.use_parallel);
-        let pricer = LsmcPricer::new(config);
-        let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
-
-        let basis = self.build_basis(strike)?;
+        let run = self.prepare_gbm_run(rate, div_yield, vol, strike, num_steps, currency)?;
         py.detach(|| {
-            pricer.price(
-                &process, spot, expiry, num_steps, &exercise, &basis, ccy, rate,
+            run.pricer.price(
+                &run.process,
+                spot,
+                expiry,
+                run.num_steps,
+                &exercise,
+                &run.basis,
+                run.currency,
+                rate,
             )
         })
         .map(PyMonteCarloResult::from_inner)
@@ -408,23 +444,20 @@ impl PyLsmcPricer {
         num_steps: Option<usize>,
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
-        use finstack_monte_carlo::pricer::lsmc::{AmericanCall, LsmcConfig, LsmcPricer};
+        use finstack_monte_carlo::pricer::lsmc::AmericanCall;
 
-        let ccy = resolve_currency(currency)?;
-        let num_steps = num_steps.unwrap_or(py_mc_defaults()?.lsmc.num_steps);
         let exercise = AmericanCall::new(strike).map_err(core_to_py)?;
-        let exercise_dates: Vec<usize> = (1..=num_steps).collect();
-        let config = LsmcConfig::new(self.num_paths, exercise_dates, num_steps)
-            .map_err(core_to_py)?
-            .with_seed(self.seed)
-            .with_parallel(self.use_parallel);
-        let pricer = LsmcPricer::new(config);
-        let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
-
-        let basis = self.build_basis(strike)?;
+        let run = self.prepare_gbm_run(rate, div_yield, vol, strike, num_steps, currency)?;
         py.detach(|| {
-            pricer.price(
-                &process, spot, expiry, num_steps, &exercise, &basis, ccy, rate,
+            run.pricer.price(
+                &run.process,
+                spot,
+                expiry,
+                run.num_steps,
+                &exercise,
+                &run.basis,
+                run.currency,
+                rate,
             )
         })
         .map(PyMonteCarloResult::from_inner)
@@ -458,29 +491,19 @@ impl PyLsmcPricer {
         num_steps: Option<usize>,
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
-        use finstack_monte_carlo::pricer::lsmc::{AmericanPut, LsmcConfig, LsmcPricer};
+        use finstack_monte_carlo::pricer::lsmc::AmericanPut;
 
-        let ccy = resolve_currency(currency)?;
-        let num_steps = num_steps.unwrap_or(py_mc_defaults()?.lsmc.num_steps);
         let exercise = AmericanPut::new(strike).map_err(core_to_py)?;
-        let exercise_dates: Vec<usize> = (1..=num_steps).collect();
-        let config = LsmcConfig::new(self.num_paths, exercise_dates, num_steps)
-            .map_err(core_to_py)?
-            .with_seed(self.seed)
-            .with_parallel(self.use_parallel);
-        let pricer = LsmcPricer::new(config);
-        let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
-
-        let basis = self.build_basis(strike)?;
+        let run = self.prepare_gbm_run(rate, div_yield, vol, strike, num_steps, currency)?;
         py.detach(|| {
-            pricer.price_unbiased(
-                &process,
+            run.pricer.price_unbiased(
+                &run.process,
                 spot,
                 expiry,
-                num_steps,
+                run.num_steps,
                 &exercise,
-                &basis,
-                ccy,
+                &run.basis,
+                run.currency,
                 rate,
                 pricing_seed,
             )
@@ -511,29 +534,19 @@ impl PyLsmcPricer {
         num_steps: Option<usize>,
         currency: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyMonteCarloResult> {
-        use finstack_monte_carlo::pricer::lsmc::{AmericanCall, LsmcConfig, LsmcPricer};
+        use finstack_monte_carlo::pricer::lsmc::AmericanCall;
 
-        let ccy = resolve_currency(currency)?;
-        let num_steps = num_steps.unwrap_or(py_mc_defaults()?.lsmc.num_steps);
         let exercise = AmericanCall::new(strike).map_err(core_to_py)?;
-        let exercise_dates: Vec<usize> = (1..=num_steps).collect();
-        let config = LsmcConfig::new(self.num_paths, exercise_dates, num_steps)
-            .map_err(core_to_py)?
-            .with_seed(self.seed)
-            .with_parallel(self.use_parallel);
-        let pricer = LsmcPricer::new(config);
-        let process = GbmProcess::with_params(rate, div_yield, vol).map_err(core_to_py)?;
-
-        let basis = self.build_basis(strike)?;
+        let run = self.prepare_gbm_run(rate, div_yield, vol, strike, num_steps, currency)?;
         py.detach(|| {
-            pricer.price_unbiased(
-                &process,
+            run.pricer.price_unbiased(
+                &run.process,
                 spot,
                 expiry,
-                num_steps,
+                run.num_steps,
                 &exercise,
-                &basis,
-                ccy,
+                &run.basis,
+                run.currency,
                 rate,
                 pricing_seed,
             )

@@ -124,13 +124,6 @@ pub struct PyEstimate {
     inner: finstack_monte_carlo::estimate::Estimate,
 }
 
-impl PyEstimate {
-    #[allow(dead_code)]
-    pub(super) fn from_inner(inner: finstack_monte_carlo::estimate::Estimate) -> Self {
-        Self { inner }
-    }
-}
-
 #[pymethods]
 impl PyEstimate {
     /// Point estimate (mean).
