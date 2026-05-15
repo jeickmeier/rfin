@@ -1,7 +1,7 @@
 use crate::calibration::api::schema::{CalibrationStep, StepParams};
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::hull_white::{
-    calibrate_hull_white_to_cap_floors, calibrate_hull_white_to_swaptions,
+    calibrate_hull_white_to_cap_floors, calibrate_hull_white_to_swaptions_with_schedules,
     CapFloorCalibrationConfig, CapFloorQuote, HullWhiteParams, SwapFrequency, SwaptionQuote,
 };
 use crate::calibration::targets::base_correlation::BaseCorrelationTarget;
@@ -287,8 +287,29 @@ pub(crate) fn execute_params(
             let df = |t: f64| disc_curve.df(t);
             let dc = DayCount::Act365F;
 
-            // Extract swaption quotes from MarketQuote::Vol(VolQuote::SwaptionVol { .. })
+            // Extract swaption quotes from MarketQuote::Vol(VolQuote::SwaptionVol { .. }).
+            //
+            // We build per-quote *real* accrual year fractions on the
+            // currency-appropriate day-count (Act/360 USD, 30/360 EUR, etc.)
+            // and pass them to `calibrate_hull_white_to_swaptions_with_schedules`
+            // so the calibrated (κ, σ) match vendor models that use real
+            // schedules (Bloomberg VCUB, QuantLib `Gaussian1dSwaptionEngine`).
+            let frequency = match p.currency {
+                finstack_core::currency::Currency::EUR | finstack_core::currency::Currency::GBP => {
+                    SwapFrequency::Annual
+                }
+                _ => SwapFrequency::SemiAnnual,
+            };
+            let payment_dc = match p.currency {
+                finstack_core::currency::Currency::EUR | finstack_core::currency::Currency::GBP => {
+                    DayCount::Thirty360
+                }
+                _ => DayCount::Act360,
+            };
+            let ppy = frequency.periods_per_year();
+
             let mut hw_quotes = Vec::new();
+            let mut hw_schedules: Vec<Vec<f64>> = Vec::new();
             for quote in quotes {
                 let MarketQuote::Vol(VolQuote::SwaptionVol {
                     expiry,
@@ -307,6 +328,29 @@ pub(crate) fn execute_params(
                     continue;
                 }
 
+                // Build per-period accruals on the *real* payment day-count.
+                // The schedule is uniform-period in calendar terms (no BDC
+                // applied here — leg-level conventions can be threaded later
+                // when the swaption schema carries them).
+                let n_periods = (t_ten * ppy as f64).round().max(1.0) as usize;
+                let period_days =
+                    finstack_core::dates::DayCount::calendar_days(*expiry, *maturity)
+                        .max(0)
+                        / n_periods.max(1) as i64;
+                let mut accruals = Vec::with_capacity(n_periods);
+                let mut acc_start = *expiry;
+                for i in 0..n_periods {
+                    let acc_end = if i + 1 == n_periods {
+                        *maturity
+                    } else {
+                        acc_start + time::Duration::days(period_days)
+                    };
+                    let tau = payment_dc
+                        .year_fraction(acc_start, acc_end, DayCountContext::default())?;
+                    accruals.push(tau);
+                    acc_start = acc_end;
+                }
+
                 let is_normal = quote_type.eq_ignore_ascii_case("normal");
                 hw_quotes.push(SwaptionQuote {
                     expiry: t_exp,
@@ -314,6 +358,7 @@ pub(crate) fn execute_params(
                     volatility: *vol,
                     is_normal_vol: is_normal,
                 });
+                hw_schedules.push(accruals);
             }
 
             let initial_guess = match (p.initial_kappa, p.initial_sigma) {
@@ -326,14 +371,13 @@ pub(crate) fn execute_params(
                     ))
                 }
             };
-            let frequency = match p.currency {
-                finstack_core::currency::Currency::EUR | finstack_core::currency::Currency::GBP => {
-                    SwapFrequency::Annual
-                }
-                _ => SwapFrequency::SemiAnnual,
-            };
-            let (hw_params, report) =
-                calibrate_hull_white_to_swaptions(&df, &hw_quotes, frequency, initial_guess)?;
+            let (hw_params, report) = calibrate_hull_white_to_swaptions_with_schedules(
+                &df,
+                &hw_quotes,
+                frequency,
+                &hw_schedules,
+                initial_guess,
+            )?;
 
             Ok(StepOutcome {
                 output: StepOutput::Scalars(vec![

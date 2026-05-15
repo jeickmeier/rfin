@@ -294,10 +294,18 @@ const HW_VALIDATION_TOLERANCE: f64 = 1e-6;
 
 /// Pre-computed market data for one swaption quote, captured once before
 /// LM iteration so that the residual loop is a pure numeric computation.
+///
+/// `accruals` is the per-period payment-leg year-fraction sequence. When
+/// `None` the calibrator uses the legacy constant-`tenor/n_periods` schedule
+/// (preserved for the float-only public API and existing tests). When `Some`,
+/// the supplied year fractions are used directly — see
+/// [`calibrate_hull_white_to_swaptions_with_schedules`] for the recipe used
+/// to build them from real (date, day-count) market data.
 struct PreparedSwaption {
     market_price: f64,
     fwd_swap_rate: f64,
     vega: f64,
+    accruals: Option<Box<[f64]>>,
 }
 
 /// `GlobalSolveTarget` impl carrying everything HW1F swaption calibration
@@ -350,7 +358,7 @@ impl<'a> GlobalSolveTarget for HullWhiteSwaptionTarget<'a> {
     ) -> finstack_core::Result<()> {
         for (idx, q) in quotes.iter().enumerate() {
             let pre = &self.prepared[idx];
-            let model_price = hw1f_swaption_price(
+            let model_price = hw1f_swaption_price_inner(
                 curve.kappa,
                 curve.sigma,
                 self.df,
@@ -358,6 +366,7 @@ impl<'a> GlobalSolveTarget for HullWhiteSwaptionTarget<'a> {
                 q.tenor,
                 pre.fwd_swap_rate,
                 self.ppy,
+                pre.accruals.as_deref(),
             );
             residuals[idx] = if model_price.is_finite() {
                 // Vega-weighted price residual: algebraically the
@@ -529,6 +538,7 @@ pub fn calibrate_hull_white_to_swaptions(
     let ppy = frequency.periods_per_year();
 
     // Pre-compute market data once; the LM hot loop only does numeric ops.
+    // No accruals supplied → constant-`dt` schedule (legacy behaviour).
     let mut prepared = Vec::with_capacity(n_quotes);
     let mut fwd_swap_rates = Vec::with_capacity(n_quotes);
     for q in quotes {
@@ -546,6 +556,7 @@ pub fn calibrate_hull_white_to_swaptions(
             market_price,
             fwd_swap_rate: fwd_rate,
             vega,
+            accruals: None,
         });
         fwd_swap_rates.push(fwd_rate);
     }
@@ -611,6 +622,150 @@ pub fn calibrate_hull_white_to_swaptions(
 
     // Final validation of (κ, σ) > 0 — `HullWhiteParams::new` is the
     // canonical gate.
+    let params = HullWhiteParams::new(params.kappa, params.sigma)?;
+    Ok((params, report))
+}
+
+/// Calibrate HW1F to swaptions using *real* per-period accrual year fractions.
+///
+/// Functionally identical to [`calibrate_hull_white_to_swaptions`] but takes
+/// per-quote accrual schedules so the synthetic constant-`dt` schedule is
+/// replaced by genuine market day-counts (e.g. Act/360 USD SOFR, 30/360 EUR
+/// EURIBOR). This brings calibrated `(κ, σ)` into tight parity with
+/// vendor models (Bloomberg VCUB, QuantLib `Gaussian1dSwaptionEngine`) that
+/// use real schedules.
+///
+/// # Arguments
+///
+/// * `schedules[i]` — per-period accrual year fractions for `quotes[i]`.
+///   Must contain `(quotes[i].tenor * frequency.periods_per_year()).round()`
+///   strictly-positive values; their sum must equal `quotes[i].tenor` to
+///   within numerical precision. If any schedule is malformed, the calibrator
+///   silently falls back to the constant-`dt` recipe for that quote.
+///
+/// # OIS-Specific Limitations
+///
+/// HW1F swaption calibration here treats every leg as a vanilla fixed-vs.-
+/// IBOR swap. For OIS swaptions (compounded-in-arrears), the daily compounding
+/// inside each accrual period is approximated by a single forward rate — the
+/// HW1F r* equation does not capture the daily reset structure. This is
+/// acceptable for ATM or near-ATM calibration (the loss is well below typical
+/// market vol-of-vol noise) but is not appropriate for term-RFR-strict
+/// calibration. The cap/floor path uses the analytical HW1F caplet vol
+/// formula and is unaffected.
+pub fn calibrate_hull_white_to_swaptions_with_schedules(
+    df: &dyn Fn(f64) -> f64,
+    quotes: &[SwaptionQuote],
+    frequency: SwapFrequency,
+    schedules: &[Vec<f64>],
+    initial_guess: Option<HullWhiteParams>,
+) -> finstack_core::Result<(HullWhiteParams, CalibrationReport)> {
+    if quotes.len() < 2 {
+        return Err(finstack_core::Error::Validation(format!(
+            "Need at least 2 swaption quotes for HW1F calibration (2 free parameters), got {}",
+            quotes.len()
+        )));
+    }
+    if schedules.len() != quotes.len() {
+        return Err(finstack_core::Error::Validation(format!(
+            "schedules.len() ({}) must match quotes.len() ({})",
+            schedules.len(),
+            quotes.len()
+        )));
+    }
+    for (i, q) in quotes.iter().enumerate() {
+        if q.expiry <= 0.0 || q.tenor <= 0.0 || q.volatility <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Invalid swaption quote at index {i}: expiry={}, tenor={}, vol={}",
+                q.expiry, q.tenor, q.volatility
+            )));
+        }
+    }
+
+    let n_quotes = quotes.len();
+    let ppy = frequency.periods_per_year();
+
+    let mut prepared = Vec::with_capacity(n_quotes);
+    let mut fwd_swap_rates = Vec::with_capacity(n_quotes);
+    for (q, sched) in quotes.iter().zip(schedules.iter()) {
+        let accruals_slice: Option<&[f64]> = if !sched.is_empty() { Some(sched) } else { None };
+        let (annuity, fwd_rate) = compute_swap_annuity_and_rate_inner(
+            df,
+            q.expiry,
+            q.tenor,
+            ppy,
+            accruals_slice,
+        );
+        let market_price = compute_swaption_market_price(
+            annuity,
+            fwd_rate,
+            q.expiry,
+            q.volatility,
+            q.is_normal_vol,
+        );
+        let vega = swaption_atm_vega(annuity, fwd_rate, q.expiry, q.volatility, q.is_normal_vol)
+            .max(SWAPTION_VEGA_FLOOR);
+        let stored_accruals = accruals_slice.map(|s| s.to_vec().into_boxed_slice());
+        prepared.push(PreparedSwaption {
+            market_price,
+            fwd_swap_rate: fwd_rate,
+            vega,
+            accruals: stored_accruals,
+        });
+        fwd_swap_rates.push(fwd_rate);
+    }
+
+    let (default_kappa_init, default_sigma_init) = infer_hw_initial_guess(quotes, &fwd_swap_rates);
+    let kappa_init: f64 = initial_guess.map(|p| p.kappa).unwrap_or(default_kappa_init);
+    let sigma_init: f64 = initial_guess.map(|p| p.sigma).unwrap_or(default_sigma_init);
+    let x0 = [kappa_init.ln(), sigma_init.ln()];
+
+    let target = HullWhiteSwaptionTarget {
+        df,
+        ppy,
+        initial_x0: x0,
+        prepared,
+    };
+
+    let mut config = CalibrationConfig::default();
+    config.solver = config.solver.with_tolerance(1e-12).with_max_iterations(300);
+
+    let multi_start = MultiStartConfig {
+        num_restarts: HW_NUM_RESTARTS,
+        perturbation_scale: HW_PERTURB_SCALE,
+    };
+
+    let (params, mut report) = GlobalFitOptimizer::optimize_with_multi_start(
+        &target,
+        quotes,
+        &config,
+        Some(HW_VALIDATION_TOLERANCE),
+        Some(&multi_start),
+    )?;
+
+    report = report
+        .with_model_version(finstack_core::versions::HULL_WHITE_1F)
+        .with_metadata("type", "hull_white_1f".to_string())
+        .with_metadata("kappa", format!("{:.6}", params.kappa))
+        .with_metadata("sigma", format!("{:.6}", params.sigma))
+        .with_metadata("initial_kappa", format!("{kappa_init:.6}"))
+        .with_metadata("initial_sigma", format!("{sigma_init:.6}"))
+        .with_metadata("multi_start_restarts", HW_NUM_RESTARTS.to_string())
+        .with_metadata(
+            "residual_weighting",
+            "1/vega (vega-weighted price residual)".to_string(),
+        )
+        .with_metadata("swap_frequency", format!("{frequency:?}"))
+        .with_metadata("schedule_source", "real_day_count".to_string());
+
+    if !(KAPPA_MIN..=KAPPA_MAX).contains(&params.kappa) {
+        return Err(finstack_core::Error::Validation(format!(
+            "Hull-White calibration produced κ = {:.6} outside the \
+             bounded range [{KAPPA_MIN}, {KAPPA_MAX}].",
+            params.kappa
+        )));
+    }
+
     let params = HullWhiteParams::new(params.kappa, params.sigma)?;
     Ok((params, report))
 }
@@ -1148,17 +1303,41 @@ fn hw_bond_vol(kappa: f64, sigma: f64, t: f64, big_t: f64, s: f64) -> f64 {
 ///
 /// ln A(t,T) = ln(P(0,T)/P(0,t)) + B(t,T) f(0,t) − (σ²/4κ)(1−e^{−2κt}) B(t,T)²
 fn hw_ln_a(kappa: f64, sigma: f64, t: f64, big_t: f64, df: &dyn Fn(f64) -> f64) -> f64 {
+    hw_ln_a_inner(kappa, sigma, t, big_t, df, None)
+}
+
+/// Internal `hw_ln_a` that lets the caller supply an analytical instantaneous
+/// forward `f(0,t)` instead of the central-FD approximation.
+///
+/// W4 fix: `hw_ln_a`'s 3-point central FD on `ln(df)` smears the
+/// piecewise-constant forward implied by log-linear DF interpolation across
+/// curve knots. Production callers can avoid that by passing the
+/// `DiscountCurve::forward(t1, t2)` evaluated at small tenors, which uses
+/// the curve's own interpolation analytically.
+fn hw_ln_a_inner(
+    kappa: f64,
+    sigma: f64,
+    t: f64,
+    big_t: f64,
+    df: &dyn Fn(f64) -> f64,
+    forward_analytic: Option<&dyn Fn(f64) -> f64>,
+) -> f64 {
     let p0t = df(t);
     let p0_big_t = df(big_t);
     let b = hw_b(kappa, t, big_t);
 
     // Instantaneous forward rate: f(0,t) ≈ −d/dt ln P(0,t)
-    let h = (t * 1e-3).clamp(1e-6, 1e-3);
-    let f0t = if t > h {
-        -(df(t + h).ln() - df(t - h).ln()) / (2.0 * h)
+    let f0t = if let Some(f_analytic) = forward_analytic {
+        let v = f_analytic(t);
+        if v.is_finite() {
+            v
+        } else {
+            // Analytical hook returned non-finite (e.g. tenor below
+            // `min_forward_tenor`); fall back to central FD.
+            fd_forward_rate(df, t)
+        }
     } else {
-        // Near t = 0: use forward difference
-        -(df(h).ln()) / h
+        fd_forward_rate(df, t)
     };
 
     let var_term = if kappa.abs() < 1e-10 {
@@ -1170,24 +1349,64 @@ fn hw_ln_a(kappa: f64, sigma: f64, t: f64, big_t: f64, df: &dyn Fn(f64) -> f64) 
     (p0_big_t / p0t).ln() + b * f0t - var_term
 }
 
+#[inline]
+fn fd_forward_rate(df: &dyn Fn(f64) -> f64, t: f64) -> f64 {
+    let h = (t * 1e-3).clamp(1e-6, 1e-3);
+    if t > h {
+        -(df(t + h).ln() - df(t - h).ln()) / (2.0 * h)
+    } else {
+        // Near t = 0: use forward difference.
+        -(df(h).ln()) / h
+    }
+}
+
 /// Compute annuity and forward swap rate for a swap starting at `t0`
 /// with given `tenor` and `periods_per_year` coupon payments.
+///
+/// The schedule is synthetic (constant `dt = tenor/n_periods`). For real
+/// market day-counts (Act/360 USD SOFR, 30/360 EUR EURIBOR, etc.), use
+/// [`compute_swap_annuity_and_rate_with_accruals`] and pass the actual
+/// per-period year fractions.
 pub(crate) fn compute_swap_annuity_and_rate(
     df: &dyn Fn(f64) -> f64,
     t0: f64,
     tenor: f64,
     periods_per_year: usize,
 ) -> (f64, f64) {
+    compute_swap_annuity_and_rate_inner(df, t0, tenor, periods_per_year, None)
+}
+
+fn compute_swap_annuity_and_rate_inner(
+    df: &dyn Fn(f64) -> f64,
+    t0: f64,
+    tenor: f64,
+    periods_per_year: usize,
+    accruals: Option<&[f64]>,
+) -> (f64, f64) {
     let n_periods = (tenor * periods_per_year as f64).round().max(1.0) as usize;
-    let dt = tenor / n_periods as f64;
+
+    let use_real_accruals = accruals
+        .map(|a| a.len() == n_periods && a.iter().all(|x| x.is_finite() && *x > 0.0))
+        .unwrap_or(false);
 
     let mut annuity = 0.0;
-    for i in 1..=n_periods {
-        let t_i = t0 + i as f64 * dt;
-        annuity += dt * df(t_i);
+    let mut t_running = t0;
+    if use_real_accruals {
+        // SAFETY: validated above.
+        for &tau in accruals.expect("accruals checked above") {
+            t_running += tau;
+            annuity += tau * df(t_running);
+        }
+    } else {
+        let dt = tenor / n_periods as f64;
+        for i in 1..=n_periods {
+            let t_i = t0 + i as f64 * dt;
+            annuity += dt * df(t_i);
+        }
+        t_running = t0 + tenor;
     }
 
-    let t_n = t0 + tenor;
+    let t_n = t_running;
     let fwd_rate = if annuity > 1e-15 {
         (df(t0) - df(t_n)) / annuity
     } else {
@@ -1246,6 +1465,12 @@ fn compute_swaption_market_price(
 /// 1. Find the critical short rate r* where the swap value equals par.
 /// 2. Each leg becomes a put on a zero-coupon bond with strike K_i = P_HW(r*, T₀, T_i).
 /// 3. Sum the individual zero-coupon bond put prices.
+///
+/// Uses a synthetic constant-`dt` schedule. The production HW1F calibrator
+/// (`calibrate_hull_white_to_swaptions_with_schedules`) drives
+/// [`hw1f_swaption_price_inner`] directly with real accrual fractions, so
+/// this scalar-time wrapper exists primarily as a stable test harness.
+#[allow(dead_code)]
 pub(crate) fn hw1f_swaption_price(
     kappa: f64,
     sigma: f64,
@@ -1255,21 +1480,53 @@ pub(crate) fn hw1f_swaption_price(
     swap_rate: f64,
     periods_per_year: usize,
 ) -> f64 {
+    hw1f_swaption_price_inner(kappa, sigma, df, t0, tenor, swap_rate, periods_per_year, None)
+}
+
+fn hw1f_swaption_price_inner(
+    kappa: f64,
+    sigma: f64,
+    df: &dyn Fn(f64) -> f64,
+    t0: f64,
+    tenor: f64,
+    swap_rate: f64,
+    periods_per_year: usize,
+    accruals: Option<&[f64]>,
+) -> f64 {
     let n_periods = (tenor * periods_per_year as f64).round().max(1.0) as usize;
-    let dt = tenor / n_periods as f64;
+
+    let use_real_accruals = accruals
+        .map(|a| a.len() == n_periods && a.iter().all(|x| x.is_finite() && *x > 0.0))
+        .unwrap_or(false);
 
     // Payment dates and cashflows
     let mut payment_times = Vec::with_capacity(n_periods);
     let mut cashflows = Vec::with_capacity(n_periods);
-    for i in 1..=n_periods {
-        let t_i = t0 + i as f64 * dt;
-        payment_times.push(t_i);
-        let cf = if i < n_periods {
-            swap_rate * dt
-        } else {
-            1.0 + swap_rate * dt
-        };
-        cashflows.push(cf);
+    if use_real_accruals {
+        let real = accruals.expect("accruals checked above");
+        let mut t_running = t0;
+        for (i, &tau) in real.iter().enumerate() {
+            t_running += tau;
+            payment_times.push(t_running);
+            let cf = if i + 1 < n_periods {
+                swap_rate * tau
+            } else {
+                1.0 + swap_rate * tau
+            };
+            cashflows.push(cf);
+        }
+    } else {
+        let dt = tenor / n_periods as f64;
+        for i in 1..=n_periods {
+            let t_i = t0 + i as f64 * dt;
+            payment_times.push(t_i);
+            let cf = if i < n_periods {
+                swap_rate * dt
+            } else {
+                1.0 + swap_rate * dt
+            };
+            cashflows.push(cf);
+        }
     }
 
     // Pre-compute B and ln A for each payment date
