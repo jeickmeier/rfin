@@ -126,23 +126,25 @@ pub trait Copula: Send + Sync {
     /// A static human-readable model name.
     fn model_name(&self) -> &'static str;
 
-    /// Lower-tail dependence summary for the model at the given correlation.
+    /// Lower-tail dependence coefficient at the given correlation.
     ///
-    /// For strict copula implementations this is the mathematical lower-tail
-    /// dependence coefficient
+    /// Strict definition:
     /// `λ_L = lim_{u→0} P(U₂ ≤ u | U₁ ≤ u)`.
-    ///
-    /// Some heuristic models return a monotone stress-dependence proxy instead
-    /// of the exact copula limit. Callers that need mathematically exact
-    /// lower-tail dependence should consult the concrete implementation docs.
     ///
     /// - Gaussian copula: λ_L = 0 (no tail dependence)
     /// - Student-t copula: λ_L > 0 (positive tail dependence)
+    /// - Random Factor Loading copula: returns `f64::NAN`
+    ///   (no closed-form λ_L; see
+    ///   `RandomFactorLoadingCopula::stress_correlation_proxy`
+    ///   for the heuristic stress gauge).
+    ///
+    /// Implementations that cannot supply a closed-form `λ_L` MUST return
+    /// `f64::NAN` rather than a heuristic proxy. Callers should check
+    /// `is_nan()` before using the result.
     ///
     /// # Returns
     ///
-    /// A lower-tail dependence coefficient or documented proxy for the supplied
-    /// correlation level.
+    /// The strict `λ_L`, or `f64::NAN` if the model has no closed form.
     fn tail_dependence(&self, correlation: f64) -> f64;
 }
 

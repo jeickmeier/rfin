@@ -79,4 +79,16 @@ pub enum Error {
         /// Length of the volatility vector supplied by the caller.
         actual: usize,
     },
+    /// Volatility value is negative or non-finite.
+    ///
+    /// Returned by validated factor-model constructors when a volatility entry
+    /// is `< 0.0` or non-finite. Silent clamping would mask sign-flip bugs
+    /// upstream (e.g., `-0.2` becoming `0.01`).
+    #[error("Invalid volatility at index {index}: {value} (must be finite and >= 0.0)")]
+    InvalidVolatility {
+        /// Index of the offending volatility value.
+        index: usize,
+        /// The offending value.
+        value: f64,
+    },
 }

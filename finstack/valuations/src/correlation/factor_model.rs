@@ -772,6 +772,20 @@ impl MultiFactorModel {
                 actual: volatilities.len(),
             });
         }
+        // Reject negative or non-finite volatilities explicitly. Silent
+        // clamping of `-0.2` to `0.01` would mask sign-flip bugs upstream.
+        // The upper-bound clamp (10.0) and lower-bound clamp (0.01) below
+        // remain — defensive against vol-of-vol explosions and singular
+        // Cholesky on legitimately-zero entries — but only after the input
+        // has been verified non-negative and finite.
+        if let Some((index, value)) = volatilities
+            .iter()
+            .copied()
+            .enumerate()
+            .find(|(_, v)| !v.is_finite() || *v < 0.0)
+        {
+            return Err(Error::InvalidVolatility { index, value });
+        }
         let vols: Vec<f64> = volatilities.iter().map(|v| v.clamp(0.01, 10.0)).collect();
 
         // Validate correlation matrix

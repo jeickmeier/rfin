@@ -30,6 +30,16 @@
 //! - Correlation "smile" required via base correlation framework
 //! - Static correlation doesn't capture stress dynamics
 //!
+//! # Numerical Dependencies
+//!
+//! - Standard-normal CDF Φ and inverse-CDF Φ⁻¹ are delegated to
+//!   [`finstack_core::math::norm_cdf`] and `standard_normal_inv_cdf`, which
+//!   wrap the `statrs` crate's `Normal` distribution. No named approximation
+//!   such as Beasley-Springer-Moro or Acklam is used; tail accuracy is
+//!   determined by the underlying statrs implementation.
+//! - Conditional-PD integration uses Gauss-Hermite quadrature; see
+//!   [`super::DEFAULT_QUADRATURE_ORDER`] (typically 20 nodes).
+//!
 //! # References
 //!
 //! - Gaussian copula reference:

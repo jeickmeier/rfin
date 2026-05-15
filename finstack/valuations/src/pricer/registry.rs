@@ -108,6 +108,8 @@ impl PricerRegistry {
     ///
     /// If a pricer already exists for this key, it will be replaced and a warning
     /// will be emitted so duplicate registration is visible in release builds.
+    /// Use [`PricerRegistry::try_register`] in production registries where a
+    /// duplicate registration indicates a bug.
     pub fn register(
         &mut self,
         inst: InstrumentType,
@@ -122,6 +124,30 @@ impl PricerRegistry {
             );
         }
         self.pricers.insert(key, Arc::new(pricer));
+    }
+
+    /// Register a pricer, returning an error if a pricer is already registered
+    /// for the same `(instrument, model)` key.
+    ///
+    /// Use this in production registry construction where duplicates are bugs.
+    /// The complementary [`PricerRegistry::register`] silently overwrites and
+    /// emits a warning — useful for test setup and monkey-patching.
+    ///
+    /// # Errors
+    ///
+    /// Returns the conflicting `PricerKey` if a pricer is already registered.
+    pub fn try_register(
+        &mut self,
+        inst: InstrumentType,
+        model: ModelKey,
+        pricer: impl Pricer + 'static,
+    ) -> std::result::Result<(), PricerKey> {
+        let key = PricerKey::new(inst, model);
+        if self.pricers.contains_key(&key) {
+            return Err(key);
+        }
+        self.pricers.insert(key, Arc::new(pricer));
+        Ok(())
     }
 
     /// Look up a pricer for a specific (instrument type, model) combination.

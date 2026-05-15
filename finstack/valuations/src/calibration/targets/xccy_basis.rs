@@ -4,6 +4,17 @@
 //! FX spot rate, and FX forward or XCCY basis swap quotes. Optionally
 //! produces a [`BasisSpreadCurve`] as a byproduct.
 //!
+//! ## Spot-Date Convention
+//!
+//! `XccyBasisParams::fx_spot` is interpreted as the **zero-coupon (T+0) FX
+//! spot** — i.e. the rate that prices the foreign cashflow today. Any
+//! conventional offset between an observed market spot quote and the T+0 rate
+//! (typically TN or T+2 for major pairs) must be applied by the caller before
+//! constructing the params: e.g. `t0_spot = market_spot * fwd_pts(TN→T+0)`.
+//! Mixing observed-spot and T+0-spot conventions silently introduces a small
+//! systematic bias that compounds at long tenors (~1–2bp at 5y+ for typical
+//! TN points).
+//!
 //! ## MtM-Resetting Support
 //!
 //! `XccySwap` instances priced through `value_raw` honour `NotionalExchange::MtmResetting`

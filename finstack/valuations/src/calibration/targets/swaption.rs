@@ -54,6 +54,21 @@ impl SwaptionVolTarget {
             )));
         }
 
+        // Sanity-range check on the normalized vol. Catches off-by-100 unit
+        // errors (e.g., a 50bp Normal vol entered as `50` rather than `0.50`,
+        // which divides to 0.005 — well below market norms — or a 20% LN vol
+        // entered as `20.0` and treated as `0.20` correctly but `2000`
+        // treated as `20.0`, off the chart). Range [1e-4, 2.0] covers both
+        // Normal (100bp = 0.01, ~1% extreme) and Lognormal (1% to 200%)
+        // regimes including most stress scenarios.
+        if !(1e-4..=2.0).contains(&normalized) {
+            return Err(finstack_core::Error::Validation(format!(
+                "normalized swaption vol {normalized:.6} (quoted={quoted}, convention={convention:?}) \
+                 is outside plausible market range [1e-4, 2.0] — check that the quoted vol's units \
+                 match the declared convention",
+            )));
+        }
+
         Ok(normalized)
     }
 

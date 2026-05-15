@@ -41,6 +41,16 @@ use crate::calibration::bumps::{bump_hazard_shift, BumpRequest};
 use crate::factor_model::{decompose_levels, decompose_period};
 use crate::instruments::common_impl::traits::Instrument;
 
+/// Threshold above which an adder step's absolute P&L is considered large
+/// enough to warrant a `tracing::warn!`. Expressed as a fraction of the
+/// total credit P&L (sum of |generic| + Σ|level| + |adder|).
+///
+/// The adder step absorbs whatever residual hazard-curve shape remains after
+/// the parallel cascade steps (see module-level docs). A large adder
+/// magnitude indicates significant non-parallel curve moves that the
+/// hierarchy decomposition could not explain.
+pub(crate) const ADDER_MAGNITUDE_WARN_RATIO: f64 = 0.05;
+
 /// What kind of cascade step a single bump represents.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CreditStepKind {
@@ -422,12 +432,37 @@ pub(crate) fn build_credit_factor_attribution(
         None
     };
 
+    // Diagnostic: surface the adder magnitude and warn when it dominates the
+    // credit P&L. Audit item #21 — the adder step absorbs non-parallel curve
+    // moves, so a large |adder| relative to total credit P&L is a signal that
+    // the hierarchy decomposition is missing real risk.
+    let adder_abs = adder_pnl.amount().abs();
+    let total_credit_abs = generic_pnl.amount().abs()
+        + levels.iter().map(|l| l.total.amount().abs()).sum::<f64>()
+        + adder_abs;
+    if total_credit_abs > 0.0
+        && adder_abs > ADDER_MAGNITUDE_WARN_RATIO * total_credit_abs
+    {
+        tracing::warn!(
+            issuer_id = %cascade.issuer_id,
+            adder_pnl = adder_pnl.amount(),
+            adder_abs = adder_abs,
+            total_credit_abs = total_credit_abs,
+            ratio = adder_abs / total_credit_abs,
+            threshold = ADDER_MAGNITUDE_WARN_RATIO,
+            "credit cascade adder magnitude exceeds {:.0}% of total credit P&L \
+             — non-parallel curve moves are being absorbed into the per-issuer adder",
+            ADDER_MAGNITUDE_WARN_RATIO * 100.0
+        );
+    }
+
     CreditFactorAttribution {
         model_id: credit_factor_model_id(model),
         generic_pnl,
         levels,
         adder_pnl_total: adder_pnl,
         adder_pnl_by_issuer,
+        adder_magnitude: Some(finstack_core::money::Money::new(adder_abs, ccy)),
     }
 }
 

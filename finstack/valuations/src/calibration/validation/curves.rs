@@ -64,9 +64,15 @@ impl CurveValidator for DiscountCurve {
             let df1 = self.df(t1);
             let df2 = self.df(t2);
 
-            // Calculate instantaneous forward rate
+            // Calculate instantaneous forward rate using continuous compounding.
+            // The simple-compounded form (df1/df2 - 1)/(t2-t1) is wildly imprecise
+            // on the coarse DF_ARBI_POINTS grid (gaps up to 10 years); at a 10y
+            // gap and 5% rates it overestimates by ~30% relative, producing false
+            // "unreasonably high" rejections or masking real arbitrage.
+            // The guard `df2 < df1` ensures `df2/df1 < 1`, so `ln(df2/df1) < 0`
+            // and the negation produces a positive forward rate.
             if df1 > 0.0 && df2 > 0.0 && df2 < df1 {
-                let fwd_rate = (df1 / df2 - 1.0) / (t2 - t1);
+                let fwd_rate = -(df2 / df1).ln() / (t2 - t1);
 
                 // Forward rates should be positive (allowing small negative for technical reasons)
                 if fwd_rate < config.min_forward_rate {
@@ -102,27 +108,14 @@ impl CurveValidator for DiscountCurve {
             return Ok(());
         }
 
-        // Auto-detect rate regime by checking the shortest non-zero zero rate.
-        // In positive-rate regimes, DFs must be monotonically decreasing.
-        // In negative-rate regimes (e.g., EUR/JPY/CHF), DFs can exceed 1.0
-        // at the short end and may not decrease monotonically.
-        let short_end_rate = self.zero(0.25); // Check 3-month zero rate
-
-        // Determine if we're in a negative rate environment
-        let is_negative_rate_environment = short_end_rate < -config.tolerance;
-
-        // Only skip monotonicity check if:
-        // 1. We're actually in a negative rate environment (auto-detected), AND
-        // 2. The user has explicitly allowed negative rates
-        if is_negative_rate_environment && config.allow_negative_rates {
-            // For genuinely negative rate curves, skip strict monotonicity
-            // but forward rate bounds are still checked by validate_no_arbitrage
-            return Ok(());
-        }
-
-        // In positive-rate environments (or when negative rates not allowed),
-        // enforce strict monotonicity - this is the market standard constraint
+        // Per-segment monotonicity: rather than a single "skip everything if 3M
+        // is negative" heuristic, walk DF_MONO_POINTS and only allow DF to rise
+        // (df > prev_df) on segments where the segment's own continuously-
+        // compounded forward rate is negative. This correctly handles mixed
+        // regimes (e.g., EUR 2017: -0.5% short, +2% long), which the previous
+        // single-3M-point check treated as fully relaxed.
         let mut prev_df = 1.0;
+        let mut prev_t = 0.0;
         let max_knot = self.knots().last().copied().unwrap_or(0.0);
 
         for &t in DF_MONO_POINTS {
@@ -131,11 +124,25 @@ impl CurveValidator for DiscountCurve {
             }
             let df = self.df(t);
 
-            // Allow for numerical tolerance
-            if df > prev_df + config.tolerance {
+            // Compute this segment's continuously-compounded forward rate.
+            // For t == prev_t (the t=0 point), no segment exists yet.
+            let segment_negative = if t > prev_t && prev_df > 0.0 && df > 0.0 {
+                let fwd = -(df / prev_df).ln() / (t - prev_t);
+                fwd < -config.tolerance
+            } else {
+                false
+            };
+
+            // Allow DF to rise only when (a) caller has opted into negative
+            // rates, AND (b) this specific segment's forward rate is genuinely
+            // negative. Otherwise enforce monotonic decrease.
+            let allow_rise = config.allow_negative_rates && segment_negative;
+
+            if !allow_rise && df > prev_df + config.tolerance {
                 return Err(Error::Validation(format!(
                     "Discount factor not monotonically decreasing: DF({})={:.6} > DF(prev)={:.6} in {} \
-                    (positive-rate environment detected; set allow_negative_rates=true if this is intentional)",
+                    (segment forward rate is non-negative; set allow_negative_rates=true and \
+                    ensure the segment forward is genuinely negative if this is intentional)",
                     t,
                     df,
                     prev_df,
@@ -144,6 +151,7 @@ impl CurveValidator for DiscountCurve {
             }
 
             prev_df = df;
+            prev_t = t;
         }
 
         Ok(())

@@ -29,9 +29,11 @@ use pyo3::types::PyDict;
 /// market_t1_json : str
 ///     JSON-serialized ``MarketContext`` at T₁.
 /// as_of_t0 : str
-///     Valuation date T₀ in ISO 8601 format.
+///     Valuation date T₀ as an ISO 8601 calendar date (``YYYY-MM-DD``).
+///     Time-of-day and timezone offsets are not accepted; for time-of-day
+///     -sensitive workflows pass the start-of-day calendar date in UTC.
 /// as_of_t1 : str
-///     Valuation date T₁ in ISO 8601 format.
+///     Valuation date T₁ as an ISO 8601 calendar date (``YYYY-MM-DD``).
 /// method : str | dict
 ///     Attribution method. One of:
 ///
@@ -81,6 +83,11 @@ fn attribute_pnl(
     )
     .map_err(display_to_py)?;
 
+    // GIL is released for the entire attribution computation. The closure body
+    // accesses no Python objects (`spec` is a fully-deserialized Rust value
+    // built from `&str` arguments above), so concurrent Python callers can run
+    // attributions in parallel without serializing on the GIL. Rayon
+    // parallelism inside `spec.execute()` is unaffected.
     let result = py.detach(|| spec.execute()).map_err(display_to_py)?;
     serde_json::to_string(&result.attribution).map_err(display_to_py)
 }

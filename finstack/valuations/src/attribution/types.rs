@@ -237,6 +237,13 @@ pub struct PnlAttribution {
 
     /// Attribution metadata.
     pub meta: AttributionMeta,
+
+    /// True if residual computation encountered non-finite (NaN/Inf) inputs,
+    /// or if any factor P&L value is non-finite. When `true`, `residual` and
+    /// `meta.residual_pct` are not meaningful and downstream callers should
+    /// treat the attribution as invalid. Defaults to `false`.
+    #[serde(default)]
+    pub result_invalid: bool,
 }
 
 /// Hierarchy-level decomposition of credit P&L, opt-in via
@@ -274,6 +281,14 @@ pub struct CreditFactorAttribution {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(with = "Option<BTreeMap<String, Money>>")]
     pub adder_pnl_by_issuer: Option<BTreeMap<IssuerId, Money>>,
+    /// Diagnostic: absolute magnitude of the per-issuer adder step P&L
+    /// (`|adder_pnl_total|`). Surfaced so downstream consumers can detect
+    /// when the adder is absorbing significant non-parallel curve moves.
+    /// A `tracing::warn!` is also emitted by the cascade builder when the
+    /// adder magnitude exceeds `credit_cascade::ADDER_MAGNITUDE_WARN_RATIO`
+    /// of total credit P&L.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub adder_magnitude: Option<Money>,
 }
 
 /// P&L contribution from a single hierarchy level.
@@ -714,6 +729,7 @@ impl PnlAttribution {
             scalars_detail: None,
             credit_factor_detail: None,
             credit_carry_decomposition: None,
+            result_invalid: false,
             meta: AttributionMeta {
                 method,
                 t0,

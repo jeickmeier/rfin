@@ -603,13 +603,31 @@ impl<I> Default for GenericFdVolga<I> {
 
 impl<I> MetricCalculator for GenericFdVolga<I>
 where
-    I: Instrument + EquityDependencies + HasPricingOverrides + Clone + 'static,
+    I: Instrument
+        + EquityDependencies
+        + HasExpiry
+        + HasDayCount
+        + HasPricingOverrides
+        + Clone
+        + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
         let defaults =
             sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?;
+
+        // If expired, volga is zero — mirror vanna's guard. On an expired
+        // option, vega ≈ 0, so volga = (vega(σ+h) - vega(σ-h))/h^2 amplifies
+        // near-zero noise into NaN/garbage.
+        let t = instrument.day_count().year_fraction(
+            as_of,
+            HasExpiry::expiry(instrument),
+            finstack_core::dates::DayCountContext::default(),
+        )?;
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies()?;

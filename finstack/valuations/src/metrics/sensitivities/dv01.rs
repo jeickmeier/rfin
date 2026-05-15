@@ -447,6 +447,18 @@ where
     ) -> finstack_core::Result<f64> {
         let as_of = context.as_of;
 
+        // Triangular weight construction below assumes `buckets` is strictly
+        // increasing; an unsorted slice produces zero-sum or inverted buckets
+        // silently. Validate up-front rather than letting bad input through.
+        for win in buckets.windows(2) {
+            if !(win[1] > win[0]) {
+                return Err(finstack_core::Error::Validation(format!(
+                    "key-rate buckets must be strictly increasing, got {:?} (offending pair: {} -> {})",
+                    buckets, win[0], win[1]
+                )));
+            }
+        }
+
         let mut series: Vec<(std::borrow::Cow<'static, str>, f64)> =
             Vec::with_capacity(buckets.len());
 

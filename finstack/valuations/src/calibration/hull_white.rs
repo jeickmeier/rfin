@@ -110,6 +110,14 @@ impl HullWhiteParams {
 
     /// Create tree configuration with the specified number of steps.
     pub(crate) fn tree_config(&self, steps: usize) -> HullWhiteTreeConfig {
+        // Defensive against future code paths that might bypass the
+        // construction-time validation: a non-positive mean-reversion would
+        // produce an exploding (mean-anti-reverting) tree.
+        debug_assert!(
+            self.kappa > 0.0,
+            "Hull-White mean reversion kappa must be positive, got {}",
+            self.kappa
+        );
         HullWhiteTreeConfig::new(self.kappa, self.sigma, steps)
     }
 

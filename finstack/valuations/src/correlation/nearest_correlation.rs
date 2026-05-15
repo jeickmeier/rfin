@@ -124,15 +124,28 @@ pub fn nearest_correlation_matrix(
 
     // Symmetrize to machine precision before starting the projection so that
     // the Jacobi eigensolver gets a perfectly symmetric iterate.
-    let mut y = symmetrize(input, n);
-    let mut s = vec![0.0_f64; n * n];
+    let y = symmetrize(input, n);
 
-    let mut prev = y.clone();
+    // Early-exit on already-PSD inputs. After symmetrization the input has
+    // unit diagonal (gated by DIAGONAL_GATE above) and is symmetric to
+    // machine precision; if Cholesky also succeeds it is positive definite,
+    // so it is its own nearest-correlation projection. Common in daily
+    // recalibration where the input only drifts within tolerance.
+    if finstack_core::math::linalg::cholesky_correlation(&y, n).is_ok() {
+        return Ok(y);
+    }
+
+    // Dykstra-projection iteration. Pre-allocate `prev`, `next`, `r`, `s`
+    // outside the loop; swap `prev` and `next` per iteration to avoid the
+    // per-iteration `clone()`.
+    let mut s = vec![0.0_f64; n * n];
+    let mut r = vec![0.0_f64; n * n];
+    let mut prev = y;
+    let mut next = vec![0.0_f64; n * n];
     for _ in 0..opts.max_iter {
-        // Dykstra correction: r = y - s
-        let mut r = vec![0.0; n * n];
+        // Dykstra correction: r = prev - s
         for k in 0..(n * n) {
-            r[k] = y[k] - s[k];
+            r[k] = prev[k] - s[k];
         }
 
         let x = project_psd(&r, n);
@@ -141,8 +154,8 @@ pub fn nearest_correlation_matrix(
             s[k] = x[k] - r[k];
         }
 
-        // Project onto unit diagonal.
-        let mut next = x;
+        // Project onto unit diagonal into `next`.
+        next.copy_from_slice(&x);
         for i in 0..n {
             next[i * n + i] = 1.0;
         }
@@ -150,8 +163,7 @@ pub fn nearest_correlation_matrix(
         if frobenius_diff(&next, &prev) < opts.tol {
             return Ok(next);
         }
-        prev = next.clone();
-        y = next;
+        std::mem::swap(&mut prev, &mut next);
     }
 
     Err(Error::NotPositiveSemiDefinite { row: 0 })

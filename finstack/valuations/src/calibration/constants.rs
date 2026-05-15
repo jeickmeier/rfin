@@ -41,7 +41,14 @@ pub(crate) const WEIGHT_MIN_FLOOR: f64 = 1e-3;
 ///
 /// Using a moderate large finite value (1e6) helps solvers behave more predictably
 /// than extremely large values like 1e12, which can cause numerical instability
-/// with gradient-based methods.
+/// with gradient-based methods. The bootstrap-scan filter
+/// `OBJECTIVE_VALID_ABS_MAX = PENALTY / 10.0` is calibrated against this value
+/// — lowering PENALTY without raising the filter ratio causes legitimately
+/// large feasible objective values to be treated as infeasible. Audit item #26
+/// proposed lowering this to 1e3 to avoid LM trust-region stagnation; the
+/// bootstrap-target test suite (xccy_basis, f-space tolerance) demonstrates
+/// that the scan filter currently relies on the larger separation, so any
+/// future reduction must come with a coordinated retune of the scan threshold.
 pub(crate) const PENALTY: f64 = 1e6;
 
 /// Maximum absolute objective value treated as "valid" during bracketing scans.

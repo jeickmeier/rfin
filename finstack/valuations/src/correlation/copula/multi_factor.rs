@@ -1,26 +1,34 @@
 //! Multi-factor Gaussian copula: global + one shared sector factor.
 //!
-//! # Current Implementation Scope
+//! # Implementation Scope
 //!
-//! **This implementation does not currently resolve per-name sector
-//! assignments.** The [`Copula`] trait methods
-//! ([`Copula::conditional_default_prob`] and [`Copula::integrate_fn`]) do not
-//! take a sector index argument, and the integration is performed over a
-//! single `(Z_G, Z_S)` pair that is *shared* by every name in the portfolio.
+//! Two complementary APIs are provided:
 //!
-//! As a result, the model is mathematically equivalent to a reparameterized
-//! two-factor Gaussian copula in which every entity has the same global and
-//! sector loadings (`β_G`, `β_S`) and every pair of entities exhibits the same
-//! pairwise correlation `ρᵢⱼ = β_G² + β_S²`. The doc strings on
-//! [`MultiFactorCopula::inter_sector_correlation`] and
-//! [`MultiFactorCopula::intra_sector_correlation`] therefore describe the
-//! parameter structure, not a realized per-name sector effect.
+//! 1. **[`Copula::conditional_default_prob`]** (the trait method): integrates
+//!    over a single `(Z_G, Z_S)` pair shared by every name in the portfolio.
+//!    Mathematically equivalent to a reparameterized two-factor Gaussian
+//!    copula in which every pair of entities exhibits the same pairwise
+//!    correlation `ρᵢⱼ = β_G² + β_S²`. Use this for single-sector pricing
+//!    or as a fast approximation when sector resolution is not needed.
 //!
-//! Treat the accessors as the correlation that *would* apply under a
-//! per-name-sector extension, and use [`Copula::num_factors`] = 2 as a signal
-//! that the caller is supplying `[Z_G, Z_S]` rather than a per-name sector id.
+//! 2. **[`MultiFactorCopula::conditional_default_prob_with_sector`]** (inherent
+//!    method): per-name sector routing using an explicit `sector_idx`:
+//!    - `sector_idx == 0` — name is **cross-sector only** (sector loading
+//!      zeroed, `ρᵢⱼ = β_G²`).
+//!    - `sector_idx ∈ [1, num_sectors]` — picks the corresponding slot of
+//!      `factor_realization` as the sector shock; idiosyncratic loading is
+//!      `γᵢ = √(1 − β_G² − β_S²)`.
+//!    - `sector_idx > num_sectors` — out-of-range falls back to zero sector
+//!      shock without panicking (treated like `sector_idx == 0`).
+//!    - Length mismatches between `factor_realization` and `num_factors_count`
+//!      trigger `debug_assert_eq!`; in release builds, return the unconditional
+//!      PD `Φ(c)` (a structured fallback rather than a biased zeroed-shock).
 //!
-//! # Mathematical Model (target, not fully realized in this release)
+//! Use `Copula::num_factors == 2` as a signal that the caller is supplying
+//! `[Z_G, Z_S]`. Pricers that need per-name sector resolution should call the
+//! inherent method directly rather than the trait method.
+//!
+//! # Mathematical Model
 //!
 //! Latent variable for entity i with sector s(i):
 //! ```text
@@ -34,22 +42,25 @@
 //! - β_G is the global loading, β_S is the sector loading
 //! - γᵢ = √(1 - β_G² - β_S²) is the idiosyncratic loading
 //!
-//! # Target Correlation Structure
+//! # Realized Correlation Structure
+//!
+//! Per-name sector is resolved by `conditional_default_prob_with_sector`:
 //!
 //! ```text
-//! ρᵢⱼ = β_G² + β_S² · 1{s(i)=s(j)}  (same sector)
-//! ρᵢⱼ = β_G²                          (different sectors)
+//! ρᵢⱼ = β_G² + β_S² · 1{s(i)=s(j) ≠ 0}  (same non-zero sector)
+//! ρᵢⱼ = β_G²                              (different sectors, or sector_idx = 0)
 //! ```
 //!
-//! In the current implementation, all names behave as if they belong to the
-//! same sector, so the realized pairwise correlation is always the intra-sector
-//! value. A future extension will need a sector-indexed conditional-PD API so
-//! pairs in different sectors correctly see only `β_G²`.
+//! The single-shared-factor trait method (`Copula::conditional_default_prob`)
+//! prices every name as if it belonged to the same sector — the intra-sector
+//! correlation is then realized for all pairs.
 //!
-//! # Use Cases (current scope)
+//! # Use Cases
 //!
-//! - Sensitivity analysis with a two-factor decomposition of correlation
-//! - A placeholder for forthcoming per-name sector support in bespoke CDOs
+//! - Single-sector pricing via the trait method (fast path)
+//! - Per-name sector resolution via `conditional_default_prob_with_sector`
+//!   for bespoke CDOs and sector-aware basket pricing
+//! - Two-factor sensitivity analysis on global vs. sector loadings
 //!
 //! # References
 //!

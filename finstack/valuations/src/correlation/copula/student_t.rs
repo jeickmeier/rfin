@@ -216,7 +216,7 @@ impl StudentTCopula {
         let alpha = nu / 2.0;
         let ln_gamma_alpha = ln_gamma(alpha);
 
-        laguerre
+        let mut nodes_weights: Vec<(f64, f64)> = laguerre
             .points
             .iter()
             .zip(laguerre.weights.iter())
@@ -238,7 +238,21 @@ impl StudentTCopula {
 
                 Some((w, weight))
             })
-            .collect()
+            .collect();
+
+        // Renormalize weights to sum to 1 after filtering. The Gamma(α, 2/ν)
+        // density integrates to 1 by construction, but the filter above can
+        // drop nodes with `node < 1e-15` or numerically tiny weights — for
+        // heavy-tailed `df ≤ 4` this can drop mass that matters for tail
+        // integrals, leaving the remaining weights summing to slightly less
+        // than 1 and biasing every subsequent integral downward.
+        let total_weight: f64 = nodes_weights.iter().map(|(_, w)| *w).sum();
+        if total_weight > 0.0 && total_weight.is_finite() {
+            for (_, w) in nodes_weights.iter_mut() {
+                *w /= total_weight;
+            }
+        }
+        nodes_weights
     }
 }
 
