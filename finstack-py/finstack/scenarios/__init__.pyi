@@ -178,16 +178,16 @@ def build_template_component(template_id: str, component_id: str) -> str:
 
 def apply_scenario(
     scenario_json: str,
-    market_json: str,
-    model_json: str,
+    market: Any,
+    model: Any,
     as_of: str,
 ) -> dict[str, Any]:
     """Apply a scenario to both market data and a financial model.
 
     Args:
         scenario_json: JSON ``ScenarioSpec``.
-        market_json: JSON ``MarketContext``.
-        model_json: JSON ``FinancialModelSpec``.
+        market: ``MarketContext`` object or JSON ``MarketContext`` string.
+        model: ``FinancialModelSpec`` object or JSON ``FinancialModelSpec`` string.
         as_of: ISO 8601 valuation date.
 
     Returns:
@@ -207,14 +207,14 @@ def apply_scenario(
 
 def apply_scenario_to_market(
     scenario_json: str,
-    market_json: str,
+    market: Any,
     as_of: str,
 ) -> dict[str, Any]:
     """Apply a scenario to market data only (no model mutations returned).
 
     Args:
         scenario_json: JSON ``ScenarioSpec``.
-        market_json: JSON ``MarketContext``.
+        market: ``MarketContext`` object or JSON ``MarketContext`` string.
         as_of: ISO 8601 valuation date.
 
     Returns:

@@ -22,6 +22,33 @@ fn builtin_registry() -> Result<&'static finstack_scenarios::TemplateRegistry, J
     stored.as_ref().map_err(to_js_err)
 }
 
+fn parse_date(as_of: &str) -> Result<time::Date, JsValue> {
+    let format = time::format_description::well_known::Iso8601::DEFAULT;
+    time::Date::parse(as_of, &format).map_err(to_js_err)
+}
+
+fn to_json_string<T: serde::Serialize>(value: &T) -> Result<String, JsValue> {
+    serde_json::to_string(value).map_err(to_js_err)
+}
+
+fn apply_with_context(
+    spec: &finstack_scenarios::ScenarioSpec,
+    market: &mut finstack_core::market_data::context::MarketContext,
+    model: &mut finstack_statements::FinancialModelSpec,
+    as_of: time::Date,
+) -> Result<finstack_scenarios::engine::ApplicationReport, JsValue> {
+    let engine = finstack_scenarios::ScenarioEngine::new();
+    let mut ctx = finstack_scenarios::ExecutionContext {
+        market,
+        model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of,
+    };
+    engine.apply(spec, &mut ctx).map_err(to_js_err)
+}
+
 /// Parse and validate a scenario specification from JSON.
 ///
 /// Returns the validated, re-serialized JSON.
@@ -171,23 +198,12 @@ pub fn apply_scenario(
         serde_json::from_str(market_json).map_err(to_js_err)?;
     let mut model: finstack_statements::FinancialModelSpec =
         serde_json::from_str(model_json).map_err(to_js_err)?;
-    let format = time::format_description::well_known::Iso8601::DEFAULT;
-    let date = time::Date::parse(as_of, &format).map_err(to_js_err)?;
-
-    let engine = finstack_scenarios::ScenarioEngine::new();
-    let mut ctx = finstack_scenarios::ExecutionContext {
-        market: &mut market,
-        model: &mut model,
-        instruments: None,
-        rate_bindings: None,
-        calendar: None,
-        as_of: date,
-    };
-    let report = engine.apply(&spec, &mut ctx).map_err(to_js_err)?;
+    let date = parse_date(as_of)?;
+    let report = apply_with_context(&spec, &mut market, &mut model, date)?;
 
     let out = serde_json::json!({
-        "market_json": serde_json::to_string(&market).map_err(to_js_err)?,
-        "model_json": serde_json::to_string(&model).map_err(to_js_err)?,
+        "market_json": to_json_string(&market)?,
+        "model_json": to_json_string(&model)?,
         "operations_applied": report.operations_applied,
         "user_operations": report.user_operations,
         "expanded_operations": report.expanded_operations,
@@ -208,22 +224,11 @@ pub fn apply_scenario_to_market(
     let mut market: finstack_core::market_data::context::MarketContext =
         serde_json::from_str(market_json).map_err(to_js_err)?;
     let mut model = finstack_statements::FinancialModelSpec::new(MARKET_ONLY_MODEL_ID, vec![]);
-    let format = time::format_description::well_known::Iso8601::DEFAULT;
-    let date = time::Date::parse(as_of, &format).map_err(to_js_err)?;
-
-    let engine = finstack_scenarios::ScenarioEngine::new();
-    let mut ctx = finstack_scenarios::ExecutionContext {
-        market: &mut market,
-        model: &mut model,
-        instruments: None,
-        rate_bindings: None,
-        calendar: None,
-        as_of: date,
-    };
-    let report = engine.apply(&spec, &mut ctx).map_err(to_js_err)?;
+    let date = parse_date(as_of)?;
+    let report = apply_with_context(&spec, &mut market, &mut model, date)?;
 
     let out = serde_json::json!({
-        "market_json": serde_json::to_string(&market).map_err(to_js_err)?,
+        "market_json": to_json_string(&market)?,
         "operations_applied": report.operations_applied,
         "user_operations": report.user_operations,
         "expanded_operations": report.expanded_operations,
@@ -271,8 +276,7 @@ pub fn compute_horizon_return(
         serde_json::from_str(market_json).map_err(to_js_err)?;
 
     // Parse date
-    let format = time::format_description::well_known::Iso8601::DEFAULT;
-    let date = time::Date::parse(as_of, &format).map_err(to_js_err)?;
+    let date = parse_date(as_of)?;
 
     // Parse scenario
     let scenario: finstack_scenarios::ScenarioSpec =
@@ -310,7 +314,7 @@ pub fn compute_horizon_return(
         .compute(&instrument, &market, date, &scenario)
         .map_err(to_js_err)?;
 
-    serde_json::to_string(&result).map_err(to_js_err)
+    to_json_string(&result)
 }
 
 #[cfg(test)]

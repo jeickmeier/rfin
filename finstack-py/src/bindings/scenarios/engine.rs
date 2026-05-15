@@ -15,6 +15,34 @@ fn set_warning_items(
     dict.set_item("warnings_json", warnings_json)
 }
 
+fn set_report_items(
+    dict: &Bound<'_, PyDict>,
+    report: &finstack_scenarios::engine::ApplicationReport,
+) -> PyResult<()> {
+    dict.set_item("operations_applied", report.operations_applied)?;
+    dict.set_item("user_operations", report.user_operations)?;
+    dict.set_item("expanded_operations", report.expanded_operations)?;
+    set_warning_items(dict, &report.warnings)
+}
+
+fn apply_with_context(
+    spec: &finstack_scenarios::ScenarioSpec,
+    market: &mut finstack_core::market_data::context::MarketContext,
+    model: &mut finstack_statements::FinancialModelSpec,
+    as_of: time::Date,
+) -> finstack_scenarios::Result<finstack_scenarios::engine::ApplicationReport> {
+    let engine = finstack_scenarios::ScenarioEngine::new();
+    let mut ctx = finstack_scenarios::ExecutionContext {
+        market,
+        model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of,
+    };
+    engine.apply(spec, &mut ctx)
+}
+
 /// Apply a scenario to a market context and financial model.
 ///
 /// Parameters
@@ -49,19 +77,9 @@ fn apply_scenario<'py>(
     let mut model = extract_model(model)?;
     let date = super::parse_date(as_of)?;
 
-    let engine = finstack_scenarios::ScenarioEngine::new();
-
     // Release the GIL for scenario application: shifts + re-pricing can run for seconds.
     let (report, market, model) = py.detach(|| {
-        let mut ctx = finstack_scenarios::ExecutionContext {
-            market: &mut market,
-            model: &mut model,
-            instruments: None,
-            rate_bindings: None,
-            calendar: None,
-            as_of: date,
-        };
-        let report = engine.apply(&spec, &mut ctx);
+        let report = apply_with_context(&spec, &mut market, &mut model, date);
         (report, market, model)
     });
     let report = report.map_err(display_to_py)?;
@@ -75,10 +93,7 @@ fn apply_scenario<'py>(
         "model_json",
         serde_json::to_string(&model).map_err(display_to_py)?,
     )?;
-    dict.set_item("operations_applied", report.operations_applied)?;
-    dict.set_item("user_operations", report.user_operations)?;
-    dict.set_item("expanded_operations", report.expanded_operations)?;
-    set_warning_items(&dict, &report.warnings)?;
+    set_report_items(&dict, &report)?;
 
     Ok(dict)
 }
@@ -112,18 +127,8 @@ fn apply_scenario_to_market<'py>(
     let mut model = finstack_statements::FinancialModelSpec::new("__scenario_temp__", vec![]);
     let date = super::parse_date(as_of)?;
 
-    let engine = finstack_scenarios::ScenarioEngine::new();
-
     let (report, market) = py.detach(|| {
-        let mut ctx = finstack_scenarios::ExecutionContext {
-            market: &mut market,
-            model: &mut model,
-            instruments: None,
-            rate_bindings: None,
-            calendar: None,
-            as_of: date,
-        };
-        let report = engine.apply(&spec, &mut ctx);
+        let report = apply_with_context(&spec, &mut market, &mut model, date);
         (report, market)
     });
     let report = report.map_err(display_to_py)?;
@@ -133,10 +138,7 @@ fn apply_scenario_to_market<'py>(
         "market_json",
         serde_json::to_string(&market).map_err(display_to_py)?,
     )?;
-    dict.set_item("operations_applied", report.operations_applied)?;
-    dict.set_item("user_operations", report.user_operations)?;
-    dict.set_item("expanded_operations", report.expanded_operations)?;
-    set_warning_items(&dict, &report.warnings)?;
+    set_report_items(&dict, &report)?;
 
     Ok(dict)
 }

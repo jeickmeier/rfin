@@ -554,11 +554,7 @@ export declare class Performance {
   drawdownDetails(tickerIdx: number, n?: number): DrawdownEpisode[];
   multiFactorGreeks(tickerIdx: number, factorReturns: NumericMatrix): MultiFactorResult;
   lookbackReturns(refDate: string, fiscalYearStartMonth?: number): LookbackReturns;
-  periodStats(
-    tickerIdx: number,
-    aggFreq?: string,
-    fiscalYearStartMonth?: number
-  ): PeriodStats;
+  periodStats(tickerIdx: number, aggFreq?: string, fiscalYearStartMonth?: number): PeriodStats;
   /** Release the underlying wasm heap allocation. Do not use this handle after calling `free()`. */
   free(): void;
 }
@@ -574,7 +570,6 @@ export interface AnalyticsNamespace {
    */
   Performance: typeof Performance;
 }
-
 
 export declare const analytics: AnalyticsNamespace;
 
@@ -1811,13 +1806,18 @@ export declare const portfolio: PortfolioNamespace;
 
 // --- scenarios -------------------------------------------------------------
 
+export interface ScenarioWarning {
+  kind: string;
+  [key: string]: unknown;
+}
+
 export interface ScenarioApplyResult {
   market_json: string;
   model_json: string;
   operations_applied: number;
   user_operations: number;
   expanded_operations: number;
-  warnings: string[];
+  warnings: ScenarioWarning[];
 }
 
 export interface ScenarioApplyMarketResult {
@@ -1825,7 +1825,7 @@ export interface ScenarioApplyMarketResult {
   operations_applied: number;
   user_operations: number;
   expanded_operations: number;
-  warnings: string[];
+  warnings: ScenarioWarning[];
 }
 
 export interface ScenariosNamespace {
@@ -1857,11 +1857,11 @@ export interface ScenariosNamespace {
   ): ScenarioApplyMarketResult;
   computeHorizonReturn(
     instrumentJson: string,
-    market: unknown,
+    marketJson: string,
     asOf: string,
     scenarioJson: string,
     method?: string,
-    config?: string
+    configJson?: string
   ): string;
 }
 

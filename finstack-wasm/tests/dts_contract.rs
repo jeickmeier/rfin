@@ -226,6 +226,20 @@ fn package_dts_documents_hand_facade_over_raw_wasm_bindgen_types() {
 }
 
 #[test]
+fn scenarios_dts_matches_json_bridge_surface() {
+    let dts = index_dts();
+
+    assert!(dts.contains("export interface ScenariosNamespace"));
+    assert!(dts.contains("export interface ScenarioWarning"));
+    assert!(contains_ignoring_ws(&dts, "warnings: ScenarioWarning[];"));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "computeHorizonReturn(instrumentJson: string, marketJson: string, asOf: string, scenarioJson: string, method?: string, configJson?: string): string;",
+    ));
+    assert!(dts.contains("export declare const scenarios: ScenariosNamespace;"));
+}
+
+#[test]
 fn portfolio_dts_exposes_reference_price_for_almgren_chriss() {
     let dts = index_dts();
 

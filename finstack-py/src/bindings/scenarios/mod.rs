@@ -10,6 +10,8 @@ mod horizon;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyList;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 /// Parse an ISO 8601 date string into a `time::Date`.
 fn parse_date(s: &str) -> PyResult<time::Date> {
@@ -18,18 +20,46 @@ fn parse_date(s: &str) -> PyResult<time::Date> {
         .map_err(|e| PyValueError::new_err(format!("Invalid date '{s}': {e}")))
 }
 
+fn parse_json<T: DeserializeOwned>(json: &str, context: &str) -> PyResult<T> {
+    serde_json::from_str(json).map_err(|e| PyValueError::new_err(format!("{context}: {e}")))
+}
+
+fn to_json<T: Serialize>(value: &T, context: &str) -> PyResult<String> {
+    serde_json::to_string(value).map_err(|e| PyValueError::new_err(format!("{context}: {e}")))
+}
+
+fn validate_spec(spec: &finstack_scenarios::ScenarioSpec) -> PyResult<()> {
+    spec.validate()
+        .map_err(|e| PyValueError::new_err(format!("ScenarioSpec validation failed: {e}")))
+}
+
+fn parse_spec(json_str: &str) -> PyResult<finstack_scenarios::ScenarioSpec> {
+    parse_json(json_str, "Failed to parse ScenarioSpec JSON")
+}
+
+fn builtin_registry() -> PyResult<finstack_scenarios::TemplateRegistry> {
+    finstack_scenarios::TemplateRegistry::with_embedded_builtins()
+        .map_err(|e| PyValueError::new_err(format!("Failed to load embedded templates: {e}")))
+}
+
+fn template_entry<'a>(
+    registry: &'a finstack_scenarios::TemplateRegistry,
+    template_id: &str,
+) -> PyResult<&'a finstack_scenarios::RegisteredTemplate> {
+    registry
+        .get(template_id)
+        .ok_or_else(|| PyValueError::new_err(format!("Unknown template: '{template_id}'")))
+}
+
 // ---------------------------------------------------------------------------
 // ScenarioSpec JSON round-trip
 // ---------------------------------------------------------------------------
 
 #[pyfunction]
 fn parse_scenario_spec(json_str: &str) -> PyResult<String> {
-    let spec: finstack_scenarios::ScenarioSpec = serde_json::from_str(json_str)
-        .map_err(|e| PyValueError::new_err(format!("Failed to parse ScenarioSpec JSON: {e}")))?;
-    spec.validate()
-        .map_err(|e| PyValueError::new_err(format!("ScenarioSpec validation failed: {e}")))?;
-    serde_json::to_string(&spec)
-        .map_err(|e| PyValueError::new_err(format!("Failed to serialize ScenarioSpec: {e}")))
+    let spec = parse_spec(json_str)?;
+    validate_spec(&spec)?;
+    to_json(&spec, "Failed to serialize ScenarioSpec")
 }
 
 #[pyfunction]
@@ -41,8 +71,8 @@ fn build_scenario_spec(
     description: Option<&str>,
     priority: i32,
 ) -> PyResult<String> {
-    let operations: Vec<finstack_scenarios::OperationSpec> = serde_json::from_str(operations_json)
-        .map_err(|e| PyValueError::new_err(format!("Failed to parse operations JSON: {e}")))?;
+    let operations: Vec<finstack_scenarios::OperationSpec> =
+        parse_json(operations_json, "Failed to parse operations JSON")?;
     let spec = finstack_scenarios::ScenarioSpec {
         id: id.to_string(),
         name: name.map(str::to_string),
@@ -51,30 +81,25 @@ fn build_scenario_spec(
         priority,
         resolution_mode: Default::default(),
     };
-    spec.validate()
-        .map_err(|e| PyValueError::new_err(format!("ScenarioSpec validation failed: {e}")))?;
-    serde_json::to_string(&spec)
-        .map_err(|e| PyValueError::new_err(format!("Failed to serialize ScenarioSpec: {e}")))
+    validate_spec(&spec)?;
+    to_json(&spec, "Failed to serialize ScenarioSpec")
 }
 
 #[pyfunction]
 fn compose_scenarios(specs_json: &str) -> PyResult<String> {
-    let specs: Vec<finstack_scenarios::ScenarioSpec> = serde_json::from_str(specs_json)
-        .map_err(|e| PyValueError::new_err(format!("Failed to parse specs JSON: {e}")))?;
+    let specs: Vec<finstack_scenarios::ScenarioSpec> =
+        parse_json(specs_json, "Failed to parse specs JSON")?;
     let engine = finstack_scenarios::ScenarioEngine::new();
     let composed = engine
         .try_compose(specs)
         .map_err(|e| PyValueError::new_err(format!("Scenario composition failed: {e}")))?;
-    serde_json::to_string(&composed)
-        .map_err(|e| PyValueError::new_err(format!("Failed to serialize composed spec: {e}")))
+    to_json(&composed, "Failed to serialize composed spec")
 }
 
 #[pyfunction]
 fn validate_scenario_spec(json_str: &str) -> PyResult<bool> {
-    let spec: finstack_scenarios::ScenarioSpec = serde_json::from_str(json_str)
-        .map_err(|e| PyValueError::new_err(format!("Failed to parse ScenarioSpec JSON: {e}")))?;
-    spec.validate()
-        .map_err(|e| PyValueError::new_err(format!("ScenarioSpec validation failed: {e}")))?;
+    let spec = parse_spec(json_str)?;
+    validate_spec(&spec)?;
     Ok(true)
 }
 
@@ -84,42 +109,32 @@ fn validate_scenario_spec(json_str: &str) -> PyResult<bool> {
 
 #[pyfunction]
 fn list_builtin_templates() -> PyResult<Vec<String>> {
-    let registry = finstack_scenarios::TemplateRegistry::with_embedded_builtins()
-        .map_err(|e| PyValueError::new_err(format!("Failed to load embedded templates: {e}")))?;
+    let registry = builtin_registry()?;
     Ok(registry.list().iter().map(|m| m.id.clone()).collect())
 }
 
 #[pyfunction]
 fn list_builtin_template_metadata() -> PyResult<String> {
-    let registry = finstack_scenarios::TemplateRegistry::with_embedded_builtins()
-        .map_err(|e| PyValueError::new_err(format!("Failed to load embedded templates: {e}")))?;
+    let registry = builtin_registry()?;
     let metadata: Vec<&finstack_scenarios::TemplateMetadata> = registry.list();
-    serde_json::to_string(&metadata)
-        .map_err(|e| PyValueError::new_err(format!("Failed to serialize template metadata: {e}")))
+    to_json(&metadata, "Failed to serialize template metadata")
 }
 
 #[pyfunction]
 fn build_from_template(template_id: &str) -> PyResult<String> {
-    let registry = finstack_scenarios::TemplateRegistry::with_embedded_builtins()
-        .map_err(|e| PyValueError::new_err(format!("Failed to load embedded templates: {e}")))?;
-    let entry = registry
-        .get(template_id)
-        .ok_or_else(|| PyValueError::new_err(format!("Unknown template: '{template_id}'")))?;
+    let registry = builtin_registry()?;
+    let entry = template_entry(&registry, template_id)?;
     let spec = entry
         .builder()
         .build()
         .map_err(|e| PyValueError::new_err(format!("Failed to build template spec: {e}")))?;
-    serde_json::to_string(&spec)
-        .map_err(|e| PyValueError::new_err(format!("Failed to serialize spec: {e}")))
+    to_json(&spec, "Failed to serialize spec")
 }
 
 #[pyfunction]
 fn list_template_components(template_id: &str) -> PyResult<Vec<String>> {
-    let registry = finstack_scenarios::TemplateRegistry::with_embedded_builtins()
-        .map_err(|e| PyValueError::new_err(format!("Failed to load embedded templates: {e}")))?;
-    let entry = registry
-        .get(template_id)
-        .ok_or_else(|| PyValueError::new_err(format!("Unknown template: '{template_id}'")))?;
+    let registry = builtin_registry()?;
+    let entry = template_entry(&registry, template_id)?;
     Ok(entry
         .component_ids()
         .into_iter()
@@ -129,11 +144,8 @@ fn list_template_components(template_id: &str) -> PyResult<Vec<String>> {
 
 #[pyfunction]
 fn build_template_component(template_id: &str, component_id: &str) -> PyResult<String> {
-    let registry = finstack_scenarios::TemplateRegistry::with_embedded_builtins()
-        .map_err(|e| PyValueError::new_err(format!("Failed to load embedded templates: {e}")))?;
-    let entry = registry
-        .get(template_id)
-        .ok_or_else(|| PyValueError::new_err(format!("Unknown template: '{template_id}'")))?;
+    let registry = builtin_registry()?;
+    let entry = template_entry(&registry, template_id)?;
     let builder = entry.component(component_id).ok_or_else(|| {
         PyValueError::new_err(format!(
             "Unknown component '{component_id}' in template '{template_id}'"
@@ -142,8 +154,7 @@ fn build_template_component(template_id: &str, component_id: &str) -> PyResult<S
     let spec = builder
         .build()
         .map_err(|e| PyValueError::new_err(format!("Failed to build component spec: {e}")))?;
-    serde_json::to_string(&spec)
-        .map_err(|e| PyValueError::new_err(format!("Failed to serialize component spec: {e}")))
+    to_json(&spec, "Failed to serialize component spec")
 }
 
 // ---------------------------------------------------------------------------
@@ -238,6 +249,8 @@ mod tests {
 
     #[test]
     fn compose_scenarios_rejects_duplicate_time_rolls() {
+        pyo3::Python::initialize();
+
         let err = compose_scenarios(&duplicate_time_roll_specs_json())
             .expect_err("duplicate time rolls should be rejected");
         assert!(
