@@ -1644,10 +1644,8 @@ export declare const statements: StatementsNamespace;
 // --- statements_analytics -------------------------------------------------
 
 export interface GoalSeekResult {
-  driver_value: number;
-  achieved_value: number;
-  iterations: number;
-  converged: boolean;
+  solved_value: number;
+  updated_model_json?: string;
 }
 
 export interface StatementsAnalyticsNamespace {
@@ -1660,17 +1658,23 @@ export interface StatementsAnalyticsNamespace {
   goalSeek(
     modelJson: string,
     targetNode: string,
-    driverNode: string,
     targetPeriod: string,
-    driverPeriod: string,
     targetValue: number,
-    lowerBound: number,
-    upperBound: number
+    driverNode: string,
+    driverPeriod: string,
+    updateModel: boolean,
+    boundsLo?: number | null,
+    boundsHi?: number | null
   ): GoalSeekResult;
   traceDependencies(modelJson: string, nodeId: string): string;
   explainFormula(modelJson: string, resultsJson: string, nodeId: string, period: string): string;
   plSummaryReport(resultsJson: string, lineItems: string[], periods: string[]): string;
   creditAssessmentReport(resultsJson: string, asOf: string): string;
+  runChecks(modelJson: string, suiteSpecJson: string): string;
+  runThreeStatementChecks(modelJson: string, mappingJson: string): string;
+  runCreditUnderwritingChecks(modelJson: string, mappingJson: string): string;
+  renderCheckReportText(reportJson: string): string;
+  renderCheckReportHtml(reportJson: string): string;
   // Comps — comparable company analysis
   percentileRank(value: number, data: number[]): number | null;
   zScore(value: number, data: number[]): number | null;

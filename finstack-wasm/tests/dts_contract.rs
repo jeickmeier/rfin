@@ -303,6 +303,30 @@ fn statements_dts_matches_runtime_exports() {
 }
 
 #[test]
+fn statements_analytics_dts_matches_runtime_exports() {
+    let dts = index_dts();
+
+    assert!(dts.contains("export interface StatementsAnalyticsNamespace"));
+    assert!(dts.contains("solved_value: number;"));
+    assert!(dts.contains("updated_model_json?: string;"));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "goalSeek(modelJson: string, targetNode: string, targetPeriod: string, targetValue: number, driverNode: string, driverPeriod: string, updateModel: boolean, boundsLo?: number | null, boundsHi?: number | null): GoalSeekResult;",
+    ));
+    assert!(dts.contains("runChecks(modelJson: string, suiteSpecJson: string): string;"));
+    assert!(
+        dts.contains("runThreeStatementChecks(modelJson: string, mappingJson: string): string;")
+    );
+    assert!(dts
+        .contains("runCreditUnderwritingChecks(modelJson: string, mappingJson: string): string;"));
+    assert!(dts.contains("renderCheckReportText(reportJson: string): string;"));
+    assert!(dts.contains("renderCheckReportHtml(reportJson: string): string;"));
+    assert!(
+        dts.contains("export declare const statements_analytics: StatementsAnalyticsNamespace;")
+    );
+}
+
+#[test]
 fn valuations_dts_exposes_credit_namespaces() {
     let dts = index_dts();
 
