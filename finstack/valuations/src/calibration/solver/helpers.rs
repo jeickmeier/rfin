@@ -101,54 +101,14 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
         valid_points.push((initial, v0));
     }
 
-    // ── Adaptive bracket expansion ──────────────────────────────────────
-    // Expand geometrically from the initial guess to find a sign change
-    // before falling back to the full scan grid. This makes the scan grid
-    // size less critical and benefits all callers.
-    let lo = scan_points.iter().copied().fold(f64::INFINITY, f64::min);
-    let hi = scan_points
-        .iter()
-        .copied()
-        .fold(f64::NEG_INFINITY, f64::max);
-    let step0 = (1e-4_f64).max(1e-4 * initial.abs());
-    let mut delta = step0;
-    let mut bracket_found = false;
-    for _ in 0..20 {
-        for &sign in &[-1.0_f64, 1.0_f64] {
-            let candidate = (initial + sign * delta).clamp(lo, hi);
-            if (candidate - initial).abs() < 1e-16 {
-                continue;
-            }
-            let value = objective(candidate);
-            diag.update(candidate, value);
-            if value.is_finite() && value.abs() < OBJECTIVE_VALID_ABS_MAX {
-                valid_points.push((candidate, value));
-                if v0.is_finite()
-                    && v0.abs() < OBJECTIVE_VALID_ABS_MAX
-                    && value.signum() != v0.signum()
-                {
-                    bracket_found = true;
-                    break;
-                }
-            }
-        }
-        if bracket_found {
-            break;
-        }
-        delta *= 2.0;
-    }
+    for &point in scan_points {
+        let value = objective(point);
+        diag.update(point, value);
 
-    // ── Fallback: evaluate remaining scan points ────────────────────────
-    if !bracket_found {
-        for &point in scan_points {
-            let value = objective(point);
-            diag.update(point, value);
-
-            if !value.is_finite() || value.abs() >= OBJECTIVE_VALID_ABS_MAX {
-                continue;
-            }
-            valid_points.push((point, value));
+        if !value.is_finite() || value.abs() >= OBJECTIVE_VALID_ABS_MAX {
+            continue;
         }
+        valid_points.push((point, value));
     }
 
     if valid_points.is_empty() {
@@ -365,6 +325,26 @@ mod tests {
             diag.valid_eval_count
         );
         assert_eq!(diag.scan_bounds, (0.0, 1.0));
+    }
+
+    #[test]
+    fn bracket_solver_evaluates_authoritative_scan_grid() {
+        use std::cell::RefCell;
+
+        let seen = RefCell::new(Vec::new());
+        let f = |x: f64| {
+            seen.borrow_mut().push(x);
+            x - 0.5
+        };
+        let scan = [0.0, 0.25, 0.5, 0.75, 42.0];
+        let (root, _) =
+            bracket_solve_1d_with_diagnostics(&f, 0.49, &scan, 1e-12, 100).expect("solver error");
+
+        assert!(root.is_some());
+        assert!(
+            seen.borrow().contains(&42.0),
+            "solver must evaluate the caller-supplied scan grid before selecting a bracket"
+        );
     }
 
     #[test]
