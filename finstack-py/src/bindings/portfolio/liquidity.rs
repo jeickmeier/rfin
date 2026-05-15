@@ -114,13 +114,7 @@ fn days_to_liquidate(position_value: f64, avg_daily_volume: f64, participation_r
 #[pyfunction]
 fn liquidity_tier(days_to_liquidate: f64) -> &'static str {
     let thresholds = [1.0, 5.0, 20.0, 60.0];
-    match liquidity::classify_tier(days_to_liquidate, &thresholds) {
-        liquidity::LiquidityTier::Tier1 => "tier1",
-        liquidity::LiquidityTier::Tier2 => "tier2",
-        liquidity::LiquidityTier::Tier3 => "tier3",
-        liquidity::LiquidityTier::Tier4 => "tier4",
-        liquidity::LiquidityTier::Tier5 => "tier5",
-    }
+    liquidity::classify_tier(days_to_liquidate, &thresholds).as_binding_str()
 }
 
 // ---------------------------------------------------------------------------

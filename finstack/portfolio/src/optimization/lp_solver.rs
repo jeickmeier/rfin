@@ -202,12 +202,6 @@ impl DefaultLpOptimizer {
         // Step 0: Validate portfolio and problem basics.
         problem.portfolio.validate()?;
 
-        match problem.weighting {
-            WeightingScheme::ValueWeight
-            | WeightingScheme::UnitScaling
-            | WeightingScheme::NotionalWeight => {}
-        }
-
         // Ensure there is at least one budget constraint, or we will add one with rhs=1.0.
         let has_budget = problem
             .constraints

@@ -393,13 +393,7 @@ pub fn aggregate_full_cashflows(
     })
 }
 
-/// Aggregate portfolio cashflows by payment date and currency.
-///
-/// Thin wrapper around [`aggregate_full_cashflows`] followed by
-/// [`PortfolioCashflows::to_simple`]. Prefer the two-step form for new
-/// code that also wants classification metadata; this function remains for
-/// backwards compatibility.
-///
+/// Convert one dated cashflow into the requested base currency.
 fn convert_money_to_base_on_date(
     money: Money,
     payment_date: Date,

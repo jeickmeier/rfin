@@ -499,6 +499,21 @@ fn value_single_position(
     })
 }
 
+fn reuse_prior_or_value_position(
+    position: &crate::position::Position,
+    market: &MarketContext,
+    portfolio: &Portfolio,
+    metrics: &[MetricId],
+    strict_risk: bool,
+    prior: &PortfolioValuation,
+) -> Result<PositionValue> {
+    if let Some(pv) = prior.position_values.get(position.position_id.as_str()) {
+        Ok(pv.clone())
+    } else {
+        value_single_position(position, market, portfolio, metrics, strict_risk)
+    }
+}
+
 // =============================================================================
 // Selective Repricing
 // =============================================================================
@@ -582,15 +597,14 @@ pub fn revalue_affected(
                         &metrics,
                         options.strict_risk,
                     )
-                } else if let Some(pv) = prior.position_values.get(position.position_id.as_str()) {
-                    Ok(pv.clone())
                 } else {
-                    value_single_position(
+                    reuse_prior_or_value_position(
                         position,
                         market,
                         portfolio,
                         &metrics,
                         options.strict_risk,
+                        prior,
                     )
                 }
             })
@@ -615,15 +629,14 @@ pub fn revalue_affected(
                     &metrics,
                     options.strict_risk,
                 )?);
-            } else if let Some(pv) = prior.position_values.get(position.position_id.as_str()) {
-                values.push(pv.clone());
             } else {
-                values.push(value_single_position(
+                values.push(reuse_prior_or_value_position(
                     position,
                     market,
                     portfolio,
                     &metrics,
                     options.strict_risk,
+                    prior,
                 )?);
             }
         }

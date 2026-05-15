@@ -120,7 +120,6 @@ pub struct PyPortfolioValuation {
 }
 
 impl PyPortfolioValuation {
-    #[allow(dead_code)]
     pub(crate) fn from_inner(inner: finstack_portfolio::valuation::PortfolioValuation) -> Self {
         Self { inner }
     }
@@ -134,7 +133,7 @@ impl PyPortfolioValuation {
     fn from_json(valuation_json: &str) -> PyResult<Self> {
         let inner: finstack_portfolio::valuation::PortfolioValuation =
             serde_json::from_str(valuation_json).map_err(display_to_py)?;
-        Ok(Self { inner })
+        Ok(Self::from_inner(inner))
     }
 
     /// Serialize back to JSON.
@@ -196,7 +195,6 @@ pub struct PyPortfolioResult {
 }
 
 impl PyPortfolioResult {
-    #[allow(dead_code)]
     pub(crate) fn from_inner(inner: finstack_portfolio::results::PortfolioResult) -> Self {
         Self { inner }
     }
@@ -210,7 +208,7 @@ impl PyPortfolioResult {
     fn from_json(result_json: &str) -> PyResult<Self> {
         let inner: finstack_portfolio::results::PortfolioResult =
             serde_json::from_str(result_json).map_err(display_to_py)?;
-        Ok(Self { inner })
+        Ok(Self::from_inner(inner))
     }
 
     /// Serialize back to JSON.

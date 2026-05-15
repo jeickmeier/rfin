@@ -172,6 +172,14 @@ impl<'a> WhatIfEngine<'a> {
                 .stressed_market(self.portfolio, self.market, self.as_of, stresses)?;
 
         let positions = &self.portfolio.positions;
+        let compute_position_pnl = |position: &Position| -> Result<(PositionId, f64)> {
+            let base_value = position.instrument.value_raw(self.market, self.as_of)?;
+            let stressed_value = position
+                .instrument
+                .value_raw(&stressed_market, self.as_of)?;
+            let pnl = (stressed_value - base_value) * position.scale_factor();
+            Ok((position.position_id.clone(), pnl))
+        };
         let position_pnl: Vec<(PositionId, f64)> =
             if positions.len() >= PARALLEL_FACTOR_STRESS_THRESHOLD {
                 // For larger books, the cost of repricing both the base and
@@ -179,26 +187,12 @@ impl<'a> WhatIfEngine<'a> {
                 use rayon::prelude::*;
                 positions
                     .par_iter()
-                    .map(|position| -> Result<(PositionId, f64)> {
-                        let base_value = position.instrument.value_raw(self.market, self.as_of)?;
-                        let stressed_value = position
-                            .instrument
-                            .value_raw(&stressed_market, self.as_of)?;
-                        let pnl = (stressed_value - base_value) * position.scale_factor();
-                        Ok((position.position_id.clone(), pnl))
-                    })
+                    .map(compute_position_pnl)
                     .collect::<Result<Vec<_>>>()?
             } else {
                 positions
                     .iter()
-                    .map(|position| -> Result<(PositionId, f64)> {
-                        let base_value = position.instrument.value_raw(self.market, self.as_of)?;
-                        let stressed_value = position
-                            .instrument
-                            .value_raw(&stressed_market, self.as_of)?;
-                        let pnl = (stressed_value - base_value) * position.scale_factor();
-                        Ok((position.position_id.clone(), pnl))
-                    })
+                    .map(compute_position_pnl)
                     .collect::<Result<Vec<_>>>()?
             };
 

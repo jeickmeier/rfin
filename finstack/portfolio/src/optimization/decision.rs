@@ -35,7 +35,6 @@ pub(crate) struct DecisionItem {
     /// This is only used when reconstructing `WeightingScheme::UnitScaling`
     /// solutions, where the optimized weight is a dimensionless multiplier on
     /// the live quantity rather than a PV share.
-    #[allow(dead_code)]
     pub current_quantity: f64,
 }
 

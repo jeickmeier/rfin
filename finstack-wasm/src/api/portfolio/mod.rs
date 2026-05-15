@@ -635,16 +635,11 @@ pub fn days_to_liquidate(
 /// `"tier1" .. "tier5"`.
 #[wasm_bindgen(js_name = liquidityTier)]
 pub fn liquidity_tier(days_to_liquidate: f64) -> String {
-    use finstack_portfolio::liquidity::{classify_tier, LiquidityTier};
+    use finstack_portfolio::liquidity::classify_tier;
     let thresholds = [1.0, 5.0, 20.0, 60.0];
-    match classify_tier(days_to_liquidate, &thresholds) {
-        LiquidityTier::Tier1 => "tier1",
-        LiquidityTier::Tier2 => "tier2",
-        LiquidityTier::Tier3 => "tier3",
-        LiquidityTier::Tier4 => "tier4",
-        LiquidityTier::Tier5 => "tier5",
-    }
-    .to_string()
+    classify_tier(days_to_liquidate, &thresholds)
+        .as_binding_str()
+        .to_string()
 }
 
 /// Liquidity-adjusted VaR following Bangia, Diebold, Schuermann & Stroughair (1999).
