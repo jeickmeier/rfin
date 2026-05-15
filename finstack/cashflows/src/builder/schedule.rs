@@ -639,6 +639,27 @@ fn is_initial_funding_flow(
         && amounts_approx_equal(cf.amount.amount().abs(), initial_amount)
 }
 
+/// Apply a single flow's balance impact during *reconstruction* of the
+/// outstanding path from a finalized schedule.
+///
+/// # Reconstruction vs. emission
+///
+/// Outstanding balance is tracked in two distinct places that must stay
+/// consistent:
+///
+/// 1. **Emission time** — the builder pipeline mutates a live balance as it
+///    generates flows (e.g. [`crate::builder::emit_default_on`] subtracts the
+///    defaulted amount when it emits a `DefaultedNotional` flow).
+/// 2. **Reconstruction time** — this function, driven by
+///    [`CashFlowSchedule::outstanding_by_date`] /
+///    [`CashFlowSchedule::outstanding_path_per_flow`], rebuilds the balance
+///    path purely from `notional.initial` plus the finalized flow list.
+///
+/// Because reconstruction starts from `notional.initial` and replays every
+/// flow, `DefaultedNotional` (and `Amortization`, `PrePayment`, `PIK`,
+/// `Notional`) must reduce/increase the balance here exactly as the emission
+/// pipeline did. If a new `CFKind` affects the balance, it must be handled in
+/// both places or the two views will diverge.
 fn apply_flow_to_outstanding(
     outstanding: &mut Money,
     cf: &CashFlow,

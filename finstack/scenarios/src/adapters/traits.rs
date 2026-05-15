@@ -1,6 +1,6 @@
 //! Engine-internal effect enum produced by adapter functions.
 //!
-//! Adapter modules expose free functions that translate an [`OperationSpec`]
+//! Adapter modules expose free functions that translate an [`crate::spec::OperationSpec`]
 //! into a [`Vec<ScenarioEffect>`]. The engine's centralized `match` in
 //! [`crate::engine::ScenarioEngine::apply`] dispatches each operation variant
 //! to the appropriate adapter function and then collapses the resulting
@@ -8,16 +8,13 @@
 //!
 //! This module no longer defines a polymorphic `ScenarioAdapter` trait — the
 //! enum dispatch in the engine provides compile-time exhaustiveness over the
-//! [`OperationSpec`] variants and avoids the silent "operation not supported"
+//! [`crate::spec::OperationSpec`] variants and avoids the silent "operation not supported"
 //! warning the previous trait-based dispatch produced.
 
 use crate::spec::RateBindingSpec;
 use crate::warning::Warning;
 use finstack_core::market_data::bumps::MarketBump;
 use finstack_statements::types::NodeId;
-
-#[allow(unused_imports)] // kept for rustdoc cross-references
-use crate::spec::OperationSpec;
 
 /// Represents the outcome of a scenario operation that can be collected and applied later.
 /// This allows the engine to separate the "decision" phase from the "mutation" phase.

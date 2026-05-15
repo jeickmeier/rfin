@@ -14,5 +14,4 @@ pub mod lsmc;
 pub mod lsq;
 pub mod path_dependent;
 
-#[allow(unused_imports)]
 pub use european::*;

@@ -4,18 +4,13 @@
 //! market-specific defaults (spot lags, business day conventions, rate bounds).
 //! Use them to enforce structural invariants (ordering, finiteness, positivity),
 //! and keep market-standard checks in instrument-specific validation.
-//!
-//! Almost every helper here has at least one production caller; the few that
-//! are kept for symmetry with their used siblings carry an explicit
-//! `#[allow(dead_code)]` so the lint surface tells the truth about which
-//! validators are unwired.
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
 // Re-export generic validation helpers from core.
-pub(crate) use finstack_core::validation::{require, require_or, require_with};
+pub(crate) use finstack_core::validation::{require_or, require_with};
 
 /// Validate `end > start` for a date range.
 #[inline]
@@ -55,20 +50,6 @@ pub(crate) fn validate_date_range_non_strict(
             context, start, end
         )
     })
-}
-
-/// Validate `end >= start` using a custom error message.
-///
-/// Kept for symmetry with `validate_date_range_strict_with`; no production
-/// callers today (most non-strict checks use the message-less variant).
-#[inline]
-#[allow(dead_code)]
-pub(crate) fn validate_date_range_non_strict_with(
-    start: Date,
-    end: Date,
-    message: impl FnOnce(Date, Date) -> String,
-) -> finstack_core::Result<()> {
-    require_with(end >= start, || message(start, end))
 }
 
 /// Validate that a money amount is finite.
@@ -206,34 +187,6 @@ pub(crate) fn validate_rate_magnitude(
 #[inline]
 pub(crate) fn rate_outside_range(value: f64, min: f64, max: f64) -> bool {
     !(min..=max).contains(&value)
-}
-
-/// Require that both options are either set or unset.
-///
-/// Kept for use by future option-pair validations (e.g. matched-pair
-/// metadata in calibration plans). No production callers today.
-#[inline]
-#[allow(dead_code)]
-pub(crate) fn require_both_or_none<T, U>(
-    a: &Option<T>,
-    b: &Option<U>,
-    message: impl Into<String>,
-) -> finstack_core::Result<()> {
-    require(a.is_some() == b.is_some(), message)
-}
-
-/// Require that if `a` is set, then `b` must also be set.
-///
-/// Kept for use by future option-pair validations. No production callers
-/// today.
-#[inline]
-#[allow(dead_code)]
-pub(crate) fn require_if_some<T, U>(
-    a: &Option<T>,
-    b: &Option<U>,
-    message: impl Into<String>,
-) -> finstack_core::Result<()> {
-    require(a.is_none() || b.is_some(), message)
 }
 
 /// Validate that a recovery rate is within valid bounds \[0, 1\).

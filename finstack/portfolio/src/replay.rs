@@ -341,7 +341,8 @@ pub fn replay_portfolio(
                         Error::InvalidInput(format!(
                             "daily P&L overflow computing {date} minus {} \
                              (base {}): {e}",
-                            prev_step.date, val_i.total_base_ccy.currency()
+                            prev_step.date,
+                            val_i.total_base_ccy.currency()
                         ))
                     })?,
             )
@@ -358,7 +359,8 @@ pub fn replay_portfolio(
                         Error::InvalidInput(format!(
                             "cumulative P&L overflow computing {date} minus {} \
                              (base {}): {e}",
-                            steps[0].date, val_i.total_base_ccy.currency()
+                            steps[0].date,
+                            val_i.total_base_ccy.currency()
                         ))
                     })?,
             )

@@ -24,7 +24,7 @@ use crate::instruments::exotics::asian_option::AveragingMethod;
 use crate::instruments::OptionType;
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountContext};
+use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -200,14 +200,6 @@ impl CommodityAsianOption {
             }
         }
         Ok((sum, count))
-    }
-
-    /// Compute the time to settlement for this option.
-    #[allow(dead_code)] // Used by pricer module
-    pub(crate) fn time_to_settlement(&self, as_of: Date) -> finstack_core::Result<f64> {
-        self.day_count
-            .year_fraction(as_of, self.expiry, DayCountContext::default())
-            .map(|t| t.max(0.0))
     }
 }
 

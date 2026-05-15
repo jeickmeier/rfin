@@ -1178,7 +1178,7 @@ pub mod calibration {
         };
 
         let (pv_lo, mut f_lo) = eval(lo)?;
-        let (pv_hi, mut f_hi) = eval(hi)?;
+        let (pv_hi, f_hi) = eval(hi)?;
         if f_lo == 0.0 {
             return Ok(MertonMcCalibrationOutput {
                 calibrated_merton: with_parameter(base_merton, spec.parameter, lo)?,
@@ -1233,10 +1233,6 @@ pub mod calibration {
                 f_lo = f_mid;
             } else {
                 hi = mid;
-                #[allow(unused_assignments)]
-                {
-                    f_hi = f_mid;
-                }
             }
         }
 

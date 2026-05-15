@@ -5,7 +5,6 @@ use crate::instruments::equity::vol_index_future::VolIndexContractSpecs;
 use crate::instruments::equity::vol_index_option::VolIndexOptionSpecs;
 use crate::instruments::fixed_income::bond_future::types::RepoDayCountBasis;
 use crate::instruments::fixed_income::bond_future::BondFutureSpecs;
-use finstack_core::config::FinstackConfig;
 use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::{Error, Result};
 use serde::{Deserialize, Serialize};
@@ -15,9 +14,6 @@ use std::sync::OnceLock;
 const EMBEDDED_CONTRACT_SPECS: &str = include_str!("../data/contract_specs/contract_specs.v1.json");
 
 static EMBEDDED_REGISTRY: OnceLock<Result<ContractSpecRegistry>> = OnceLock::new();
-
-#[allow(dead_code)]
-pub(crate) const CONTRACT_SPECS_EXTENSION_KEY: &str = "valuations.contract_specs.v1";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -350,20 +346,6 @@ pub(crate) fn embedded_registry() -> Result<&'static ContractSpecRegistry> {
     match EMBEDDED_REGISTRY.get_or_init(|| parse_registry_json(EMBEDDED_CONTRACT_SPECS)) {
         Ok(registry) => Ok(registry),
         Err(err) => Err(err.clone()),
-    }
-}
-
-#[allow(dead_code)]
-pub(crate) fn registry_from_config(config: &FinstackConfig) -> Result<ContractSpecRegistry> {
-    if let Some(value) = config.extensions.get(CONTRACT_SPECS_EXTENSION_KEY) {
-        let registry = serde_json::from_value(value.clone()).map_err(|err| {
-            Error::Validation(format!(
-                "failed to parse contract-spec registry extension: {err}"
-            ))
-        })?;
-        validate_registry(registry)
-    } else {
-        Ok(embedded_registry()?.clone())
     }
 }
 

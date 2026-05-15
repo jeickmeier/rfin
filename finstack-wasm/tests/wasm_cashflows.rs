@@ -157,7 +157,6 @@ fn cashflows_json_bridge_accepts_config_and_missing_quoted_clean() {
         "method": "Linear",
         "include_pik": true,
         "frequency": {"count": 12, "unit": "months"},
-        "strict_issue_date": true,
     })
     .to_string();
 

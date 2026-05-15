@@ -20,7 +20,6 @@
 //! [`crate::instruments::common_impl::pricing::swap_legs`] for robust discounting
 //! and numerical stability.
 
-#[allow(unused_imports)] // Used in doc examples and tests
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::{
     dates::Date, market_data::context::MarketContext, money::Money, types::InstrumentId, Result,

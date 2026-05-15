@@ -61,6 +61,7 @@
 
 // Internal modules
 pub(crate) mod compiler;
+mod coupon_api;
 pub mod emission;
 mod orchestrator;
 pub(crate) mod pipeline;

@@ -16,49 +16,8 @@ use finstack_core::dates::Date;
 use finstack_core::dates::DayCountContext;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use std::collections::BTreeMap;
-
-/// Compute total margin (base spread + covenant step-ups + pricing overrides) at a given date.
-///
-/// Uses strict `<` comparison for step-up dates to match the convention in
-/// `float_margin_stepup`: a step-up at date D takes effect for accrual periods
-/// STARTING on or after D. The coupon period ending on D still uses the pre-step-up margin.
-///
-/// Currently unused after the all-in rate refactor, but retained as a utility
-/// for future metrics or diagnostics that need point-in-time margin queries.
-#[allow(dead_code)]
-pub(super) fn margin_bp_at(loan: &TermLoan, d: Date) -> f64 {
-    let base_margin = match &loan.rate {
-        super::types::RateSpec::Fixed { .. } => 0.0,
-        super::types::RateSpec::Floating(spec) => spec.spread_bp.to_f64().unwrap_or_default(),
-    };
-    let step = loan
-        .covenants
-        .as_ref()
-        .map(|c| {
-            c.margin_stepups
-                .iter()
-                .filter(|m| m.date < d)
-                .map(|m| f64::from(m.delta_bp))
-                .sum::<f64>()
-        })
-        .unwrap_or(0.0);
-    let override_add = loan
-        .pricing_overrides
-        .term_loan
-        .as_ref()
-        .map(|ov| {
-            ov.margin_add_bp_by_date
-                .iter()
-                .filter(|(dt, _)| *dt < d)
-                .map(|(_, bp)| f64::from(*bp))
-                .sum::<f64>()
-        })
-        .unwrap_or(0.0);
-    base_margin + step + override_add
-}
 
 /// Generate the full crate-internal cashflow schedule for a term loan.
 pub(crate) fn generate_cashflows(

@@ -7,7 +7,6 @@ use crate::instruments::fixed_income::structured_credit::pricing::stochastic::ca
 use crate::instruments::fixed_income::structured_credit::types::{
     CreditFactors, DealFees, DealType, DefaultAssumptions,
 };
-use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Tenor;
 use finstack_core::money::Money;
@@ -21,10 +20,6 @@ const EMBEDDED_STRUCTURED_CREDIT_ASSUMPTIONS: &str =
     include_str!("../../../../data/assumptions/structured_credit_assumptions.v1.json");
 
 static EMBEDDED_REGISTRY: OnceLock<Result<StructuredCreditAssumptionRegistry>> = OnceLock::new();
-
-#[allow(dead_code)]
-pub(crate) const STRUCTURED_CREDIT_ASSUMPTIONS_EXTENSION_KEY: &str =
-    "valuations.structured_credit_assumptions.v1";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -756,25 +751,6 @@ pub(crate) fn embedded_registry() -> Result<&'static StructuredCreditAssumptionR
 #[allow(clippy::expect_used)]
 pub(crate) fn embedded_registry_or_panic() -> &'static StructuredCreditAssumptionRegistry {
     embedded_registry().expect("embedded structured-credit assumptions are compile-time assets")
-}
-
-#[allow(dead_code)]
-pub(crate) fn registry_from_config(
-    config: &FinstackConfig,
-) -> Result<StructuredCreditAssumptionRegistry> {
-    if let Some(value) = config
-        .extensions
-        .get(STRUCTURED_CREDIT_ASSUMPTIONS_EXTENSION_KEY)
-    {
-        let registry = serde_json::from_value(value.clone()).map_err(|err| {
-            Error::Validation(format!(
-                "failed to parse structured-credit assumptions registry extension: {err}"
-            ))
-        })?;
-        validate_registry(registry)
-    } else {
-        Ok(embedded_registry()?.clone())
-    }
 }
 
 fn parse_registry_json(raw: &str) -> Result<StructuredCreditAssumptionRegistry> {

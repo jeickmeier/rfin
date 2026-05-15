@@ -106,20 +106,6 @@ impl CDSOptionPricer {
         Ok(d_high - d_low)
     }
 
-    /// Per-bp finite-difference gamma helper for model diagnostics.
-    #[allow(dead_code)]
-    pub(crate) fn gamma_per_bp(
-        &self,
-        option: &CDSOption,
-        curves: &MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> Result<f64> {
-        Ok(
-            (bumped_delta(option, curves, as_of, 2.0)? - bumped_delta(option, curves, as_of, 1.0)?)
-                / 1.0,
-        )
-    }
-
     /// Bloomberg CDSO Vega(1%): change in option premium for a `+1`
     /// vol-point increase in implied volatility.
     pub(crate) fn vega(

@@ -1,6 +1,5 @@
 use crate::calibration::api::schema::{
-    AtmStrikeConvention, SabrInterpolationMethod, SurfaceExtrapolationPolicy,
-    SwaptionVolConvention, SwaptionVolParams,
+    SabrInterpolationMethod, SurfaceExtrapolationPolicy, SwaptionVolConvention, SwaptionVolParams,
 };
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::CalibrationReport;
@@ -449,18 +448,6 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
     // =========================================================================
     // Market-standard forward/par swap rate + SABR parameter interpolation
     // =========================================================================
-
-    /// Determine the ATM strike for a swaption.
-    #[allow(dead_code)]
-    fn atm_strike(params: &SwaptionVolParams, forward_swap_rate: f64) -> f64 {
-        match params.atm_convention {
-            AtmStrikeConvention::SwapRate => forward_swap_rate,
-            AtmStrikeConvention::ParRate => {
-                // For a par forward-starting swap, par rate equals the forward swap rate.
-                forward_swap_rate
-            }
-        }
-    }
 
     /// Resolve swaption leg conventions from quote and plan parameters.
     fn resolve_leg_conventions<'a>(

@@ -109,6 +109,14 @@ pub struct FixedCouponSpec {
 }
 
 impl FixedCouponSpec {
+    /// Repack a per-window `(split, rate, ScheduleParams)` triple into a
+    /// `FixedCouponSpec`.
+    ///
+    /// `FixedCouponSpec` flattens the schedule conventions inline, whereas the
+    /// compiler/builder carry them as a separate `ScheduleParams`. This pairs
+    /// with [`Self::schedule_params`] to convert between the two
+    /// representations when the builder splits a full-horizon leg into
+    /// per-window pieces (step-up, fixed-to-float).
     pub(crate) fn from_parts(
         coupon_type: CouponType,
         rate: Decimal,
@@ -127,6 +135,9 @@ impl FixedCouponSpec {
         }
     }
 
+    /// Extract the schedule-generation conventions as a standalone
+    /// [`ScheduleParams`]. Inverse of [`Self::from_parts`]; used by the builder
+    /// to feed full-horizon coupon legs into the windowed compiler.
     pub(crate) fn schedule_params(&self) -> ScheduleParams {
         ScheduleParams {
             freq: self.freq,
@@ -173,7 +184,14 @@ impl FixedCouponSpec {
     schemars::JsonSchema,
 )]
 pub enum OvernightCompoundingMethod {
-    /// Simple average of daily rates (non-standard, for reference only).
+    /// Arithmetic (non-compounded) average of daily overnight fixings,
+    /// weighted by accrual days: `Rate = (Σ rᵢ·dᵢ) / D`.
+    ///
+    /// This is a fully supported convention. It is the correct choice for
+    /// instruments that contractually specify a simple-average overnight
+    /// index (some bilateral loans and older FRNs) rather than the
+    /// compounded ISDA 2021 convention. Use [`Self::CompoundedInArrears`]
+    /// for standard SOFR/ESTR/TONA legs.
     SimpleAverage,
 
     /// Compounded in arrears with daily compounding (ISDA 2021 standard).
@@ -225,8 +243,9 @@ fn default_reset_lag() -> i32 {
 /// Policy for handling floating rate projection failures.
 ///
 /// Controls what happens when a forward curve lookup fails during
-/// cashflow emission. The default (`Error`) surfaces failures explicitly,
-/// replacing the previous silent spread-only fallback behavior.
+/// cashflow emission. The default (`Error`) surfaces failures explicitly;
+/// the other variants are explicit opt-in degradation modes for callers
+/// that intentionally want a projected schedule without a forward curve.
 ///
 /// # References
 ///
@@ -239,7 +258,9 @@ pub enum FloatingRateFallback {
     /// Return an error with curve ID and reset date (strictest, safest).
     #[default]
     Error,
-    /// Use spread as the total rate (legacy behavior). Emits `warn!`.
+    /// Treat the index component as zero, so the coupon rate is the spread
+    /// (plus any floors/caps/gearing). An explicit opt-in for spread-only
+    /// projection when no forward curve is available; emits `warn!`.
     SpreadOnly,
     /// Use a fixed rate as the index component. Emits `info!`.
     FixedRate(rust_decimal::Decimal),
@@ -412,8 +433,8 @@ pub struct FloatingRateSpec {
     /// Policy when forward curve lookup fails during emission.
     ///
     /// Defaults to `Error`, which surfaces curve lookup failures.
-    /// Set to `SpreadOnly` to preserve the legacy silent-fallback behavior,
-    /// or `FixedRate(r)` to use a fixed index rate.
+    /// Set to `SpreadOnly` for spread-only projection, or `FixedRate(r)`
+    /// to use a fixed index rate.
     #[serde(default, skip_serializing_if = "FloatingRateFallback::is_default")]
     pub fallback: FloatingRateFallback,
 }
@@ -555,6 +576,9 @@ pub struct StepUpCouponSpec {
 }
 
 impl StepUpCouponSpec {
+    /// Extract the schedule-generation conventions shared by every step
+    /// window as a standalone [`ScheduleParams`]. The compiler then derives
+    /// per-rate `FixedCouponSpec` windows from the `step_schedule`.
     pub(crate) fn schedule_params(&self) -> ScheduleParams {
         ScheduleParams {
             freq: self.freq,

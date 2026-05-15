@@ -29,7 +29,6 @@ use finstack_core::cashflow::CFKind;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::math::NeumaierAccumulator;
 use finstack_core::types::CurveId;
 use finstack_core::{Error, Result};
@@ -396,17 +395,6 @@ where
         acc.add(pv);
     }
     acc.total()
-}
-
-// ---------------------------------------------------------------------------
-// Silence unused imports when built without dependent instruments in scope.
-// ---------------------------------------------------------------------------
-
-// Required to bring `DiscountCurve` / `HazardCurve` into scope for doc links.
-#[allow(dead_code)]
-fn _ensure_imports() {
-    let _: Option<&DiscountCurve> = None;
-    let _: Option<&HazardCurve> = None;
 }
 
 #[cfg(test)]

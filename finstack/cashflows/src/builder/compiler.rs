@@ -631,3 +631,125 @@ pub(super) fn compute_coupon_schedules(
         float_schedules,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::builder::orchestrator::CashFlowBuilder;
+    use crate::builder::specs::{CouponType, FixedCouponSpec};
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
+    use finstack_core::InputError;
+    use time::Month;
+
+    fn d(y: i32, m: u8, day: u8) -> Date {
+        Date::from_calendar_date(y, Month::try_from(m).expect("valid month"), day)
+            .expect("valid date")
+    }
+
+    /// Annual fixed coupon over the full `[issue, maturity]` horizon.
+    fn annual_fixed() -> FixedCouponSpec {
+        FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: rust_decimal_macros::dec!(0.05),
+            freq: Tenor::annual(),
+            dc: DayCount::Act365F,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: "weekends_only".to_string(),
+            stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
+        }
+    }
+
+    fn builder_with_full_horizon_fixed(issue: Date, maturity: Date) -> CashFlowBuilder {
+        let mut builder = CashFlowBuilder::default();
+        let _ = builder.principal(
+            finstack_core::money::Money::new(1_000_000.0, Currency::USD),
+            issue,
+            maturity,
+        );
+        let _ = builder.fixed_cf(annual_fixed());
+        builder
+    }
+
+    #[test]
+    fn no_payment_windows_default_all_cash() {
+        let issue = d(2025, 1, 1);
+        let maturity = d(2029, 1, 1);
+        let builder = builder_with_full_horizon_fixed(issue, maturity);
+
+        let compiled =
+            compute_coupon_schedules(&builder, issue, maturity).expect("schedule compiles");
+
+        assert!(compiled.float_schedules.is_empty());
+        assert_eq!(compiled.fixed_schedules.len(), 1);
+        assert_eq!(
+            compiled.fixed_schedules[0].spec.coupon_type,
+            CouponType::Cash
+        );
+    }
+
+    #[test]
+    fn nested_payment_window_override_wins() {
+        // Inner PIK window nested inside the implicit full-horizon Cash default.
+        let issue = d(2025, 1, 1);
+        let maturity = d(2029, 1, 1);
+        let mut builder = builder_with_full_horizon_fixed(issue, maturity);
+        let _ = builder.add_payment_window(d(2026, 1, 1), d(2028, 1, 1), CouponType::PIK);
+
+        let compiled =
+            compute_coupon_schedules(&builder, issue, maturity).expect("nested window compiles");
+
+        // Grid {2025,2026,2028,2029} -> three fixed schedules; the middle one
+        // (the nested window) takes the PIK split, the outer two default Cash.
+        assert_eq!(compiled.fixed_schedules.len(), 3);
+        let splits: Vec<CouponType> = compiled
+            .fixed_schedules
+            .iter()
+            .map(|s| s.spec.coupon_type)
+            .collect();
+        assert_eq!(
+            splits,
+            vec![CouponType::Cash, CouponType::PIK, CouponType::Cash]
+        );
+    }
+
+    #[test]
+    fn non_nested_overlapping_payment_windows_rejected() {
+        // Windows [2025,2027) and [2026,2029) overlap on [2026,2027) but
+        // neither contains the other -> ambiguous coverage.
+        let issue = d(2025, 1, 1);
+        let maturity = d(2029, 1, 1);
+        let mut builder = builder_with_full_horizon_fixed(issue, maturity);
+        let _ = builder.add_payment_window(issue, d(2027, 1, 1), CouponType::PIK);
+        let _ = builder.add_payment_window(d(2026, 1, 1), maturity, CouponType::Cash);
+
+        let result = compute_coupon_schedules(&builder, issue, maturity);
+        assert!(
+            matches!(
+                result,
+                Err(finstack_core::Error::Input(InputError::Invalid))
+            ),
+            "overlapping non-nested payment windows must be rejected"
+        );
+    }
+
+    #[test]
+    fn payment_window_outside_horizon_rejected() {
+        let issue = d(2025, 1, 1);
+        let maturity = d(2029, 1, 1);
+        let mut builder = builder_with_full_horizon_fixed(issue, maturity);
+        // Window extends one year past maturity.
+        let _ = builder.add_payment_window(issue, d(2030, 1, 1), CouponType::PIK);
+
+        let result = compute_coupon_schedules(&builder, issue, maturity);
+        assert!(
+            matches!(
+                result,
+                Err(finstack_core::Error::Input(InputError::Invalid))
+            ),
+            "payment window beyond maturity must be rejected"
+        );
+    }
+}

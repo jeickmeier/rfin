@@ -7,16 +7,12 @@ use std::sync::OnceLock;
 
 use super::AgencyTba;
 use crate::instruments::fixed_income::mbs_passthrough::AgencyMbsPassthrough;
-use finstack_core::config::FinstackConfig;
 use finstack_core::{Error, Result};
 use serde::Deserialize;
 
 const TBA_ASSUMPTIONS: &str = include_str!("../../../../data/assumptions/tba_assumptions.v1.json");
 
 static TBA_DEFAULTS: OnceLock<Result<TbaAssumptions>> = OnceLock::new();
-
-#[allow(dead_code)]
-pub(crate) const TBA_ASSUMPTIONS_EXTENSION_KEY: &str = "valuations.tba_assumptions.v1";
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -53,13 +49,6 @@ pub(crate) struct AssumedPoolAssumptions {
 
 pub(crate) fn assumed_pool_assumptions_or_panic() -> AssumedPoolAssumptions {
     tba_assumptions_or_panic().assumed_pool
-}
-
-#[allow(dead_code)]
-pub(crate) fn assumed_pool_assumptions_from_config(
-    config: &FinstackConfig,
-) -> Result<AssumedPoolAssumptions> {
-    Ok(tba_assumptions_from_config(config)?.assumed_pool)
 }
 
 /// Pool allocation result.
@@ -213,19 +202,6 @@ fn embedded_tba_assumptions() -> Result<&'static TbaAssumptions> {
     match TBA_DEFAULTS.get_or_init(parse_tba_assumptions) {
         Ok(defaults) => Ok(defaults),
         Err(err) => Err(err.clone()),
-    }
-}
-
-#[allow(dead_code)]
-fn tba_assumptions_from_config(config: &FinstackConfig) -> Result<TbaAssumptions> {
-    if let Some(value) = config.extensions.get(TBA_ASSUMPTIONS_EXTENSION_KEY) {
-        let defaults: TbaAssumptions = serde_json::from_value(value.clone()).map_err(|err| {
-            Error::Validation(format!("failed to parse TBA assumptions extension: {err}"))
-        })?;
-        validate_tba_assumptions(&defaults)?;
-        Ok(defaults)
-    } else {
-        Ok(embedded_tba_assumptions()?.clone())
     }
 }
 

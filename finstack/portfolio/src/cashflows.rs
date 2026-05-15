@@ -312,7 +312,11 @@ pub fn aggregate_full_cashflows(
 
     let per_position: Vec<PositionCashflowResult> =
         if portfolio.positions.len() >= AGGREGATE_CASHFLOWS_PARALLEL_MIN_POSITIONS {
-            portfolio.positions.par_iter().map(schedule_position).collect()
+            portfolio
+                .positions
+                .par_iter()
+                .map(schedule_position)
+                .collect()
         } else {
             portfolio.positions.iter().map(schedule_position).collect()
         };

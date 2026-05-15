@@ -160,13 +160,6 @@ pub struct AccrualConfig {
     /// falls back to ACT/ACT ISDA semantics, which gives incorrect accrued
     /// interest for most government bonds.
     pub frequency: Option<Tenor>,
-    /// Require schedule.meta.issue_date to be set (or a flow to precede the
-    /// first coupon).
-    ///
-    /// Default: true. The current accrual engine always requires an explicit
-    /// horizon start; this field is retained for JSON compatibility with
-    /// existing `AccrualConfig` payloads.
-    pub strict_issue_date: bool,
 }
 
 impl Default for AccrualConfig {
@@ -176,7 +169,6 @@ impl Default for AccrualConfig {
             ex_coupon: None,
             include_pik: true,
             frequency: None,
-            strict_issue_date: true,
         }
     }
 }
@@ -311,8 +303,8 @@ fn derive_horizon_start(
     }
 
     Err(finstack_core::Error::Validation(format!(
-        "AccrualConfig::strict_issue_date: schedule.meta.issue_date is unset and no flow \
-         precedes the first coupon date {}; set meta.issue_date on the CashFlowSchedule.",
+        "accrual: schedule.meta.issue_date is unset and no flow precedes the first coupon \
+         date {}; set meta.issue_date on the CashFlowSchedule.",
         first_bucket.date
     )))
 }
@@ -612,13 +604,6 @@ mod tests {
         Date::from_calendar_date(y, Month::try_from(m).unwrap(), d).unwrap()
     }
 
-    fn relaxed_issue_date_config() -> AccrualConfig {
-        AccrualConfig {
-            strict_issue_date: false,
-            ..AccrualConfig::default()
-        }
-    }
-
     /// Create a minimal schedule with coupon flows for testing issue date derivation.
     fn make_test_schedule(
         coupon_dates: &[(Date, f64)], // (date, accrual_factor)
@@ -654,13 +639,13 @@ mod tests {
     // =========================================================================
 
     #[test]
-    fn test_missing_issue_date_errors_even_with_relaxed_config() {
+    fn test_missing_issue_date_errors() {
         let schedule = make_test_schedule(
             &[(make_date(2025, 7, 1), 0.5), (make_date(2026, 1, 1), 0.5)],
             DayCount::Thirty360,
         );
 
-        let cfg = relaxed_issue_date_config();
+        let cfg = AccrualConfig::default();
         let err = build_coupon_periods(&schedule, &cfg).expect_err("missing issue date errors");
 
         assert!(err.to_string().contains("issue_date"));
@@ -732,8 +717,7 @@ mod tests {
 
         // Calculate accrued at April 1 (halfway through first period)
         let as_of = make_date(2025, 4, 1);
-        let accrued =
-            accrued_interest_amount(&schedule, as_of, &relaxed_issue_date_config()).unwrap();
+        let accrued = accrued_interest_amount(&schedule, as_of, &AccrualConfig::default()).unwrap();
 
         // With explicit issue date Jan 1 and first coupon July 1:
         // - Period length: 180 days (30/360)
