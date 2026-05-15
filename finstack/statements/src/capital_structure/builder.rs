@@ -16,30 +16,30 @@ use rust_decimal::Decimal;
 /// Helper to ensure capital structure exists and return mutable reference.
 ///
 /// Returns a mutable reference to the capital structure spec, creating an empty
-/// instance if one is not already present.
-fn ensure_capital_structure<State>(builder: &mut ModelBuilder<State>) -> &mut CapitalStructureSpec {
-    builder
-        .capital_structure
-        .get_or_insert_with(|| CapitalStructureSpec {
-            debt_instruments: vec![],
-            equity_instruments: vec![],
-            meta: indexmap::IndexMap::new(),
-            reporting_currency: None,
-            fx_policy: None,
-            waterfall: None,
-        })
+/// instance if one is not already present. Operates directly on the
+/// `Option<CapitalStructureSpec>` field so it is not generic over the
+/// builder's type-state (the capital structure is state-independent).
+fn ensure_capital_structure(cs: &mut Option<CapitalStructureSpec>) -> &mut CapitalStructureSpec {
+    cs.get_or_insert_with(|| CapitalStructureSpec {
+        debt_instruments: vec![],
+        equity_instruments: vec![],
+        meta: indexmap::IndexMap::new(),
+        reporting_currency: None,
+        fx_policy: None,
+        waterfall: None,
+    })
 }
 
 /// Serialize a bond and push it to the capital structure.
-fn push_bond<State>(
-    builder: &mut ModelBuilder<State>,
+fn push_bond(
+    cs: &mut Option<CapitalStructureSpec>,
     id_str: String,
     bond: Bond,
 ) -> crate::error::Result<()> {
     let spec_json = serde_json::to_value(&bond).map_err(|e| {
         crate::error::Error::build(format!("Failed to serialize bond '{}': {}", id_str, e))
     })?;
-    ensure_capital_structure(builder)
+    ensure_capital_structure(cs)
         .debt_instruments
         .push(DebtInstrumentSpec::Bond {
             id: id_str,
@@ -49,14 +49,14 @@ fn push_bond<State>(
 }
 
 /// Serialize a swap and push it to the capital structure.
-fn push_swap<State>(
-    builder: &mut ModelBuilder<State>,
+fn push_swap(
+    cs: &mut Option<CapitalStructureSpec>,
     id_str: String,
     swap: finstack_valuations::instruments::InterestRateSwap,
 ) -> crate::error::Result<()> {
     let spec_json = serde_json::to_value(&swap)
         .map_err(|e| crate::error::Error::build(format!("Failed to serialize swap: {}", e)))?;
-    ensure_capital_structure(builder)
+    ensure_capital_structure(cs)
         .debt_instruments
         .push(DebtInstrumentSpec::Swap {
             id: id_str,
@@ -201,7 +201,7 @@ impl<State> ModelBuilder<State> {
             crate::error::Error::build(format!("Failed to create bond '{}': {}", id_str, e))
         })?;
 
-        push_bond(&mut self, id_str, bond)?;
+        push_bond(&mut self.capital_structure, id_str, bond)?;
         Ok(self)
     }
 
@@ -270,7 +270,7 @@ impl<State> ModelBuilder<State> {
             crate::error::Error::build(format!("Failed to create bond '{}': {}", id_str, e))
         })?;
 
-        push_bond(&mut self, id_str, bond)?;
+        push_bond(&mut self.capital_structure, id_str, bond)?;
         Ok(self)
     }
 
@@ -373,7 +373,7 @@ impl<State> ModelBuilder<State> {
             DayCount::Act360,
             BusinessDayConvention::ModifiedFollowing,
         )?;
-        push_swap(&mut self, id_str, swap)?;
+        push_swap(&mut self.capital_structure, id_str, swap)?;
         Ok(self)
     }
 
@@ -417,7 +417,7 @@ impl<State> ModelBuilder<State> {
             float_dc,
             bdc,
         )?;
-        push_swap(&mut self, id_str, swap)?;
+        push_swap(&mut self.capital_structure, id_str, swap)?;
         Ok(self)
     }
 
@@ -448,7 +448,7 @@ impl<State> ModelBuilder<State> {
     /// ```
     pub fn add_custom_debt(mut self, id: impl Into<String>, spec: serde_json::Value) -> Self {
         // Add to capital structure
-        ensure_capital_structure(&mut self)
+        ensure_capital_structure(&mut self.capital_structure)
             .debt_instruments
             .push(DebtInstrumentSpec::Generic {
                 id: id.into(),
@@ -460,13 +460,13 @@ impl<State> ModelBuilder<State> {
 
     /// Set an explicit reporting currency for capital-structure totals.
     pub fn reporting_currency(mut self, currency: finstack_core::currency::Currency) -> Self {
-        ensure_capital_structure(&mut self).reporting_currency = Some(currency);
+        ensure_capital_structure(&mut self.capital_structure).reporting_currency = Some(currency);
         self
     }
 
     /// Set the FX conversion policy used when converting capital-structure cashflows.
     pub fn fx_policy(mut self, policy: finstack_core::money::fx::FxConversionPolicy) -> Self {
-        ensure_capital_structure(&mut self).fx_policy = Some(policy);
+        ensure_capital_structure(&mut self.capital_structure).fx_policy = Some(policy);
         self
     }
 
@@ -497,7 +497,7 @@ impl<State> ModelBuilder<State> {
     /// # let _ = builder;
     /// ```
     pub fn waterfall(mut self, waterfall_spec: crate::capital_structure::WaterfallSpec) -> Self {
-        ensure_capital_structure(&mut self).waterfall = Some(waterfall_spec);
+        ensure_capital_structure(&mut self.capital_structure).waterfall = Some(waterfall_spec);
         self
     }
 }
