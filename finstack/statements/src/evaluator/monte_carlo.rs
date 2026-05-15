@@ -358,6 +358,9 @@ impl MonteCarloAccumulator {
         })
     }
 
+    // Only the rayon `try_reduce` path calls `merge`; the wasm32 serial
+    // accumulator folds in place, so this is dead code there.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     pub(crate) fn merge(mut self, other: Self) -> Result<Self> {
         if self.expected_paths != other.expected_paths
             || self.percentiles != other.percentiles

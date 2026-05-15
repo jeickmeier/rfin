@@ -54,6 +54,13 @@
       "findings": []
     },
     {
+      "check_id": "non_finite",
+      "check_name": "Non-Finite Value",
+      "category": "data_quality",
+      "passed": true,
+      "findings": []
+    },
+    {
       "check_id": "leverage_range",
       "check_name": "Leverage Range",
       "category": "credit_reasonableness",
@@ -110,8 +117,8 @@
     }
   ],
   "summary": {
-    "total_checks": 9,
-    "passed": 8,
+    "total_checks": 10,
+    "passed": 9,
     "failed": 1,
     "errors": 1,
     "warnings": 2,
