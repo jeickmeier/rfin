@@ -278,6 +278,7 @@ impl PyFactorPnlProfile {
 #[pyfunction]
 #[pyo3(signature = (positions_json, factors_json, market, as_of, bump_config_json=None))]
 fn compute_factor_sensitivities(
+    py: Python<'_>,
     positions_json: &str,
     factors_json: &str,
     market: &Bound<'_, PyAny>,
@@ -298,8 +299,8 @@ fn compute_factor_sensitivities(
     };
 
     let engine = finstack_valuations::factor_model::DeltaBasedEngine::new(bump_config);
-    let matrix = engine
-        .compute_sensitivities(&positions, &factors, &market, date)
+    let matrix = py
+        .detach(move || engine.compute_sensitivities(&positions, &factors, &market, date))
         .map_err(display_to_py)?;
 
     Ok(PySensitivityMatrix::from_inner(matrix))
@@ -334,6 +335,7 @@ fn compute_factor_sensitivities(
 #[pyfunction]
 #[pyo3(signature = (positions_json, factors_json, market, as_of, bump_config_json=None, n_scenario_points=5))]
 fn compute_pnl_profiles(
+    py: Python<'_>,
     positions_json: &str,
     factors_json: &str,
     market: &Bound<'_, PyAny>,
@@ -359,8 +361,8 @@ fn compute_pnl_profiles(
         n_scenario_points,
     )
     .map_err(display_to_py)?;
-    let profiles = engine
-        .compute_pnl_profiles(&positions, &factors, &market, date)
+    let profiles = py
+        .detach(move || engine.compute_pnl_profiles(&positions, &factors, &market, date))
         .map_err(display_to_py)?;
 
     Ok(profiles
@@ -614,13 +616,16 @@ fn decompose_factor_risk(
     };
 
     let decomposer = finstack_portfolio::factor_model::ParametricDecomposer;
-    let result = finstack_portfolio::factor_model::RiskDecomposer::decompose(
-        &decomposer,
-        &matrix,
-        &covariance,
-        &measure,
-    )
-    .map_err(display_to_py)?;
+    let result = py
+        .detach(move || {
+            finstack_portfolio::factor_model::RiskDecomposer::decompose(
+                &decomposer,
+                &matrix,
+                &covariance,
+                &measure,
+            )
+        })
+        .map_err(display_to_py)?;
 
     Ok(PyRiskDecomposition::from_inner(result))
 }

@@ -330,7 +330,18 @@ fn build_coupon_periods(
         .filter(|(_, cf)| is_coupon_kind(cf.kind, cfg.include_pik))
         .map(|(i, _)| i)
         .collect();
-    coupon_idx.sort_by_key(|&i| schedule.flows[i].date);
+    if !coupon_idx
+        .windows(2)
+        .all(|w| schedule.flows[w[0]].date <= schedule.flows[w[1]].date)
+    {
+        coupon_idx.sort_by_key(|&i| schedule.flows[i].date);
+    }
+    debug_assert!(
+        coupon_idx
+            .windows(2)
+            .all(|w| schedule.flows[w[0]].date <= schedule.flows[w[1]].date),
+        "coupon flows must preserve schedule date order"
+    );
 
     let mut buckets: Vec<CouponBucket> = Vec::new();
 
@@ -689,6 +700,21 @@ mod tests {
             make_date(2025, 1, 15),
             "Should use explicit issue date from schedule"
         );
+    }
+
+    #[test]
+    fn build_coupon_periods_sorts_only_when_schedule_coupons_are_unsorted() {
+        let mut schedule = make_test_schedule(
+            &[(make_date(2026, 1, 1), 0.5), (make_date(2025, 7, 1), 0.5)],
+            DayCount::Thirty360,
+        );
+        schedule.meta.issue_date = Some(make_date(2025, 1, 1));
+
+        let periods = build_coupon_periods(&schedule, &AccrualConfig::default()).expect("periods");
+
+        assert_eq!(periods.len(), 2);
+        assert_eq!(periods[0].end, make_date(2025, 7, 1));
+        assert_eq!(periods[1].end, make_date(2026, 1, 1));
     }
 
     #[test]

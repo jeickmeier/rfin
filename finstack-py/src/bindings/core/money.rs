@@ -7,11 +7,18 @@ use finstack_core::money::Money;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyModule, PyTuple, PyType};
+use pyo3::sync::PyOnceLock;
+use pyo3::types::{PyFloat, PyInt, PyList, PyTuple, PyType};
 use pyo3::IntoPyObjectExt;
 
 use crate::bindings::core::currency::{extract_currency, PyCurrency};
 use crate::errors::{core_to_py, display_to_py};
+
+static DECIMAL_TYPE: PyOnceLock<Py<PyType>> = PyOnceLock::new();
+
+fn decimal_type<'py>(py: Python<'py>) -> PyResult<&'py Bound<'py, PyType>> {
+    DECIMAL_TYPE.import(py, "decimal", "Decimal")
+}
 
 /// Wrapper for [`Money`] exposed to Python as `finstack.core.money.Money`.
 #[pyclass(name = "Money", module = "finstack.core.money", frozen, from_py_object)]
@@ -51,12 +58,10 @@ fn decimal_from_py(obj: &Bound<'_, PyAny>) -> PyResult<rust_decimal::Decimal> {
 /// Uses the Python `isinstance` check rather than a string compare on
 /// `type(obj).__name__`, so `MyDecimal(Decimal)` subclasses and any third-party
 /// `Decimal`-named classes are distinguished correctly. The import resolves
-/// through CPython's module cache after the first call.
+/// through a cached `decimal.Decimal` type after the first call.
 fn is_python_decimal(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
     let py = obj.py();
-    let decimal_module = PyModule::import(py, "decimal")?;
-    let decimal_type = decimal_module.getattr("Decimal")?;
-    obj.is_instance(&decimal_type)
+    obj.is_instance(decimal_type(py)?)
 }
 
 /// Build a [`Money`] from a Python amount that may be `float`, `int`, or
@@ -64,6 +69,12 @@ fn is_python_decimal(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
 /// precision; numeric inputs follow IEEE 754 semantics and later ``amount``
 /// accessors expose an ``f64`` view.
 fn money_from_amount(obj: &Bound<'_, PyAny>, ccy: Currency) -> PyResult<Money> {
+    if obj.is_instance_of::<PyFloat>() || obj.is_instance_of::<PyInt>() {
+        let amount: f64 = obj.extract().map_err(|_| {
+            PyTypeError::new_err("Money amount must be float, int, or decimal.Decimal")
+        })?;
+        return Money::try_new(amount, ccy).map_err(core_to_py);
+    }
     if is_python_decimal(obj)? {
         let d = decimal_from_py(obj)?;
         return Money::from_decimal(d, ccy).map_err(core_to_py);

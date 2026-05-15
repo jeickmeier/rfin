@@ -18,6 +18,7 @@ use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
 use finstack_core::HashMap;
 use finstack_core::Result;
+use std::cell::RefCell;
 use std::sync::Arc;
 
 // =============================================================================
@@ -185,16 +186,17 @@ fn normalize_pct(value: f64) -> f64 {
 pub(crate) struct BaseCorrelationTarget {
     /// Calibration inputs (curve IDs, schedule conventions, detachment points).
     pub params: BaseCorrelationParams,
-    /// Baseline market context used when pricing trial curves.
-    pub base_context: MarketContext,
+    /// Reusable sequential bootstrap scratch context.
+    reuse_context: RefCell<MarketContext>,
 }
 
 impl BaseCorrelationTarget {
     /// Create a new base correlation bootstrapper.
     pub(crate) fn new(params: BaseCorrelationParams, base_context: MarketContext) -> Self {
+        let reuse_context = RefCell::new(base_context.clone());
         Self {
             params,
-            base_context,
+            reuse_context,
         }
     }
 
@@ -457,11 +459,12 @@ impl BootstrapTarget for BaseCorrelationTarget {
             }
         };
 
-        let mut temp_context = self.base_context.clone().insert(curve.clone());
+        let mut temp_context = self.reuse_context.borrow_mut();
+        temp_context.insert_mut(curve.clone());
         if let Ok(idx) = temp_context.get_credit_index(self.params.index_id.as_str()) {
             let mut updated = idx.as_ref().clone();
             updated.base_correlation_curve = Arc::new(curve.clone());
-            temp_context = temp_context.insert_credit_index(self.params.index_id.as_str(), updated);
+            temp_context.insert_credit_index_mut(self.params.index_id.as_str(), updated);
         }
 
         let tranche = pq
@@ -506,7 +509,7 @@ impl BootstrapTarget for BaseCorrelationTarget {
         pts.push(hi);
 
         // Linear grid across the feasible region [low, hi].
-        const N: usize = 48;
+        const N: usize = 6;
         for i in 0..=N {
             let x = low + (i as f64) / (N as f64) * (hi - low);
             pts.push(x);

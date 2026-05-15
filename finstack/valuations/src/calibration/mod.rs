@@ -92,8 +92,6 @@ pub mod api;
 pub mod defaults;
 /// Hull-White one-factor model calibration to European swaptions.
 pub mod hull_white;
-/// LMM/BGM co-terminal swaption calibration.
-pub mod lmm;
 /// Prepared quotes for calibration.
 pub(crate) mod prepared;
 /// Solver utilities and implementations used by calibration.

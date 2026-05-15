@@ -52,7 +52,6 @@ use std::collections::BTreeMap;
 /// quotes using Brent root-finding. The calibrated `df` is stored in the
 /// market context as a `MarketScalar::Unitless` under a key derived from
 /// the step configuration.
-#[allow(dead_code)]
 pub(crate) struct StudentTTarget {
     /// Parameters defining the calibration structure.
     pub(crate) params: StudentTParams,
@@ -62,7 +61,6 @@ pub(crate) struct StudentTTarget {
     pub(crate) config: CalibrationConfig,
 }
 
-#[allow(dead_code)]
 impl StudentTTarget {
     fn resolve_discount_curve_id(
         params: &StudentTParams,
@@ -328,7 +326,7 @@ impl StudentTTarget {
         pts.push(initial);
 
         // Linear grid.
-        const N: usize = 48;
+        const N: usize = 6;
         for i in 0..=N {
             let t = i as f64 / N as f64;
             let df = lo + t * (hi - lo);

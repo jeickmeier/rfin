@@ -817,13 +817,11 @@ fn extract_equity_state(
     // This is standard for equity option models and ensures consistency with
     // discount curve time axis (which defaults to Act/365F).
     let process_dc = DayCount::Act365F;
-    let time_to_maturity = process_dc
-        .year_fraction(
-            as_of,
-            bond.maturity,
-            finstack_core::dates::DayCountContext::default(),
-        )
-        .unwrap_or(0.0);
+    let time_to_maturity = process_dc.year_fraction(
+        as_of,
+        bond.maturity,
+        finstack_core::dates::DayCountContext::default(),
+    )?;
 
     // Use the short-rate (instantaneous forward at t=0) for tree drift rather
     // than the average zero rate to maturity. This better approximates the

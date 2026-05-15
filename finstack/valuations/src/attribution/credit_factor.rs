@@ -312,6 +312,7 @@ pub fn compute_credit_factor_attribution(
         levels,
         adder_pnl_total: Money::new(adder_total_amt, ccy),
         adder_pnl_by_issuer,
+        adder_magnitude: None,
     })
 }
 

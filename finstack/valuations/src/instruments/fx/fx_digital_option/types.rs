@@ -3,6 +3,7 @@
 use super::pricer::{self, FxDigitalOptionGreeks};
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
+use crate::instruments::MarketDependencies;
 use crate::instruments::OptionType;
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
@@ -201,6 +202,13 @@ impl crate::instruments::common_impl::traits::Instrument for FxDigitalOption {
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
+    }
+
+    fn market_dependencies(&self) -> finstack_core::Result<MarketDependencies> {
+        let mut deps = MarketDependencies::from_curve_dependencies(self)?;
+        deps.add_vol_surface_id(self.vol_surface_id.as_str());
+        deps.add_fx_pair(self.base_currency, self.quote_currency);
+        Ok(deps)
     }
 }
 

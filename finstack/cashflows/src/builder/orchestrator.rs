@@ -109,8 +109,9 @@ pub struct PrincipalEvent {
 pub(super) struct AmortizationSetup {
     pub(super) amort_dates: finstack_core::HashSet<Date>,
     pub(super) step_remaining_map: Option<finstack_core::HashMap<Date, Money>>, // for StepRemaining
-    pub(super) linear_delta: Option<f64>,                                       // for LinearTo
-    pub(super) percent_per: Option<f64>, // for PercentOfOriginalPerPeriod
+    pub(super) custom_principal_map: Option<finstack_core::HashMap<Date, Money>>,
+    pub(super) linear_delta: Option<f64>, // for LinearTo
+    pub(super) percent_per: Option<f64>,  // for PercentOfOriginalPerPeriod
 }
 
 /// Grouped inputs for collecting all relevant schedule dates.
@@ -186,6 +187,22 @@ fn derive_amortization_setup(
         _ => None,
     };
 
+    let custom_principal_map: Option<finstack_core::HashMap<Date, Money>> = match &notional.amort {
+        AmortizationSpec::CustomPrincipal { items } => {
+            let mut m = finstack_core::HashMap::default();
+            m.reserve(items.len());
+            for (d, mny) in items {
+                if mny.amount() > 0.0 {
+                    m.entry(*d)
+                        .and_modify(|existing| *existing += *mny)
+                        .or_insert(*mny);
+                }
+            }
+            Some(m)
+        }
+        _ => None,
+    };
+
     let (linear_delta, percent_per) = match &notional.amort {
         AmortizationSpec::LinearTo { final_notional } => {
             let base = amort_base.ok_or_else(|| {
@@ -212,6 +229,7 @@ fn derive_amortization_setup(
     Ok(AmortizationSetup {
         amort_dates,
         step_remaining_map,
+        custom_principal_map,
         linear_delta,
         percent_per,
     })

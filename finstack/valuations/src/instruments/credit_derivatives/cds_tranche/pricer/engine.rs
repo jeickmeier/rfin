@@ -18,8 +18,10 @@ use finstack_core::Result;
 
 impl CDSTranchePricer {
     #[inline]
-    pub(super) fn select_quadrature(&self) -> Result<GaussHermiteQuadrature> {
-        GaussHermiteQuadrature::new(self.params.quadrature_order as usize)
+    pub(super) fn select_quadrature(&self) -> Result<&GaussHermiteQuadrature> {
+        Ok(self.quadrature_cache.get_or_init(|| {
+            crate::correlation::copula::select_quadrature(self.params.quadrature_order)
+        }))
     }
 
     /// Return the cached copula instance, building it on first call.
@@ -79,6 +81,7 @@ impl CDSTranchePricer {
         Self {
             params: CDSTranchePricerConfig::default(),
             copula_cache: std::sync::OnceLock::new(),
+            quadrature_cache: std::sync::OnceLock::new(),
         }
     }
 
@@ -87,6 +90,7 @@ impl CDSTranchePricer {
         Self {
             params,
             copula_cache: std::sync::OnceLock::new(),
+            quadrature_cache: std::sync::OnceLock::new(),
         }
     }
 
@@ -205,6 +209,12 @@ impl CDSTranchePricer {
             Vec::with_capacity(payment_dates.len() * 2 + usize::from(tranche.upfront.is_some()));
         let mut prev_el_fraction = self.calculate_prior_tranche_loss(tranche);
 
+        // Pre-compute payment times once to avoid calling years_from_base twice per iteration.
+        let payment_times: Vec<f64> = payment_dates
+            .iter()
+            .map(|&d| self.years_from_base(_index_data_arc.as_ref(), d))
+            .collect::<Result<Vec<_>>>()?;
+
         for (i, &payment_date) in payment_dates.iter().enumerate() {
             let el_fraction = el_curve[i].1;
             let delta_el_fraction = (el_fraction - prev_el_fraction).max(0.0);
@@ -221,7 +231,7 @@ impl CDSTranchePricer {
                 payment_date,
                 finstack_core::dates::DayCountContext::default(),
             )?;
-            let payment_time = self.years_from_base(_index_data_arc.as_ref(), payment_date)?;
+            let payment_time = payment_times[i];
             let aod_adjustment = if self.params.accrual_on_default_enabled {
                 self.params.aod_allocation_fraction * tranche_notional * delta_el_fraction
             } else {
@@ -261,11 +271,7 @@ impl CDSTranchePricer {
                         rate: None,
                     },
                     discount_time: Some(if self.params.mid_period_protection {
-                        let prior_time = if i == 0 {
-                            0.0
-                        } else {
-                            self.years_from_base(_index_data_arc.as_ref(), payment_dates[i - 1])?
-                        };
+                        let prior_time = if i == 0 { 0.0 } else { payment_times[i - 1] };
                         0.5 * (prior_time + payment_time)
                     } else {
                         payment_time

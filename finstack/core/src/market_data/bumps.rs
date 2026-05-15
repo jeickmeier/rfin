@@ -444,20 +444,15 @@ impl Bumpable for ForwardCurve {
 
                 let bumped_id = spec.standard_bump_id(self.id());
 
-                let bumped_rates: Vec<(f64, f64)> = self
-                    .knots()
-                    .iter()
-                    .copied()
-                    .zip(self.forwards().iter().copied())
-                    .map(|(t, r)| {
-                        let new_rate = if is_multiplicative {
-                            r * bump_amount
-                        } else {
-                            r + bump_amount
-                        };
-                        (t, new_rate)
-                    })
-                    .collect();
+                let mut bumped_rates = Vec::with_capacity(self.knots().len());
+                for (&t, &r) in self.knots().iter().zip(self.forwards().iter()) {
+                    let new_rate = if is_multiplicative {
+                        r * bump_amount
+                    } else {
+                        r + bump_amount
+                    };
+                    bumped_rates.push((t, new_rate));
+                }
 
                 ForwardCurve::builder(bumped_id, self.tenor())
                     .base_date(self.base_date())
@@ -544,10 +539,11 @@ impl Bumpable for HazardCurve {
             }
         }
 
-        let shifted_points: Vec<(f64, f64)> = self
-            .knot_points()
-            .map(|(t, lambda)| (t, (lambda + shift).max(0.0)))
-            .collect();
+        let knot_points = self.knot_points();
+        let mut shifted_points = Vec::with_capacity(knot_points.size_hint().0);
+        for (t, lambda) in knot_points {
+            shifted_points.push((t, (lambda + shift).max(0.0)));
+        }
 
         // Rebuild a proper curve with the bumped ID, preserving key metadata
         HazardCurve::builder(bumped_id)
@@ -571,25 +567,22 @@ impl Bumpable for InflationCurve {
 
         let bumped_id = spec.standard_bump_id(self.id());
 
-        let bumped_points: Vec<(f64, f64)> = self
-            .knots()
-            .iter()
-            .copied()
-            .map(|t| {
-                if t <= 0.0 {
-                    return (t, self.base_cpi());
-                }
+        let mut bumped_points = Vec::with_capacity(self.knots().len());
+        for &t in self.knots() {
+            if t <= 0.0 {
+                bumped_points.push((t, self.base_cpi()));
+                continue;
+            }
 
-                let zero_rate = self.inflation_rate(0.0, t);
-                let bumped_zero_rate = if factor.1 {
-                    (1.0 + zero_rate) * factor.0 - 1.0
-                } else {
-                    zero_rate + factor.0
-                };
-                let bumped_cpi = self.base_cpi() * (1.0 + bumped_zero_rate).powf(t);
-                (t, bumped_cpi)
-            })
-            .collect();
+            let zero_rate = self.inflation_rate(0.0, t);
+            let bumped_zero_rate = if factor.1 {
+                (1.0 + zero_rate) * factor.0 - 1.0
+            } else {
+                zero_rate + factor.0
+            };
+            let bumped_cpi = self.base_cpi() * (1.0 + bumped_zero_rate).powf(t);
+            bumped_points.push((t, bumped_cpi));
+        }
 
         InflationCurve::builder(bumped_id)
             .base_cpi(self.base_cpi())
@@ -621,13 +614,14 @@ impl Bumpable for BaseCorrelationCurve {
 
         let bumped_id = spec.standard_bump_id(self.id());
 
-        let bumped_points: Vec<(f64, f64)> = self
+        let mut bumped_points = Vec::with_capacity(self.detachment_points().len());
+        for (&d, &c) in self
             .detachment_points()
             .iter()
-            .copied()
-            .zip(self.correlations().iter().copied())
-            .map(|(d, c)| (d, (c * mul + add).clamp(0.0, 1.0)))
-            .collect();
+            .zip(self.correlations().iter())
+        {
+            bumped_points.push((d, (c * mul + add).clamp(0.0, 1.0)));
+        }
 
         BaseCorrelationCurve::builder(bumped_id)
             .knots(bumped_points)
@@ -751,17 +745,16 @@ impl Bumpable for ScalarTimeSeries {
             "only supports Additive/{RateBp,Percent,Fraction} or Multiplicative/Factor",
         )?;
 
-        let bumped_obs: Vec<(crate::dates::Date, f64)> = if is_multiplicative {
-            self.observations()
-                .into_iter()
-                .map(|(d, v)| (d, v * raw_val))
-                .collect()
-        } else {
-            self.observations()
-                .into_iter()
-                .map(|(d, v)| (d, v + raw_val))
-                .collect()
-        };
+        let observations = self.observations();
+        let mut bumped_obs = Vec::with_capacity(observations.len());
+        for (d, v) in observations {
+            let bumped = if is_multiplicative {
+                v * raw_val
+            } else {
+                v + raw_val
+            };
+            bumped_obs.push((d, bumped));
+        }
 
         ScalarTimeSeries::new(self.id().as_str(), bumped_obs, self.currency())
             .map(|s| s.with_interpolation(self.interpolation()))

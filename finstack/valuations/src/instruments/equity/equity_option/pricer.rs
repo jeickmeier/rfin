@@ -426,59 +426,8 @@ pub(crate) fn compute_greeks(
             // Helper to price
             let price_fn = |p: &OptionMarketParams| -> Result<f64> { tree.price_american(p) };
 
-            let base_price = price_fn(&params)?;
-
-            // Delta & Gamma (1% spot bump)
-            let h_s = spot * 0.01;
-            let mut p_up = params.clone();
-            p_up.spot += h_s;
-            let price_up = price_fn(&p_up)?;
-            let mut p_dn = params.clone();
-            p_dn.spot -= h_s;
-            let price_dn = price_fn(&p_dn)?;
-
-            let delta_unit = (price_up - price_dn) / (2.0 * h_s);
-            let gamma_unit = (price_up - 2.0 * base_price + price_dn) / (h_s * h_s);
-
-            // Vega (1% vol bump) - central difference for O(h²) accuracy
-            let h_v = 0.01;
-            let mut p_v_up = params.clone();
-            p_v_up.volatility += h_v;
-            let price_v_up = price_fn(&p_v_up)?;
-            let mut p_v_dn = params.clone();
-            p_v_dn.volatility = (p_v_dn.volatility - h_v).max(1e-8); // Ensure vol stays positive
-            let price_v_dn = price_fn(&p_v_dn)?;
-            let vega_unit = (price_v_up - price_v_dn) / 2.0; // Per 1% vol change
-
-            // Rho (1% rate bump) - central difference for O(h²) accuracy
-            let h_r = 0.01;
-            let mut p_r_up = params.clone();
-            p_r_up.rate += h_r;
-            let price_r_up = price_fn(&p_r_up)?;
-            let mut p_r_dn = params.clone();
-            p_r_dn.rate -= h_r;
-            let price_r_dn = price_fn(&p_r_dn)?;
-            let rho_unit = (price_r_up - price_r_dn) / 2.0; // Per 1% rate change
-
-            // Theta (1 trading-day bump, consistent with European BS theta)
-            let dt = 1.0 / TRADING_DAYS_PER_YEAR;
-            let theta_unit = if t > dt {
-                let mut p_t = params.clone();
-                p_t.time_to_expiry -= dt;
-                let price_t = price_fn(&p_t)?;
-                price_t - base_price // change per trading day
-            } else {
-                0.0
-            };
-
             let scale = inst.notional.amount();
-            Ok(EquityOptionGreeks {
-                delta: delta_unit * scale,
-                gamma: gamma_unit * scale,
-                vega: vega_unit * scale,
-                theta: theta_unit * scale,
-                rho: rho_unit * scale,
-            })
+            tree_finite_difference_greeks(&params, scale, price_fn)
         }
         ExerciseStyle::Bermudan => {
             let schedule = inst.exercise_schedule.as_ref().ok_or_else(|| {
@@ -518,61 +467,69 @@ pub(crate) fn compute_greeks(
             let price_fn =
                 |p: &OptionMarketParams| -> Result<f64> { tree.price_bermudan(p, &exercise_times) };
 
-            let base_price = price_fn(&params)?;
-
-            // Delta & Gamma (1% spot bump, central difference)
-            let h_s = spot * 0.01;
-            let mut p_up = params.clone();
-            p_up.spot += h_s;
-            let price_up = price_fn(&p_up)?;
-            let mut p_dn = params.clone();
-            p_dn.spot -= h_s;
-            let price_dn = price_fn(&p_dn)?;
-
-            let delta_unit = (price_up - price_dn) / (2.0 * h_s);
-            let gamma_unit = (price_up - 2.0 * base_price + price_dn) / (h_s * h_s);
-
-            // Vega (1% vol bump)
-            let h_v = 0.01;
-            let mut p_v_up = params.clone();
-            p_v_up.volatility += h_v;
-            let price_v_up = price_fn(&p_v_up)?;
-            let mut p_v_dn = params.clone();
-            p_v_dn.volatility = (p_v_dn.volatility - h_v).max(1e-8);
-            let price_v_dn = price_fn(&p_v_dn)?;
-            let vega_unit = (price_v_up - price_v_dn) / 2.0;
-
-            // Rho (1% rate bump)
-            let h_r = 0.01;
-            let mut p_r_up = params.clone();
-            p_r_up.rate += h_r;
-            let price_r_up = price_fn(&p_r_up)?;
-            let mut p_r_dn = params.clone();
-            p_r_dn.rate -= h_r;
-            let price_r_dn = price_fn(&p_r_dn)?;
-            let rho_unit = (price_r_up - price_r_dn) / 2.0;
-
-            // Theta (1 trading-day bump)
-            let dt = 1.0 / TRADING_DAYS_PER_YEAR;
-            let theta_unit = if t > dt {
-                let mut p_t = params.clone();
-                p_t.time_to_expiry -= dt;
-                let price_t = price_fn(&p_t)?;
-                price_t - base_price
-            } else {
-                0.0
-            };
-
             let scale = inst.notional.amount();
-            Ok(EquityOptionGreeks {
-                delta: delta_unit * scale,
-                gamma: gamma_unit * scale,
-                vega: vega_unit * scale,
-                theta: theta_unit * scale,
-                rho: rho_unit * scale,
-            })
+            tree_finite_difference_greeks(&params, scale, price_fn)
         }
     }
+}
+
+fn tree_finite_difference_greeks(
+    params: &OptionMarketParams,
+    scale: f64,
+    mut price_fn: impl FnMut(&OptionMarketParams) -> Result<f64>,
+) -> Result<EquityOptionGreeks> {
+    let base_price = price_fn(params)?;
+
+    // Delta & Gamma (1% spot bump)
+    let h_s = params.spot * 0.01;
+    let mut p_up = params.clone();
+    p_up.spot += h_s;
+    let price_up = price_fn(&p_up)?;
+    let mut p_dn = params.clone();
+    p_dn.spot -= h_s;
+    let price_dn = price_fn(&p_dn)?;
+
+    let delta_unit = (price_up - price_dn) / (2.0 * h_s);
+    let gamma_unit = (price_up - 2.0 * base_price + price_dn) / (h_s * h_s);
+
+    // Vega (1% vol bump)
+    let h_v = 0.01;
+    let mut p_v_up = params.clone();
+    p_v_up.volatility += h_v;
+    let price_v_up = price_fn(&p_v_up)?;
+    let mut p_v_dn = params.clone();
+    p_v_dn.volatility = (p_v_dn.volatility - h_v).max(1e-8);
+    let price_v_dn = price_fn(&p_v_dn)?;
+    let vega_unit = (price_v_up - price_v_dn) / 2.0;
+
+    // Rho (1% rate bump)
+    let h_r = 0.01;
+    let mut p_r_up = params.clone();
+    p_r_up.rate += h_r;
+    let price_r_up = price_fn(&p_r_up)?;
+    let mut p_r_dn = params.clone();
+    p_r_dn.rate -= h_r;
+    let price_r_dn = price_fn(&p_r_dn)?;
+    let rho_unit = (price_r_up - price_r_dn) / 2.0;
+
+    // Theta (1 trading-day bump)
+    let dt = 1.0 / TRADING_DAYS_PER_YEAR;
+    let theta_unit = if params.time_to_expiry > dt {
+        let mut p_t = params.clone();
+        p_t.time_to_expiry -= dt;
+        let price_t = price_fn(&p_t)?;
+        price_t - base_price
+    } else {
+        0.0
+    };
+
+    Ok(EquityOptionGreeks {
+        delta: delta_unit * scale,
+        gamma: gamma_unit * scale,
+        vega: vega_unit * scale,
+        theta: theta_unit * scale,
+        rho: rho_unit * scale,
+    })
 }
 
 /// Unit greeks (per share, not scaled by contract size).

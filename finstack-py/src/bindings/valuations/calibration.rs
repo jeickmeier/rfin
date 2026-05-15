@@ -14,10 +14,13 @@ use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelope, CalibrationResultEnvelope,
 };
 use finstack_valuations::calibration::api::validate as validate_api;
+use numpy::PyArray1;
 use pyo3::create_exception;
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
+use std::collections::HashMap;
+use std::sync::OnceLock;
 
 create_exception!(
     finstack.valuations,
@@ -63,9 +66,42 @@ fn execute_error_to_py(py: Python<'_>, err: ExecuteError) -> PyErr {
     module = "finstack.valuations",
     skip_from_py_object
 )]
-#[derive(Clone)]
 pub struct PyCalibrationResult {
     inner: CalibrationResultEnvelope,
+    cached_json: OnceLock<String>,
+    cached_market_json: OnceLock<String>,
+    cached_report_json: OnceLock<String>,
+    cached_step_reports: OnceLock<HashMap<String, String>>,
+}
+
+impl Clone for PyCalibrationResult {
+    fn clone(&self) -> Self {
+        Self::new(self.inner.clone())
+    }
+}
+
+impl PyCalibrationResult {
+    fn new(inner: CalibrationResultEnvelope) -> Self {
+        Self {
+            inner,
+            cached_json: OnceLock::new(),
+            cached_market_json: OnceLock::new(),
+            cached_report_json: OnceLock::new(),
+            cached_step_reports: OnceLock::new(),
+        }
+    }
+}
+
+fn cached_json<F>(cache: &OnceLock<String>, serialize: F) -> PyResult<String>
+where
+    F: FnOnce() -> serde_json::Result<String>,
+{
+    if let Some(value) = cache.get() {
+        return Ok(value.clone());
+    }
+    let value = serialize().map_err(display_to_py)?;
+    let _ = cache.set(value.clone());
+    Ok(value)
 }
 
 #[pymethods]
@@ -74,12 +110,14 @@ impl PyCalibrationResult {
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
         let inner: CalibrationResultEnvelope = serde_json::from_str(json).map_err(display_to_py)?;
-        Ok(Self { inner })
+        Ok(Self::new(inner))
     }
 
     /// Serialize to a pretty-printed JSON string.
     fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner).map_err(display_to_py)
+        cached_json(&self.cached_json, || {
+            serde_json::to_string_pretty(&self.inner)
+        })
     }
 
     /// Whether the overall calibration succeeded (all steps passed fitting and validation).
@@ -99,12 +137,24 @@ impl PyCalibrationResult {
     /// The calibrated market serialized as a JSON string.
     #[getter]
     fn market_json(&self) -> PyResult<String> {
+        cached_json(&self.cached_market_json, || {
+            serde_json::to_string_pretty(&self.inner.result.final_market)
+        })
+    }
+
+    fn _market_json_uncached(&self) -> PyResult<String> {
         serde_json::to_string_pretty(&self.inner.result.final_market).map_err(display_to_py)
     }
 
     /// The aggregated calibration report as a JSON string.
     #[getter]
     fn report_json(&self) -> PyResult<String> {
+        cached_json(&self.cached_report_json, || {
+            serde_json::to_string_pretty(&self.inner.result.report)
+        })
+    }
+
+    fn _report_json_uncached(&self) -> PyResult<String> {
         serde_json::to_string_pretty(&self.inner.result.report).map_err(display_to_py)
     }
 
@@ -149,13 +199,22 @@ impl PyCalibrationResult {
     /// ValueError
     ///     If no step with the given *step_id* exists.
     fn step_report_json(&self, step_id: &str) -> PyResult<String> {
-        let report = self
-            .inner
-            .result
-            .step_reports
-            .get(step_id)
-            .ok_or_else(|| PyValueError::new_err(format!("No step report for '{step_id}'")))?;
-        serde_json::to_string_pretty(report).map_err(display_to_py)
+        if self.cached_step_reports.get().is_none() {
+            let mut reports = HashMap::with_capacity(self.inner.result.step_reports.len());
+            for (id, report) in &self.inner.result.step_reports {
+                reports.insert(
+                    id.clone(),
+                    serde_json::to_string_pretty(report).map_err(display_to_py)?,
+                );
+            }
+            let _ = self.cached_step_reports.set(reports);
+        }
+
+        self.cached_step_reports
+            .get()
+            .and_then(|reports| reports.get(step_id))
+            .cloned()
+            .ok_or_else(|| PyValueError::new_err(format!("No step report for '{step_id}'")))
     }
 
     /// Per-step summary as a pandas ``DataFrame``.
@@ -184,8 +243,8 @@ impl PyCalibrationResult {
         data.set_item("step_id", ids)?;
         data.set_item("success", successes)?;
         data.set_item("iterations", iters)?;
-        data.set_item("max_residual", max_res)?;
-        data.set_item("rmse", rmses)?;
+        data.set_item("max_residual", PyArray1::from_vec(py, max_res).into_any())?;
+        data.set_item("rmse", PyArray1::from_vec(py, rmses).into_any())?;
         data.set_item("convergence_reason", reasons)?;
         dict_to_dataframe(py, &data, None)
     }
@@ -313,7 +372,7 @@ fn calibrate(py: Python<'_>, json: &str) -> PyResult<PyCalibrationResult> {
     let result = py
         .detach(|| engine::execute_with_diagnostics(&envelope))
         .map_err(|e| execute_error_to_py(py, e))?;
-    Ok(PyCalibrationResult { inner: result })
+    Ok(PyCalibrationResult::new(result))
 }
 
 // ---------------------------------------------------------------------------

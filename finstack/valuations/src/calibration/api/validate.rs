@@ -24,6 +24,11 @@ use std::collections::{BTreeSet, HashSet};
 
 use crate::calibration::api::errors::EnvelopeError;
 use crate::calibration::api::schema::{CalibrationEnvelope, CalibrationStep, StepParams};
+use crate::market::quotes::{
+    bond::BondQuote, cds::CdsQuote, cds_tranche::CDSTrancheQuote, fx::FxQuote,
+    inflation::InflationQuote, market_quote::MarketQuote, rates::RateQuote, vol::VolQuote,
+    xccy::XccyQuote,
+};
 
 /// Result of [`validate`]. Always contains the dependency graph; `errors` is
 /// empty when the envelope is structurally valid.
@@ -74,6 +79,7 @@ pub fn validate(envelope: &CalibrationEnvelope) -> ValidationReport {
     check_quote_sets(envelope, &mut errors);
     check_market_data_uniqueness(envelope, &mut errors);
     check_quote_sets_resolve(envelope, &mut errors);
+    check_quote_data(envelope, &mut errors);
     check_dependencies(&initial_ids, &nodes, &mut errors);
 
     let mut sorted_initial: Vec<String> = initial_ids.into_iter().collect();
@@ -329,6 +335,297 @@ fn check_quote_sets_resolve(envelope: &CalibrationEnvelope, errors: &mut Vec<Env
     }
 }
 
+fn check_quote_data(envelope: &CalibrationEnvelope, errors: &mut Vec<EnvelopeError>) {
+    let quote_by_id: std::collections::HashMap<&str, MarketQuote> = envelope
+        .market_data
+        .iter()
+        .filter_map(|datum| datum.as_quote().map(|quote| (datum.id(), quote)))
+        .collect();
+
+    for step in &envelope.plan.steps {
+        let Some(quote_ids) = envelope.plan.quote_sets.get(&step.quote_set) else {
+            continue;
+        };
+        for quote_id in quote_ids {
+            if let Some(quote) = quote_by_id.get(quote_id.as_str()) {
+                validate_quote_payload(&step.id, quote, errors);
+            }
+        }
+    }
+}
+
+fn validate_quote_payload(step_id: &str, quote: &MarketQuote, errors: &mut Vec<EnvelopeError>) {
+    match quote {
+        MarketQuote::Bond(q) => validate_bond_quote(step_id, q, errors),
+        MarketQuote::Rates(q) => validate_rate_quote(step_id, q, errors),
+        MarketQuote::Cds(q) => validate_cds_quote(step_id, q, errors),
+        MarketQuote::CDSTranche(q) => validate_cds_tranche_quote(step_id, q, errors),
+        MarketQuote::Fx(q) => validate_fx_quote(step_id, q, errors),
+        MarketQuote::Inflation(q) => validate_inflation_quote(step_id, q, errors),
+        MarketQuote::Vol(q) => validate_vol_quote(step_id, q, errors),
+        MarketQuote::Xccy(q) => validate_xccy_quote(step_id, q, errors),
+    }
+}
+
+fn push_quote_error(
+    step_id: &str,
+    quote_id: &str,
+    reason: impl Into<String>,
+    errors: &mut Vec<EnvelopeError>,
+) {
+    errors.push(EnvelopeError::QuoteDataInvalid {
+        step_id: step_id.to_string(),
+        quote_id: quote_id.to_string(),
+        reason: reason.into(),
+    });
+}
+
+fn require_finite(
+    step_id: &str,
+    quote_id: &str,
+    field: &str,
+    value: f64,
+    errors: &mut Vec<EnvelopeError>,
+) {
+    if !value.is_finite() {
+        push_quote_error(
+            step_id,
+            quote_id,
+            format!("{field} must be finite; got {value}"),
+            errors,
+        );
+    }
+}
+
+fn require_positive(
+    step_id: &str,
+    quote_id: &str,
+    field: &str,
+    value: f64,
+    errors: &mut Vec<EnvelopeError>,
+) {
+    require_finite(step_id, quote_id, field, value, errors);
+    if value <= 0.0 {
+        push_quote_error(
+            step_id,
+            quote_id,
+            format!("{field} must be positive; got {value}"),
+            errors,
+        );
+    }
+}
+
+fn require_unit_interval(
+    step_id: &str,
+    quote_id: &str,
+    field: &str,
+    value: f64,
+    errors: &mut Vec<EnvelopeError>,
+) {
+    require_finite(step_id, quote_id, field, value, errors);
+    if !(0.0..=1.0).contains(&value) {
+        push_quote_error(
+            step_id,
+            quote_id,
+            format!("{field} must be in [0, 1]; got {value}"),
+            errors,
+        );
+    }
+}
+
+fn validate_rate_quote(step_id: &str, quote: &RateQuote, errors: &mut Vec<EnvelopeError>) {
+    let quote_id = quote.id().as_str();
+    match quote {
+        RateQuote::Deposit { rate, .. }
+        | RateQuote::Fra { rate, .. }
+        | RateQuote::Swap { rate, .. } => {
+            require_finite(step_id, quote_id, "rate", *rate, errors);
+        }
+        RateQuote::Futures {
+            price,
+            convexity_adjustment,
+            ..
+        } => {
+            require_finite(step_id, quote_id, "price", *price, errors);
+            if let Some(value) = convexity_adjustment {
+                require_finite(step_id, quote_id, "convexity_adjustment", *value, errors);
+            }
+        }
+    }
+}
+
+fn validate_cds_quote(step_id: &str, quote: &CdsQuote, errors: &mut Vec<EnvelopeError>) {
+    let quote_id = quote.id().as_str();
+    match quote {
+        CdsQuote::CdsParSpread {
+            spread_bp,
+            recovery_rate,
+            ..
+        } => {
+            require_positive(step_id, quote_id, "spread_bp", *spread_bp, errors);
+            require_unit_interval(step_id, quote_id, "recovery_rate", *recovery_rate, errors);
+        }
+        CdsQuote::CdsUpfront {
+            running_spread_bp,
+            upfront_pct,
+            recovery_rate,
+            ..
+        } => {
+            require_positive(
+                step_id,
+                quote_id,
+                "running_spread_bp",
+                *running_spread_bp,
+                errors,
+            );
+            require_finite(step_id, quote_id, "upfront_pct", *upfront_pct, errors);
+            require_unit_interval(step_id, quote_id, "recovery_rate", *recovery_rate, errors);
+        }
+    }
+}
+
+fn validate_cds_tranche_quote(
+    step_id: &str,
+    quote: &CDSTrancheQuote,
+    errors: &mut Vec<EnvelopeError>,
+) {
+    let quote_id = quote.id().as_str();
+    let CDSTrancheQuote::CDSTranche {
+        attachment,
+        detachment,
+        upfront_pct,
+        running_spread_bp,
+        ..
+    } = quote;
+    require_unit_interval(step_id, quote_id, "attachment", *attachment, errors);
+    require_unit_interval(step_id, quote_id, "detachment", *detachment, errors);
+    if attachment >= detachment {
+        push_quote_error(
+            step_id,
+            quote_id,
+            format!(
+                "attachment must be less than detachment; got attachment={attachment}, detachment={detachment}"
+            ),
+            errors,
+        );
+    }
+    require_finite(step_id, quote_id, "upfront_pct", *upfront_pct, errors);
+    require_positive(
+        step_id,
+        quote_id,
+        "running_spread_bp",
+        *running_spread_bp,
+        errors,
+    );
+}
+
+fn validate_fx_quote(step_id: &str, quote: &FxQuote, errors: &mut Vec<EnvelopeError>) {
+    let quote_id = quote.id().as_str();
+    match quote {
+        FxQuote::ForwardOutright { forward_rate, .. } => {
+            require_positive(step_id, quote_id, "forward_rate", *forward_rate, errors);
+        }
+        FxQuote::SwapOutright {
+            near_rate,
+            far_rate,
+            ..
+        } => {
+            require_positive(step_id, quote_id, "near_rate", *near_rate, errors);
+            require_positive(step_id, quote_id, "far_rate", *far_rate, errors);
+        }
+        FxQuote::OptionVanilla { strike, .. } => {
+            require_positive(step_id, quote_id, "strike", *strike, errors);
+        }
+    }
+}
+
+fn validate_inflation_quote(
+    step_id: &str,
+    quote: &InflationQuote,
+    errors: &mut Vec<EnvelopeError>,
+) {
+    let quote_id = quote.id().as_str();
+    match quote {
+        InflationQuote::InflationSwap { rate, .. }
+        | InflationQuote::YoYInflationSwap { rate, .. } => {
+            require_finite(step_id, quote_id, "rate", *rate, errors);
+        }
+    }
+}
+
+fn validate_vol_quote(step_id: &str, quote: &VolQuote, errors: &mut Vec<EnvelopeError>) {
+    let quote_id = quote.id().as_str();
+    match quote {
+        VolQuote::OptionVol { strike, vol, .. } => {
+            require_positive(step_id, quote_id, "strike", *strike, errors);
+            require_positive(step_id, quote_id, "vol", *vol, errors);
+        }
+        VolQuote::SwaptionVol { strike, vol, .. } | VolQuote::CapFloorVol { strike, vol, .. } => {
+            require_finite(step_id, quote_id, "strike", *strike, errors);
+            require_positive(step_id, quote_id, "vol", *vol, errors);
+        }
+    }
+}
+
+fn validate_xccy_quote(step_id: &str, quote: &XccyQuote, errors: &mut Vec<EnvelopeError>) {
+    let quote_id = quote.id().as_str();
+    let XccyQuote::BasisSwap {
+        basis_spread_bp,
+        spot_fx,
+        ..
+    } = quote;
+    require_finite(
+        step_id,
+        quote_id,
+        "basis_spread_bp",
+        *basis_spread_bp,
+        errors,
+    );
+    if let Some(value) = spot_fx {
+        require_positive(step_id, quote_id, "spot_fx", *value, errors);
+    }
+}
+
+fn validate_bond_quote(step_id: &str, quote: &BondQuote, errors: &mut Vec<EnvelopeError>) {
+    let quote_id = quote.id().as_str();
+    match quote {
+        BondQuote::FixedRateBulletCleanPrice {
+            coupon_rate,
+            clean_price_pct,
+            ..
+        } => {
+            require_finite(step_id, quote_id, "coupon_rate", *coupon_rate, errors);
+            require_positive(
+                step_id,
+                quote_id,
+                "clean_price_pct",
+                *clean_price_pct,
+                errors,
+            );
+        }
+        BondQuote::FixedRateBulletZSpread {
+            coupon_rate,
+            z_spread,
+            ..
+        } => {
+            require_finite(step_id, quote_id, "coupon_rate", *coupon_rate, errors);
+            require_finite(step_id, quote_id, "z_spread", *z_spread, errors);
+        }
+        BondQuote::FixedRateBulletOas {
+            coupon_rate, oas, ..
+        } => {
+            require_finite(step_id, quote_id, "coupon_rate", *coupon_rate, errors);
+            require_finite(step_id, quote_id, "oas", *oas, errors);
+        }
+        BondQuote::FixedRateBulletYtm {
+            coupon_rate, ytm, ..
+        } => {
+            require_finite(step_id, quote_id, "coupon_rate", *coupon_rate, errors);
+            require_finite(step_id, quote_id, "ytm", *ytm, errors);
+        }
+    }
+}
+
 fn check_dependencies(
     initial_ids: &HashSet<String>,
     nodes: &[DependencyNode],
@@ -390,9 +687,13 @@ fn levenshtein(a: &str, b: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::calibration::api::market_datum::MarketDatum;
     use crate::calibration::api::schema::{
         CalibrationPlan, CalibrationStep, DiscountCurveParams, StepParams, CALIBRATION_SCHEMA,
     };
+    use crate::market::conventions::ids::{CdsConventionKey, CdsDocClause, IndexId};
+    use crate::market::quotes::ids::{Pillar, QuoteId};
+    use finstack_core::currency::Currency;
     use finstack_core::HashMap;
 
     fn empty_envelope(id: &str) -> CalibrationEnvelope {
@@ -514,6 +815,69 @@ mod tests {
         if let EnvelopeError::MissingDependency { missing_id, .. } = missing {
             assert_eq!(missing_id, "USD-OIS");
         }
+    }
+
+    #[test]
+    fn validate_reports_non_finite_quote_payload() {
+        let mut env = empty_envelope("bad-quote");
+        env.plan
+            .quote_sets
+            .insert("rates".to_string(), vec![QuoteId::new("USD-DEP-1M")]);
+        env.plan
+            .steps
+            .push(discount_step("discount", "rates", "USD-OIS"));
+        env.market_data
+            .push(MarketDatum::RateQuote(RateQuote::Deposit {
+                id: QuoteId::new("USD-DEP-1M"),
+                index: IndexId::new("USD-SOFR-1M"),
+                pillar: Pillar::Tenor("1M".parse().expect("tenor")),
+                rate: f64::NAN,
+            }));
+
+        let report = validate(&env);
+        let err = report
+            .errors
+            .iter()
+            .find(|e| matches!(e, EnvelopeError::QuoteDataInvalid { .. }))
+            .expect("quote data error");
+        if let EnvelopeError::QuoteDataInvalid {
+            step_id,
+            quote_id,
+            reason,
+        } = err
+        {
+            assert_eq!(step_id, "discount");
+            assert_eq!(quote_id, "USD-DEP-1M");
+            assert!(reason.contains("rate must be finite"));
+        }
+    }
+
+    #[test]
+    fn dry_run_reports_invalid_quote_payload() {
+        let mut env = empty_envelope("bad-quote-json");
+        env.plan
+            .quote_sets
+            .insert("cds".to_string(), vec![QuoteId::new("CDS-ACME-5Y")]);
+        env.plan
+            .steps
+            .push(discount_step("discount", "cds", "USD-OIS"));
+        env.market_data
+            .push(MarketDatum::CdsQuote(CdsQuote::CdsParSpread {
+                id: QuoteId::new("CDS-ACME-5Y"),
+                entity: "ACME".to_string(),
+                convention: CdsConventionKey {
+                    currency: Currency::USD,
+                    doc_clause: CdsDocClause::Cr14,
+                },
+                pillar: Pillar::Tenor("5Y".parse().expect("tenor")),
+                spread_bp: -1.0,
+                recovery_rate: 0.40,
+            }));
+
+        let json = serde_json::to_string(&env).expect("serialize");
+        let report_json = dry_run(&json).expect("dry_run");
+        assert!(report_json.contains("\"kind\": \"quote_data_invalid\""));
+        assert!(report_json.contains("\"quote_id\": \"CDS-ACME-5Y\""));
     }
 
     #[test]

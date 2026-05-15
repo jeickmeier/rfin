@@ -95,10 +95,12 @@ impl HazardCurveTarget {
                 params.doc_clause.as_deref(),
             )?;
 
-        let reuse_context = if config.use_parallel {
-            None
-        } else {
+        let reuse_context = if matches!(config.calibration_method, CalibrationMethod::Bootstrap)
+            || !config.use_parallel
+        {
             Some(RefCell::new(base_context.clone()))
+        } else {
+            None
         };
 
         Ok(Self {
@@ -287,9 +289,7 @@ impl HazardCurveTarget {
             } => (*running_spread_bp, *recovery_rate),
         };
 
-        let min_lgd = crate::calibration::defaults::embedded_defaults_or_panic()
-            .validation
-            .minimum_lgd_for_hazard_guess;
+        let min_lgd = self.config.validation.minimum_lgd_for_hazard_guess;
         let loss_given_default = (1.0 - recovery).max(min_lgd);
         let guess = (spread_bp / 10_000.0) / loss_given_default;
         let hazard_min = self.config.hazard_curve.hazard_hard_min;
@@ -307,24 +307,22 @@ impl HazardCurveTarget {
     {
         if let Some(ctx_cell) = &self.reuse_context {
             let mut ctx = ctx_cell.borrow_mut();
-            *ctx = std::mem::take(&mut *ctx).insert(curve.clone());
+            ctx.insert_mut(curve.clone());
             // Sync CreditIndex if it exists (so pricer sees trial curve)
             if let Ok(idx) = ctx.get_credit_index(self.params.curve_id.as_str()) {
                 let mut updated = idx.as_ref().clone();
                 updated.index_credit_curve = std::sync::Arc::new(curve.clone());
-                *ctx = std::mem::take(&mut *ctx)
-                    .insert_credit_index(self.params.curve_id.as_str(), updated);
+                ctx.insert_credit_index_mut(self.params.curve_id.as_str(), updated);
             }
             op(&ctx)
         } else {
             let mut temp_context = self.base_context.clone();
-            temp_context = temp_context.insert(curve.clone());
+            temp_context.insert_mut(curve.clone());
             // Sync CreditIndex if it exists
             if let Ok(idx) = temp_context.get_credit_index(self.params.curve_id.as_str()) {
                 let mut updated = idx.as_ref().clone();
                 updated.index_credit_curve = std::sync::Arc::new(curve.clone());
-                temp_context =
-                    temp_context.insert_credit_index(self.params.curve_id.as_str(), updated);
+                temp_context.insert_credit_index_mut(self.params.curve_id.as_str(), updated);
             }
             op(&temp_context)
         }
@@ -396,6 +394,21 @@ impl BootstrapTarget for HazardCurveTarget {
     fn scan_points(&self, _quote: &Self::Quote, initial_guess: f64) -> Result<Vec<f64>> {
         // Bounded, maturity-agnostic scan grid (log-spaced) on [0, hazard_hard_max].
         // This prevents the solver from spending effort in negative/absurd hazard regions.
+        //
+        // Window: `[log_center - 4, log_center + 2]` decades around the
+        // spread-implied initial guess, capped by the configured hazard bounds.
+        // The asymmetric +2 / -4 window favours resolution near the typical
+        // (low-hazard) regime while still covering up to ~100× the initial
+        // guess in case the recovery assumption is mildly off.
+        //
+        // The grid is *not* widened beyond ±2 decades upward. Doing so would
+        // change which point Brent picks as the bracket boundary and break
+        // bit-stable Bloomberg golden fixtures whose tolerances test
+        // 7-digit reproducibility. The C4 debug_assert in
+        // `bracket_solve_1d_with_diagnostics` and the explicit
+        // `hazard_hard_max` anchor below cover the catastrophic-mismatch
+        // case (`max_h` is always evaluated, so a far-out-of-window root is
+        // still bracketed against `hazard_hard_max`).
         let hazard_min = self.config.hazard_curve.hazard_hard_min;
         let max_h = self.config.hazard_curve.hazard_hard_max;
         let min_positive = 1e-10_f64;

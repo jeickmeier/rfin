@@ -30,6 +30,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCountContext};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+use finstack_core::math::NeumaierAccumulator;
 use finstack_core::types::CurveId;
 use finstack_core::{Error, Result};
 use serde::Serialize;
@@ -231,7 +232,6 @@ fn build_envelope(
     let dc_ctx = DayCountContext::default();
 
     let mut rows = Vec::with_capacity(schedule.flows.len());
-    let mut total_pv = 0.0;
     let mut envelope_currency: Option<Currency> = None;
     let mut prev_sp = 1.0_f64;
 
@@ -285,8 +285,7 @@ fn build_envelope(
             discount_factor,
             survival_probability,
             recovery_rate,
-        );
-        total_pv += pv;
+        )?;
 
         let mbs_row = mbs_state.as_ref().and_then(|m| m.get(&flow.date));
 
@@ -324,6 +323,8 @@ fn build_envelope(
         ))
     })?;
 
+    let total_pv = sum_pvs(rows.iter().map(|row| row.pv));
+
     Ok(InstrumentCashflowEnvelope {
         instrument_id,
         currency,
@@ -358,27 +359,43 @@ fn compute_pv(
     df: f64,
     sp: Option<f64>,
     recovery_rate: Option<f64>,
-) -> f64 {
+) -> Result<f64> {
     // Hazard mode off → simple DF discounting.
     let Some(sp) = sp else {
-        return amount * df;
+        return Ok(amount * df);
     };
+    if !sp.is_finite() || !(0.0..=1.0).contains(&sp) {
+        return Err(Error::Validation(format!(
+            "invalid survival probability {sp}; expected value in [0, 1]"
+        )));
+    }
 
     // DefaultedNotional is zeroed (already defaulted, handled via Recovery).
     if kind == CFKind::DefaultedNotional {
-        return 0.0;
+        return Ok(0.0);
     }
 
     // Recovery / AccruedOnDefault: realised post-default cashflows. No SP adjustment.
     if matches!(kind, CFKind::Recovery | CFKind::AccruedOnDefault) {
-        return amount * df;
+        return Ok(amount * df);
     }
 
     let recovery_term = match (recovery_rate, kind) {
         (Some(r), CFKind::Amortization | CFKind::Notional | CFKind::PrePayment) => r * (1.0 - sp),
         _ => 0.0,
     };
-    amount * df * (sp + recovery_term)
+    Ok(amount * df * (sp + recovery_term))
+}
+
+fn sum_pvs<I>(pvs: I) -> f64
+where
+    I: IntoIterator<Item = f64>,
+{
+    let mut acc = NeumaierAccumulator::new();
+    for pv in pvs {
+        acc.add(pv);
+    }
+    acc.total()
 }
 
 // ---------------------------------------------------------------------------
@@ -500,6 +517,25 @@ mod tests {
                 || msg.contains("not priced")
                 || msg.contains("supported"),
             "error should explain unsupported model: {msg}"
+        );
+    }
+
+    #[test]
+    fn total_pv_uses_compensated_summation_for_mixed_sign_flows() {
+        let total = sum_pvs([1.0e16, 1.0, -1.0e16]);
+
+        assert_eq!(total, 1.0);
+    }
+
+    #[test]
+    fn compute_pv_rejects_survival_probability_outside_unit_interval() {
+        let err = compute_pv(CFKind::Notional, 100.0, 0.95, Some(-0.01), Some(0.4))
+            .expect_err("negative survival probability should be rejected");
+
+        let msg = err.to_string();
+        assert!(
+            msg.contains("survival probability") && msg.contains("[0, 1]"),
+            "error should explain invalid survival probability: {msg}"
         );
     }
 

@@ -19,8 +19,6 @@ static EMBEDDED_DEFAULTS: OnceLock<Result<CalibrationDefaults>> = OnceLock::new(
 pub struct CalibrationDefaults {
     /// Validation defaults.
     pub validation: CalibrationValidationDefaults,
-    /// LMM calibration defaults.
-    pub lmm_calibration: LmmCalibrationDefaults,
 }
 
 /// Defaults used by calibration preflight validation.
@@ -32,47 +30,12 @@ pub struct CalibrationValidationDefaults {
     pub minimum_lgd_for_hazard_guess: f64,
 }
 
-/// Defaults used by LMM calibration.
-#[derive(Debug, Clone, Deserialize)]
-pub struct LmmCalibrationDefaults {
-    /// Number of Brownian factors.
-    pub num_factors: usize,
-    /// Initial correlation decay parameter.
-    pub beta_init: f64,
-    /// Whether to optimise beta.
-    pub calibrate_beta: bool,
-    /// Optimizer tolerance.
-    pub tolerance: f64,
-    /// Maximum optimizer iterations.
-    pub max_iterations: usize,
-    /// Whether strict diagnostics are enabled.
-    pub strict_mode: bool,
-    /// Maximum allowed PCA variance loss.
-    pub pca_variance_loss_tolerance: f64,
-    /// Optional MC validation defaults enabled by default.
-    pub mc_validation: Option<LmmMcValidationDefaults>,
-    /// Standard MC validation defaults for explicit default construction.
-    pub mc_validation_defaults: LmmMcValidationDefaults,
-}
-
-/// Defaults used by LMM MC validation.
-#[derive(Debug, Clone, Deserialize)]
-pub struct LmmMcValidationDefaults {
-    /// Number of Monte Carlo paths.
-    pub num_paths: usize,
-    /// Predictor-corrector grid steps per year.
-    pub num_steps_per_year: usize,
-    /// RNG seed.
-    pub seed: u64,
-}
-
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DefaultsFile {
     schema: Option<String>,
     version: Option<u32>,
     validation: CalibrationValidationDefaults,
-    lmm_calibration: LmmCalibrationDefaults,
 }
 
 /// Return the embedded calibration defaults.
@@ -117,7 +80,6 @@ fn defaults_from_file(file: DefaultsFile) -> Result<CalibrationDefaults> {
     validate_file(&file)?;
     Ok(CalibrationDefaults {
         validation: file.validation,
-        lmm_calibration: file.lmm_calibration,
     })
 }
 
@@ -132,37 +94,6 @@ fn validate_file(file: &DefaultsFile) -> Result<()> {
         "validation.minimum_lgd_for_hazard_guess",
         file.validation.minimum_lgd_for_hazard_guess,
     )?;
-    validate_lmm_calibration(&file.lmm_calibration)
-}
-
-fn validate_lmm_calibration(defaults: &LmmCalibrationDefaults) -> Result<()> {
-    validate_positive_usize("lmm_calibration.num_factors", defaults.num_factors)?;
-    validate_positive_finite("lmm_calibration.beta_init", defaults.beta_init)?;
-    validate_positive_finite("lmm_calibration.tolerance", defaults.tolerance)?;
-    validate_positive_usize("lmm_calibration.max_iterations", defaults.max_iterations)?;
-    validate_nonnegative_finite(
-        "lmm_calibration.pca_variance_loss_tolerance",
-        defaults.pca_variance_loss_tolerance,
-    )?;
-    if let Some(mc) = &defaults.mc_validation {
-        validate_lmm_mc_validation("lmm_calibration.mc_validation", mc)?;
-    }
-    validate_lmm_mc_validation(
-        "lmm_calibration.mc_validation_defaults",
-        &defaults.mc_validation_defaults,
-    )?;
-    let _calibrate_beta = defaults.calibrate_beta;
-    let _strict_mode = defaults.strict_mode;
-    Ok(())
-}
-
-fn validate_lmm_mc_validation(label: &str, defaults: &LmmMcValidationDefaults) -> Result<()> {
-    validate_positive_usize(&format!("{label}.num_paths"), defaults.num_paths)?;
-    validate_positive_usize(
-        &format!("{label}.num_steps_per_year"),
-        defaults.num_steps_per_year,
-    )?;
-    let _seed = defaults.seed;
     Ok(())
 }
 
@@ -180,13 +111,6 @@ fn validate_positive_finite(label: &str, value: f64) -> Result<()> {
         return Err(Error::Validation(format!(
             "{label} must be finite and positive"
         )));
-    }
-    Ok(())
-}
-
-fn validate_positive_usize(label: &str, value: usize) -> Result<()> {
-    if value == 0 {
-        return Err(Error::Validation(format!("{label} must be positive")));
     }
     Ok(())
 }

@@ -570,7 +570,8 @@ pub mod calibration {
     pub fn split_initial_market(
         ctx: &MarketContext,
     ) -> (Vec<PriorMarketObject>, Vec<MarketDatum>) {
-        let split: MarketContextSplit = MarketContextState::from(ctx).into();
+        let split = MarketContextSplit::try_from(MarketContextState::from(ctx))
+            .expect("valid market context snapshot");
         (split.prior, split.data)
     }
 
@@ -585,7 +586,7 @@ pub mod calibration {
         // inputs: pre-built calibrated objects (`prior`) and flat market data
         // (`data`).
         let MarketContextSplit { prior, mut data } =
-            MarketContextState::from(context).into();
+            MarketContextSplit::try_from(MarketContextState::from(context))?;
 
         // Build the `default` quote set: append each quote's `MarketDatum` to
         // `market_data` and collect the `QuoteId`s by reference.

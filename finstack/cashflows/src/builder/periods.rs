@@ -71,7 +71,7 @@ fn enrich_period(
             .year_fraction(period.accrual_start, period.accrual_end, dc_ctx)?;
     period.reset_date = params
         .reset_lag_days
-        .map(|lag| compute_reset_date(period.accrual_start, lag, params.bdc, params.calendar_id))
+        .map(|lag| compute_reset_date(period.accrual_start, lag, params.bdc, cal))
         .transpose()?;
     Ok(period)
 }

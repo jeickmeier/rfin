@@ -276,14 +276,20 @@ pub struct ValidationConfig {
     pub lenient_arbitrage: bool,
     /// Butterfly spread convexity tolerance ratio (upper bound).
     /// Actual variance must be <= interpolated * this ratio to pass.
-    /// Default 1.25 (25% tolerance); use values closer to 1.0 for stricter checking.
+    /// Default 1.10 (10% tolerance); use values closer to 1.0 for stricter checking.
     #[serde(default = "default_butterfly_upper_ratio")]
     pub butterfly_upper_ratio: f64,
     /// Butterfly spread convexity tolerance ratio (lower bound).
     /// Actual variance must be >= interpolated * this ratio to pass.
-    /// Default 0.75 (25% tolerance); use values closer to 1.0 for stricter checking.
+    /// Default 0.90 (10% tolerance); use values closer to 1.0 for stricter checking.
     #[serde(default = "default_butterfly_lower_ratio")]
     pub butterfly_lower_ratio: f64,
+    /// Absolute tolerance for comparing configured and quoted recovery rates.
+    #[serde(default = "default_recovery_rate_abs_tolerance")]
+    pub recovery_rate_abs_tolerance: f64,
+    /// Minimum LGD denominator used for hazard-rate initial guesses.
+    #[serde(default = "default_minimum_lgd_for_hazard_guess")]
+    pub minimum_lgd_for_hazard_guess: f64,
 }
 
 fn default_butterfly_upper_ratio() -> f64 {
@@ -292,6 +298,14 @@ fn default_butterfly_upper_ratio() -> f64 {
 
 fn default_butterfly_lower_ratio() -> f64 {
     0.90 // Variance must be at least 10% below linear interpolation
+}
+
+fn default_recovery_rate_abs_tolerance() -> f64 {
+    1e-12
+}
+
+fn default_minimum_lgd_for_hazard_guess() -> f64 {
+    1e-6
 }
 
 impl Default for ValidationConfig {
@@ -317,6 +331,8 @@ impl Default for ValidationConfig {
             lenient_arbitrage: false,
             butterfly_upper_ratio: default_butterfly_upper_ratio(),
             butterfly_lower_ratio: default_butterfly_lower_ratio(),
+            recovery_rate_abs_tolerance: default_recovery_rate_abs_tolerance(),
+            minimum_lgd_for_hazard_guess: default_minimum_lgd_for_hazard_guess(),
         }
     }
 }
@@ -428,6 +444,20 @@ impl ValidationConfig {
             return Err(Error::Validation(format!(
                 "ValidationConfig invalid: butterfly_upper_ratio ({}) must be >= butterfly_lower_ratio ({})",
                 self.butterfly_upper_ratio, self.butterfly_lower_ratio
+            )));
+        }
+        if !self.recovery_rate_abs_tolerance.is_finite() || self.recovery_rate_abs_tolerance < 0.0 {
+            return Err(Error::Validation(format!(
+                "ValidationConfig invalid: recovery_rate_abs_tolerance must be finite and non-negative, got {}",
+                self.recovery_rate_abs_tolerance
+            )));
+        }
+        if !self.minimum_lgd_for_hazard_guess.is_finite()
+            || self.minimum_lgd_for_hazard_guess <= 0.0
+        {
+            return Err(Error::Validation(format!(
+                "ValidationConfig invalid: minimum_lgd_for_hazard_guess must be finite and positive, got {}",
+                self.minimum_lgd_for_hazard_guess
             )));
         }
         Ok(())

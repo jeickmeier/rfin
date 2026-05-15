@@ -126,23 +126,25 @@ pub trait Copula: Send + Sync {
     /// A static human-readable model name.
     fn model_name(&self) -> &'static str;
 
-    /// Lower-tail dependence summary for the model at the given correlation.
+    /// Lower-tail dependence coefficient at the given correlation.
     ///
-    /// For strict copula implementations this is the mathematical lower-tail
-    /// dependence coefficient
+    /// Strict definition:
     /// `λ_L = lim_{u→0} P(U₂ ≤ u | U₁ ≤ u)`.
-    ///
-    /// Some heuristic models return a monotone stress-dependence proxy instead
-    /// of the exact copula limit. Callers that need mathematically exact
-    /// lower-tail dependence should consult the concrete implementation docs.
     ///
     /// - Gaussian copula: λ_L = 0 (no tail dependence)
     /// - Student-t copula: λ_L > 0 (positive tail dependence)
+    /// - Random Factor Loading copula: returns `f64::NAN`
+    ///   (no closed-form λ_L; see
+    ///   `RandomFactorLoadingCopula::stress_correlation_proxy`
+    ///   for the heuristic stress gauge).
+    ///
+    /// Implementations that cannot supply a closed-form `λ_L` MUST return
+    /// `f64::NAN` rather than a heuristic proxy. Callers should check
+    /// `is_nan()` before using the result.
     ///
     /// # Returns
     ///
-    /// A lower-tail dependence coefficient or documented proxy for the supplied
-    /// correlation level.
+    /// The strict `λ_L`, or `f64::NAN` if the model has no closed form.
     fn tail_dependence(&self, correlation: f64) -> f64;
 }
 
@@ -408,7 +410,25 @@ impl CopulaSpec {
 /// Industry standard (QuantLib, Bloomberg) uses 20-50 points for tranche pricing.
 pub(crate) const DEFAULT_QUADRATURE_ORDER: u8 = 20;
 
-/// Select quadrature based on order.
+/// Global cache of Gauss-Hermite quadrature instances keyed by order.
+/// Wrapped in `Arc` so copula clones are cheap (refcount bump instead of O(n²) recomputation).
+static QUADRATURE_CACHE: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::HashMap<u8, std::sync::Arc<GaussHermiteQuadrature>>>,
+> = std::sync::OnceLock::new();
+
+fn get_cached_quadrature(order: u8) -> std::sync::Arc<GaussHermiteQuadrature> {
+    let cache =
+        QUADRATURE_CACHE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()));
+    let mut map = match cache.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    map.entry(order)
+        .or_insert_with(|| std::sync::Arc::new(select_quadrature(order)))
+        .clone()
+}
+
+/// Select quadrature based on order (uncached — used to populate the cache).
 pub(crate) fn select_quadrature(order: u8) -> GaussHermiteQuadrature {
     GaussHermiteQuadrature::new(order as usize).unwrap_or_else(|_| {
         GaussHermiteQuadrature::new(DEFAULT_QUADRATURE_ORDER as usize).unwrap_or_else(|_| {

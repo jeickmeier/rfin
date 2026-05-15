@@ -61,18 +61,53 @@ fn assign_ir_tenor_bucket(years_to_maturity: f64) -> &'static str {
 
 /// Extract reference entity from a credit curve ID.
 ///
-/// Expects format like "ISSUER-CURVE" and extracts "ISSUER".
+/// Expects format `<ENTITY>-<TYPE>[-<TENOR>]` where ENTITY may contain dashes
+/// (e.g. `GOLDMAN-SACHS-CDS-5Y` → `GOLDMAN-SACHS`). Strips a recognized tenor
+/// suffix (e.g. `-5Y`, `-10Y`) and curve-type suffix (`-CDS`, `-BOND`,
+/// `-CURVE`, `-OIS`) from the right; whatever remains is the entity name.
+/// Inputs without a recognized suffix return the whole string with a warning.
 fn extract_reference_entity(credit_curve_id: &str) -> Result<&str> {
-    credit_curve_id
-        .split('-')
-        .next()
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| {
-            finstack_core::Error::Validation(format!(
-                "Invalid credit curve id format: '{}'. Expected format: 'ISSUER-CURVE'",
-                credit_curve_id
-            ))
-        })
+    if credit_curve_id.is_empty() {
+        return Err(finstack_core::Error::Validation(
+            "credit curve id is empty".to_string(),
+        ));
+    }
+
+    // Recognized tenor pattern: an integer followed by Y/M/W/D
+    let is_tenor = |s: &str| {
+        let last = s.chars().next_back().unwrap_or(' ');
+        matches!(last, 'Y' | 'M' | 'W' | 'D')
+            && s[..s.len() - 1].chars().all(|c| c.is_ascii_digit())
+            && s.len() >= 2
+    };
+    // Recognized curve types
+    const CURVE_TYPES: &[&str] = &[
+        "CDS", "BOND", "CURVE", "OIS", "SOFR", "ESTR", "EURIBOR", "LIBOR", "HAZARD", "SPREAD",
+    ];
+    let is_curve_type = |s: &str| CURVE_TYPES.contains(&s);
+
+    // Strip up to two suffixes from the right: tenor first, then curve type.
+    let mut remaining = credit_curve_id;
+    for _ in 0..2 {
+        if let Some(pos) = remaining.rfind('-') {
+            let suffix = &remaining[pos + 1..];
+            if is_tenor(suffix) || is_curve_type(suffix) {
+                remaining = &remaining[..pos];
+                continue;
+            }
+        }
+        break;
+    }
+
+    if remaining.is_empty() {
+        // Pathological input like "-CDS-5Y" — fall back to the whole string.
+        tracing::warn!(
+            credit_curve_id,
+            "credit curve id has no recognizable entity prefix; using full string"
+        );
+        return Ok(credit_curve_id);
+    }
+    Ok(remaining)
 }
 
 /// Determine if a credit entity is qualifying (investment grade) for SIMM bucketing.

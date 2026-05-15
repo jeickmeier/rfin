@@ -13,6 +13,7 @@ use crate::market::quotes::ids::{Pillar, QuoteId};
 use crate::market::quotes::market_quote::MarketQuote;
 use crate::market::quotes::rates::RateQuote;
 use crate::metrics::sensitivities::config as sens_config;
+use crate::metrics::sensitivities::cs01::sensitivity_central_diff;
 use crate::metrics::{
     Dv01CalculatorConfig, MetricCalculator, MetricContext, UnifiedDv01Calculator,
 };
@@ -69,10 +70,7 @@ fn quote_shock_dv01(context: &mut MetricContext) -> Result<f64> {
     let bumped_down = rebootstrap_market(context.curves.as_ref(), &cap_floor, -bump_bp)?;
     let pv_down = context.reprice_raw(&bumped_down, context.as_of)?;
 
-    if bump_bp.abs() <= 1e-10 {
-        return Ok(0.0);
-    }
-    Ok((pv_up - pv_down) / (2.0 * bump_bp))
+    Ok(sensitivity_central_diff(pv_up, pv_down, bump_bp))
 }
 
 fn rebootstrap_market(
@@ -159,7 +157,7 @@ fn rebootstrap_market(
         forward_cal,
     )?;
 
-    let split: MarketContextSplit = MarketContextState::from(&initial_market).into();
+    let split = MarketContextSplit::try_from(MarketContextState::from(&initial_market))?;
     let MarketContextSplit { prior, data } = split;
     let mut market_data = data;
     market_data.extend(discount_data);

@@ -147,6 +147,19 @@ fn extract_bucketed_dv01_per_curve(
         }
     }
 
+    // Diagnostic: warn when bucketed DV01 is unavailable for curves the caller
+    // requested. Downstream attribution then falls back to coarser parallel
+    // DV01 — silent without this warning.
+    for curve_id in curve_ids {
+        if !result.contains_key(curve_id) {
+            tracing::warn!(
+                curve_id = %curve_id.as_str(),
+                "bucketed_dv01 unavailable for curve; attribution will fall back to aggregate \
+                 parallel DV01 — results will be coarser",
+            );
+        }
+    }
+
     result
 }
 

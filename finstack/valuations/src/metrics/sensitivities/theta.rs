@@ -274,6 +274,19 @@ fn parse_theta_period(period: &str) -> Result<ThetaPeriod> {
 ///
 /// # Returns
 /// The rolled forward date, capped at expiry if applicable
+///
+/// # Calendar vs. Day Rolling
+///
+/// `Months(n)` and `Years(n)` use **EOM-aware calendar arithmetic** via
+/// [`add_months`]; `Days(n)` uses a fixed 24-hour duration. These differ at
+/// month boundaries:
+///
+/// - From `2025-01-31`, `Months(1)` rolls to `2025-02-28` (EOM clamped).
+/// - From `2025-01-31`, `Days(30)` rolls to `2025-03-02`.
+///
+/// Theta computed over a "one month" period therefore depends on which
+/// `ThetaPeriod` variant the caller selects. Use `Months` for theta that
+/// reflects calendar-month carry; use `Days` for fixed-duration theta.
 pub(crate) fn calculate_theta_date(
     base_date: Date,
     period_str: &str,

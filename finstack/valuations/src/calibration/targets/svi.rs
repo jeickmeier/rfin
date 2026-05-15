@@ -224,8 +224,19 @@ impl SviSurfaceTarget {
             lenient_arbitrage: true,
             ..ValidationConfig::default()
         };
-        let _ = surface.validate_calendar_spread(&validation_cfg);
-        let _ = surface.validate_butterfly_spread(&validation_cfg);
+        // Capture validator results so calibration callers can detect arbitrage
+        // violations on the produced surface. lenient_arbitrage=true keeps the
+        // call from hard-failing the calibration; we surface any violation as a
+        // diagnostic on the report so a downstream pipeline (or strict-mode
+        // caller) can promote it to an error.
+        let calendar_warning = surface
+            .validate_calendar_spread(&validation_cfg)
+            .err()
+            .map(|e| format!("SVI calendar-spread arbitrage: {e}"));
+        let butterfly_warning = surface
+            .validate_butterfly_spread(&validation_cfg)
+            .err()
+            .map(|e| format!("SVI butterfly-spread arbitrage: {e}"));
 
         let mut report = CalibrationReport::new(
             residuals,
@@ -235,6 +246,18 @@ impl SviSurfaceTarget {
         )
         .with_model_version(finstack_core::versions::SVI_SURFACE);
         report.update_solver_config(global_config.solver.clone());
+
+        // Surface arbitrage warnings on the report so callers can detect them.
+        // Both validation_passed and validation_error are populated if any
+        // arbitrage violation was detected by the surface validators above.
+        let warnings: Vec<String> = [calendar_warning, butterfly_warning]
+            .into_iter()
+            .flatten()
+            .collect();
+        if !warnings.is_empty() {
+            report.validation_passed = false;
+            report.validation_error = Some(warnings.join("; "));
+        }
 
         Ok((surface, report))
     }

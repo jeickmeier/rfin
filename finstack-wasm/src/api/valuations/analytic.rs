@@ -115,15 +115,14 @@ pub fn bs_greeks_js(
         option_type(is_call),
         theta_days.unwrap_or(365.0),
     );
-    let value = serde_json::json!({
-        "delta": g.delta,
-        "gamma": g.gamma,
-        "vega": g.vega,
-        "theta": g.theta,
-        "rho": g.rho_r,
-        "rhoQ": g.rho_q,
-    });
-    serde_wasm_bindgen::to_value(&value).map_err(to_js_err)
+    let obj = js_sys::Object::new();
+    js_sys::Reflect::set(&obj, &"delta".into(), &g.delta.into())?;
+    js_sys::Reflect::set(&obj, &"gamma".into(), &g.gamma.into())?;
+    js_sys::Reflect::set(&obj, &"vega".into(), &g.vega.into())?;
+    js_sys::Reflect::set(&obj, &"theta".into(), &g.theta.into())?;
+    js_sys::Reflect::set(&obj, &"rho".into(), &g.rho_r.into())?;
+    js_sys::Reflect::set(&obj, &"rhoQ".into(), &g.rho_q.into())?;
+    Ok(obj.into())
 }
 
 /// Solve for Black-Scholes / Garman-Kohlhagen implied volatility.

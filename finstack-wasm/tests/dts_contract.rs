@@ -119,6 +119,36 @@ fn analytics_dts_matches_runtime_hotspots() {
 }
 
 #[test]
+fn core_dts_exposes_typed_array_math_fast_paths() {
+    let dts = index_dts();
+
+    assert!(contains_ignoring_ws(
+        &dts,
+        "choleskyDecompositionFlat(matrix: NumericArray, n: number): Float64Array;",
+    ));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "choleskySolveFlat(chol: NumericArray, b: NumericArray, n: number): Float64Array;",
+    ));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "validateCorrelationMatrixFlat(matrix: NumericArray, n: number): void;",
+    ));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "meanArray(data: NumericArray): number;"
+    ));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "correlationArray(x: NumericArray, y: NumericArray): number;",
+    ));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "kahanSumArray(values: NumericArray): number;",
+    ));
+}
+
+#[test]
 fn cashflows_dts_matches_json_bridge_surface() {
     let dts = index_dts();
 
@@ -150,6 +180,25 @@ fn valuations_dts_exposes_direct_fx_instruments() {
     assert!(contains_ignoring_ws(
         &dts,
         "greeks(marketJson: string, asOf: string, model?: string | null): Record<string, number>;",
+    ));
+}
+
+#[test]
+fn valuations_dts_exposes_reusable_market_handle_pricing() {
+    let dts = index_dts();
+
+    assert!(dts.contains("export declare class WasmMarket {"));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "priceInstrumentWithMarket(instrumentJson: string, market: WasmMarket, asOf: string, model: string): string;",
+    ));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "priceInstrumentWithMetricsAndMarket(instrumentJson: string, market: WasmMarket, asOf: string, model: string, metrics: string[], pricingOptions?: string | null, marketHistory?: string | null): string;",
+    ));
+    assert!(contains_ignoring_ws(
+        &dts,
+        "instrumentCashflowsWithMarket(instrumentJson: string, market: WasmMarket, asOf: string, model: string): string;",
     ));
 }
 

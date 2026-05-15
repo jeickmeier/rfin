@@ -17,6 +17,7 @@ pub(in crate::builder) struct AmortizationParams<'a> {
     pub(in crate::builder) linear_delta: Option<f64>,
     pub(in crate::builder) percent_per: Option<f64>,
     pub(in crate::builder) step_remaining_map: &'a Option<finstack_core::HashMap<Date, Money>>,
+    pub(in crate::builder) custom_principal_map: &'a Option<finstack_core::HashMap<Date, Money>>,
 }
 
 fn emit_principal_repayment(
@@ -106,12 +107,12 @@ pub(in crate::builder) fn emit_amortization_on(
                 }
             }
         }
-        AmortizationSpec::CustomPrincipal { items } => {
+        AmortizationSpec::CustomPrincipal { .. } => {
             // Honor the configured `amt` on every date, including maturity.
             // Any residual outstanding at maturity is redeemed by
             // `handle_maturity` as `CFKind::Notional`.
-            for (dd, amt) in items {
-                if *dd == d {
+            if let Some(map) = params.custom_principal_map {
+                if let Some(amt) = map.get(&d) {
                     let pay = amt.amount().max(0.0).min(*outstanding);
                     emit_principal_repayment(d, params.ccy, outstanding, pay, new_flows);
                 }

@@ -11,7 +11,7 @@ use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::Instrument;
-use finstack_valuations::instruments::{FxForward, InstrumentJson};
+use finstack_valuations::instruments::{FxDigitalOption, FxForward, InstrumentJson};
 use finstack_valuations::instruments::{FxPair, MarketDependencies};
 use std::sync::Arc;
 use time::macros::date;
@@ -104,5 +104,30 @@ fn test_missing_fx_matrix_fails() {
     assert!(
         result.is_err(),
         "FX forward pricing should fail when the FX matrix is missing"
+    );
+}
+
+#[test]
+fn test_fx_digital_direct_dependencies_match_json_dependencies() {
+    let option = FxDigitalOption::example().expect("FX digital example");
+
+    let json_deps =
+        MarketDependencies::from_instrument_json(&InstrumentJson::FxDigitalOption(option.clone()))
+            .expect("from_instrument_json");
+    let direct_deps = option
+        .market_dependencies()
+        .expect("direct market_dependencies");
+
+    assert_eq!(
+        direct_deps.curves.discount_curves, json_deps.curves.discount_curves,
+        "direct dependencies should declare the same discount curves as JSON dependencies"
+    );
+    assert_eq!(
+        direct_deps.vol_surface_ids, json_deps.vol_surface_ids,
+        "direct dependencies should declare the FX vol surface"
+    );
+    assert_eq!(
+        direct_deps.fx_pairs, json_deps.fx_pairs,
+        "direct dependencies should declare the FX pair"
     );
 }

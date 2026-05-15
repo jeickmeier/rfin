@@ -65,10 +65,12 @@ impl InflationCurveTarget {
         base_context: MarketContext,
         config: CalibrationConfig,
     ) -> Self {
-        let reuse_context = if config.use_parallel {
-            None
-        } else {
+        let reuse_context = if matches!(config.calibration_method, CalibrationMethod::Bootstrap)
+            || !config.use_parallel
+        {
             Some(RefCell::new(base_context.clone()))
+        } else {
+            None
         };
         Self {
             params,
@@ -275,11 +277,11 @@ impl InflationCurveTarget {
     {
         if let Some(ctx_cell) = &self.reuse_context {
             let mut ctx = ctx_cell.borrow_mut();
-            *ctx = std::mem::take(&mut *ctx).insert(curve.clone());
+            ctx.insert_mut(curve.clone());
             op(&ctx)
         } else {
             let mut temp_context = self.base_context.clone();
-            temp_context = temp_context.insert(curve.clone());
+            temp_context.insert_mut(curve.clone());
             op(&temp_context)
         }
     }

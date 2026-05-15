@@ -374,7 +374,8 @@ impl Default for DiscountCurveSolveConfig {
 ///
 /// 1. **Step-level** (`CalibrationStep.params.method`): Per-instrument-type overrides
 /// 2. **Plan-level** (`CalibrationPlan.settings`): Plan-wide defaults
-/// 3. **Global defaults** (`CalibrationConfig::default()`): Fallback values
+/// 3. **Finstack config extensions** (`valuations.calibration`): application defaults
+/// 4. **Global defaults** (`CalibrationConfig::default()`): fallback values
 ///
 /// Step-level settings always take precedence over plan-level settings.
 /// In other words, this struct provides default policy, but explicit plan steps
@@ -548,7 +549,7 @@ impl CalibrationConfig {
     /// assert_eq!(calib_cfg.solver.tolerance(), 1e-12); // default
     /// ```
     pub fn from_finstack_config_or_default(cfg: &FinstackConfig) -> finstack_core::Result<Self> {
-        if let Some(raw) = cfg.extensions.get(CALIBRATION_CONFIG_KEY) {
+        let config = if let Some(raw) = cfg.extensions.get(CALIBRATION_CONFIG_KEY) {
             // Deserialize directly into CalibrationConfig; missing fields use defaults via #[serde(default)]
             serde_json::from_value(raw.clone()).map_err(|e| finstack_core::Error::Calibration {
                 message: format!(
@@ -556,10 +557,84 @@ impl CalibrationConfig {
                     CALIBRATION_CONFIG_KEY, e
                 ),
                 category: "config".to_string(),
-            })
+            })?
         } else {
-            Ok(Self::default())
+            Self::default()
+        };
+        config.validate()?;
+        Ok(config)
+    }
+
+    /// Validate cross-field calibration configuration invariants.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when nested validation/rate-bound settings are invalid or
+    /// when solver tolerance is looser than residual success tolerances.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        self.validation.validate()?;
+        self.rate_bounds.validate()?;
+        self.validate_solver_vs_success_tolerance(
+            "discount_curve.validation_tolerance",
+            self.discount_curve.validation_tolerance,
+        )?;
+        self.validate_solver_vs_success_tolerance(
+            "hazard_curve.validation_tolerance",
+            self.hazard_curve.validation_tolerance,
+        )?;
+        self.validate_solver_vs_success_tolerance(
+            "inflation_curve.validation_tolerance",
+            self.inflation_curve.validation_tolerance,
+        )?;
+        self.validate_hazard_bounds()?;
+        self.validate_inflation_bounds()
+    }
+
+    fn validate_solver_vs_success_tolerance(
+        &self,
+        label: &str,
+        validation_tolerance: f64,
+    ) -> finstack_core::Result<()> {
+        let solver_tolerance = self.solver.tolerance();
+        if !validation_tolerance.is_finite() || validation_tolerance <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "CalibrationConfig invalid: {label} must be finite and positive, got {validation_tolerance}"
+            )));
         }
+        if solver_tolerance > validation_tolerance {
+            return Err(finstack_core::Error::Validation(format!(
+                "CalibrationConfig invalid: solver tolerance ({solver_tolerance}) must be <= {label} ({validation_tolerance})"
+            )));
+        }
+        Ok(())
+    }
+
+    fn validate_hazard_bounds(&self) -> finstack_core::Result<()> {
+        if !self.hazard_curve.hazard_hard_min.is_finite()
+            || !self.hazard_curve.hazard_hard_max.is_finite()
+            || self.hazard_curve.hazard_hard_min < 0.0
+            || self.hazard_curve.hazard_hard_min >= self.hazard_curve.hazard_hard_max
+        {
+            return Err(finstack_core::Error::Validation(format!(
+                "CalibrationConfig invalid: hazard bounds must satisfy 0 <= hazard_hard_min < hazard_hard_max; got ({}, {})",
+                self.hazard_curve.hazard_hard_min, self.hazard_curve.hazard_hard_max
+            )));
+        }
+        Ok(())
+    }
+
+    fn validate_inflation_bounds(&self) -> finstack_core::Result<()> {
+        if !self.inflation_curve.cpi_hard_min.is_finite()
+            || !self.inflation_curve.cpi_hard_max.is_finite()
+            || self.inflation_curve.cpi_hard_min <= 0.0
+            || self.inflation_curve.cpi_hard_min >= self.inflation_curve.cpi_hard_max
+        {
+            return Err(finstack_core::Error::Validation(format!(
+                "CalibrationConfig invalid: CPI bounds must satisfy 0 < cpi_hard_min < cpi_hard_max; got ({}, {})",
+                self.inflation_curve.cpi_hard_min, self.inflation_curve.cpi_hard_max
+            )));
+        }
+        Ok(())
     }
 
     /// Resolve effective rate bounds for a given currency based on `rate_bounds_policy`.

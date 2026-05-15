@@ -664,6 +664,15 @@ fn compute_theta_factor(
     let theta_per_day = if days.abs() > 0.0 {
         theta_pnl / days
     } else {
+        // Same-day attribution: as_of_t0 == as_of_t1. Theta is undefined for
+        // a zero time interval; we return 0 to avoid NaN, but warn loudly so
+        // upstream date misalignment doesn't go unnoticed.
+        tracing::warn!(
+            ?as_of_t0,
+            ?as_of_t1,
+            "Same-day attribution: as_of_t0 == as_of_t1; theta is zeroed. \
+             Check that the requested attribution period spans at least one day."
+        );
         0.0
     };
 

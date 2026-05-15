@@ -5,7 +5,8 @@
 //! example payloads live in [`super::credit_derivatives`]. Both mirror the
 //! Python binding layout; the exported JS surface is unchanged.
 
-use crate::utils::to_js_err;
+use super::market_handle::WasmMarket;
+use crate::utils::{to_js_err, to_js_error};
 use wasm_bindgen::prelude::*;
 
 /// Deserialize a `ValuationResult` from JSON and return the canonical JSON.
@@ -24,7 +25,7 @@ pub fn validate_valuation_result_json(json: &str) -> Result<String, JsValue> {
 /// returns the canonical (re-serialized) JSON.
 #[wasm_bindgen(js_name = validateInstrumentJson)]
 pub fn validate_instrument_json(json: &str) -> Result<String, JsValue> {
-    finstack_valuations::pricer::validate_instrument_json(json).map_err(to_js_err)
+    finstack_valuations::pricer::validate_instrument_json(json).map_err(|e| to_js_error(&e))
 }
 
 /// Price an instrument from its tagged JSON and return a ValuationResult JSON.
@@ -41,7 +42,7 @@ pub fn price_instrument(
         serde_json::from_str(market_json).map_err(to_js_err)?;
     let result =
         finstack_valuations::pricer::price_instrument_json(instrument_json, &market, as_of, model)
-            .map_err(to_js_err)?;
+            .map_err(|e| to_js_error(&e))?;
     serde_json::to_string(&result).map_err(to_js_err)
 }
 
@@ -70,7 +71,7 @@ pub fn price_instrument_with_metrics(
         pricing_options.as_deref(),
         market_history.as_deref(),
     )
-    .map_err(to_js_err)?;
+    .map_err(|e| to_js_error(&e))?;
     serde_json::to_string(&result).map_err(to_js_err)
 }
 
@@ -94,7 +95,7 @@ pub fn instrument_cashflows_json(
         as_of,
         model,
     )
-    .map_err(to_js_err)
+    .map_err(|e| to_js_error(&e))
 }
 
 /// List all metric IDs in the standard metric registry.
@@ -127,6 +128,72 @@ pub fn list_standard_metrics_grouped() -> Result<JsValue, JsValue> {
         .collect();
     let map: std::collections::BTreeMap<String, Vec<String>> = grouped.into_iter().collect();
     serde_wasm_bindgen::to_value(&map).map_err(to_js_err)
+}
+
+// ---------------------------------------------------------------------------
+// WasmMarket overloads — parse market once, reuse across pricing calls
+// ---------------------------------------------------------------------------
+
+/// Price an instrument using a pre-parsed [`WasmMarket`].
+///
+/// Avoids the per-call market-parse overhead of [`priceInstrument`].
+#[wasm_bindgen(js_name = priceInstrumentWithMarket)]
+pub fn price_instrument_with_market(
+    instrument_json: &str,
+    market: &WasmMarket,
+    as_of: &str,
+    model: &str,
+) -> Result<String, JsValue> {
+    let result = finstack_valuations::pricer::price_instrument_json(
+        instrument_json,
+        market.inner(),
+        as_of,
+        model,
+    )
+    .map_err(|e| to_js_error(&e))?;
+    serde_json::to_string(&result).map_err(to_js_err)
+}
+
+/// Price an instrument with explicit metric requests using a pre-parsed [`WasmMarket`].
+#[wasm_bindgen(js_name = priceInstrumentWithMetricsAndMarket)]
+pub fn price_instrument_with_metrics_and_market(
+    instrument_json: &str,
+    market: &WasmMarket,
+    as_of: &str,
+    model: &str,
+    metrics: JsValue,
+    pricing_options: Option<String>,
+    market_history: Option<String>,
+) -> Result<String, JsValue> {
+    let metric_strs: Vec<String> = serde_wasm_bindgen::from_value(metrics).map_err(to_js_err)?;
+    let result = finstack_valuations::pricer::price_instrument_json_with_metrics_and_history(
+        instrument_json,
+        market.inner(),
+        as_of,
+        model,
+        &metric_strs,
+        pricing_options.as_deref(),
+        market_history.as_deref(),
+    )
+    .map_err(|e| to_js_error(&e))?;
+    serde_json::to_string(&result).map_err(to_js_err)
+}
+
+/// Per-flow cashflow envelope using a pre-parsed [`WasmMarket`].
+#[wasm_bindgen(js_name = instrumentCashflowsWithMarket)]
+pub fn instrument_cashflows_with_market(
+    instrument_json: &str,
+    market: &WasmMarket,
+    as_of: &str,
+    model: &str,
+) -> Result<String, JsValue> {
+    finstack_valuations::instruments::cashflow_export::instrument_cashflows_json(
+        instrument_json,
+        market.inner(),
+        as_of,
+        model,
+    )
+    .map_err(|e| to_js_error(&e))
 }
 
 #[cfg(test)]
@@ -505,6 +572,24 @@ mod tests {
         let result = price_instrument(&inst, &mkt, "2024-01-01", "discounting").expect("price");
         let parsed: serde_json::Value = serde_json::from_str(&result).expect("json");
         assert!(parsed.is_object());
+    }
+
+    #[test]
+    fn wasm_market_reuses_parsed_market_for_pricing_and_cashflows() {
+        let inst = bond_instrument_json();
+        let market = WasmMarket::from_json(&market_context_json()).expect("market handle");
+
+        let priced = price_instrument_with_market(&inst, &market, "2024-01-01", "discounting")
+            .expect("price");
+        let parsed: serde_json::Value = serde_json::from_str(&priced).expect("price json");
+        assert!(parsed.is_object());
+
+        let cashflows =
+            instrument_cashflows_with_market(&inst, &market, "2024-01-01", "discounting")
+                .expect("cashflows");
+        let parsed_cashflows: serde_json::Value =
+            serde_json::from_str(&cashflows).expect("cashflow json");
+        assert!(parsed_cashflows.is_object());
     }
 
     #[test]
