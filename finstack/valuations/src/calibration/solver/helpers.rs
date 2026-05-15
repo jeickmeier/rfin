@@ -169,16 +169,56 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
     }
 
     let Some(((mut a, mut fa), (mut b, mut fb), _)) = best_bracket else {
-        // No sign-change found. Try a bounded Newton fallback from the best observed point.
+        // No sign-change found. Run a bounded secant fallback from the best
+        // observed point.
+        //
+        // S3: previously this used Newton-with-central-FD, costing 3 objective
+        // evaluations per step (the iterate plus two FD probes). Each call
+        // can be expensive — for distressed credit, one CDS pricing involves
+        // ~750 protection-leg sub-window integrals — so the FD overhead
+        // dominated. Secant achieves the same superlinear convergence with
+        // 1 evaluation per step by reusing the (x, f(x)) pair from the prior
+        // iterate; we prime it from the best observed scan-grid point and
+        // its closest valid neighbour.
         if let Some(x0) = diag.best_point {
-            let mut x = x0;
             let lo = diag.scan_bounds.0;
             let hi = diag.scan_bounds.1;
             let iters = max_iters.clamp(50, 200);
 
+            // Bootstrap a second `(x_prev, f_prev)` from the closest valid
+            // scan point so the secant slope is meaningful from step 1.
+            // valid_points is already sorted by x.
+            let mut x = x0;
+            let mut fx = diag
+                .best_value
+                .expect("best_value is Some when best_point is Some");
+            let (mut x_prev, mut f_prev) = {
+                let nearest = valid_points
+                    .iter()
+                    .filter(|(xp, _)| (xp - x).abs() > 1e-16)
+                    .min_by(|(xa, _), (xb, _)| {
+                        (xa - x).abs().total_cmp(&(xb - x).abs())
+                    });
+                match nearest {
+                    Some(&(xp, fp)) => (xp, fp),
+                    None => {
+                        // Fall back to a one-sided FD probe to get a slope.
+                        let h = (1e-6_f64).max(1e-6 * x.abs());
+                        let xp = (x + h).clamp(lo, hi);
+                        if (xp - x).abs() < 1e-16 {
+                            return Ok((None, diag));
+                        }
+                        let fp = objective(xp);
+                        diag.update(xp, fp);
+                        if !fp.is_finite() {
+                            return Ok((None, diag));
+                        }
+                        (xp, fp)
+                    }
+                }
+            };
+
             for _ in 0..iters {
-                let fx = objective(x);
-                diag.update(x, fx);
                 if fx.is_finite() && fx.abs() < tol {
                     diag.bracket_found = true;
                     return Ok((Some(x), diag));
@@ -187,30 +227,25 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
                     break;
                 }
 
-                // Finite-difference derivative (central difference).
-                let h = (1e-6_f64).max(1e-6 * x.abs());
-                let x_lo = (x - h).clamp(lo, hi);
-                let x_hi = (x + h).clamp(lo, hi);
-                if (x_hi - x_lo).abs() < 1e-16 {
+                let dx = x - x_prev;
+                let df = fx - f_prev;
+                if !df.is_finite() || df.abs() < 1e-16 || dx.abs() < 1e-16 {
                     break;
                 }
-                let f_lo = objective(x_lo);
-                let f_hi = objective(x_hi);
-                diag.update(x_lo, f_lo);
-                diag.update(x_hi, f_hi);
-                if !f_lo.is_finite() || !f_hi.is_finite() {
-                    break;
-                }
-                let dfdx = (f_hi - f_lo) / (x_hi - x_lo);
-                if !dfdx.is_finite() || dfdx.abs() < 1e-16 {
-                    break;
-                }
-
-                let x_next = (x - fx / dfdx).clamp(lo, hi);
+                let slope = df / dx;
+                let x_next = (x - fx / slope).clamp(lo, hi);
                 if !x_next.is_finite() || (x_next - x).abs() < 1e-16 {
                     break;
                 }
+
+                let f_next = objective(x_next);
+                diag.update(x_next, f_next);
+
+                // Slide the window forward.
+                x_prev = x;
+                f_prev = fx;
                 x = x_next;
+                fx = f_next;
             }
         }
 
