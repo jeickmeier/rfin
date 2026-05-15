@@ -4,22 +4,25 @@ use crate::types::AmountOrScalar;
 use finstack_core::currency::Currency;
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Borrow;
 use std::fmt;
+use std::sync::Arc;
 
 /// Type-safe identifier for a node in a financial model.
 ///
-/// Wraps a `String` transparently so that it serializes as a plain string
+/// Wraps an `Arc<str>` so that cloning a `NodeId` is a reference-count bump
+/// rather than a heap allocation — node ids are cloned heavily (evaluation
+/// order, column maps, per-warning context). It serializes as a plain string
 /// and is interoperable with `&str` via [`Borrow`] and [`AsRef`].
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(transparent)]
-pub struct NodeId(String);
+pub struct NodeId(Arc<str>);
 
 impl NodeId {
     /// Create a new `NodeId` from any string-like value.
     pub fn new(id: impl Into<String>) -> Self {
-        Self(id.into())
+        Self(Arc::from(id.into()))
     }
 
     /// Return the inner string slice.
@@ -31,25 +34,25 @@ impl NodeId {
 
 impl fmt::Display for NodeId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        f.write_str(&self.0)
     }
 }
 
 impl From<&str> for NodeId {
     fn from(s: &str) -> Self {
-        Self(s.to_string())
+        Self(Arc::from(s))
     }
 }
 
 impl From<String> for NodeId {
     fn from(s: String) -> Self {
-        Self(s)
+        Self(Arc::from(s))
     }
 }
 
 impl From<&String> for NodeId {
     fn from(s: &String) -> Self {
-        Self(s.clone())
+        Self(Arc::from(s.as_str()))
     }
 }
 
@@ -67,13 +70,28 @@ impl AsRef<str> for NodeId {
 
 impl PartialEq<&str> for NodeId {
     fn eq(&self, other: &&str) -> bool {
-        self.0 == *other
+        &*self.0 == *other
     }
 }
 
 impl PartialEq<str> for NodeId {
     fn eq(&self, other: &str) -> bool {
-        self.0 == other
+        &*self.0 == other
+    }
+}
+
+// Serialize as a plain string. A manual impl avoids requiring serde's `rc`
+// feature flag for the `Arc<str>` inner representation.
+impl Serialize for NodeId {
+    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for NodeId {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self(Arc::from(s)))
     }
 }
 
