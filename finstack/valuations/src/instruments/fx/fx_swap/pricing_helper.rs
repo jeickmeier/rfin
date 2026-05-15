@@ -184,27 +184,6 @@ impl FxSwapPricingContext {
         Ok(forward)
     }
 
-    /// Calculate forward rate with bumped discount factors.
-    ///
-    /// Useful for IR01 calculations where we need to recompute the forward
-    /// after bumping one of the curves.
-    pub(crate) fn calculate_cip_forward_with_bumped_dfs(
-        &self,
-        spot: f64,
-        df_dom_near_bumped: f64,
-        df_dom_far_bumped: f64,
-        df_for_near_bumped: f64,
-        df_for_far_bumped: f64,
-    ) -> Result<f64> {
-        Self::calculate_cip_forward(
-            spot,
-            df_dom_near_bumped,
-            df_dom_far_bumped,
-            df_for_near_bumped,
-            df_for_far_bumped,
-        )
-    }
-
     /// Calculate PV of the foreign leg in base currency.
     ///
     /// Foreign leg: receive base currency at near, pay base currency at far.

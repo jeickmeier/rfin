@@ -28,7 +28,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, IssuerId};
 use finstack_valuations::attribution::{
     AttributionConfig, AttributionEnvelope, AttributionMethod, AttributionSpec,
-    CreditFactorDetailOptions, CreditFactorModelRef, PnlAttribution,
+    CreditFactorDetailOptions, PnlAttribution,
 };
 use finstack_valuations::instruments::json_loader::InstrumentJson;
 use finstack_valuations::instruments::{Attributes, Bond};
@@ -212,7 +212,7 @@ fn run_metrics_based_with_model(model: Option<CreditFactorModel>) -> PnlAttribut
     let disc_t1 = flat_discount(as_of_t1, 0.05);
     let haz_t0 = flat_hazard(as_of_t0, 0.011); // 110 bp ≈ implied issuer S in model
     let haz_t1 = flat_hazard(as_of_t1, 0.012); // small +10 bp move
-    let credit_factor_model = model.map(|m| CreditFactorModelRef::Inline(Box::new(m)));
+    let credit_factor_model = model.map(Box::new);
     // Request carry-decomposition metrics so MetricsBased populates
     // coupon_income / pull_to_par / roll_down / funding_cost.
     let metrics = vec![

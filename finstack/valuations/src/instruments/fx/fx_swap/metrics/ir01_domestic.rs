@@ -49,7 +49,7 @@ impl MetricCalculator for DomesticIR01 {
             // Far rate uses bumped domestic DF in parity if not fixed
             let far_rate = match fx_swap.far_rate {
                 Some(rate) => rate,
-                None => ctx.calculate_cip_forward_with_bumped_dfs(
+                None => FxSwapPricingContext::calculate_cip_forward(
                     ctx.contract_near_rate,
                     df_dom_near_b,
                     df_dom_far_b,

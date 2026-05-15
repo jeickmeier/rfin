@@ -3,9 +3,8 @@
 /**
  * Serializable solver configuration for calibration.
  *
- * Wraps the Brent 1D solver used by the bootstrap path. The enum shape is retained for
- * schema stability — adding a new variant in the future (e.g. a Newton-Raphson path
- * when one is actually wired) does not require a breaking change.
+ * Wraps the Brent 1D solver used by the bootstrap path. Serializes transparently
+ * as the underlying [`BrentSolver`] fields.
  *
  * # Examples
  *
@@ -20,4 +19,4 @@
  * # }
  * ```
  */
-export type SolverConfig = { "method": "brent", };
+export type SolverConfig = {  };

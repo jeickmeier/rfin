@@ -48,7 +48,9 @@ pub fn register_asian_option_metrics(registry: &mut MetricRegistry) {
             instrument: InstrumentType::AsianOption,
             metrics: [
                 (Vega, crate::metrics::GenericFdVega::<crate::instruments::AsianOption>::default()),
-                (Rho, crate::metrics::GenericRho::<crate::instruments::AsianOption>::default()),
+                (Rho, crate::metrics::UnifiedDv01Calculator::<
+                    crate::instruments::AsianOption,
+                >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
                 (Dv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::AsianOption,
                 >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),

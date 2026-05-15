@@ -22,7 +22,7 @@ use crate::instruments::credit_derivatives::cds::metrics::market_doc_clause;
 use crate::instruments::credit_derivatives::cds_option::pricer::synthetic_underlying_cds;
 use crate::instruments::credit_derivatives::cds_option::CDSOption;
 use crate::metrics::sensitivities::config as sens_config;
-use crate::metrics::sensitivities::cs01::compute_parallel_cs01_with_context_raw_and_doc_clause_and_valuation_convention;
+use crate::metrics::sensitivities::cs01::compute_parallel_cs01_with_context_raw;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -61,7 +61,7 @@ impl MetricCalculator for Cs01Calculator {
             sens_config::from_context_or_default(context.config(), context.get_metric_overrides())?;
         let bump_bp = defaults.credit_spread_bump_bp;
 
-        compute_parallel_cs01_with_context_raw_and_doc_clause_and_valuation_convention(
+        compute_parallel_cs01_with_context_raw(
             context,
             &cds_option.credit_curve_id,
             Some(&cds_option.discount_curve_id),

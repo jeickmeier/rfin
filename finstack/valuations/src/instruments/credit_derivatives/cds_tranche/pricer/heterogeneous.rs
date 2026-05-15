@@ -1,4 +1,8 @@
-use super::config::{CDSTranchePricer, HeteroMethod};
+use super::config::{
+    CDSTranchePricer, HeteroMethod, ADAPTIVE_INTEGRATION_HIGH, ADAPTIVE_INTEGRATION_LOW, CDF_CLIP,
+    GRID_STEP_MIN, LGD_FLOOR, MAX_GRID_POINTS, NUMERICAL_TOLERANCE, PROBABILITY_CLIP,
+    SPA_VARIANCE_FLOOR,
+};
 use crate::constants::credit;
 use crate::correlation::copula::Copula;
 use crate::correlation::recovery::RecoveryModel;
@@ -46,7 +50,7 @@ impl CDSTranchePricer {
                 pd_i.push((1.0 - sp).clamp(0.0, 1.0));
 
                 let rec = index_data.get_issuer_recovery(id);
-                lgd_i.push((1.0 - rec).max(self.params.lgd_floor));
+                lgd_i.push((1.0 - rec).max(LGD_FLOOR));
 
                 let w = index_data.get_issuer_weight(id);
                 weight_i.push(w);
@@ -56,7 +60,7 @@ impl CDSTranchePricer {
             let sp = index_data.index_credit_curve.sp(t);
             let count = index_data.num_constituents as usize;
             pd_i = vec![(1.0 - sp).clamp(0.0, 1.0); count];
-            lgd_i = vec![(1.0 - index_data.recovery_rate).max(self.params.lgd_floor); count];
+            lgd_i = vec![(1.0 - index_data.recovery_rate).max(LGD_FLOOR); count];
             weight_i = vec![1.0 / count as f64; count];
         }
 
@@ -65,7 +69,7 @@ impl CDSTranchePricer {
             .first()
             .map(|&first| {
                 pd_i.iter()
-                    .all(|&p| (p - first).abs() <= self.params.probability_clip)
+                    .all(|&p| (p - first).abs() <= PROBABILITY_CLIP)
             })
             .unwrap_or(true);
         let is_uniform_lgd = lgd_i
@@ -111,11 +115,11 @@ impl CDSTranchePricer {
                         recovery,
                     )
                 };
-                let expected_loss = if !(self.params.adaptive_integration_low
-                    ..=self.params.adaptive_integration_high)
+                let expected_loss = if !(ADAPTIVE_INTEGRATION_LOW
+                    ..=ADAPTIVE_INTEGRATION_HIGH)
                     .contains(&correlation)
                 {
-                    quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
+                    quad.integrate_adaptive(integrand, NUMERICAL_TOLERANCE)
                 } else {
                     quad.integrate(integrand)
                 };
@@ -177,7 +181,7 @@ impl CDSTranchePricer {
                 // Formula: E[min(L,K)] = mu*Phi(a) - sigma*phi(a) + K*(1 - Phi(a))
                 // Reference: O'Kane (2008) Eq. 9.12, Hull-White (2004)
                 let k = tranche_width;
-                if var <= self.params.spa_variance_floor {
+                if var <= SPA_VARIANCE_FLOOR {
                     return mean.min(k);
                 }
                 let s = var.sqrt();
@@ -205,13 +209,13 @@ impl CDSTranchePricer {
                              Results are approximate.",
                             credit::SMALL_POOL_THRESHOLD
                         );
-                        if !(self.params.adaptive_integration_low
-                            ..=self.params.adaptive_integration_high)
+                        if !(ADAPTIVE_INTEGRATION_LOW
+                            ..=ADAPTIVE_INTEGRATION_HIGH)
                             .contains(&correlation)
                         {
                             quad.integrate_adaptive(
                                 |z| integrand(&[z]),
-                                self.params.numerical_tolerance,
+                                NUMERICAL_TOLERANCE,
                             )
                         } else {
                             quad.integrate(|z| integrand(&[z]))
@@ -252,7 +256,7 @@ impl CDSTranchePricer {
 
             // SPA/normal approximation for E[min(L, K)] with K = detachment_notional
             let k = tranche_width;
-            if var <= self.params.spa_variance_floor {
+            if var <= SPA_VARIANCE_FLOOR {
                 return mean.min(k);
             }
             let s = var.sqrt();
@@ -300,7 +304,7 @@ impl CDSTranchePricer {
         weight_i: &[f64],
     ) -> Result<f64> {
         let k = detachment_pct / 100.0;
-        let grid_step = self.params.grid_step.max(self.params.grid_step_min);
+        let grid_step = self.params.grid_step.max(GRID_STEP_MIN);
         let max_points = (k / grid_step).ceil() as usize + 2;
 
         let use_gaussian = self.params.copula_spec.is_gaussian();
@@ -310,7 +314,7 @@ impl CDSTranchePricer {
             Some(self.copula())
         };
 
-        if max_points > self.params.max_grid_points {
+        if max_points > MAX_GRID_POINTS {
             // Performance guard: fall back to SPA approximation with heterogeneous vectors
             return self.hetero_spa_full(thresholds, correlation, k, lgd_i, weight_i, copula_ref);
         }
@@ -358,11 +362,11 @@ impl CDSTranchePricer {
                 expected_loss_capped(&active[..pmf_len], grid_step, k)
             };
 
-            let value = if !(self.params.adaptive_integration_low
-                ..=self.params.adaptive_integration_high)
+            let value = if !(ADAPTIVE_INTEGRATION_LOW
+                ..=ADAPTIVE_INTEGRATION_HIGH)
                 .contains(&correlation)
             {
-                quad.integrate_adaptive(|z| integrand(&[z]), self.params.numerical_tolerance)
+                quad.integrate_adaptive(|z| integrand(&[z]), NUMERICAL_TOLERANCE)
             } else {
                 quad.integrate(|z| integrand(&[z]))
             };
@@ -436,7 +440,7 @@ impl CDSTranchePricer {
                     var += w * w * p * (1.0 - p);
                 }
 
-                if var <= self.params.spa_variance_floor {
+                if var <= SPA_VARIANCE_FLOOR {
                     return mean.min(k);
                 }
                 let s = var.sqrt();
@@ -445,11 +449,11 @@ impl CDSTranchePricer {
                 mean * phi_a - s * norm_pdf(a) + k * (1.0 - phi_a)
             };
 
-            let value = if !(self.params.adaptive_integration_low
-                ..=self.params.adaptive_integration_high)
+            let value = if !(ADAPTIVE_INTEGRATION_LOW
+                ..=ADAPTIVE_INTEGRATION_HIGH)
                 .contains(&correlation)
             {
-                quad.integrate_adaptive(|z| integrand(&[z]), self.params.numerical_tolerance)
+                quad.integrate_adaptive(|z| integrand(&[z]), NUMERICAL_TOLERANCE)
             } else {
                 quad.integrate(|z| integrand(&[z]))
             };
@@ -476,7 +480,7 @@ impl CDSTranchePricer {
                 var += w * w * p * (1.0 - p);
             }
 
-            if var <= self.params.spa_variance_floor {
+            if var <= SPA_VARIANCE_FLOOR {
                 return mean.min(k);
             }
             let s = var.sqrt();
@@ -527,11 +531,11 @@ impl CDSTranchePricer {
         let correlation = self.smooth_correlation_boundary(correlation);
 
         // Handle extreme correlation cases with special care
-        if correlation < self.params.numerical_tolerance {
+        if correlation < NUMERICAL_TOLERANCE {
             // Near-zero correlation: independent case
             return norm_cdf(default_threshold);
         }
-        if correlation > 1.0 - self.params.numerical_tolerance {
+        if correlation > 1.0 - NUMERICAL_TOLERANCE {
             // Near-perfect correlation: deterministic case
             let threshold_adj = default_threshold - market_factor;
             return norm_cdf(threshold_adj);
@@ -542,8 +546,8 @@ impl CDSTranchePricer {
         let one_minus_rho = 1.0 - correlation;
 
         // Protect against numerical issues when correlation approaches 1
-        let sqrt_one_minus_rho = if one_minus_rho < self.params.numerical_tolerance {
-            self.params.numerical_tolerance.sqrt() // Minimum practical value to avoid division by zero
+        let sqrt_one_minus_rho = if one_minus_rho < NUMERICAL_TOLERANCE {
+            NUMERICAL_TOLERANCE.sqrt() // Minimum practical value to avoid division by zero
         } else {
             let one_minus_rho: f64 = 1.0 - correlation;
             one_minus_rho.sqrt()
@@ -555,7 +559,7 @@ impl CDSTranchePricer {
 
         // Clamp to reasonable range to prevent CDF overflow
         let conditional_threshold =
-            conditional_threshold.clamp(-self.params.cdf_clip, self.params.cdf_clip);
+            conditional_threshold.clamp(-CDF_CLIP, CDF_CLIP);
 
         norm_cdf(conditional_threshold)
     }

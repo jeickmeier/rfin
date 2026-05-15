@@ -27,7 +27,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, IssuerId};
 use finstack_valuations::attribution::{
     compute_credit_factor_attribution, AttributionEnvelope, AttributionMethod, AttributionSpec,
-    CreditAttributionInput, CreditFactorDetailOptions, CreditFactorModelRef, PnlAttribution,
+    CreditAttributionInput, CreditFactorDetailOptions, PnlAttribution,
 };
 use finstack_valuations::factor_model::{decompose_levels, decompose_period, PeriodDecomposition};
 use finstack_valuations::instruments::json_loader::InstrumentJson;
@@ -236,7 +236,7 @@ fn metrics_based_credit_detail_reconciles_to_credit_curves_pnl() {
 ///
 /// Constructs a minimal bond with a credit curve and issuer metadata, builds
 /// `AttributionSpec` with `method = AttributionMethod::Taylor(...)` and
-/// `credit_factor_model = Some(CreditFactorModelRef::Inline(...))`, and
+/// `credit_factor_model = Some(Box::new(...))`, and
 /// executes it.  Asserts:
 ///  - `credit_factor_detail` is populated (Taylor wire is active)
 ///  - reconciliation invariant holds at 1e-8
@@ -345,7 +345,7 @@ fn taylor_credit_detail_reconciles_to_credit_curves_pnl() {
         as_of_t1,
         method: AttributionMethod::Taylor(TaylorAttributionConfig::default()),
         model_params_t0: None,
-        credit_factor_model: Some(CreditFactorModelRef::Inline(Box::new(model))),
+        credit_factor_model: Some(Box::new(model)),
         credit_factor_detail_options: CreditFactorDetailOptions::default(),
         config: None,
     };

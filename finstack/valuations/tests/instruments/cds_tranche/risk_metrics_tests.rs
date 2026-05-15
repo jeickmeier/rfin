@@ -13,7 +13,7 @@
 use super::helpers::*;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::TrancheSide;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::{
-    CDSTranchePricer, CDSTranchePricerConfig, Cs01BumpUnits,
+    CDSTranchePricer, CDSTranchePricerConfig,
 };
 
 // ==================== CS01 Tests ====================
@@ -94,9 +94,7 @@ fn test_cs01_buy_sell_opposite_sign() {
 #[test]
 fn test_cs01_hazard_rate_bump() {
     // Arrange
-    let mut config = CDSTranchePricerConfig::default();
-    config.cs01_bump_units = Cs01BumpUnits::HazardRateBp;
-    let pricer = CDSTranchePricer::with_params(config);
+    let pricer = CDSTranchePricer::with_params(CDSTranchePricerConfig::default());
 
     let tranche = mezzanine_tranche();
     let market = standard_market_context();

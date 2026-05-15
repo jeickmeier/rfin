@@ -74,6 +74,45 @@ pub enum VolHorizon {
 }
 
 impl VolHorizon {
+    /// Parse a horizon descriptor string into a [`VolHorizon`].
+    ///
+    /// This is the canonical horizon-string parser shared by the PyO3 and
+    /// WASM binding crates so that the accepted vocabulary stays in lockstep.
+    ///
+    /// Accepted forms (leading/trailing whitespace is trimmed):
+    /// - `"one_step"` → [`VolHorizon::OneStep`]
+    /// - `"unconditional"` → [`VolHorizon::Unconditional`]
+    /// - a JSON object string `'{"n_steps": N}'` → [`VolHorizon::NSteps`]
+    ///
+    /// # Errors
+    ///
+    /// Returns a human-readable error message string if `s` is neither a
+    /// recognized keyword nor a valid `{"n_steps": N}` JSON object.
+    pub fn parse(s: &str) -> Result<VolHorizon, String> {
+        match s.trim() {
+            "one_step" => Ok(VolHorizon::OneStep),
+            "unconditional" => Ok(VolHorizon::Unconditional),
+            other => {
+                // Try JSON object {"n_steps": N}.
+                let v: serde_json::Value = serde_json::from_str(other).map_err(|_| {
+                    format!(
+                        "invalid horizon {other:?}: expected \"one_step\", \"unconditional\", \
+                         or {{\"n_steps\": N}}"
+                    )
+                })?;
+                let n = v
+                    .get("n_steps")
+                    .and_then(serde_json::Value::as_u64)
+                    .ok_or_else(|| {
+                        format!(
+                            "invalid horizon object {other:?}: expected {{\"n_steps\": N}}"
+                        )
+                    })? as usize;
+                Ok(VolHorizon::NSteps(n))
+            }
+        }
+    }
+
     /// Apply this horizon's scaling rule to an annualized variance under the
     /// `Sample` vol model.
     fn scale_sample_variance(self, variance: f64) -> f64 {
@@ -635,6 +674,28 @@ mod tests {
     }
 
     // ----- Tests -----------------------------------------------------------
+
+    #[test]
+    fn vol_horizon_parse_recognizes_keywords_and_nsteps() {
+        assert_eq!(VolHorizon::parse("one_step").unwrap(), VolHorizon::OneStep);
+        assert_eq!(
+            VolHorizon::parse("  unconditional  ").unwrap(),
+            VolHorizon::Unconditional
+        );
+        assert_eq!(
+            VolHorizon::parse(r#"{"n_steps": 7}"#).unwrap(),
+            VolHorizon::NSteps(7)
+        );
+    }
+
+    #[test]
+    fn vol_horizon_parse_rejects_invalid_input() {
+        let err = VolHorizon::parse("nonsense").expect_err("must reject unknown keyword");
+        assert!(err.contains("invalid horizon"));
+        let err2 = VolHorizon::parse(r#"{"steps": 3}"#)
+            .expect_err("must reject object missing n_steps");
+        assert!(err2.contains("n_steps"));
+    }
 
     #[test]
     fn forecast_covariance_is_psd() {

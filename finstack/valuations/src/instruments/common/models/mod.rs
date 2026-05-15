@@ -38,7 +38,7 @@ pub use closed_form::{
 #[allow(unused_imports)]
 pub use correlation::{
     joint_probabilities, ConstantRecovery, Copula, CopulaSpec, CorrelatedBernoulli,
-    CorrelatedRecovery, FactorModel, FactorSpec, GaussianCopula, MultiFactorCopula,
+    CorrelatedRecovery, FactorModelKind, FactorSpec, GaussianCopula, MultiFactorCopula,
     RandomFactorLoadingCopula, RecoveryModel, RecoverySpec, SingleFactorModel, StudentTCopula,
     TwoFactorModel,
 };

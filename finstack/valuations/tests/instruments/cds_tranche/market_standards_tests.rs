@@ -16,7 +16,6 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranche;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTrancheParams;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricer;
-use finstack_valuations::instruments::credit_derivatives::cds_tranche::Cs01BumpUnits;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::TrancheSide;
 use time::macros::date;
 
@@ -189,15 +188,6 @@ fn test_standard_tranche_derives_contractual_effective_date_for_seasoned_trade()
 }
 
 // ==================== CS01 Methodology Tests ====================
-
-#[test]
-fn test_cs01_bump_units_exist() {
-    // Market Standard: tranche CS01 bumps hazard rates directly.
-
-    let hazard_bump = Cs01BumpUnits::HazardRateBp;
-
-    assert!(matches!(hazard_bump, Cs01BumpUnits::HazardRateBp));
-}
 
 #[test]
 fn test_cs01_standard_bump_size() {

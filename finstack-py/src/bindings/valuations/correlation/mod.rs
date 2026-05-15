@@ -10,7 +10,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 
 use finstack_valuations::correlation::{
-    self as corr, Copula, CopulaSpec, CorrelatedBernoulli, FactorModel, FactorSpec,
+    self as corr, Copula, CopulaSpec, CorrelatedBernoulli, FactorModelKind, FactorSpec,
     MultiFactorModel, RecoveryModel, RecoverySpec, SingleFactorModel, TwoFactorModel,
 };
 
@@ -378,8 +378,8 @@ impl PyFactorSpec {
     frozen
 )]
 pub struct PyFactorModel {
-    /// Boxed trait object.
-    pub(crate) inner: Box<dyn FactorModel + Send + Sync>,
+    /// Concrete factor-model dispatch enum.
+    pub(crate) inner: FactorModelKind,
 }
 
 #[pymethods]

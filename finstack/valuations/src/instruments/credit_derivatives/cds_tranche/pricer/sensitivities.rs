@@ -1,4 +1,6 @@
-use super::config::CDSTranchePricer;
+use super::config::{
+    CDSTranchePricer, NUMERICAL_TOLERANCE, PAR_SPREAD_MAX_ITER, PAR_SPREAD_TOLERANCE,
+};
 use super::registry::JumpToDefaultResult;
 use crate::cashflow::builder::build_dates;
 use crate::cashflow::primitives::CFKind;
@@ -340,7 +342,7 @@ impl CDSTranchePricer {
             as_of,
         )?;
 
-        if premium_per_bp.abs() < self.params.numerical_tolerance {
+        if premium_per_bp.abs() < NUMERICAL_TOLERANCE {
             return Ok(0.0);
         }
 
@@ -359,7 +361,7 @@ impl CDSTranchePricer {
         let mut spread = protection_pv / premium_per_bp;
 
         // Newton-Raphson iteration to refine the par spread
-        for _iter in 0..self.params.par_spread_max_iter {
+        for _iter in 0..PAR_SPREAD_MAX_ITER {
             // Create test tranche with current spread guess
             let mut test_tranche = tranche.clone();
             test_tranche.running_coupon_bp = spread;
@@ -370,14 +372,14 @@ impl CDSTranchePricer {
                 .amount();
 
             // Check convergence (NPV close to zero)
-            if npv.abs() < self.params.par_spread_tolerance * tranche.notional.amount() {
+            if npv.abs() < PAR_SPREAD_TOLERANCE * tranche.notional.amount() {
                 return Ok(spread);
             }
 
             // Calculate Spread DV01 for Newton step
             let spread_dv01 = self.calculate_spread_dv01(&test_tranche, market_ctx, as_of)?;
 
-            if spread_dv01.abs() < self.params.numerical_tolerance {
+            if spread_dv01.abs() < NUMERICAL_TOLERANCE {
                 // DV01 too small, can't continue iteration
                 break;
             }
@@ -528,7 +530,7 @@ impl CDSTranchePricer {
         let tranche_notional = tranche.notional.amount();
 
         // Handle zero-width tranche edge case
-        if tranche_width <= self.params.numerical_tolerance {
+        if tranche_width <= NUMERICAL_TOLERANCE {
             return Ok(JumpToDefaultResult {
                 min: 0.0,
                 max: 0.0,

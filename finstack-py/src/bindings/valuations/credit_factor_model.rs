@@ -600,32 +600,11 @@ pub(crate) struct PyFactorCovarianceForecast {
 /// - `"one_step"` → `VolHorizon::OneStep`
 /// - `"unconditional"` → `VolHorizon::Unconditional`
 /// - JSON string `'{"n_steps": 5}'` → `VolHorizon::NSteps(5)`
+///
+/// Delegates to the canonical [`VolHorizon::parse`] implementation in
+/// `finstack-portfolio`; this wrapper only maps the error to `PyValueError`.
 fn parse_vol_horizon(s: &str) -> PyResult<finstack_portfolio::factor_model::VolHorizon> {
-    use finstack_portfolio::factor_model::VolHorizon;
-    match s.trim() {
-        "one_step" => Ok(VolHorizon::OneStep),
-        "unconditional" => Ok(VolHorizon::Unconditional),
-        other => {
-            // Try JSON object {"n_steps": N}
-            let v: serde_json::Value = serde_json::from_str(other).map_err(|_| {
-                PyValueError::new_err(format!(
-                    "invalid horizon {:?}: expected \"one_step\", \"unconditional\", \
-                         or {{\"n_steps\": N}}",
-                    other
-                ))
-            })?;
-            let n = v
-                .get("n_steps")
-                .and_then(serde_json::Value::as_u64)
-                .ok_or_else(|| {
-                    PyValueError::new_err(format!(
-                        "invalid horizon object {:?}: expected {{\"n_steps\": N}}",
-                        other
-                    ))
-                })? as usize;
-            Ok(VolHorizon::NSteps(n))
-        }
-    }
+    finstack_portfolio::factor_model::VolHorizon::parse(s).map_err(PyValueError::new_err)
 }
 
 #[pymethods]

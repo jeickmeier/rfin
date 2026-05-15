@@ -133,7 +133,6 @@
             "bracket_min": -1000000.0,
             "initial_bracket_size": null,
             "max_iterations": 100,
-            "method": "brent",
             "tolerance": 1e-12
           },
           "description": "Solver configuration including numerical method (e.g., Brent) and parameters (tolerance, iterations)."
@@ -284,7 +283,6 @@
               "bracket_min": -1000000.0,
               "initial_bracket_size": null,
               "max_iterations": 100,
-              "method": "brent",
               "tolerance": 1e-12
             },
             "use_parallel": false,

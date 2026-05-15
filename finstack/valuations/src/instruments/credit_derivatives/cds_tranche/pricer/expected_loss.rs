@@ -1,4 +1,6 @@
-use super::config::CDSTranchePricer;
+use super::config::{
+    CDSTranchePricer, ADAPTIVE_INTEGRATION_HIGH, ADAPTIVE_INTEGRATION_LOW, NUMERICAL_TOLERANCE,
+};
 use crate::correlation::recovery::RecoveryModel;
 use crate::instruments::credit_derivatives::cds_tranche::CDSTranche;
 use finstack_core::dates::Date;
@@ -269,11 +271,10 @@ impl CDSTranchePricer {
                         recovery_rate,
                     )
                 };
-                let expected_loss = if !(self.params.adaptive_integration_low
-                    ..=self.params.adaptive_integration_high)
+                let expected_loss = if !(ADAPTIVE_INTEGRATION_LOW..=ADAPTIVE_INTEGRATION_HIGH)
                     .contains(&correlation)
                 {
-                    quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
+                    quad.integrate_adaptive(integrand, NUMERICAL_TOLERANCE)
                 } else {
                     quad.integrate(integrand)
                 };

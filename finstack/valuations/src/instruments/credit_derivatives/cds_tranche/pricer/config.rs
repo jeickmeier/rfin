@@ -37,37 +37,8 @@ const DEFAULT_CORR_BOUNDARY_WIDTH: f64 = 0.005;
 /// Fraction of incremental loss allocated to accrual-on-default (0.5 = mid-period)
 const DEFAULT_AOD_ALLOCATION_FRACTION: f64 = 0.5;
 
-/// Numerical tolerance for integration convergence and boundary checks
-const DEFAULT_NUMERICAL_TOLERANCE: f64 = 1e-10;
-
-/// Clip parameter for CDF arguments to prevent overflow (±10 sigma)
-const DEFAULT_CDF_CLIP: f64 = 10.0;
-
-/// Lower correlation threshold for adaptive integration (below this, use higher order)
-/// Rationale: Near ρ=0, conditional probability is highly sensitive to market factor
-const DEFAULT_ADAPTIVE_INTEGRATION_LOW: f64 = 0.05;
-
-/// Upper correlation threshold for adaptive integration (above this, use higher order)
-/// Rationale: Near ρ=1, integrand approaches step function requiring more points
-const DEFAULT_ADAPTIVE_INTEGRATION_HIGH: f64 = 0.95;
-
 /// Grid step for exact convolution method (fraction of portfolio notional)
 const DEFAULT_GRID_STEP: f64 = 0.001;
-
-/// Minimum variance threshold for SPA to avoid division by zero
-const DEFAULT_SPA_VARIANCE_FLOOR: f64 = 1e-14;
-
-/// Probability clamp epsilon to avoid 0/1 extremes in probits/CDFs
-const DEFAULT_PROBABILITY_CLIP: f64 = 1e-12;
-
-/// LGD floor to avoid zero exposure in corner cases
-const DEFAULT_LGD_FLOOR: f64 = 1e-6;
-
-/// Minimum grid step to avoid degenerate convolution buckets
-const DEFAULT_GRID_STEP_MIN: f64 = 1e-6;
-
-/// Hard cap on convolution PMF points before falling back to SPA
-const DEFAULT_MAX_GRID_POINTS: usize = 200_000;
 
 /// Default settlement lag for index CDS (T+1 since Big Bang 2009)
 const DEFAULT_INDEX_SETTLEMENT_LAG: i32 = 1;
@@ -75,11 +46,47 @@ const DEFAULT_INDEX_SETTLEMENT_LAG: i32 = 1;
 /// Default settlement lag for bespoke CDS tranches (T+3 per ISDA)
 const DEFAULT_BESPOKE_SETTLEMENT_LAG: i32 = 3;
 
+// ============================================================================
+// Numerical-Stability Constants
+//
+// These epsilons/limits are never varied by callers; they are fixed
+// numerical-stability parameters of the pricing model.
+// ============================================================================
+
+/// Numerical tolerance for integration convergence and boundary checks
+pub(super) const NUMERICAL_TOLERANCE: f64 = 1e-10;
+
+/// Clip parameter for CDF arguments to prevent overflow (±10 sigma)
+pub(super) const CDF_CLIP: f64 = 10.0;
+
+/// Lower correlation threshold for adaptive integration (below this, use higher order).
+/// Rationale: Near ρ=0, conditional probability is highly sensitive to market factor.
+pub(super) const ADAPTIVE_INTEGRATION_LOW: f64 = 0.05;
+
+/// Upper correlation threshold for adaptive integration (above this, use higher order).
+/// Rationale: Near ρ=1, integrand approaches step function requiring more points.
+pub(super) const ADAPTIVE_INTEGRATION_HIGH: f64 = 0.95;
+
+/// Minimum variance threshold for SPA to avoid division by zero
+pub(super) const SPA_VARIANCE_FLOOR: f64 = 1e-14;
+
+/// Probability clamp epsilon to avoid 0/1 extremes in probits/CDFs
+pub(super) const PROBABILITY_CLIP: f64 = 1e-12;
+
+/// LGD floor to avoid zero exposure in corner cases
+pub(super) const LGD_FLOOR: f64 = 1e-6;
+
+/// Minimum grid step to avoid degenerate convolution buckets
+pub(super) const GRID_STEP_MIN: f64 = 1e-6;
+
+/// Hard cap on convolution PMF points before falling back to SPA
+pub(super) const MAX_GRID_POINTS: usize = 200_000;
+
 /// Maximum iterations for par spread solver
-const DEFAULT_PAR_SPREAD_MAX_ITER: usize = 50;
+pub(super) const PAR_SPREAD_MAX_ITER: usize = 50;
 
 /// Tolerance for par spread solver convergence
-const DEFAULT_PAR_SPREAD_TOLERANCE: f64 = 1e-6;
+pub(super) const PAR_SPREAD_TOLERANCE: f64 = 1e-6;
 
 // ============================================================================
 // Helper Functions
@@ -150,10 +157,8 @@ pub struct CDSTranchePricerConfig {
     // ========================================================================
     // Risk Metric Parameters
     // ========================================================================
-    /// CS01 bump size (interpreted according to `cs01_bump_units`)
+    /// CS01 bump size, applied as an additive hazard-rate basis-point bump.
     pub cs01_bump_size: f64,
-    /// Units for CS01 bump: hazard-rate bp or spread bp (additive)
-    pub cs01_bump_units: Cs01BumpUnits,
     /// Correlation bump for correlation delta calculation (absolute)
     pub corr_bump_abs: f64,
 
@@ -180,14 +185,6 @@ pub struct CDSTranchePricerConfig {
     // ========================================================================
     /// Smooth boundary width for correlation clamping transitions
     pub corr_boundary_width: f64,
-    /// Numerical tolerance used by integration and boundary checks
-    pub numerical_tolerance: f64,
-    /// Clip parameter for CDF arguments to avoid overflow
-    pub cdf_clip: f64,
-    /// Correlation band within which to use standard quadrature
-    pub adaptive_integration_low: f64,
-    /// Correlation band within which to use standard quadrature
-    pub adaptive_integration_high: f64,
 
     // ========================================================================
     // Heterogeneous Portfolio Settings
@@ -196,24 +193,6 @@ pub struct CDSTranchePricerConfig {
     pub hetero_method: HeteroMethod,
     /// Grid step for exact convolution method (fraction of portfolio notional)
     pub grid_step: f64,
-    /// Minimum variance threshold for SPA to avoid division by zero
-    pub spa_variance_floor: f64,
-    /// Probability clamp epsilon to avoid 0/1 extremes in probits/CDFs
-    pub probability_clip: f64,
-    /// LGD floor to avoid zero exposure in corner cases
-    pub lgd_floor: f64,
-    /// Minimum grid step to avoid degenerate convolution buckets
-    pub grid_step_min: f64,
-    /// Hard cap on convolution PMF points before falling back to SPA
-    pub max_grid_points: usize,
-
-    // ========================================================================
-    // Solver Settings
-    // ========================================================================
-    /// Maximum iterations for par spread solver
-    pub par_spread_max_iter: usize,
-    /// Tolerance for par spread solver convergence
-    pub par_spread_tolerance: f64,
 }
 
 impl Default for CDSTranchePricerConfig {
@@ -233,7 +212,6 @@ impl Default for CDSTranchePricerConfig {
 
             // Risk metrics
             cs01_bump_size: DEFAULT_CS01_BUMP_SIZE,
-            cs01_bump_units: Cs01BumpUnits::HazardRateBp,
             corr_bump_abs: DEFAULT_CORR_BUMP_ABS,
 
             // ISDA conventions
@@ -247,23 +225,10 @@ impl Default for CDSTranchePricerConfig {
 
             // Numerical stability
             corr_boundary_width: DEFAULT_CORR_BOUNDARY_WIDTH,
-            numerical_tolerance: DEFAULT_NUMERICAL_TOLERANCE,
-            cdf_clip: DEFAULT_CDF_CLIP,
-            adaptive_integration_low: DEFAULT_ADAPTIVE_INTEGRATION_LOW,
-            adaptive_integration_high: DEFAULT_ADAPTIVE_INTEGRATION_HIGH,
 
             // Heterogeneous portfolio
             hetero_method: HeteroMethod::Spa,
             grid_step: DEFAULT_GRID_STEP,
-            spa_variance_floor: DEFAULT_SPA_VARIANCE_FLOOR,
-            probability_clip: DEFAULT_PROBABILITY_CLIP,
-            lgd_floor: DEFAULT_LGD_FLOOR,
-            grid_step_min: DEFAULT_GRID_STEP_MIN,
-            max_grid_points: DEFAULT_MAX_GRID_POINTS,
-
-            // Solver
-            par_spread_max_iter: DEFAULT_PAR_SPREAD_MAX_ITER,
-            par_spread_tolerance: DEFAULT_PAR_SPREAD_TOLERANCE,
         }
     }
 }
@@ -360,14 +325,6 @@ impl CDSTranchePricerConfig {
         self.quadrature_order = order;
         self
     }
-}
-
-/// Units for CS01 bumping in tranche pricer
-/// Units for CS01 credit spread bumping
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Cs01BumpUnits {
-    /// Bump hazard rate in basis points
-    HazardRateBp,
 }
 
 /// Heterogeneous expected loss evaluation method

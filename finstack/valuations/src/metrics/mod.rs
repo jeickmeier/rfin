@@ -240,7 +240,6 @@ pub(crate) use sensitivities::fd_greeks::{
     HasExpiry, HasPricingOverrides,
 };
 pub(crate) use sensitivities::option_greeks::OptionGreekCalculator;
-pub(crate) use sensitivities::rho::GenericRho;
 pub(crate) use sensitivities::theta::{
     calculate_theta_date, GenericThetaAny, ThetaComponentLookup,
 };

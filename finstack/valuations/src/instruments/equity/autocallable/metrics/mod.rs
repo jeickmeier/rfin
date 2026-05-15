@@ -49,7 +49,9 @@ pub fn register_autocallable_metrics(registry: &mut MetricRegistry) {
             instrument: InstrumentType::Autocallable,
             metrics: [
                 (Vega, crate::metrics::GenericFdVega::<crate::instruments::Autocallable>::default()),
-                (Rho, crate::metrics::GenericRho::<crate::instruments::Autocallable>::default()),
+                (Rho, crate::metrics::UnifiedDv01Calculator::<
+                    crate::instruments::Autocallable,
+                >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
                 (Dv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::Autocallable,
                 >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),

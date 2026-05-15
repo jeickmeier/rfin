@@ -71,37 +71,9 @@ impl Default for CreditFactorDetailOptions {
 
 /// Reference to a [`CreditFactorModel`] inside an [`crate::attribution::AttributionSpec`].
 ///
-/// Currently only the inline form is supported. Boxing keeps `AttributionSpec`
-/// small on the stack — `CreditFactorModel` is large.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CreditFactorModelRef {
-    /// Inline model artifact embedded directly in the spec.
-    Inline(Box<CreditFactorModel>),
-}
-
-impl schemars::JsonSchema for CreditFactorModelRef {
-    fn schema_name() -> std::borrow::Cow<'static, str> {
-        std::borrow::Cow::Borrowed("CreditFactorModelRef")
-    }
-    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        // CreditFactorModel does not implement JsonSchema (large artifact);
-        // expose the ref opaquely as an arbitrary JSON value.
-        schemars::json_schema!({
-            "description": "Opaque reference to a CreditFactorModel artifact (PR-7)."
-        })
-    }
-}
-
-impl CreditFactorModelRef {
-    /// Resolve the reference to a borrowed model. Always succeeds for the
-    /// inline variant; future variants (path, handle) may return `Err`.
-    pub fn resolve(&self) -> Result<&CreditFactorModel, Error> {
-        match self {
-            CreditFactorModelRef::Inline(model) => Ok(model.as_ref()),
-        }
-    }
-}
+/// The model artifact is embedded inline; boxing keeps `AttributionSpec` small
+/// on the stack — `CreditFactorModel` is large.
+pub type CreditFactorModelRef = Box<CreditFactorModel>;
 
 /// Per-position input to [`compute_credit_factor_attribution`].
 ///

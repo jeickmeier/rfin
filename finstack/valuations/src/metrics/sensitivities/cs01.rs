@@ -98,51 +98,7 @@ pub(crate) fn compute_parallel_cs01_with_context_raw<RevalFn>(
     hazard_id: &CurveId,
     discount_id: Option<&CurveId>,
     bump_bp: f64,
-    revalue_raw: RevalFn,
-) -> finstack_core::Result<f64>
-where
-    RevalFn: FnMut(&MarketContext) -> finstack_core::Result<f64>,
-{
-    compute_parallel_cs01_with_context_raw_and_doc_clause(
-        context,
-        hazard_id,
-        discount_id,
-        bump_bp,
-        None,
-        revalue_raw,
-    )
-}
-
-pub(crate) fn compute_parallel_cs01_with_context_raw_and_doc_clause<RevalFn>(
-    context: &mut MetricContext,
-    hazard_id: &CurveId,
-    discount_id: Option<&CurveId>,
-    bump_bp: f64,
-    doc_clause: Option<crate::market::conventions::ids::CdsDocClause>,
-    revalue_raw: RevalFn,
-) -> finstack_core::Result<f64>
-where
-    RevalFn: FnMut(&MarketContext) -> finstack_core::Result<f64>,
-{
-    compute_parallel_cs01_with_context_raw_and_doc_clause_and_valuation_convention(
-        context,
-        hazard_id,
-        discount_id,
-        bump_bp,
-        doc_clause,
-        None,
-        revalue_raw,
-    )
-}
-
-pub(crate) fn compute_parallel_cs01_with_context_raw_and_doc_clause_and_valuation_convention<
-    RevalFn,
->(
-    context: &mut MetricContext,
-    hazard_id: &CurveId,
-    discount_id: Option<&CurveId>,
-    bump_bp: f64,
-    doc_clause: Option<crate::market::conventions::ids::CdsDocClause>,
+    doc_clause: Option<CdsDocClause>,
     cds_valuation_convention: Option<CdsValuationConvention>,
     mut revalue_raw: RevalFn,
 ) -> finstack_core::Result<f64>
@@ -255,34 +211,6 @@ where
 ///
 /// Returns an error if hazard curve re-calibration fails. This ensures that CS01
 /// is computed under a consistent definition rather than silently falling back.
-pub(crate) fn compute_key_rate_cs01_series_with_context_raw<I, RevalFn>(
-    context: &mut MetricContext,
-    hazard_id: &CurveId,
-    discount_id: Option<&CurveId>,
-    series_id: MetricId,
-    bucket_times_years: I,
-    bump_bp: f64,
-    revalue_raw: RevalFn,
-) -> finstack_core::Result<f64>
-where
-    I: IntoIterator<Item = f64>,
-    RevalFn: FnMut(&MarketContext) -> finstack_core::Result<f64>,
-{
-    compute_key_rate_cs01_series_with_context_raw_and_doc_clause_and_valuation_convention(
-        context,
-        hazard_id,
-        discount_id,
-        KeyRateCs01Request {
-            series_id,
-            bucket_times_years,
-            bump_bp,
-            doc_clause: None,
-            cds_valuation_convention: None,
-        },
-        revalue_raw,
-    )
-}
-
 /// Inputs that define the key-rate CS01 bump grid and CDS bootstrap convention.
 pub(crate) struct KeyRateCs01Request<I> {
     pub(crate) series_id: MetricId,
@@ -292,10 +220,7 @@ pub(crate) struct KeyRateCs01Request<I> {
     pub(crate) cds_valuation_convention: Option<CdsValuationConvention>,
 }
 
-pub(crate) fn compute_key_rate_cs01_series_with_context_raw_and_doc_clause_and_valuation_convention<
-    I,
-    RevalFn,
->(
+pub(crate) fn compute_key_rate_cs01_series_with_context_raw<I, RevalFn>(
     context: &mut MetricContext,
     hazard_id: &CurveId,
     discount_id: Option<&CurveId>,
@@ -506,6 +431,8 @@ where
             &hazard_id,
             discount_id.as_ref(),
             bump_bp,
+            None,
+            None,
             reval,
         )?;
 
@@ -558,9 +485,13 @@ where
             context,
             &hazard_id,
             discount_id.as_ref(),
-            series_id,
-            buckets,
-            bump_bp,
+            KeyRateCs01Request {
+                series_id,
+                bucket_times_years: buckets,
+                bump_bp,
+                doc_clause: None,
+                cds_valuation_convention: None,
+            },
             reval,
         )?;
 

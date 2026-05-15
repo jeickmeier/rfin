@@ -36,7 +36,7 @@ impl AttributionSpec {
         use finstack_core::money::Money;
         use finstack_core::types::IssuerId;
 
-        let model = model_ref.resolve()?;
+        let model = model_ref.as_ref();
 
         // 1. Resolve issuer id from instrument attributes.
         let issuer_id_str = match instrument
@@ -189,7 +189,7 @@ impl AttributionSpec {
             None => return Ok(()),
         };
         let issuer_id = finstack_core::types::IssuerId::new(issuer_id_str);
-        let model = model_ref.resolve()?;
+        let model = model_ref.as_ref();
         let issuer_row = match model.issuer_betas.iter().find(|r| r.issuer_id == issuer_id) {
             Some(r) => r,
             None => return Ok(()),

@@ -37,7 +37,7 @@ use finstack_core::types::IssuerId;
 use finstack_valuations::attribution::{
     attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_taylor,
     attribute_pnl_waterfall, default_waterfall_order, simple_pnl_bridge, AttributionMethod,
-    CreditFactorModelRef, TaylorAttributionConfig,
+    TaylorAttributionConfig,
 };
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::PricingOptions;
@@ -411,7 +411,7 @@ impl CreditFixture {
         let market_t0 = build_market_state(as_of_t0, BASE_RATE);
         let market_t1 = build_market_state(as_of_t1, BASE_RATE + SHIFT_BP / 10_000.0);
         let credit_model = build_credit_model_for_n(n);
-        let model_ref = CreditFactorModelRef::Inline(Box::new(credit_model));
+        let model_ref = Box::new(credit_model);
 
         let specs: Vec<AttributionEnvelope> = (0..n)
             .map(|i| {

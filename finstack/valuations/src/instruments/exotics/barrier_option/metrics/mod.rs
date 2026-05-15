@@ -49,7 +49,9 @@ pub fn register_barrier_option_metrics(registry: &mut MetricRegistry) {
             instrument: InstrumentType::BarrierOption,
             metrics: [
                 (Vega, crate::metrics::GenericFdVega::<crate::instruments::BarrierOption>::default()),
-                (Rho, crate::metrics::GenericRho::<crate::instruments::BarrierOption>::default()),
+                (Rho, crate::metrics::UnifiedDv01Calculator::<
+                    crate::instruments::BarrierOption,
+                >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
                 (Dv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::BarrierOption,
                 >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),

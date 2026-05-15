@@ -6,7 +6,7 @@
 //! `priceInstrument` / `priceInstrumentWithMetrics` pipeline.
 
 use crate::utils::to_js_err;
-use finstack_valuations::instruments::rates::exotics_shared::cumulative_coupon::CumulativeCouponTracker;
+use finstack_valuations::instruments::rates::exotics_shared::coupon_profiles;
 use wasm_bindgen::prelude::*;
 
 /// Simulated TARN coupon profile along a deterministic floating-rate path.
@@ -33,50 +33,20 @@ pub fn tarn_coupon_profile(
     target_coupon: f64,
     day_count_fraction: f64,
 ) -> Result<JsValue, JsValue> {
-    if !target_coupon.is_finite() || target_coupon <= 0.0 {
-        return Err(to_js_err(format!(
-            "target_coupon ({target_coupon}) must be positive and finite"
-        )));
-    }
-    if !day_count_fraction.is_finite() || day_count_fraction <= 0.0 {
-        return Err(to_js_err(format!(
-            "day_count_fraction ({day_count_fraction}) must be positive and finite"
-        )));
-    }
-    if !fixed_rate.is_finite() {
-        return Err(to_js_err("fixed_rate must be finite"));
-    }
-    if !coupon_floor.is_finite() || coupon_floor < 0.0 {
-        return Err(to_js_err(format!(
-            "coupon_floor ({coupon_floor}) must be non-negative and finite"
-        )));
-    }
+    let profile = coupon_profiles::tarn_coupon_profile(
+        fixed_rate,
+        coupon_floor,
+        &floating_fixings,
+        target_coupon,
+        day_count_fraction,
+    )
+    .map_err(to_js_err)?;
 
-    let n = floating_fixings.len();
-    let mut tracker = CumulativeCouponTracker::with_target(target_coupon);
-    let mut coupons_paid: Vec<f64> = Vec::with_capacity(n);
-    let mut cumulative: Vec<f64> = Vec::with_capacity(n);
-
-    for &l_i in &floating_fixings {
-        if !l_i.is_finite() {
-            return Err(to_js_err("floating_fixings must all be finite"));
-        }
-        let raw = (fixed_rate - l_i).max(coupon_floor);
-        let period_coupon = raw * day_count_fraction;
-        let actual = tracker.add_coupon(period_coupon);
-        coupons_paid.push(actual);
-        cumulative.push(tracker.cumulative());
-    }
-
-    let (redemption_index, redeemed_early) = match tracker.knockout_period() {
-        Some(idx) => (Some(idx), idx + 1 < n),
-        None => (None, false),
-    };
     let payload = serde_json::json!({
-        "coupons_paid": coupons_paid,
-        "cumulative": cumulative,
-        "redemption_index": redemption_index,
-        "redeemed_early": redeemed_early,
+        "coupons_paid": profile.coupons_paid,
+        "cumulative": profile.cumulative,
+        "redemption_index": profile.redemption_index,
+        "redeemed_early": profile.redeemed_early,
     });
     serde_wasm_bindgen::to_value(&payload).map_err(to_js_err)
 }
@@ -100,51 +70,16 @@ pub fn snowball_coupon_profile(
     leverage: Option<f64>,
 ) -> Result<Vec<f64>, JsValue> {
     let leverage = leverage.unwrap_or(1.0);
-    if !fixed_rate.is_finite() {
-        return Err(to_js_err("fixed_rate must be finite"));
-    }
-    if !floor.is_finite() || floor < 0.0 {
-        return Err(to_js_err(format!(
-            "floor ({floor}) must be non-negative and finite"
-        )));
-    }
-    if cap.is_nan() || cap <= floor {
-        return Err(to_js_err(format!(
-            "cap ({cap}) must be strictly greater than floor ({floor})"
-        )));
-    }
-    if !leverage.is_finite() || leverage <= 0.0 {
-        return Err(to_js_err(format!(
-            "leverage ({leverage}) must be positive and finite"
-        )));
-    }
-    if !is_inverse_floater && initial_coupon < 0.0 {
-        return Err(to_js_err(format!(
-            "initial_coupon ({initial_coupon}) must be non-negative for snowball variant"
-        )));
-    }
-
-    let mut prev = initial_coupon;
-    let mut out: Vec<f64> = Vec::with_capacity(floating_fixings.len());
-    for &l_i in &floating_fixings {
-        if !l_i.is_finite() {
-            return Err(to_js_err("floating_fixings must all be finite"));
-        }
-        let raw = if is_inverse_floater {
-            fixed_rate - leverage * l_i
-        } else {
-            prev + fixed_rate - l_i
-        };
-        let floored = raw.max(floor);
-        let c = if cap.is_finite() {
-            floored.min(cap)
-        } else {
-            floored
-        };
-        out.push(c);
-        prev = c;
-    }
-    Ok(out)
+    coupon_profiles::snowball_coupon_profile(
+        initial_coupon,
+        fixed_rate,
+        &floating_fixings,
+        floor,
+        cap,
+        is_inverse_floater,
+        leverage,
+    )
+    .map_err(to_js_err)
 }
 
 /// Intrinsic (undiscounted, unhedged) payoff of a CMS spread option.
@@ -159,23 +94,8 @@ pub fn cms_spread_option_intrinsic(
     is_call: bool,
     notional: f64,
 ) -> Result<f64, JsValue> {
-    if !long_cms.is_finite() || !short_cms.is_finite() || !strike.is_finite() {
-        return Err(to_js_err(
-            "long_cms, short_cms, and strike must all be finite",
-        ));
-    }
-    if !notional.is_finite() || notional < 0.0 {
-        return Err(to_js_err(format!(
-            "notional ({notional}) must be non-negative and finite"
-        )));
-    }
-    let spread = long_cms - short_cms;
-    let payoff = if is_call {
-        (spread - strike).max(0.0)
-    } else {
-        (strike - spread).max(0.0)
-    };
-    Ok(payoff * notional)
+    coupon_profiles::cms_spread_option_intrinsic(long_cms, short_cms, strike, is_call, notional)
+        .map_err(to_js_err)
 }
 
 /// Accrued coupon on a range-accrual leg over a set of observations.
@@ -194,36 +114,14 @@ pub fn callable_range_accrual_accrued(
     coupon_rate: f64,
     day_count_fraction: f64,
 ) -> Result<f64, JsValue> {
-    if !lower.is_finite() || !upper.is_finite() || lower >= upper {
-        return Err(to_js_err(format!(
-            "lower ({lower}) must be strictly less than upper ({upper}), and both finite"
-        )));
-    }
-    if !coupon_rate.is_finite() || coupon_rate < 0.0 {
-        return Err(to_js_err(format!(
-            "coupon_rate ({coupon_rate}) must be non-negative and finite"
-        )));
-    }
-    if !day_count_fraction.is_finite() || day_count_fraction < 0.0 {
-        return Err(to_js_err(format!(
-            "day_count_fraction ({day_count_fraction}) must be non-negative and finite"
-        )));
-    }
-    if observations.is_empty() {
-        return Err(to_js_err("observations must contain at least one value"));
-    }
-
-    let mut in_range = 0usize;
-    for &o in &observations {
-        if !o.is_finite() {
-            return Err(to_js_err("observations must all be finite"));
-        }
-        if o >= lower && o <= upper {
-            in_range += 1;
-        }
-    }
-    let fraction = in_range as f64 / observations.len() as f64;
-    Ok(coupon_rate * day_count_fraction * fraction)
+    coupon_profiles::callable_range_accrual_accrued(
+        lower,
+        upper,
+        &observations,
+        coupon_rate,
+        day_count_fraction,
+    )
+    .map_err(to_js_err)
 }
 
 #[cfg(test)]

@@ -39,10 +39,10 @@ impl AttributionSpec {
             .unwrap_or(false);
 
         // Resolve optional credit-factor model for waterfall/parallel cascade.
-        let resolved_credit_model = match &self.credit_factor_model {
-            Some(m) => Some(m.resolve()?.clone()),
-            None => None,
-        };
+        let resolved_credit_model = self
+            .credit_factor_model
+            .as_ref()
+            .map(|m| (**m).clone());
 
         // Execute attribution based on method
         let mut attribution = match &self.method {

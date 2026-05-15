@@ -37,7 +37,9 @@ pub(crate) fn register_swaption_metrics(registry: &mut MetricRegistry) {
                 crate::instruments::Swaption,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             // Theta is now registered universally in metrics::standard_registry()
-            (Rho, crate::metrics::GenericRho::<crate::instruments::Swaption>::default()),
+            (Rho, crate::metrics::UnifiedDv01Calculator::<
+                crate::instruments::Swaption,
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (ImpliedVol, ImpliedVolCalculator),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Swaption,
@@ -59,7 +61,7 @@ pub(crate) fn register_swaption_metrics(registry: &mut MetricRegistry) {
 /// # Important
 ///
 /// `BermudanSwaption::value()` is not implemented (it requires a tree/LSMC pricer),
-/// so generic calculators like `UnifiedDv01Calculator` and `GenericRho` that rely on
+/// so generic calculators like `UnifiedDv01Calculator` that rely on
 /// `Instrument::value()` cannot be used. Only bump-and-revalue calculators that use
 /// the explicit tree pricer are registered.
 ///
@@ -90,7 +92,7 @@ pub(crate) fn register_bermudan_swaption_metrics(
                 .with_hw_params(hw_params.kappa, hw_params.sigma)),
             (Vega, BermudanVegaCalculator::new()
                 .with_hw_params(hw_params.kappa, hw_params.sigma))
-            // Note: UnifiedDv01Calculator, GenericRho, and BucketedDv01 are NOT
+            // Note: UnifiedDv01Calculator and BucketedDv01 are NOT
             // registered here because BermudanSwaption::value() returns Err.
             // Use BermudanDeltaCalculator for rate sensitivity instead.
             // Theta is registered universally in metrics::standard_registry()

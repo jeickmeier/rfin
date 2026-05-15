@@ -17,8 +17,7 @@ use crate::instruments::common_impl::traits::CurveDependencies;
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::sensitivities::cs01::{
-    compute_key_rate_cs01_series_with_context_raw_and_doc_clause_and_valuation_convention,
-    compute_parallel_cs01_with_context_raw_and_doc_clause_and_valuation_convention,
+    compute_key_rate_cs01_series_with_context_raw, compute_parallel_cs01_with_context_raw,
     KeyRateCs01Request,
 };
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -66,7 +65,7 @@ impl MetricCalculator for CdsCs01Calculator {
         };
 
         let cs01_result =
-            compute_parallel_cs01_with_context_raw_and_doc_clause_and_valuation_convention(
+            compute_parallel_cs01_with_context_raw(
                 context,
                 &hazard_id,
                 discount_id.as_ref(),
@@ -129,7 +128,7 @@ impl MetricCalculator for CdsBucketedCs01Calculator {
 
         let series_id = MetricId::custom(format!("bucketed_cs01::{}", hazard_id.as_str()));
         let bucketed_result =
-            compute_key_rate_cs01_series_with_context_raw_and_doc_clause_and_valuation_convention(
+            compute_key_rate_cs01_series_with_context_raw(
                 context,
                 &hazard_id,
                 discount_id.as_ref(),

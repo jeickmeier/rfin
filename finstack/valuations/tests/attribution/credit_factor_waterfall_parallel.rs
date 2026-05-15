@@ -24,7 +24,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, IssuerId};
 use finstack_valuations::attribution::{
     default_waterfall_order, AttributionEnvelope, AttributionMethod, AttributionSpec,
-    CreditFactorDetailOptions, CreditFactorModelRef,
+    CreditFactorDetailOptions,
 };
 use finstack_valuations::instruments::json_loader::InstrumentJson;
 use finstack_valuations::instruments::{Attributes, Bond};
@@ -197,7 +197,7 @@ fn waterfall_credit_factor_detail_reconciles_to_credit_curves_pnl() {
         as_of_t1,
         method: AttributionMethod::Waterfall(default_waterfall_order()),
         model_params_t0: None,
-        credit_factor_model: Some(CreditFactorModelRef::Inline(Box::new(model))),
+        credit_factor_model: Some(Box::new(model)),
         credit_factor_detail_options: CreditFactorDetailOptions::default(),
         config: None,
     };
@@ -240,7 +240,7 @@ fn parallel_credit_detail_plus_cross_effects_preserves_total() {
         as_of_t1,
         method: AttributionMethod::Parallel,
         model_params_t0: None,
-        credit_factor_model: Some(CreditFactorModelRef::Inline(Box::new(model))),
+        credit_factor_model: Some(Box::new(model)),
         credit_factor_detail_options: CreditFactorDetailOptions::default(),
         config: None,
     };
@@ -329,7 +329,7 @@ fn parallel_model_with_unmapped_issuer_adds_diagnostic_note() {
         as_of_t1,
         method: AttributionMethod::Parallel,
         model_params_t0: None,
-        credit_factor_model: Some(CreditFactorModelRef::Inline(Box::new(model))),
+        credit_factor_model: Some(Box::new(model)),
         credit_factor_detail_options: CreditFactorDetailOptions::default(),
         config: None,
     };
@@ -372,7 +372,7 @@ fn same_credit_total_different_hierarchy_different_detail() {
             as_of_t1,
             method: AttributionMethod::Waterfall(default_waterfall_order()),
             model_params_t0: None,
-            credit_factor_model: Some(CreditFactorModelRef::Inline(Box::new(model))),
+            credit_factor_model: Some(Box::new(model)),
             credit_factor_detail_options: CreditFactorDetailOptions::default(),
             config: None,
         };

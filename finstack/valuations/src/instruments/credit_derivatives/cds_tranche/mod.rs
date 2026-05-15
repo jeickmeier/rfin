@@ -94,4 +94,4 @@ pub use parameters::CDSTrancheParams;
 pub use types::{CDSTranche, TrancheSide};
 
 // Re-export pricer for calibration/bench tooling.
-pub use pricer::{CDSTranchePricer, CDSTranchePricerConfig, Cs01BumpUnits, HeteroMethod};
+pub use pricer::{CDSTranchePricer, CDSTranchePricerConfig, HeteroMethod};

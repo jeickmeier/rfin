@@ -1,7 +1,6 @@
 use finstack_core::config::FinstackConfig;
 use finstack_valuations::calibration::{
-    CalibrationConfig, CalibrationMethod, RateBounds, RateBoundsPolicy, SolverConfig,
-    CALIBRATION_CONFIG_KEY,
+    CalibrationConfig, CalibrationMethod, RateBounds, RateBoundsPolicy, CALIBRATION_CONFIG_KEY,
 };
 use serde_json::json;
 
@@ -28,7 +27,6 @@ fn calibration_config_applies_extension_overrides() {
     assert_eq!(cfg_out.solver.tolerance(), 1e-8);
     assert_eq!(cfg_out.solver.max_iterations(), 250);
     assert!(cfg_out.use_parallel);
-    assert!(matches!(cfg_out.solver, SolverConfig::Brent { .. }));
     assert_eq!(cfg_out.rate_bounds_policy, RateBoundsPolicy::Explicit);
     assert_eq!(
         cfg_out.rate_bounds,

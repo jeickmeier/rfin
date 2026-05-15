@@ -63,6 +63,6 @@ mod sensitivities;
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests;
 
-pub use config::{CDSTranchePricer, CDSTranchePricerConfig, Cs01BumpUnits, HeteroMethod};
+pub use config::{CDSTranchePricer, CDSTranchePricerConfig, HeteroMethod};
 pub use registry::JumpToDefaultResult;
 pub(crate) use registry::SimpleCDSTrancheHazardPricer;

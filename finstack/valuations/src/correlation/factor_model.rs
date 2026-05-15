@@ -1,6 +1,6 @@
 //! Factor models for correlated behavior in credit portfolios.
 //!
-//! **Naming note:** This module's [`FactorModel`] trait is distinct from the
+//! **Naming note:** This module's [`FactorModelKind`] enum is distinct from the
 //! portfolio-risk factor framework in [`finstack_core::factor_model`].
 //! Here, "factor model" refers to *latent-variable models* used to generate
 //! correlated default/prepayment events in Monte Carlo simulations (the
@@ -11,7 +11,7 @@
 //! Factor models drive the correlation between prepayment and default events
 //! through common systematic factors. This module provides:
 //!
-//! - [`FactorModel`] trait: Common interface for all factor models
+//! - [`FactorModelKind`] enum: Closed dispatch over the concrete factor models
 //! - [`SingleFactorModel`]: One-factor model (common market factor)
 //! - [`TwoFactorModel`]: Two-factor model (prepayment + credit factors)
 //! - [`MultiFactorModel`]: N-factor model with custom correlation matrix
@@ -189,17 +189,36 @@ pub fn cholesky_decompose(matrix: &[f64], n: usize) -> Result<CorrelationFactor>
     }
 }
 
-/// Factor model for correlated behavior.
+/// Closed enum over the concrete factor models for correlated behavior.
 ///
-/// Implementations provide factor specifications and correlation matrices
-/// for analytical pricing and scenario generation.
-pub trait FactorModel: Send + Sync + std::fmt::Debug {
+/// Replaces a former `FactorModel` trait object: the set of factor models is
+/// fixed and small, so a `match`-dispatched enum avoids the heap allocation
+/// and dynamic dispatch of `Box<dyn FactorModel>` while keeping the same
+/// six-method query surface.
+#[derive(Debug, Clone)]
+pub enum FactorModelKind {
+    /// Single common-market-factor model.
+    Single(SingleFactorModel),
+    /// Two-factor prepayment/credit model.
+    Two(TwoFactorModel),
+    /// N-factor model with a custom correlation matrix.
+    Multi(MultiFactorModel),
+}
+
+impl FactorModelKind {
     /// Number of factors in the model.
     ///
     /// # Returns
     ///
     /// The number of systematic factors in the model.
-    fn num_factors(&self) -> usize;
+    #[must_use]
+    pub fn num_factors(&self) -> usize {
+        match self {
+            FactorModelKind::Single(m) => m.num_factors(),
+            FactorModelKind::Two(m) => m.num_factors(),
+            FactorModelKind::Multi(m) => m.num_factors(),
+        }
+    }
 
     /// Get the factor correlation matrix (flattened row-major).
     ///
@@ -208,28 +227,56 @@ pub trait FactorModel: Send + Sync + std::fmt::Debug {
     /// # Returns
     ///
     /// The factor correlation matrix in row-major order.
-    fn correlation_matrix(&self) -> &[f64];
+    #[must_use]
+    pub fn correlation_matrix(&self) -> &[f64] {
+        match self {
+            FactorModelKind::Single(m) => &m.correlation_matrix,
+            FactorModelKind::Two(m) => &m.correlation_matrix,
+            FactorModelKind::Multi(m) => &m.correlation_matrix,
+        }
+    }
 
     /// Get factor volatilities.
     ///
     /// # Returns
     ///
     /// The factor volatilities in decimal form, aligned with the factor ordering.
-    fn volatilities(&self) -> &[f64];
+    #[must_use]
+    pub fn volatilities(&self) -> &[f64] {
+        match self {
+            FactorModelKind::Single(m) => &m.volatilities,
+            FactorModelKind::Two(m) => &m.volatilities,
+            FactorModelKind::Multi(m) => &m.volatilities,
+        }
+    }
 
     /// Get factor names for reporting.
     ///
     /// # Returns
     ///
     /// Human-readable factor names aligned with [`Self::volatilities`].
-    fn factor_names(&self) -> Vec<&'static str>;
+    #[must_use]
+    pub fn factor_names(&self) -> Vec<&'static str> {
+        match self {
+            FactorModelKind::Single(_) => vec!["Market"],
+            FactorModelKind::Two(_) => vec!["Prepayment", "Credit"],
+            FactorModelKind::Multi(m) => vec!["Factor"; m.num_factors],
+        }
+    }
 
     /// Model name for diagnostics.
     ///
     /// # Returns
     ///
     /// A static human-readable model name.
-    fn model_name(&self) -> &'static str;
+    #[must_use]
+    pub fn model_name(&self) -> &'static str {
+        match self {
+            FactorModelKind::Single(_) => "Single Factor Model",
+            FactorModelKind::Two(_) => "Two-Factor Prepay-Credit Model",
+            FactorModelKind::Multi(_) => "Multi-Factor Model",
+        }
+    }
 
     /// Compute a single factor value given one standard normal draw.
     ///
@@ -246,7 +293,27 @@ pub trait FactorModel: Send + Sync + std::fmt::Debug {
     /// # Returns
     ///
     /// The requested factor's diagonal contribution, scaled by its volatility.
-    fn diagonal_factor_contribution(&self, factor_index: usize, z: f64) -> f64;
+    #[must_use]
+    pub fn diagonal_factor_contribution(&self, factor_index: usize, z: f64) -> f64 {
+        match self {
+            FactorModelKind::Single(m) => z * m.volatility,
+            FactorModelKind::Two(m) => match factor_index {
+                // For the 2×2 correlation matrix: L[0,0] = 1, L[1,1] = √(1 − ρ²).
+                0 => z * m.prepay_vol,
+                1 => m.cholesky_l11 * z * m.credit_vol,
+                _ => 0.0,
+            },
+            FactorModelKind::Multi(m) => {
+                if factor_index < m.num_factors {
+                    let n = m.num_factors;
+                    let l_ii = m.cholesky_factor.factor_matrix()[factor_index * n + factor_index];
+                    z * l_ii * m.volatilities[factor_index]
+                } else {
+                    0.0
+                }
+            }
+        }
+    }
 }
 
 /// Factor model specification for configuration and serialization.
@@ -334,24 +401,24 @@ impl FactorSpec {
     ///
     /// # Returns
     ///
-    /// A boxed [`FactorModel`] implementation matching the specification.
+    /// A [`FactorModelKind`] variant matching the specification.
     #[must_use]
-    pub fn build(&self) -> Box<dyn FactorModel> {
+    pub fn build(&self) -> FactorModelKind {
         match self {
             FactorSpec::SingleFactor {
                 volatility,
                 mean_reversion,
-            } => Box::new(SingleFactorModel::new(*volatility, *mean_reversion)),
+            } => FactorModelKind::Single(SingleFactorModel::new(*volatility, *mean_reversion)),
             FactorSpec::TwoFactor {
                 prepay_vol,
                 credit_vol,
                 correlation,
-            } => Box::new(TwoFactorModel::new(*prepay_vol, *credit_vol, *correlation)),
+            } => FactorModelKind::Two(TwoFactorModel::new(*prepay_vol, *credit_vol, *correlation)),
             FactorSpec::MultiFactor {
                 num_factors,
                 volatilities,
                 correlations,
-            } => Box::new(MultiFactorModel::new_or_identity(
+            } => FactorModelKind::Multi(MultiFactorModel::new_or_identity(
                 *num_factors,
                 volatilities.clone(),
                 correlations.clone(),
@@ -400,10 +467,10 @@ impl SingleFactorModel {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::correlation::{FactorModel, SingleFactorModel};
+    /// use finstack_valuations::correlation::SingleFactorModel;
     ///
     /// let model = SingleFactorModel::new(0.25, 0.10);
-    /// assert_eq!(model.num_factors(), 1);
+    /// assert!((model.volatility() - 0.25).abs() < 1e-10);
     /// ```
     #[must_use]
     pub fn new(volatility: f64, mean_reversion: f64) -> Self {
@@ -414,6 +481,16 @@ impl SingleFactorModel {
             correlation_matrix: vec![1.0],
             volatilities: vec![vol],
         }
+    }
+
+    /// Number of factors in the model (always 1).
+    ///
+    /// # Returns
+    ///
+    /// The factor count, which is `1` for a single-factor model.
+    #[must_use]
+    pub fn num_factors(&self) -> usize {
+        1
     }
 
     /// Get the volatility.
@@ -432,32 +509,6 @@ impl SingleFactorModel {
     /// The mean-reversion speed.
     pub fn mean_reversion(&self) -> f64 {
         self.mean_reversion
-    }
-}
-
-impl FactorModel for SingleFactorModel {
-    fn num_factors(&self) -> usize {
-        1
-    }
-
-    fn correlation_matrix(&self) -> &[f64] {
-        &self.correlation_matrix
-    }
-
-    fn volatilities(&self) -> &[f64] {
-        &self.volatilities
-    }
-
-    fn factor_names(&self) -> Vec<&'static str> {
-        vec!["Market"]
-    }
-
-    fn model_name(&self) -> &'static str {
-        "Single Factor Model"
-    }
-
-    fn diagonal_factor_contribution(&self, _factor_index: usize, z: f64) -> f64 {
-        z * self.volatility
     }
 }
 
@@ -535,6 +586,16 @@ impl TwoFactorModel {
         Self::new(0.15, 0.30, -0.20)
     }
 
+    /// Number of factors in the model (always 2).
+    ///
+    /// # Returns
+    ///
+    /// The factor count, which is `2` for a two-factor model.
+    #[must_use]
+    pub fn num_factors(&self) -> usize {
+        2
+    }
+
     /// Get prepayment factor volatility.
     ///
     /// # Returns
@@ -582,45 +643,6 @@ impl TwoFactorModel {
     /// The diagonal Cholesky loading `L[1][1]`.
     pub fn cholesky_l11(&self) -> f64 {
         self.cholesky_l11
-    }
-}
-
-impl FactorModel for TwoFactorModel {
-    fn num_factors(&self) -> usize {
-        2
-    }
-
-    fn correlation_matrix(&self) -> &[f64] {
-        &self.correlation_matrix
-    }
-
-    fn volatilities(&self) -> &[f64] {
-        &self.volatilities
-    }
-
-    fn factor_names(&self) -> Vec<&'static str> {
-        vec!["Prepayment", "Credit"]
-    }
-
-    fn model_name(&self) -> &'static str {
-        "Two-Factor Prepay-Credit Model"
-    }
-
-    fn diagonal_factor_contribution(&self, factor_index: usize, z: f64) -> f64 {
-        // Returns the *diagonal* Cholesky contribution `L[i,i] · z · vol[i]`,
-        // matching the trait contract used by MultiFactorModel. The caller is
-        // responsible for combining this with the off-diagonal contribution
-        // (use `cholesky_l10` / `cholesky_l11`) or invoking
-        // `TwoFactorModel::generate_correlated_factors_into`.
-        //
-        // For the 2×2 correlation matrix:
-        //   L[0,0] = 1
-        //   L[1,1] = √(1 − ρ²)
-        match factor_index {
-            0 => z * self.prepay_vol,
-            1 => self.cholesky_l11 * z * self.credit_vol,
-            _ => 0.0,
-        }
     }
 }
 
@@ -848,6 +870,38 @@ impl MultiFactorModel {
         }
     }
 
+    /// Number of factors in the model.
+    ///
+    /// # Returns
+    ///
+    /// The number of systematic factors.
+    #[must_use]
+    pub fn num_factors(&self) -> usize {
+        self.num_factors
+    }
+
+    /// Get the factor correlation matrix (flattened row-major).
+    ///
+    /// For n factors, returns n×n values where `matrix[i,j] = correlation(Zᵢ, Zⱼ)`.
+    ///
+    /// # Returns
+    ///
+    /// The correlation matrix in row-major order.
+    #[must_use]
+    pub fn correlation_matrix(&self) -> &[f64] {
+        &self.correlation_matrix
+    }
+
+    /// Get factor volatilities.
+    ///
+    /// # Returns
+    ///
+    /// The factor volatilities in decimal form, aligned with the factor ordering.
+    #[must_use]
+    pub fn volatilities(&self) -> &[f64] {
+        &self.volatilities
+    }
+
     /// Get the Cholesky factor for correlated factor generation.
     ///
     /// Returns the [`CorrelationFactor`] holding the lower-triangular L in original
@@ -926,44 +980,6 @@ impl MultiFactorModel {
     }
 }
 
-impl FactorModel for MultiFactorModel {
-    fn num_factors(&self) -> usize {
-        self.num_factors
-    }
-
-    fn correlation_matrix(&self) -> &[f64] {
-        &self.correlation_matrix
-    }
-
-    fn volatilities(&self) -> &[f64] {
-        &self.volatilities
-    }
-
-    fn factor_names(&self) -> Vec<&'static str> {
-        vec!["Factor"; self.num_factors]
-    }
-
-    fn model_name(&self) -> &'static str {
-        "Multi-Factor Model"
-    }
-
-    fn diagonal_factor_contribution(&self, factor_index: usize, z: f64) -> f64 {
-        // For a single z draw, return the factor value using the Cholesky factor.
-        // Note: For truly correlated factor generation, use generate_correlated_factors()
-        // with all independent z values at once.
-        //
-        // This method computes: factor[i] = L[i,i] * z * volatility[i]
-        // which gives the contribution from the independent (diagonal) component.
-        if factor_index < self.num_factors {
-            let n = self.num_factors;
-            let l_ii = self.cholesky_factor.factor_matrix()[factor_index * n + factor_index];
-            z * l_ii * self.volatilities[factor_index]
-        } else {
-            0.0
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -971,15 +987,16 @@ mod tests {
     #[test]
     fn test_single_factor_creation() {
         let model = SingleFactorModel::new(0.25, 0.1);
-        assert_eq!(model.num_factors(), 1);
+        let kind = FactorModelKind::Single(model.clone());
+        assert_eq!(kind.num_factors(), 1);
         assert!((model.volatility() - 0.25).abs() < 1e-10);
-        assert_eq!(model.factor_names(), vec!["Market"]);
+        assert_eq!(kind.factor_names(), vec!["Market"]);
     }
 
     #[test]
     fn test_two_factor_creation() {
         let model = TwoFactorModel::new(0.20, 0.30, -0.30);
-        assert_eq!(model.num_factors(), 2);
+        assert_eq!(FactorModelKind::Two(model.clone()).num_factors(), 2);
         assert!((model.prepay_vol() - 0.20).abs() < 1e-10);
         assert!((model.credit_vol() - 0.30).abs() < 1e-10);
         assert!((model.correlation() - (-0.30)).abs() < 1e-10);
@@ -987,9 +1004,9 @@ mod tests {
 
     #[test]
     fn test_diagonal_factor_contribution_single_factor() {
-        let model = SingleFactorModel::new(1.0, 0.0);
+        let kind = FactorModelKind::Single(SingleFactorModel::new(1.0, 0.0));
 
-        let factor = model.diagonal_factor_contribution(0, 1.5);
+        let factor = kind.diagonal_factor_contribution(0, 1.5);
         assert!((factor - 1.5).abs() < 1e-10);
     }
 
@@ -1001,11 +1018,11 @@ mod tests {
         // correlated draw path.
         let rho: f64 = -0.30;
         let credit_vol: f64 = 0.30;
-        let model = TwoFactorModel::new(0.20, credit_vol, rho);
+        let kind = FactorModelKind::Two(TwoFactorModel::new(0.20, credit_vol, rho));
 
         let z = 2.0;
         let expected = z * credit_vol * (1.0 - rho * rho).sqrt();
-        let factor = model.diagonal_factor_contribution(1, z);
+        let factor = kind.diagonal_factor_contribution(1, z);
         assert!(
             (factor - expected).abs() < 1e-10,
             "diagonal credit contribution: expected {expected}, got {factor}"
@@ -1015,15 +1032,15 @@ mod tests {
     #[test]
     fn test_diagonal_factor_contribution_two_factor_prepay_unchanged() {
         // Prepayment is factor 0; L[0,0] = 1 so the contribution is z · vol.
-        let model = TwoFactorModel::new(0.20, 0.30, -0.30);
-        let factor = model.diagonal_factor_contribution(0, 1.5);
+        let kind = FactorModelKind::Two(TwoFactorModel::new(0.20, 0.30, -0.30));
+        let factor = kind.diagonal_factor_contribution(0, 1.5);
         assert!((factor - 0.30).abs() < 1e-10);
     }
 
     #[test]
     fn test_two_factor_correlation_matrix() {
-        let model = TwoFactorModel::new(0.20, 0.30, -0.30);
-        let corr = model.correlation_matrix();
+        let kind = FactorModelKind::Two(TwoFactorModel::new(0.20, 0.30, -0.30));
+        let corr = kind.correlation_matrix();
 
         // Check diagonal is 1
         assert!((corr[0] - 1.0).abs() < 1e-10);
@@ -1039,27 +1056,29 @@ mod tests {
         let spec = FactorSpec::single_factor(0.25, 0.1);
         let model = spec.build();
         assert_eq!(model.num_factors(), 1);
+        assert!(matches!(model, FactorModelKind::Single(_)));
 
         let spec = FactorSpec::two_factor(0.20, 0.30, -0.30);
         let model = spec.build();
         assert_eq!(model.num_factors(), 2);
+        assert!(matches!(model, FactorModelKind::Two(_)));
     }
 
     #[test]
     fn test_standard_calibrations() {
         let rmbs = TwoFactorModel::rmbs_standard();
-        assert_eq!(rmbs.num_factors(), 2);
+        assert_eq!(FactorModelKind::Two(rmbs.clone()).num_factors(), 2);
         assert!(rmbs.correlation() < 0.0); // Negative correlation
 
         let clo = TwoFactorModel::clo_standard();
-        assert_eq!(clo.num_factors(), 2);
+        assert_eq!(FactorModelKind::Two(clo.clone()).num_factors(), 2);
         assert!(clo.correlation() < 0.0);
     }
 
     #[test]
     fn test_volatilities() {
-        let model = TwoFactorModel::new(0.20, 0.30, -0.30);
-        let vols = model.volatilities();
+        let kind = FactorModelKind::Two(TwoFactorModel::new(0.20, 0.30, -0.30));
+        let vols = kind.volatilities();
         assert_eq!(vols.len(), 2);
         assert!((vols[0] - 0.20).abs() < 1e-10);
         assert!((vols[1] - 0.30).abs() < 1e-10);
@@ -1209,7 +1228,7 @@ mod tests {
         let model = MultiFactorModel::validated(2, vols, corr)
             .expect("valid 2x2 correlation matrix should create model");
 
-        assert_eq!(model.num_factors(), 2);
+        assert_eq!(FactorModelKind::Multi(model.clone()).num_factors(), 2);
         assert!(model.cholesky_factor().factor_matrix().len() == 4);
     }
 
@@ -1247,7 +1266,7 @@ mod tests {
     fn test_multi_factor_new_or_identity_fallback() {
         let corr = vec![1.0, 0.5, 0.3, 1.0];
         let vols = vec![0.2, 0.3];
-        let model = MultiFactorModel::new_or_identity(2, vols, corr);
+        let model = FactorModelKind::Multi(MultiFactorModel::new_or_identity(2, vols, corr));
 
         let corr_matrix = model.correlation_matrix();
         assert!((corr_matrix[0] - 1.0).abs() < 1e-10);
@@ -1258,7 +1277,7 @@ mod tests {
 
     #[test]
     fn test_multi_factor_uncorrelated() {
-        let model = MultiFactorModel::uncorrelated(3, vec![0.1, 0.2, 0.3]);
+        let model = FactorModelKind::Multi(MultiFactorModel::uncorrelated(3, vec![0.1, 0.2, 0.3]));
 
         assert_eq!(model.num_factors(), 3);
 
@@ -1345,9 +1364,9 @@ mod tests {
         let model = MultiFactorModel::validated(2, vec![0.2, 0.3], corr)
             .expect("correlated model should create successfully");
 
-        let factor = model.diagonal_factor_contribution(1, 2.0);
-        let l = model.cholesky_factor().factor_matrix();
-        let expected = 2.0 * l[3] * 0.3;
+        let l_entry = model.cholesky_factor().factor_matrix()[3];
+        let factor = FactorModelKind::Multi(model).diagonal_factor_contribution(1, 2.0);
+        let expected = 2.0 * l_entry * 0.3;
         assert!((factor - expected).abs() < 1e-10);
     }
 }

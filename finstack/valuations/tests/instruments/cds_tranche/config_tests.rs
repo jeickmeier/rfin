@@ -12,8 +12,7 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::types::Percentage;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::{
-    CDSTrancheParams, CDSTranchePricer, CDSTranchePricerConfig, CopulaSpec, Cs01BumpUnits,
-    HeteroMethod,
+    CDSTrancheParams, CDSTranchePricer, CDSTranchePricerConfig, CopulaSpec, HeteroMethod,
 };
 use time::macros::date;
 
@@ -73,10 +72,6 @@ fn test_default_config_cs01_parameters() {
         config.cs01_bump_size, 1.0,
         "Default CS01 bump size should be 1bp"
     );
-    assert!(
-        matches!(config.cs01_bump_units, Cs01BumpUnits::HazardRateBp),
-        "Default CS01 units should be hazard rate basis points"
-    );
 }
 
 #[test]
@@ -108,18 +103,6 @@ fn test_default_config_accrual_on_default() {
 }
 
 #[test]
-fn test_default_config_numerical_stability() {
-    // Arrange & Act
-    let config = CDSTranchePricerConfig::default();
-
-    // Assert
-    assert_eq!(config.numerical_tolerance, 1e-10);
-    assert_eq!(config.cdf_clip, 10.0);
-    assert_eq!(config.spa_variance_floor, 1e-14);
-    assert_eq!(config.probability_clip, 1e-12);
-}
-
-#[test]
 fn test_default_config_hetero_method() {
     // Arrange & Act
     let config = CDSTranchePricerConfig::default();
@@ -129,27 +112,6 @@ fn test_default_config_hetero_method() {
         matches!(config.hetero_method, HeteroMethod::Spa),
         "Default heterogeneous method should be SPA"
     );
-}
-
-// ==================== CS01 Bump Units Tests ====================
-
-#[test]
-fn test_cs01_bump_units_hazard_rate() {
-    // Arrange & Act
-    let units = Cs01BumpUnits::HazardRateBp;
-
-    // Assert
-    assert!(matches!(units, Cs01BumpUnits::HazardRateBp));
-}
-
-#[test]
-fn test_cs01_bump_units_equality() {
-    // Arrange
-    let hazard1 = Cs01BumpUnits::HazardRateBp;
-    let hazard2 = Cs01BumpUnits::HazardRateBp;
-
-    // Assert
-    assert_eq!(hazard1, hazard2, "Same enum variants should be equal");
 }
 
 // ==================== Heterogeneous Method Tests ====================

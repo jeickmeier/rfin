@@ -176,9 +176,9 @@ pub enum CopulaSpec {
     /// `degrees_of_freedom` **must** be finite and `> 2`. The programmatic
     /// constructor [`CopulaSpec::student_t`] panics on invalid input, but
     /// deserialized specs (from config files, JSON, etc.) cannot panic —
-    /// [`CopulaSpec::build`] and [`CopulaSpec::build_student_t`] silently
-    /// clamp an out-of-range or non-finite value to `2.01` and emit a
-    /// `tracing::warn!`. This is deliberate: it preserves forward
+    /// [`CopulaSpec::build`] silently clamps an out-of-range or non-finite
+    /// value to `2.01` and emits a `tracing::warn!`. This is deliberate: it
+    /// preserves forward
     /// compatibility for serialized specs but means callers that round-trip
     /// a spec may observe a changed `degrees_of_freedom`. Validate at the
     /// config-loading boundary if strict rejection is required.
@@ -300,71 +300,6 @@ impl CopulaSpec {
             CopulaSpec::MultiFactor { num_factors } => {
                 Box::new(MultiFactorCopula::new(*num_factors))
             }
-        }
-    }
-
-    /// Build a Gaussian copula from this specification.
-    ///
-    /// # Returns
-    ///
-    /// `Some(GaussianCopula)` if the specification is Gaussian, otherwise `None`.
-    pub fn build_gaussian(&self) -> Option<GaussianCopula> {
-        match self {
-            CopulaSpec::Gaussian => Some(GaussianCopula::new()),
-            _ => None,
-        }
-    }
-
-    /// Build a Student-t copula from this specification.
-    ///
-    /// # Returns
-    ///
-    /// `Some(StudentTCopula)` if the specification is Student-t, otherwise `None`.
-    pub fn build_student_t(&self) -> Option<StudentTCopula> {
-        match self {
-            CopulaSpec::StudentT { degrees_of_freedom } => {
-                if !degrees_of_freedom.is_finite() || *degrees_of_freedom <= 2.0 {
-                    tracing::warn!(
-                        df = degrees_of_freedom,
-                        "Student-t degrees_of_freedom must be finite and > 2; clamping to 2.01"
-                    );
-                }
-                let df = if degrees_of_freedom.is_finite() {
-                    degrees_of_freedom.max(2.01)
-                } else {
-                    2.01
-                };
-                Some(StudentTCopula::new(df))
-            }
-            _ => None,
-        }
-    }
-
-    /// Build a Random Factor Loading copula from this specification.
-    ///
-    /// # Returns
-    ///
-    /// `Some(RandomFactorLoadingCopula)` if the specification is RFL, otherwise
-    /// `None`.
-    pub fn build_rfl(&self) -> Option<RandomFactorLoadingCopula> {
-        match self {
-            CopulaSpec::RandomFactorLoading { loading_volatility } => {
-                Some(RandomFactorLoadingCopula::new(*loading_volatility))
-            }
-            _ => None,
-        }
-    }
-
-    /// Build a Multi-factor copula from this specification.
-    ///
-    /// # Returns
-    ///
-    /// `Some(MultiFactorCopula)` if the specification is multi-factor, otherwise
-    /// `None`.
-    pub fn build_multi_factor(&self) -> Option<MultiFactorCopula> {
-        match self {
-            CopulaSpec::MultiFactor { num_factors } => Some(MultiFactorCopula::new(*num_factors)),
-            _ => None,
         }
     }
 

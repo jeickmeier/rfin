@@ -1,5 +1,6 @@
 use super::config::{
     CDSTranchePricer, CDSTranchePricerConfig, ProjectedDiscountedRow, ProjectionInputs,
+    PROBABILITY_CLIP,
 };
 use crate::cashflow::builder::{CashFlowMeta, CashFlowSchedule};
 use crate::cashflow::primitives::{CFKind, CashFlow};
@@ -55,7 +56,7 @@ impl CDSTranchePricer {
     }
 
     pub(super) fn default_threshold_for_copula(&self, default_prob: f64) -> f64 {
-        let eps = self.params.probability_clip;
+        let eps = PROBABILITY_CLIP;
         let p = default_prob.max(eps).min(1.0 - eps);
         match &self.params.copula_spec {
             CopulaSpec::StudentT { degrees_of_freedom } => {

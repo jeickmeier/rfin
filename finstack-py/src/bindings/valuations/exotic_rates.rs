@@ -21,7 +21,7 @@
 //! require market data and are exposed via the standard
 //! ``price_instrument`` / ``price_instrument_with_metrics`` pipeline.
 
-use finstack_valuations::instruments::rates::exotics_shared::cumulative_coupon::CumulativeCouponTracker;
+use finstack_valuations::instruments::rates::exotics_shared::coupon_profiles;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -77,52 +77,26 @@ fn tarn_coupon_profile<'py>(
     target_coupon: f64,
     day_count_fraction: f64,
 ) -> PyResult<Bound<'py, PyDict>> {
-    if !target_coupon.is_finite() || target_coupon <= 0.0 {
-        return Err(PyValueError::new_err(format!(
-            "target_coupon ({target_coupon}) must be positive and finite"
-        )));
-    }
-    if !day_count_fraction.is_finite() || day_count_fraction <= 0.0 {
-        return Err(PyValueError::new_err(format!(
-            "day_count_fraction ({day_count_fraction}) must be positive and finite"
-        )));
-    }
-    if !fixed_rate.is_finite() {
-        return Err(PyValueError::new_err("fixed_rate must be finite"));
-    }
-    if !coupon_floor.is_finite() || coupon_floor < 0.0 {
-        return Err(PyValueError::new_err(format!(
-            "coupon_floor ({coupon_floor}) must be non-negative and finite"
-        )));
-    }
-
-    let n = floating_fixings.len();
-    let mut tracker = CumulativeCouponTracker::with_target(target_coupon);
-    let mut coupons_paid: Vec<f64> = Vec::with_capacity(n);
-    let mut cumulative: Vec<f64> = Vec::with_capacity(n);
-
-    for &l_i in &floating_fixings {
-        if !l_i.is_finite() {
-            return Err(PyValueError::new_err("floating_fixings must all be finite"));
-        }
-        let raw = (fixed_rate - l_i).max(coupon_floor);
-        let period_coupon = raw * day_count_fraction;
-        let actual = tracker.add_coupon(period_coupon);
-        coupons_paid.push(actual);
-        cumulative.push(tracker.cumulative());
-    }
+    let profile = coupon_profiles::tarn_coupon_profile(
+        fixed_rate,
+        coupon_floor,
+        &floating_fixings,
+        target_coupon,
+        day_count_fraction,
+    )
+    .map_err(PyValueError::new_err)?;
 
     let out = PyDict::new(py);
-    out.set_item("coupons_paid", coupons_paid)?;
-    out.set_item("cumulative", cumulative)?;
-    match tracker.knockout_period() {
+    out.set_item("coupons_paid", profile.coupons_paid)?;
+    out.set_item("cumulative", profile.cumulative)?;
+    match profile.redemption_index {
         Some(idx) => {
             out.set_item("redemption_index", idx)?;
-            out.set_item("redeemed_early", idx + 1 < n)?;
+            out.set_item("redeemed_early", profile.redeemed_early)?;
         }
         None => {
             out.set_item("redemption_index", py.None())?;
-            out.set_item("redeemed_early", false)?;
+            out.set_item("redeemed_early", profile.redeemed_early)?;
         }
     }
     Ok(out)
@@ -185,51 +159,16 @@ fn snowball_coupon_profile(
     is_inverse_floater: bool,
     leverage: f64,
 ) -> PyResult<Vec<f64>> {
-    if !fixed_rate.is_finite() {
-        return Err(PyValueError::new_err("fixed_rate must be finite"));
-    }
-    if !floor.is_finite() || floor < 0.0 {
-        return Err(PyValueError::new_err(format!(
-            "floor ({floor}) must be non-negative and finite"
-        )));
-    }
-    if cap.is_nan() || cap <= floor {
-        return Err(PyValueError::new_err(format!(
-            "cap ({cap}) must be strictly greater than floor ({floor})"
-        )));
-    }
-    if !leverage.is_finite() || leverage <= 0.0 {
-        return Err(PyValueError::new_err(format!(
-            "leverage ({leverage}) must be positive and finite"
-        )));
-    }
-    if !is_inverse_floater && initial_coupon < 0.0 {
-        return Err(PyValueError::new_err(format!(
-            "initial_coupon ({initial_coupon}) must be non-negative for snowball variant"
-        )));
-    }
-
-    let mut prev = initial_coupon;
-    let mut out: Vec<f64> = Vec::with_capacity(floating_fixings.len());
-    for &l_i in &floating_fixings {
-        if !l_i.is_finite() {
-            return Err(PyValueError::new_err("floating_fixings must all be finite"));
-        }
-        let raw = if is_inverse_floater {
-            fixed_rate - leverage * l_i
-        } else {
-            prev + fixed_rate - l_i
-        };
-        let floored = raw.max(floor);
-        let c = if cap.is_finite() {
-            floored.min(cap)
-        } else {
-            floored
-        };
-        out.push(c);
-        prev = c;
-    }
-    Ok(out)
+    coupon_profiles::snowball_coupon_profile(
+        initial_coupon,
+        fixed_rate,
+        &floating_fixings,
+        floor,
+        cap,
+        is_inverse_floater,
+        leverage,
+    )
+    .map_err(PyValueError::new_err)
 }
 
 // ---------------------------------------------------------------------------
@@ -268,23 +207,8 @@ fn cms_spread_option_intrinsic(
     is_call: bool,
     notional: f64,
 ) -> PyResult<f64> {
-    if !long_cms.is_finite() || !short_cms.is_finite() || !strike.is_finite() {
-        return Err(PyValueError::new_err(
-            "long_cms, short_cms, and strike must all be finite",
-        ));
-    }
-    if !notional.is_finite() || notional < 0.0 {
-        return Err(PyValueError::new_err(format!(
-            "notional ({notional}) must be non-negative and finite"
-        )));
-    }
-    let spread = long_cms - short_cms;
-    let payoff = if is_call {
-        (spread - strike).max(0.0)
-    } else {
-        (strike - spread).max(0.0)
-    };
-    Ok(payoff * notional)
+    coupon_profiles::cms_spread_option_intrinsic(long_cms, short_cms, strike, is_call, notional)
+        .map_err(PyValueError::new_err)
 }
 
 // ---------------------------------------------------------------------------
@@ -331,38 +255,14 @@ fn callable_range_accrual_accrued(
     coupon_rate: f64,
     day_count_fraction: f64,
 ) -> PyResult<f64> {
-    if !lower.is_finite() || !upper.is_finite() || lower >= upper {
-        return Err(PyValueError::new_err(format!(
-            "lower ({lower}) must be strictly less than upper ({upper}), and both finite"
-        )));
-    }
-    if !coupon_rate.is_finite() || coupon_rate < 0.0 {
-        return Err(PyValueError::new_err(format!(
-            "coupon_rate ({coupon_rate}) must be non-negative and finite"
-        )));
-    }
-    if !day_count_fraction.is_finite() || day_count_fraction < 0.0 {
-        return Err(PyValueError::new_err(format!(
-            "day_count_fraction ({day_count_fraction}) must be non-negative and finite"
-        )));
-    }
-    if observations.is_empty() {
-        return Err(PyValueError::new_err(
-            "observations must contain at least one value",
-        ));
-    }
-
-    let mut in_range = 0usize;
-    for &o in &observations {
-        if !o.is_finite() {
-            return Err(PyValueError::new_err("observations must all be finite"));
-        }
-        if o >= lower && o <= upper {
-            in_range += 1;
-        }
-    }
-    let fraction = in_range as f64 / observations.len() as f64;
-    Ok(coupon_rate * day_count_fraction * fraction)
+    coupon_profiles::callable_range_accrual_accrued(
+        lower,
+        upper,
+        &observations,
+        coupon_rate,
+        day_count_fraction,
+    )
+    .map_err(PyValueError::new_err)
 }
 
 // ---------------------------------------------------------------------------

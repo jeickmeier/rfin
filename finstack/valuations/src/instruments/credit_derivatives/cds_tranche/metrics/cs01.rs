@@ -29,7 +29,7 @@ use crate::instruments::credit_derivatives::cds_tranche::CDSTranche;
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::sensitivities::cs01::{
     compute_key_rate_cs01_series_with_context_raw, compute_parallel_cs01_with_context_raw,
-    sensitivity_central_diff,
+    sensitivity_central_diff, KeyRateCs01Request,
 };
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::term_structures::CreditIndexData;
@@ -111,6 +111,8 @@ impl MetricCalculator for CdsTrancheCs01Calculator {
             &hazard_id,
             discount_id.as_ref(),
             bump_bp,
+            None,
+            None,
             reval,
         )?;
 
@@ -197,9 +199,13 @@ impl MetricCalculator for CdsTrancheBucketedCs01Calculator {
             context,
             &hazard_id,
             discount_id.as_ref(),
-            series_id,
-            buckets,
-            bump_bp,
+            KeyRateCs01Request {
+                series_id,
+                bucket_times_years: buckets,
+                bump_bp,
+                doc_clause: None,
+                cds_valuation_convention: None,
+            },
             reval,
         )
     }
