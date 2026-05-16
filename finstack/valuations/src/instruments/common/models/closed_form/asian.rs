@@ -152,7 +152,6 @@
 //! - [`AsianGreeks`] for first-order sensitivities
 //! - Monte Carlo pricing for exact arithmetic average pricing
 
-use crate::instruments::common_impl::models::volatility::black::d1_d2;
 use finstack_core::math::special_functions::norm_cdf;
 
 /// Pricing result for Asian options.

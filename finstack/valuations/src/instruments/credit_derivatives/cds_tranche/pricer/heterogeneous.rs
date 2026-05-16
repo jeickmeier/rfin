@@ -67,10 +67,7 @@ impl CDSTranchePricer {
         // Check if effectively homogeneous (optimization: use faster binomial path)
         let is_uniform_pd = pd_i
             .first()
-            .map(|&first| {
-                pd_i.iter()
-                    .all(|&p| (p - first).abs() <= PROBABILITY_CLIP)
-            })
+            .map(|&first| pd_i.iter().all(|&p| (p - first).abs() <= PROBABILITY_CLIP))
             .unwrap_or(true);
         let is_uniform_lgd = lgd_i
             .first()
@@ -115,8 +112,7 @@ impl CDSTranchePricer {
                         recovery,
                     )
                 };
-                let expected_loss = if !(ADAPTIVE_INTEGRATION_LOW
-                    ..=ADAPTIVE_INTEGRATION_HIGH)
+                let expected_loss = if !(ADAPTIVE_INTEGRATION_LOW..=ADAPTIVE_INTEGRATION_HIGH)
                     .contains(&correlation)
                 {
                     quad.integrate_adaptive(integrand, NUMERICAL_TOLERANCE)
@@ -209,14 +205,10 @@ impl CDSTranchePricer {
                              Results are approximate.",
                             credit::SMALL_POOL_THRESHOLD
                         );
-                        if !(ADAPTIVE_INTEGRATION_LOW
-                            ..=ADAPTIVE_INTEGRATION_HIGH)
+                        if !(ADAPTIVE_INTEGRATION_LOW..=ADAPTIVE_INTEGRATION_HIGH)
                             .contains(&correlation)
                         {
-                            quad.integrate_adaptive(
-                                |z| integrand(&[z]),
-                                NUMERICAL_TOLERANCE,
-                            )
+                            quad.integrate_adaptive(|z| integrand(&[z]), NUMERICAL_TOLERANCE)
                         } else {
                             quad.integrate(|z| integrand(&[z]))
                         }
@@ -362,14 +354,12 @@ impl CDSTranchePricer {
                 expected_loss_capped(&active[..pmf_len], grid_step, k)
             };
 
-            let value = if !(ADAPTIVE_INTEGRATION_LOW
-                ..=ADAPTIVE_INTEGRATION_HIGH)
-                .contains(&correlation)
-            {
-                quad.integrate_adaptive(|z| integrand(&[z]), NUMERICAL_TOLERANCE)
-            } else {
-                quad.integrate(|z| integrand(&[z]))
-            };
+            let value =
+                if !(ADAPTIVE_INTEGRATION_LOW..=ADAPTIVE_INTEGRATION_HIGH).contains(&correlation) {
+                    quad.integrate_adaptive(|z| integrand(&[z]), NUMERICAL_TOLERANCE)
+                } else {
+                    quad.integrate(|z| integrand(&[z]))
+                };
 
             return Ok(value);
         }
@@ -449,14 +439,12 @@ impl CDSTranchePricer {
                 mean * phi_a - s * norm_pdf(a) + k * (1.0 - phi_a)
             };
 
-            let value = if !(ADAPTIVE_INTEGRATION_LOW
-                ..=ADAPTIVE_INTEGRATION_HIGH)
-                .contains(&correlation)
-            {
-                quad.integrate_adaptive(|z| integrand(&[z]), NUMERICAL_TOLERANCE)
-            } else {
-                quad.integrate(|z| integrand(&[z]))
-            };
+            let value =
+                if !(ADAPTIVE_INTEGRATION_LOW..=ADAPTIVE_INTEGRATION_HIGH).contains(&correlation) {
+                    quad.integrate_adaptive(|z| integrand(&[z]), NUMERICAL_TOLERANCE)
+                } else {
+                    quad.integrate(|z| integrand(&[z]))
+                };
 
             return Ok(value);
         }
@@ -558,8 +546,7 @@ impl CDSTranchePricer {
         let conditional_threshold = numerator / sqrt_one_minus_rho;
 
         // Clamp to reasonable range to prevent CDF overflow
-        let conditional_threshold =
-            conditional_threshold.clamp(-CDF_CLIP, CDF_CLIP);
+        let conditional_threshold = conditional_threshold.clamp(-CDF_CLIP, CDF_CLIP);
 
         norm_cdf(conditional_threshold)
     }

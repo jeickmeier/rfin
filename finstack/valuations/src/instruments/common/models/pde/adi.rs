@@ -464,9 +464,7 @@ mod tests {
     /// 2D heat equation: u_t = u_xx + u_yy on [0,pi] x [0,pi]
     /// Terminal: u(x,y,T) = sin(x) * sin(y)
     /// Exact: u(x,y,t) = exp(-2*(T-t)) * sin(x) * sin(y)
-    struct Heat2D {
-        maturity: f64,
-    }
+    struct Heat2D;
 
     impl PdeProblem2D for Heat2D {
         fn diffusion_xx(&self, _x: f64, _y: f64, _t: f64) -> f64 {
@@ -510,7 +508,7 @@ mod tests {
     #[test]
     fn heat_2d_adi_converges() {
         let t_mat = 0.25;
-        let problem = Heat2D { maturity: t_mat };
+        let problem = Heat2D;
         let pi = std::f64::consts::PI;
 
         let n_space = 41;

@@ -142,6 +142,10 @@ fn reprice_factor_restored_once(
 /// `restore_market` only touches flagged families, so a single combined
 /// `(A | B)` restore from `market_t0` produces the same market as stacking an
 /// `A` restore followed by a `B` restore.
+///
+/// Each call performs exactly one repricing; the caller is responsible for
+/// adding to its repricing counter in a deterministic order (this function is
+/// invoked from a parallel iterator, so it does not mutate shared counters).
 #[allow(clippy::too_many_arguments)]
 fn reprice_cross_factor(
     instrument: &Arc<dyn Instrument>,
@@ -152,12 +156,10 @@ fn reprice_cross_factor(
     val_t1: Money,
     val_with_t0_a: Money,
     val_with_t0_b: Money,
-    num_repricings: &mut usize,
 ) -> Result<Money> {
     let combined = MarketSnapshot::extract(market_t0, flags);
     let market_combined = MarketSnapshot::restore_market(market_t1, &combined, flags);
     let reprice = reprice_instrument(instrument, &market_combined, as_of_t1)?;
-    *num_repricings += 1;
     cross_interaction_pnl(val_t1, val_with_t0_a, val_with_t0_b, reprice)
 }
 
@@ -662,21 +664,31 @@ pub fn attribute_pnl_parallel_with_credit_model(
         ),
     ];
 
-    for (pair, flag_a, flag_b, reprice_a, reprice_b) in cross_specs {
-        let (Some(val_a), Some(val_b)) = (reprice_a, reprice_b) else {
-            continue;
-        };
-        let pnl = reprice_cross_factor(
-            instrument,
-            market_t0,
-            market_t1,
-            as_of_t1,
-            flag_a | flag_b,
-            val_t1,
-            val_a,
-            val_b,
-            &mut num_repricings,
-        )?;
+    // Each cross-factor block is an independent full revaluation. Reprice them
+    // in parallel, then reduce in the fixed `cross_specs` order so the result
+    // is bit-identical to the previous sequential loop.
+    let cross_results = cross_specs
+        .par_iter()
+        .map(|(pair, flag_a, flag_b, reprice_a, reprice_b)| {
+            let (Some(val_a), Some(val_b)) = (*reprice_a, *reprice_b) else {
+                return Ok(None);
+            };
+            let pnl = reprice_cross_factor(
+                instrument,
+                market_t0,
+                market_t1,
+                as_of_t1,
+                *flag_a | *flag_b,
+                val_t1,
+                val_a,
+                val_b,
+            )?;
+            Ok(Some((*pair, pnl)))
+        })
+        .collect::<Result<Vec<Option<(&str, Money)>>>>()?;
+    for result in cross_results.into_iter().flatten() {
+        let (pair, pnl) = result;
+        num_repricings += 1;
         record_cross_pair(pair, pnl, &mut cross_total, &mut cross_by_pair);
     }
 
@@ -696,23 +708,31 @@ pub fn attribute_pnl_parallel_with_credit_model(
                     CurveRestoreFlags::CREDIT,
                 );
 
-                let mut step_pnls: Vec<Money> = Vec::with_capacity(cascade.steps.len());
+                // Each cascade step bumps the T0 hazard curves by exactly that
+                // step's bp from the same `market_t0_credit` base — the running
+                // market is not chained between steps, so the steps are fully
+                // independent. Reprice in parallel, collect into a Vec in
+                // cascade order, then reduce sequentially so the result is
+                // bit-identical to a serial loop.
+                let step_pnls: Vec<Money> = cascade
+                    .steps
+                    .par_iter()
+                    .map(|step| -> Result<Money> {
+                        // Adder step in parallel decomposition uses its bp like
+                        // the others (no snap-to-T1) so cross-effects net out
+                        // cleanly in the residual.
+                        let market_step = shift_hazard_curves(
+                            &market_t0_credit,
+                            &cascade.hazard_curve_ids,
+                            step.delta_bp,
+                        )?;
+                        let reprice = reprice_instrument(instrument, &market_step, as_of_t1)?;
+                        compute_pnl(reprice, val_t1, val_t1.currency(), market_t1, as_of_t1)
+                    })
+                    .collect::<Result<Vec<Money>>>()?;
+                num_repricings += step_pnls.len();
                 let mut step_sum = 0.0_f64;
-                for step in &cascade.steps {
-                    // Each step bumps the T0 hazard curves by exactly that step's bp.
-                    // Adder step in parallel decomposition uses its bp like the
-                    // others (no snap-to-T1) so cross-effects net out cleanly in
-                    // the residual; the running market is not chained between
-                    // steps.
-                    let market_step = shift_hazard_curves(
-                        &market_t0_credit,
-                        &cascade.hazard_curve_ids,
-                        step.delta_bp,
-                    )?;
-                    let reprice = reprice_instrument(instrument, &market_step, as_of_t1)?;
-                    num_repricings += 1;
-                    let pnl = compute_pnl(reprice, val_t1, val_t1.currency(), market_t1, as_of_t1)?;
-                    step_pnls.push(pnl);
+                for pnl in &step_pnls {
                     step_sum += pnl.amount();
                 }
 

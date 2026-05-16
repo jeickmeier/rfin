@@ -189,9 +189,6 @@ where
 
         let mut raw_matrix = Vec::new();
         let mut raw_total = NeumaierAccumulator::new();
-        static DEBUG_BUCKETED_VEGA: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-        let debug =
-            *DEBUG_BUCKETED_VEGA.get_or_init(|| std::env::var("DEBUG_BUCKETED_VEGA").is_ok());
 
         let use_ratio_strikes = self.strikes.iter().all(|k| *k <= 10.0);
         let strike_grid: Vec<f64> = if use_ratio_strikes {
@@ -258,16 +255,14 @@ where
             );
         }
 
-        if debug {
-            let sum_scaled: f64 = neumaier_sum(matrix.iter().flatten().copied());
-            tracing::debug!(
-                raw_total = raw_total,
-                target_total = target_total,
-                scale = scale,
-                sum_scaled = sum_scaled,
-                "bucketed vega debug"
-            );
-        }
+        let sum_scaled: f64 = neumaier_sum(matrix.iter().flatten().copied());
+        tracing::debug!(
+            raw_total = raw_total,
+            target_total = target_total,
+            scale = scale,
+            sum_scaled = sum_scaled,
+            "bucketed vega debug"
+        );
 
         // Store as 2D matrix
         let row_labels: Vec<String> = self

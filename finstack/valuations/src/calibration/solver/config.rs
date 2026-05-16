@@ -84,7 +84,10 @@ mod tests {
     fn test_solver_config_default_is_brent() {
         let config = SolverConfig::default();
         assert_eq!(config.tolerance(), BrentSolver::default().tolerance);
-        assert_eq!(config.max_iterations(), BrentSolver::default().max_iterations);
+        assert_eq!(
+            config.max_iterations(),
+            BrentSolver::default().max_iterations
+        );
     }
 
     #[test]

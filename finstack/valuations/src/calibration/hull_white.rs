@@ -2290,17 +2290,10 @@ mod tests {
 
         // End-to-end: the full calibration with the same NaN curve must
         // fail cleanly rather than silently converge to a poisoned minimum.
-        let calib = calibrate_hull_white_to_swaptions(
-            &nan_df,
-            &quotes,
-            SwapFrequency::SemiAnnual,
-            None,
-        );
+        let calib =
+            calibrate_hull_white_to_swaptions(&nan_df, &quotes, SwapFrequency::SemiAnnual, None);
         assert!(
-            calib.is_err()
-                || calib
-                    .as_ref()
-                    .is_ok_and(|(_, report)| !report.success),
+            calib.is_err() || calib.as_ref().is_ok_and(|(_, report)| !report.success),
             "calibration on a degenerate (NaN-priced) curve must report \
              non-convergence rather than accept a 1e6-dominated minimum"
         );

@@ -134,27 +134,29 @@ pub struct FutureContractSpecs {
     pub convexity_adjustment: Option<f64>,
 }
 
-impl Default for FutureContractSpecs {
-    fn default() -> Self {
-        default_ir_future_contract_specs_or_panic()
-    }
+impl FutureContractSpecs {
+    /// Standard CME 3-month SOFR future (`CME:SR3`) contract specifications.
+    ///
+    /// These are exchange-defined, well-known constants and mirror the
+    /// `CME:SR3` entry in the embedded IR-future conventions registry. They are
+    /// hardcoded here so that [`FutureContractSpecs::default`] is infallible and
+    /// can never panic — a `Default` impl must always succeed.
+    pub const CME_SR3: FutureContractSpecs = FutureContractSpecs {
+        face_value: 1_000_000.0,
+        tick_size: 0.0025,
+        tick_value: 6.25,
+        delivery_months: 3,
+        convexity_adjustment: None,
+    };
 }
 
-#[allow(clippy::expect_used)]
-fn default_ir_future_contract_specs_or_panic() -> FutureContractSpecs {
-    let conventions = crate::market::conventions::ConventionRegistry::try_global()
-        .and_then(|registry| {
-            registry.require_ir_future(&crate::market::conventions::ids::IrFutureContractId::new(
-                "CME:SR3",
-            ))
-        })
-        .expect("embedded IR future conventions registry should contain CME:SR3");
-    FutureContractSpecs {
-        face_value: conventions.face_value,
-        tick_size: conventions.tick_size,
-        tick_value: conventions.tick_value,
-        delivery_months: conventions.delivery_months,
-        convexity_adjustment: conventions.convexity_adjustment,
+impl Default for FutureContractSpecs {
+    /// Returns the standard CME 3-month SOFR future ([`FutureContractSpecs::CME_SR3`]).
+    ///
+    /// This is infallible: it returns hardcoded exchange constants rather than
+    /// looking them up in a registry, so it cannot panic.
+    fn default() -> Self {
+        Self::CME_SR3
     }
 }
 
@@ -600,5 +602,30 @@ mod tests {
         let (_fixing, period_start, period_end) = irf.resolve_dates().expect("resolve dates");
         assert_eq!(period_start, date!(2025 - 03 - 20));
         assert_eq!(period_end, date!(2025 - 06 - 20));
+    }
+
+    #[test]
+    fn future_contract_specs_default_is_infallible_and_matches_registry() {
+        // `Default` must never panic; it returns hardcoded CME:SR3 constants.
+        let specs = FutureContractSpecs::default();
+        assert_eq!(specs.face_value, 1_000_000.0);
+        assert_eq!(specs.tick_size, 0.0025);
+        assert_eq!(specs.tick_value, 6.25);
+        assert_eq!(specs.delivery_months, 3);
+        assert_eq!(specs.convexity_adjustment, None);
+
+        // Hardcoded constants must stay in sync with the embedded registry.
+        let conventions = crate::market::conventions::ConventionRegistry::try_global()
+            .and_then(|registry| {
+                registry.require_ir_future(
+                    &crate::market::conventions::ids::IrFutureContractId::new("CME:SR3"),
+                )
+            })
+            .expect("embedded registry should contain CME:SR3");
+        assert_eq!(specs.face_value, conventions.face_value);
+        assert_eq!(specs.tick_size, conventions.tick_size);
+        assert_eq!(specs.tick_value, conventions.tick_value);
+        assert_eq!(specs.delivery_months, conventions.delivery_months);
+        assert_eq!(specs.convexity_adjustment, conventions.convexity_adjustment);
     }
 }

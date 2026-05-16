@@ -64,16 +64,15 @@ impl MetricCalculator for CdsCs01Calculator {
             inst_arc.value_raw(temp_ctx, as_of)
         };
 
-        let cs01_result =
-            compute_parallel_cs01_with_context_raw(
-                context,
-                &hazard_id,
-                discount_id.as_ref(),
-                bump_bp,
-                Some(market_doc_clause(&cds)),
-                Some(cds.valuation_convention),
-                reval,
-            );
+        let cs01_result = compute_parallel_cs01_with_context_raw(
+            context,
+            &hazard_id,
+            discount_id.as_ref(),
+            bump_bp,
+            Some(market_doc_clause(&cds)),
+            Some(cds.valuation_convention),
+            reval,
+        );
         context.curves = original_curves;
         let cs01 = cs01_result?;
         context.computed.insert(
@@ -127,20 +126,19 @@ impl MetricCalculator for CdsBucketedCs01Calculator {
         };
 
         let series_id = MetricId::custom(format!("bucketed_cs01::{}", hazard_id.as_str()));
-        let bucketed_result =
-            compute_key_rate_cs01_series_with_context_raw(
-                context,
-                &hazard_id,
-                discount_id.as_ref(),
-                KeyRateCs01Request {
-                    series_id,
-                    bucket_times_years: buckets,
-                    bump_bp,
-                    doc_clause: Some(market_doc_clause(&cds)),
-                    cds_valuation_convention: Some(cds.valuation_convention),
-                },
-                reval,
-            );
+        let bucketed_result = compute_key_rate_cs01_series_with_context_raw(
+            context,
+            &hazard_id,
+            discount_id.as_ref(),
+            KeyRateCs01Request {
+                series_id,
+                bucket_times_years: buckets,
+                bump_bp,
+                doc_clause: Some(market_doc_clause(&cds)),
+                cds_valuation_convention: Some(cds.valuation_convention),
+            },
+            reval,
+        );
         context.curves = original_curves;
         bucketed_result
     }

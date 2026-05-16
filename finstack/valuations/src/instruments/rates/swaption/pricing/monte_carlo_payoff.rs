@@ -42,35 +42,58 @@ impl SwapSchedule {
     /// * `end_date` - Swap end date (time in years)
     /// * `payment_dates` - Payment dates (must be sorted, within [start_date, end_date])
     /// * `accrual_fractions` - Accrual fractions for each period
+    ///
+    /// # Errors
+    ///
+    /// Returns [`finstack_core::Error::Validation`] if `payment_dates` and
+    /// `accrual_fractions` differ in length, `start_date >= end_date`, the
+    /// payment dates are not strictly sorted ascending, or any payment date
+    /// falls outside `[start_date, end_date]`.
     pub fn new(
         start_date: f64,
         end_date: f64,
         payment_dates: Vec<f64>,
         accrual_fractions: Vec<f64>,
-    ) -> Self {
-        assert_eq!(
-            payment_dates.len(),
-            accrual_fractions.len(),
-            "Payment dates and accrual fractions must have same length"
-        );
-        assert!(start_date < end_date, "Start date must be before end date");
-        // Verify payment dates are sorted and within range
+    ) -> finstack_core::Result<Self> {
+        use std::cmp::Ordering;
+
+        if payment_dates.len() != accrual_fractions.len() {
+            return Err(finstack_core::Error::Validation(format!(
+                "SwapSchedule: payment_dates ({}) and accrual_fractions ({}) must have the same length",
+                payment_dates.len(),
+                accrual_fractions.len()
+            )));
+        }
+        if start_date.partial_cmp(&end_date) != Some(Ordering::Less) {
+            return Err(finstack_core::Error::Validation(format!(
+                "SwapSchedule: start_date ({start_date}) must be strictly before end_date ({end_date})"
+            )));
+        }
+        // Verify payment dates are strictly sorted ascending and within range.
         for (i, &date) in payment_dates.iter().enumerate() {
-            if i > 0 {
-                assert!(payment_dates[i - 1] < date, "Payment dates must be sorted");
+            if i > 0 && payment_dates[i - 1].partial_cmp(&date) != Some(Ordering::Less) {
+                return Err(finstack_core::Error::Validation(format!(
+                    "SwapSchedule: payment_dates must be strictly sorted ascending; \
+                     found {} >= {} at index {}",
+                    payment_dates[i - 1],
+                    date,
+                    i
+                )));
             }
-            assert!(
-                date >= start_date && date <= end_date,
-                "Payment dates must be within [start_date, end_date]"
-            );
+            if date.is_nan() || date < start_date || date > end_date {
+                return Err(finstack_core::Error::Validation(format!(
+                    "SwapSchedule: payment date {date} at index {i} is outside \
+                     [start_date {start_date}, end_date {end_date}]"
+                )));
+            }
         }
 
-        Self {
+        Ok(Self {
             payment_dates,
             accrual_fractions,
             start_date,
             end_date,
-        }
+        })
     }
 
     /// Compute annuity (PV01) at time t from discount factors.
@@ -228,7 +251,8 @@ mod tests {
     fn test_swap_schedule_creation() {
         let payment_dates = vec![1.0, 1.25, 1.5, 1.75, 2.0];
         let accruals = vec![0.25, 0.25, 0.25, 0.25, 0.25];
-        let schedule = SwapSchedule::new(1.0, 2.0, payment_dates, accruals);
+        let schedule = SwapSchedule::new(1.0, 2.0, payment_dates, accruals)
+            .expect("valid swap schedule inputs");
 
         assert_eq!(schedule.start_date, 1.0);
         assert_eq!(schedule.end_date, 2.0);
@@ -239,7 +263,8 @@ mod tests {
     fn test_swap_schedule_annuity() {
         let payment_dates = vec![1.0, 1.25, 1.5];
         let accruals = vec![0.25, 0.25, 0.25];
-        let schedule = SwapSchedule::new(1.0, 1.5, payment_dates, accruals);
+        let schedule = SwapSchedule::new(1.0, 1.5, payment_dates, accruals)
+            .expect("valid swap schedule inputs");
 
         let discount_factors = vec![0.95, 0.94, 0.93];
         let annuity = schedule.annuity(&discount_factors);
@@ -253,7 +278,8 @@ mod tests {
         let exercise_dates = vec![1.0, 1.5, 2.0];
         let payment_dates = vec![1.0, 1.25, 1.5, 1.75, 2.0];
         let accruals = vec![0.25, 0.25, 0.25, 0.25, 0.25];
-        let schedule = SwapSchedule::new(1.0, 2.0, payment_dates, accruals);
+        let schedule = SwapSchedule::new(1.0, 2.0, payment_dates, accruals)
+            .expect("valid swap schedule inputs");
 
         let payoff = BermudanSwaptionPayoff::new(
             exercise_dates,
@@ -273,7 +299,8 @@ mod tests {
         let exercise_dates = vec![1.0];
         let payment_dates = vec![1.0, 1.25];
         let accruals = vec![0.25, 0.25];
-        let schedule = SwapSchedule::new(1.0, 1.25, payment_dates, accruals);
+        let schedule = SwapSchedule::new(1.0, 1.25, payment_dates, accruals)
+            .expect("valid swap schedule inputs");
 
         let mut payoff =
             BermudanSwaptionPayoff::new(exercise_dates, schedule, 0.0325, SwaptionType::Payer, 1.0);
@@ -290,5 +317,22 @@ mod tests {
         assert!(!payoff.exercised);
         assert_eq!(payoff.exercise_date, None);
         assert_eq!(payoff.next_exercise_idx, 0);
+    }
+
+    #[test]
+    fn test_swap_schedule_rejects_degenerate_inputs() {
+        // Mismatched lengths between payment dates and accrual fractions.
+        assert!(SwapSchedule::new(1.0, 2.0, vec![1.0, 1.5], vec![0.25]).is_err());
+
+        // start_date not before end_date.
+        assert!(SwapSchedule::new(2.0, 1.0, vec![], vec![]).is_err());
+
+        // Unsorted payment dates.
+        assert!(
+            SwapSchedule::new(1.0, 2.0, vec![1.5, 1.0], vec![0.25, 0.25]).is_err()
+        );
+
+        // Payment date outside [start_date, end_date].
+        assert!(SwapSchedule::new(1.0, 2.0, vec![2.5], vec![0.25]).is_err());
     }
 }

@@ -21,20 +21,25 @@ use finstack_core::Result;
 use finstack_monte_carlo::results::MoneyEstimate;
 use finstack_monte_carlo::seed;
 use finstack_monte_carlo::traits::{PathState, Payoff, StateKey};
+use std::sync::Arc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 struct TarnCouponEvent {
     accrual_fraction: f64,
     discount_factor: f64,
 }
 
 /// Path-local TARN payoff accumulator.
+///
+/// The immutable coupon-event schedule is shared across all simulated paths
+/// via `Arc`, so per-path payoff clones only bump the reference count instead
+/// of deep-copying the event vector.
 #[derive(Debug, Clone)]
 struct TarnPayoff {
     fixed_rate: f64,
     coupon_floor: f64,
     notional: f64,
-    events: Vec<TarnCouponEvent>,
+    events: Arc<[TarnCouponEvent]>,
     tracker: CumulativeCouponTracker,
     discounted_pv: f64,
     next_event: usize,
@@ -47,7 +52,7 @@ impl TarnPayoff {
         coupon_floor: f64,
         target_coupon: f64,
         notional: f64,
-        events: Vec<TarnCouponEvent>,
+        events: Arc<[TarnCouponEvent]>,
     ) -> Self {
         Self {
             fixed_rate,
@@ -75,7 +80,7 @@ impl Payoff for TarnPayoff {
             return;
         }
 
-        let event = self.events[self.next_event].clone();
+        let event = self.events[self.next_event];
         let floating_rate = state.get_key(StateKey::ShortRate).unwrap_or(0.0);
         let coupon_rate = (self.fixed_rate - floating_rate).max(self.coupon_floor);
         let period_coupon = coupon_rate * event.accrual_fraction;
@@ -265,7 +270,7 @@ impl TarnPricer {
             inst.coupon_floor,
             inst.target_coupon,
             inst.notional.amount(),
-            events,
+            Arc::from(events),
         );
         mc.price(|| payoff.clone())
     }
@@ -467,7 +472,7 @@ mod tests {
                 discount_factor: 1.0,
             },
         ];
-        let mut payoff = TarnPayoff::new(0.06, 0.0, 0.10, 1_000_000.0, events);
+        let mut payoff = TarnPayoff::new(0.06, 0.0, 0.10, 1_000_000.0, Arc::from(events));
 
         let mut state = PathState::new(0, 1.0);
         state.set_key(StateKey::ShortRate, 0.01);

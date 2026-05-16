@@ -1158,7 +1158,8 @@ mod tests {
             "spec": serde_json::to_value(&tarn)
                 .expect("Tarn JSON serialization should succeed"),
         });
-        match parse_tagged_value(tarn_value).expect("target_redemption_note alias should deserialize")
+        match parse_tagged_value(tarn_value)
+            .expect("target_redemption_note alias should deserialize")
         {
             InstrumentJson::Tarn(i) => assert_eq!(i.id, tarn_id),
             _ => panic!("Expected Tarn variant"),
@@ -1171,7 +1172,8 @@ mod tests {
             "spec": serde_json::to_value(&snowball)
                 .expect("Snowball JSON serialization should succeed"),
         });
-        match parse_tagged_value(snowball_value).expect("inverse_floater alias should deserialize") {
+        match parse_tagged_value(snowball_value).expect("inverse_floater alias should deserialize")
+        {
             InstrumentJson::Snowball(i) => assert_eq!(i.id, snowball_id),
             _ => panic!("Expected Snowball variant"),
         }

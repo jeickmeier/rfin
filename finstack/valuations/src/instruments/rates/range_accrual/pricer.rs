@@ -176,7 +176,7 @@ impl RangeAccrualMcPricer {
             inst.notional.currency(),
             inst.past_fixings_in_range.unwrap_or(0),
             inst.total_past_observations.unwrap_or(0),
-        );
+        )?;
 
         // Derive deterministic seed from instrument ID and scenario
         use finstack_monte_carlo::seed;

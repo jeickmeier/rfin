@@ -1,7 +1,5 @@
 //! Stochastic pricer configuration.
 
-#![allow(dead_code)]
-
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::DiscountCurve;
 
@@ -87,9 +85,6 @@ pub(crate) struct StochasticPricerConfig {
     /// Expected Shortfall confidence level (e.g., 0.95 for 95% ES)
     pub es_confidence: f64,
 
-    /// Whether to generate tranche-level cashflows
-    pub generate_cashflows: bool,
-
     /// Random seed for Monte Carlo
     pub seed: u64,
 
@@ -111,13 +106,15 @@ impl StochasticPricerConfig {
             tree_config,
             compute_risk_metrics: true,
             es_confidence: 0.95,
-            generate_cashflows: false,
             seed: 42,
             max_tree_paths: 100_000,
         }
     }
 
     /// Create RMBS-standard configuration.
+    // Intentionally-kept convenience constructor: mirrors `ScenarioTreeConfig::rmbs_standard`
+    // and is referenced from the module docs; not currently exercised by callers.
+    #[allow(dead_code)]
     pub(crate) fn rmbs_standard(
         valuation_date: Date,
         discount_curve: Arc<DiscountCurve>,
@@ -132,13 +129,15 @@ impl StochasticPricerConfig {
             tree_config,
             compute_risk_metrics: true,
             es_confidence: 0.95,
-            generate_cashflows: false,
             seed: 42,
             max_tree_paths: 100_000,
         }
     }
 
     /// Create CLO-standard configuration.
+    // Intentionally-kept convenience constructor: mirrors `ScenarioTreeConfig::clo_standard`;
+    // not currently exercised by callers.
+    #[allow(dead_code)]
     pub(crate) fn clo_standard(
         valuation_date: Date,
         discount_curve: Arc<DiscountCurve>,
@@ -152,13 +151,14 @@ impl StochasticPricerConfig {
             tree_config,
             compute_risk_metrics: true,
             es_confidence: 0.95,
-            generate_cashflows: false,
             seed: 42,
             max_tree_paths: 100_000,
         }
     }
 
     /// Set maximum terminal paths for explicit tree mode.
+    // Intentionally-kept builder method; not currently exercised by callers.
+    #[allow(dead_code)]
     pub(crate) fn with_max_tree_paths(mut self, max_paths: usize) -> Self {
         self.max_tree_paths = max_paths.max(1);
         self
@@ -171,24 +171,24 @@ impl StochasticPricerConfig {
     }
 
     /// Set whether to compute risk metrics.
+    // Intentionally-kept builder method; exercised by unit tests, no production caller yet.
+    #[allow(dead_code)]
     pub(crate) fn with_risk_metrics(mut self, compute: bool) -> Self {
         self.compute_risk_metrics = compute;
         self
     }
 
     /// Set ES confidence level.
+    // Intentionally-kept builder method; exercised by unit tests, no production caller yet.
+    #[allow(dead_code)]
     pub(crate) fn with_es_confidence(mut self, confidence: f64) -> Self {
         self.es_confidence = confidence.clamp(0.80, 0.9999);
         self
     }
 
-    /// Set whether to generate cashflows.
-    pub(crate) fn with_cashflows(mut self, generate: bool) -> Self {
-        self.generate_cashflows = generate;
-        self
-    }
-
     /// Set random seed.
+    // Intentionally-kept builder method; exercised by unit tests, no production caller yet.
+    #[allow(dead_code)]
     pub(crate) fn with_seed(mut self, seed: u64) -> Self {
         self.seed = seed;
         self.tree_config = self.tree_config.with_seed(seed);
@@ -196,11 +196,15 @@ impl StochasticPricerConfig {
     }
 
     /// Check if using tree pricing mode.
+    // Intentionally-kept query accessor; exercised by unit tests, no production caller yet.
+    #[allow(dead_code)]
     pub(crate) fn is_tree_mode(&self) -> bool {
         matches!(self.pricing_mode, PricingMode::Tree)
     }
 
     /// Check if using Monte Carlo pricing mode.
+    // Intentionally-kept query accessor; exercised by unit tests, no production caller yet.
+    #[allow(dead_code)]
     pub(crate) fn is_monte_carlo_mode(&self) -> bool {
         matches!(self.pricing_mode, PricingMode::MonteCarlo { .. })
     }

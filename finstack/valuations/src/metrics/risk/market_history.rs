@@ -59,7 +59,11 @@ impl MarketScenario {
     ///
     /// New market context with historical shifts applied
     pub fn apply(&self, base_market: &MarketContext) -> Result<MarketContext> {
-        let mut bumped_market = base_market.clone();
+        // Collect every shift into a single bump batch so the (potentially
+        // expensive) `MarketContext` clone happens once instead of once per
+        // shift. `bump` applies the slice in order, identical to the prior
+        // shift-by-shift loop.
+        let mut bumps: Vec<MarketBump> = Vec::with_capacity(self.shifts.len());
 
         for shift in &self.shifts {
             let bump = match &shift.factor {
@@ -105,7 +109,34 @@ impl MarketScenario {
                 },
             };
 
-            bumped_market = bumped_market.bump([bump])?;
+            bumps.push(bump);
+        }
+
+        // `MarketContext::bump` classifies curve bumps into a `HashMap` keyed
+        // by `CurveId`, so two `MarketBump::Curve` entries that target the same
+        // curve in one call would collapse (last-wins). The legacy loop applied
+        // each shift to the already-bumped context, so same-curve key-rate
+        // shifts must compound. Partition the batch into rounds where each round
+        // has unique curve IDs; each round is one clone. For the common case of
+        // one bump per curve this is a single `bump` call.
+        let mut bumped_market = base_market.clone();
+        let mut remaining = bumps;
+        while !remaining.is_empty() {
+            let mut round: Vec<MarketBump> = Vec::with_capacity(remaining.len());
+            let mut deferred: Vec<MarketBump> = Vec::new();
+            let mut seen: Vec<CurveId> = Vec::new();
+            for bump in remaining {
+                match bump_curve_id(&bump) {
+                    Some(id) if seen.contains(&id) => deferred.push(bump),
+                    Some(id) => {
+                        seen.push(id);
+                        round.push(bump);
+                    }
+                    None => round.push(bump),
+                }
+            }
+            bumped_market = bumped_market.bump(round)?;
+            remaining = deferred;
         }
 
         Ok(bumped_market)
@@ -126,13 +157,32 @@ fn key_rate_bp_bump(curve_id: &CurveId, tenor_years: f64, shift: f64) -> (CurveI
     )
 }
 
+/// Return the `CurveId` a bump is keyed by, if it is routed through the
+/// curve/surface/price map (which de-duplicates by ID within a single
+/// [`MarketContext::bump`] call). Returns `None` for bumps that are applied
+/// independently (e.g. FX), which never collide.
+fn bump_curve_id(bump: &MarketBump) -> Option<CurveId> {
+    match bump {
+        MarketBump::Curve { id, .. } => Some(id.clone()),
+        MarketBump::VolBucketPct { surface_id, .. }
+        | MarketBump::BaseCorrBucketPts { surface_id, .. } => Some(surface_id.clone()),
+        MarketBump::FxPct { .. } => None,
+    }
+}
+
 /// Find the neighboring bucket boundaries for a triangular key-rate bump.
 fn find_triangular_neighbors(tenor: f64) -> (f64, f64) {
     let buckets = &crate::metrics::sensitivities::config::STANDARD_BUCKETS_YEARS;
 
+    // Absolute tolerance for exact-tenor matching. `f64::EPSILON` (~2.2e-16)
+    // is too tight: a tenor like `0.5` that has been serde round-tripped can
+    // differ by more than that, missing the equality branch and selecting the
+    // wrong triangular bucket. `1e-6` is the project-wide tenor tolerance.
+    const TENOR_TOL: f64 = 1e-6;
+
     let mut prev = 0.0;
     for (i, &bucket) in buckets.iter().enumerate() {
-        if (tenor - bucket).abs() <= f64::EPSILON {
+        if (tenor - bucket).abs() <= TENOR_TOL {
             let next = buckets.get(i + 1).copied().unwrap_or(f64::INFINITY);
             return (prev, next);
         }

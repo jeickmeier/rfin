@@ -1,7 +1,5 @@
 use finstack_core::HashMap;
 
-use super::node_state::StateVariables;
-
 /// Tree branching type for evolution
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TreeBranching {

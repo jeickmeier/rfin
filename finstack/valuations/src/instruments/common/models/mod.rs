@@ -13,8 +13,6 @@
 //! - [`pde`]: Finite difference PDE methods (1D Crank-Nicolson, 2D Craig-Sneyd ADI, Heston, American penalty)
 //! - [`correlation`]: Shared correlation infrastructure (copulas, recovery models, factor models)
 
-#![allow(dead_code, unused_imports)]
-
 pub mod closed_form;
 pub use crate::correlation;
 pub mod credit;

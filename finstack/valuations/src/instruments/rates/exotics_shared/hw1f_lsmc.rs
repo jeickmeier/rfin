@@ -123,13 +123,17 @@ impl RateExoticHw1fLsmcPricer {
         let mut exercise_values = vec![0.0_f64; n_paths * n_ex];
         let mut exercise_inactive = vec![false; n_paths * n_ex];
 
+        // Per-path scratch buffers hoisted out of the path loop; the
+        // discretization step fully overwrites `work` and `z` each step,
+        // so reusing them across paths is bit-identical to fresh allocations.
+        let mut work = vec![0.0; work_size];
+        let mut z = [0.0_f64; 1];
+
         let mut path_cursor: usize = 0;
         for path_id in 0..raw_paths {
             for anti in 0..multiplicity {
                 let mut rng = base_rng.substream(path_id as u64);
                 let mut r = self.r0;
-                let mut work = vec![0.0; work_size];
-                let mut z = [0.0_f64; 1];
                 let mut payoff = payoff_factory();
                 payoff.reset();
                 let mut state = PathState::new(0, 0.0);
@@ -186,13 +190,20 @@ impl RateExoticHw1fLsmcPricer {
         // -- Phase 2: backward LSMC induction ----------------------------------
         let mut cashflow = deterministic_pv.clone();
 
+        // Regression scratch buffers hoisted out of the exercise-date loop;
+        // cleared (not freed) per date so allocations are reused. Each date
+        // fully repopulates them before use, so this is bit-identical.
+        let mut active_paths: Vec<usize> = Vec::new();
+        let mut active_basis: Vec<f64> = Vec::new();
+        let mut active_continuation: Vec<f64> = Vec::new();
+
         for ex_idx in (0..n_ex).rev() {
             let t_ex = self.exercise_times[ex_idx];
 
             // Regress continuation over active paths, then apply issuer exercise.
-            let mut active_paths: Vec<usize> = Vec::new();
-            let mut active_basis: Vec<f64> = Vec::new();
-            let mut active_continuation: Vec<f64> = Vec::new();
+            active_paths.clear();
+            active_basis.clear();
+            active_continuation.clear();
             let mut num_basis: usize = 0;
 
             for (p, &cf) in cashflow.iter().enumerate() {

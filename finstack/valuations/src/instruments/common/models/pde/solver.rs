@@ -115,8 +115,6 @@ impl Solver1D {
 
     /// Solve the PDE problem and return the solution at `t = 0`.
     pub fn solve(&self, problem: &dyn PdeProblem1D, maturity: f64) -> PdeSolution {
-        let n_int = self.grid.n_interior();
-
         // Initialize terminal condition at interior points
         let mut u: Vec<f64> = self.grid.points()[1..self.grid.n() - 1]
             .iter()
@@ -177,7 +175,6 @@ impl Solver1D {
             values,
             exercise_boundary: exercise_boundary_out,
             n_time_steps: n_steps,
-            n_interior: n_int,
         }
     }
 }
@@ -236,8 +233,6 @@ pub struct PdeSolution {
     pub exercise_boundary: Option<Vec<(f64, f64)>>,
     /// Number of time steps used.
     pub n_time_steps: usize,
-    /// Number of interior grid points.
-    n_interior: usize,
 }
 
 impl PdeSolution {

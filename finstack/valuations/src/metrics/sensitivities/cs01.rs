@@ -538,8 +538,16 @@ where
         let bumped_up = bump_hazard_shift(hazard_ref, &BumpRequest::Parallel(bump_bp))?;
         let bumped_down = bump_hazard_shift(hazard_ref, &BumpRequest::Parallel(-bump_bp))?;
 
-        let pv_up = context.reprice_raw(&base_ctx.clone().insert(bumped_up), as_of)?;
-        let pv_down = context.reprice_raw(&base_ctx.clone().insert(bumped_down), as_of)?;
+        // Single scratch context reused for both bump legs (clone once, not
+        // twice); restored to the base hazard between legs.
+        let mut scratch = base_ctx.clone();
+
+        scratch.insert_mut(bumped_up);
+        let pv_up = context.reprice_raw(&scratch, as_of)?;
+        scratch.insert_mut(std::sync::Arc::clone(&hazard));
+
+        scratch.insert_mut(bumped_down);
+        let pv_down = context.reprice_raw(&scratch, as_of)?;
 
         let cs01 = sensitivity_central_diff(pv_up, pv_down, bump_bp);
 

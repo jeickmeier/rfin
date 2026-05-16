@@ -211,9 +211,7 @@ mod tests {
     /// Heat equation: u_t = u_xx on [0, pi] with u(0,t) = u(pi,t) = 0
     /// Terminal: u(x, T) = sin(x)
     /// Exact: u(x, t) = exp(-(T-t)) * sin(x)
-    struct HeatSinProblem {
-        maturity: f64,
-    }
+    struct HeatSinProblem;
 
     impl PdeProblem1D for HeatSinProblem {
         fn diffusion(&self, _x: f64, _t: f64) -> f64 {
@@ -242,7 +240,7 @@ mod tests {
     #[test]
     fn heat_equation_implicit_converges() {
         let t_mat = 0.5;
-        let problem = HeatSinProblem { maturity: t_mat };
+        let problem = HeatSinProblem;
         let n_space = 101;
         let n_time = 200;
         let grid = Grid1D::uniform(0.0, std::f64::consts::PI, n_space).expect("valid grid");
@@ -275,7 +273,7 @@ mod tests {
     #[test]
     fn heat_equation_cn_converges_faster() {
         let t_mat = 0.5;
-        let problem = HeatSinProblem { maturity: t_mat };
+        let problem = HeatSinProblem;
         let n_space = 51;
         let n_time = 100;
         let grid = Grid1D::uniform(0.0, std::f64::consts::PI, n_space).expect("valid grid");

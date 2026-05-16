@@ -13,7 +13,9 @@
 //! 3. `HullWhiteParams::default()` when neither overrides nor calibrated market
 //!    scalars are available, with a `tracing::warn!` log.
 
-use crate::calibration::hull_white::{capfloor_hw1f_scalar_keys, hw1f_scalar_keys, HullWhiteParams};
+use crate::calibration::hull_white::{
+    capfloor_hw1f_scalar_keys, hw1f_scalar_keys, HullWhiteParams,
+};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::Result;

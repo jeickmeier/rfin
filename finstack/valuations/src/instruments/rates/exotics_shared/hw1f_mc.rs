@@ -92,13 +92,17 @@ impl RateExoticHw1fMcPricer {
 
         let mut stats = OnlineStats::new();
 
+        // Per-path scratch buffers hoisted out of the path loop; the
+        // discretization step fully overwrites `work` and `z` each step,
+        // so reusing them across paths is bit-identical to fresh allocations.
+        let mut work = vec![0.0; work_size];
+        let mut z = [0.0_f64; 1];
+
         for path_id in 0..raw_paths {
             let multiplicity = if self.config.antithetic { 2 } else { 1 };
             for anti in 0..multiplicity {
                 let mut rng = base_rng.substream(path_id as u64);
                 let mut r = self.r0;
-                let mut work = vec![0.0; work_size];
-                let mut z = [0.0_f64; 1];
                 let mut payoff = payoff_factory();
                 payoff.reset();
                 let mut state = PathState::new(0, 0.0);

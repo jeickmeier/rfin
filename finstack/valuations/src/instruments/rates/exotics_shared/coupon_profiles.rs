@@ -152,9 +152,7 @@ pub fn snowball_coupon_profile(
         ));
     }
     if !leverage.is_finite() || leverage <= 0.0 {
-        return Err(format!(
-            "leverage ({leverage}) must be positive and finite"
-        ));
+        return Err(format!("leverage ({leverage}) must be positive and finite"));
     }
     if !is_inverse_floater && initial_coupon < 0.0 {
         return Err(format!(

@@ -240,7 +240,8 @@ mod tests {
 
         let payment_dates = vec![1.0, 1.25, 1.5, 1.75, 2.0];
         let accruals = vec![0.25, 0.25, 0.25, 0.25, 0.25];
-        let schedule = SwapSchedule::new(1.0, 2.0, payment_dates, accruals);
+        let schedule = SwapSchedule::new(1.0, 2.0, payment_dates, accruals)
+            .expect("valid swap schedule inputs");
 
         // Simple discount curve: DF(t) = exp(-0.03 * t)
         let discount_fn = |t: f64| (-0.03 * t).exp();

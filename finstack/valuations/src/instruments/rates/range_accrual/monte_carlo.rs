@@ -64,6 +64,11 @@ impl RangeAccrualPayoff {
     /// * `coupon_rate` - Annual coupon rate
     /// * `notional` - Notional amount
     /// * `currency` - Currency
+    ///
+    /// # Errors
+    ///
+    /// Returns [`finstack_core::Error::Validation`] if `lower_bound >= upper_bound`,
+    /// `coupon_rate` is negative, or `observation_dates` are not strictly sorted.
     pub fn new(
         observation_dates: Vec<f64>,
         lower_bound: f64,
@@ -71,7 +76,7 @@ impl RangeAccrualPayoff {
         coupon_rate: f64,
         notional: f64,
         currency: Currency,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         Self::new_with_history(
             observation_dates,
             lower_bound,
@@ -98,6 +103,12 @@ impl RangeAccrualPayoff {
     /// * `currency` - Currency
     /// * `past_in_range` - Number of past observations that were in range
     /// * `total_past_observations` - Total number of past observations
+    ///
+    /// # Errors
+    ///
+    /// Returns [`finstack_core::Error::Validation`] if `lower_bound >= upper_bound`,
+    /// `coupon_rate` is negative, `past_in_range > total_past_observations`, or
+    /// `observation_dates` are not strictly sorted in ascending order.
     #[allow(clippy::too_many_arguments)]
     pub fn new_with_history(
         observation_dates: Vec<f64>,
@@ -108,26 +119,39 @@ impl RangeAccrualPayoff {
         currency: Currency,
         past_in_range: usize,
         total_past_observations: usize,
-    ) -> Self {
-        assert!(
-            lower_bound < upper_bound,
-            "Lower bound must be less than upper bound"
-        );
-        assert!(coupon_rate >= 0.0, "Coupon rate must be non-negative");
-        assert!(
-            past_in_range <= total_past_observations,
-            "past_in_range cannot exceed total_past_observations"
-        );
+    ) -> finstack_core::Result<Self> {
+        use std::cmp::Ordering;
 
-        // Verify observation dates are sorted
-        for i in 1..observation_dates.len() {
-            assert!(
-                observation_dates[i - 1] < observation_dates[i],
-                "Observation dates must be sorted"
-            );
+        if lower_bound.partial_cmp(&upper_bound) != Some(Ordering::Less) {
+            return Err(finstack_core::Error::Validation(format!(
+                "RangeAccrualPayoff: lower_bound ({lower_bound}) must be strictly less than upper_bound ({upper_bound})"
+            )));
+        }
+        if coupon_rate.partial_cmp(&0.0) == Some(Ordering::Less) || coupon_rate.is_nan() {
+            return Err(finstack_core::Error::Validation(format!(
+                "RangeAccrualPayoff: coupon_rate ({coupon_rate}) must be non-negative"
+            )));
+        }
+        if past_in_range > total_past_observations {
+            return Err(finstack_core::Error::Validation(format!(
+                "RangeAccrualPayoff: past_in_range ({past_in_range}) cannot exceed total_past_observations ({total_past_observations})"
+            )));
         }
 
-        Self {
+        // Verify observation dates are strictly sorted ascending.
+        for i in 1..observation_dates.len() {
+            if observation_dates[i - 1].partial_cmp(&observation_dates[i]) != Some(Ordering::Less) {
+                return Err(finstack_core::Error::Validation(format!(
+                    "RangeAccrualPayoff: observation_dates must be strictly sorted ascending; \
+                     found {} >= {} at index {}",
+                    observation_dates[i - 1],
+                    observation_dates[i],
+                    i
+                )));
+            }
+        }
+
+        Ok(Self {
             observation_dates,
             lower_bound,
             upper_bound,
@@ -139,7 +163,7 @@ impl RangeAccrualPayoff {
             days_in_range: 0,
             total_observations: 0,
             next_obs_idx: 0,
-        }
+        })
     }
 
     /// Check if spot is within range.
@@ -218,7 +242,8 @@ mod tests {
             0.08,  // 8% coupon
             100_000.0,
             Currency::USD,
-        );
+        )
+        .expect("valid range accrual inputs");
 
         assert_eq!(accrual.observation_dates.len(), 4);
         assert_eq!(accrual.lower_bound, 95.0);
@@ -235,7 +260,8 @@ mod tests {
             0.08,
             100_000.0,
             Currency::USD,
-        );
+        )
+        .expect("valid range accrual inputs");
 
         // Both observations in range
         let mut state1 = PathState::new(10, 0.25);
@@ -262,7 +288,8 @@ mod tests {
             0.08,
             100_000.0,
             Currency::USD,
-        );
+        )
+        .expect("valid range accrual inputs");
 
         // Only 2 out of 3 in range
         let mut state1 = PathState::new(10, 0.25);
@@ -293,7 +320,8 @@ mod tests {
             0.08,
             100_000.0,
             Currency::USD,
-        );
+        )
+        .expect("valid range accrual inputs");
 
         // Exactly at lower boundary (should be in range)
         let mut state = PathState::new(10, 0.25);
@@ -320,7 +348,8 @@ mod tests {
             0.08,
             100_000.0,
             Currency::USD,
-        );
+        )
+        .expect("valid range accrual inputs");
 
         let mut state = PathState::new(10, 0.25);
         state.set(state_keys::SPOT, 100.0);
@@ -349,7 +378,8 @@ mod tests {
             Currency::USD,
             1, // 1 past observation in range
             2, // 2 total past observations
-        );
+        )
+        .expect("valid range accrual inputs");
 
         // Simulate 1 future observation in range
         let mut state1 = PathState::new(10, 0.25);
@@ -379,7 +409,8 @@ mod tests {
             Currency::USD,
             3, // 3 past in range
             5, // 5 total past
-        );
+        )
+        .expect("valid range accrual inputs");
 
         let mut state = PathState::new(10, 0.25);
         state.set(state_keys::SPOT, 100.0);
@@ -406,7 +437,8 @@ mod tests {
             0.08,
             100_000.0,
             Currency::USD,
-        );
+        )
+        .expect("valid range accrual inputs");
 
         // Single time step that passes all observations
         let mut state = PathState::new(10, 0.5); // Time = 0.5, past all observations
@@ -416,5 +448,54 @@ mod tests {
         // All 3 observations should be counted
         assert_eq!(accrual.total_observations, 3);
         assert_eq!(accrual.days_in_range, 3);
+    }
+
+    #[test]
+    fn test_range_accrual_rejects_degenerate_inputs() {
+        // Inverted bounds: lower >= upper.
+        assert!(RangeAccrualPayoff::new(
+            vec![0.25, 0.5],
+            105.0,
+            95.0,
+            0.08,
+            100_000.0,
+            Currency::USD,
+        )
+        .is_err());
+
+        // Negative coupon rate.
+        assert!(RangeAccrualPayoff::new(
+            vec![0.25, 0.5],
+            95.0,
+            105.0,
+            -0.01,
+            100_000.0,
+            Currency::USD,
+        )
+        .is_err());
+
+        // Unsorted observation dates.
+        assert!(RangeAccrualPayoff::new(
+            vec![0.5, 0.25],
+            95.0,
+            105.0,
+            0.08,
+            100_000.0,
+            Currency::USD,
+        )
+        .is_err());
+
+        // past_in_range exceeds total_past_observations.
+        assert!(RangeAccrualPayoff::new_with_history(
+            vec![0.25],
+            95.0,
+            105.0,
+            0.08,
+            100_000.0,
+            Currency::USD,
+            3,
+            2,
+        )
+        .is_err());
     }
 }
