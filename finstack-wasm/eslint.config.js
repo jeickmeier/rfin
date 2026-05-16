@@ -20,6 +20,7 @@ export default [
       '**/dist/**',
       'build/**',
       '**/build/**',
+      'types/generated/**',
       '**/*.d.ts',
     ],
   },

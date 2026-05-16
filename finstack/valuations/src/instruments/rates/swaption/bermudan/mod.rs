@@ -491,15 +491,15 @@ impl BermudanSwaptionPricer {
                 )
             })?;
 
-        let swap_schedule =
-            SwapSchedule::new(swap_start_time, ttm, payment_times, accrual_fractions).map_err(
-                |e| {
-                    PricingError::model_failure_with_context(
-                        e.to_string(),
-                        PricingErrorContext::default(),
-                    )
-                },
-            )?;
+        let swap_schedule = SwapSchedule::new(
+            swap_start_time,
+            ttm,
+            payment_times,
+            accrual_fractions,
+        )
+        .map_err(|e| {
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+        })?;
 
         // Determine option type for payoff
         let option_type = match swaption.option_type {

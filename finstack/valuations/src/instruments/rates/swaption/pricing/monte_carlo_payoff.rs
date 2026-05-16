@@ -328,9 +328,7 @@ mod tests {
         assert!(SwapSchedule::new(2.0, 1.0, vec![], vec![]).is_err());
 
         // Unsorted payment dates.
-        assert!(
-            SwapSchedule::new(1.0, 2.0, vec![1.5, 1.0], vec![0.25, 0.25]).is_err()
-        );
+        assert!(SwapSchedule::new(1.0, 2.0, vec![1.5, 1.0], vec![0.25, 0.25]).is_err());
 
         // Payment date outside [start_date, end_date].
         assert!(SwapSchedule::new(1.0, 2.0, vec![2.5], vec![0.25]).is_err());

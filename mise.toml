@@ -303,20 +303,20 @@ git diff --quiet finstack/valuations/schemas/ finstack-wasm/types/generated/ \
 [tasks.pre-commit-install]
 description = "Install pre-commit hooks (commit + pre-push)"
 run = [
-  "uv run pre-commit install",
-  "uv run pre-commit install --hook-type pre-push",
+  "uv run --no-sync pre-commit install",
+  "uv run --no-sync pre-commit install --hook-type pre-push",
 ]
 
 [tasks.pre-commit-run]
 description = "Run all pre-commit hooks on the full tree"
 run = [
-  "uv run pre-commit run --all-files",
-  "uv run pre-commit run --all-files --hook-stage pre-push",
+  "uv run --no-sync pre-commit run --all-files",
+  "uv run --no-sync pre-commit run --all-files --hook-stage pre-push",
 ]
 
 [tasks.pre-commit-update]
 description = "Autoupdate pre-commit hook versions"
-run = "uv run pre-commit autoupdate"
+run = "uv run --no-sync pre-commit autoupdate"
 
 # ─────────────────────────────────────────────────────────────────
 # Benchmarks (Rust-only)
