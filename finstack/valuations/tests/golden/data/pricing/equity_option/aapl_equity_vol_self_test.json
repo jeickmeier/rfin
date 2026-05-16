@@ -406,7 +406,9 @@
   },
   "tolerances": {
     "npv": {
-      "abs": 1e-06
+      "abs": 1e-06,
+      "rel": 5e-09,
+      "tolerance_reason": "SABR vol-surface calibration can vary by a few e-9 relative across platforms; keep an absolute floor plus tight relative tolerance for high-notional NPV."
     },
     "delta": {
       "abs": 1e-06
