@@ -104,9 +104,7 @@ impl VolHorizon {
                     .get("n_steps")
                     .and_then(serde_json::Value::as_u64)
                     .ok_or_else(|| {
-                        format!(
-                            "invalid horizon object {other:?}: expected {{\"n_steps\": N}}"
-                        )
+                        format!("invalid horizon object {other:?}: expected {{\"n_steps\": N}}")
                     })? as usize;
                 Ok(VolHorizon::NSteps(n))
             }
@@ -692,8 +690,8 @@ mod tests {
     fn vol_horizon_parse_rejects_invalid_input() {
         let err = VolHorizon::parse("nonsense").expect_err("must reject unknown keyword");
         assert!(err.contains("invalid horizon"));
-        let err2 = VolHorizon::parse(r#"{"steps": 3}"#)
-            .expect_err("must reject object missing n_steps");
+        let err2 =
+            VolHorizon::parse(r#"{"steps": 3}"#).expect_err("must reject object missing n_steps");
         assert!(err2.contains("n_steps"));
     }
 
